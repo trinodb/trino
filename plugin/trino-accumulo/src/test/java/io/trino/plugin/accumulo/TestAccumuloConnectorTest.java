@@ -29,6 +29,7 @@ import java.util.Optional;
 import static io.trino.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -96,6 +97,22 @@ public class TestAccumuloConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Accumulo connector does not support column default values");
+    }
+
+    @Override
+    public void testCreateTableWithColumnComment()
+    {
+        // TODO Avoid setting hard-coded column comment
+        // Accumulo connector ignores specified comment and sets column comments as
+        // "Accumulo row ID" for the first column when "row_id" table property isn't specified
+        // "Accumulo column %s:%s. Indexed: boolean" for other columns
+        String tableName = "test_create_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint COMMENT 'test comment a', b bigint COMMENT 'test comment b')");
+
+        assertEquals(getColumnComment(tableName, "a"), "Accumulo row ID");
+        assertEquals(getColumnComment(tableName, "b"), "Accumulo column b:b. Indexed: false");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Override

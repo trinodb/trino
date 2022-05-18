@@ -277,6 +277,22 @@ public abstract class AbstractKuduConnectorTest
     }
 
     @Override
+    public void testCreateTableWithColumnComment()
+    {
+        // TODO https://github.com/trinodb/trino/issues/12469 Support column comment when creating tables
+        String tableName = "test_create_" + randomTableSuffix();
+
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(" +
+                        "id INT WITH (primary_key=true)," +
+                        "a VARCHAR COMMENT 'test comment')" +
+                        "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)",
+                "This connector does not support creating tables with column comment");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Override
     public void testDropTable()
     {
         assertThatThrownBy(super::testDropTable)

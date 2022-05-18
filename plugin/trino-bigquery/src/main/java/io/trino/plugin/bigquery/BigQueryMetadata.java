@@ -375,6 +375,9 @@ public class BigQueryMetadata
         if (tableMetadata.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
         }
+        if (tableMetadata.getColumns().stream().anyMatch(column -> column.getComment() != null)) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+        }
         try {
             createTable(session, tableMetadata);
         }

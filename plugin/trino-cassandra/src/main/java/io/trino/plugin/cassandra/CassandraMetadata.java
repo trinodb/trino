@@ -296,6 +296,9 @@ public class CassandraMetadata
         ImmutableList.Builder<ExtraColumnMetadata> columnExtra = ImmutableList.builder();
         columnExtra.add(new ExtraColumnMetadata(ID_COLUMN_NAME, true));
         for (ColumnMetadata column : tableMetadata.getColumns()) {
+            if (column.getComment() != null) {
+                throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+            }
             columnNames.add(column.getName());
             columnTypes.add(column.getType());
             columnExtra.add(new ExtraColumnMetadata(column.getName(), column.isHidden()));

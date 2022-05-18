@@ -607,6 +607,9 @@ public class PhoenixClient
                 rowkeyColumn = Optional.of(ROWKEY);
             }
             for (ColumnMetadata column : tableColumns) {
+                if (column.getComment() != null) {
+                    throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+                }
                 String columnName = getIdentifierMapping().toRemoteColumnName(connection, column.getName());
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
