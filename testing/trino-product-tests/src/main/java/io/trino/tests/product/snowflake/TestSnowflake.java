@@ -30,7 +30,7 @@ public class TestSnowflake
     @Test(groups = {SNOWFLAKE, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
-        String tableName = "snowflake.test.nation_" + randomTableSuffix();
+        String tableName = "snowflake.tpch.nation_" + randomTableSuffix();
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         QueryResult result = onTrino().executeQuery("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation");

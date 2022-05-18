@@ -188,6 +188,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/snowflake">
+        <artifact id="${project.groupId}:trino-snowflake:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/sqlserver">
         <artifact id="${project.groupId}:trino-sqlserver:zip:${project.version}">
             <unpack />
