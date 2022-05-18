@@ -75,6 +75,7 @@ public abstract class BaseRaptorConnectorTest
             case SUPPORTS_CREATE_SCHEMA:
             case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:

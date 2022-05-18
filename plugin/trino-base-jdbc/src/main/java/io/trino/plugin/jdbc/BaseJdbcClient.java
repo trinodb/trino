@@ -549,6 +549,9 @@ public abstract class BaseJdbcClient
 
     protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
     {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+        }
         StringBuilder sb = new StringBuilder()
                 .append(quoted(columnName))
                 .append(" ")
