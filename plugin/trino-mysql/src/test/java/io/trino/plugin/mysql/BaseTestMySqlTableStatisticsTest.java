@@ -38,6 +38,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.trino.testing.sql.TestTable.fromColumns;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -87,7 +88,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
             match = "Expecting.*to be close to|ComparisonFailure.*NDV for")
     public void testNotAnalyzed()
     {
-        String tableName = "test_not_analyzed";
+        String tableName = "test_not_analyzed_" + randomTableSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
@@ -119,7 +120,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
     @Test
     public void testBasic()
     {
-        String tableName = "test_stats_orders";
+        String tableName = "test_stats_orders_" + randomTableSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
@@ -147,7 +148,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
     @Test
     public void testAllNulls()
     {
-        String tableName = "test_stats_table_all_nulls";
+        String tableName = "test_stats_table_all_nulls_" + randomTableSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
         try {
@@ -196,7 +197,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
     @Test
     public void testNullsFraction()
     {
-        String tableName = "test_stats_table_with_nulls";
+        String tableName = "test_stats_table_with_nulls_" + randomTableSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " AS " +
@@ -246,7 +247,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
     @Test
     public void testView()
     {
-        String tableName = "test_stats_view";
+        String tableName = "test_stats_view_" + randomTableSuffix();
         executeInMysql("CREATE OR REPLACE VIEW " + tableName + " AS SELECT orderkey, custkey, orderpriority, comment FROM orders");
         try {
             assertQuery(
