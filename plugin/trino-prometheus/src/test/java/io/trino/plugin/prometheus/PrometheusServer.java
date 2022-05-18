@@ -32,6 +32,7 @@ public class PrometheusServer
 
     public static final String USER = "admin";
     public static final String PASSWORD = "password";
+    public static final String PROMETHEUS_QUERY_API = "/api/v1/query?query=up[1d]";
 
     private final GenericContainer<?> dockerContainer;
 
@@ -44,8 +45,8 @@ public class PrometheusServer
     {
         this.dockerContainer = new GenericContainer<>("prom/prometheus:" + version)
                 .withExposedPorts(PROMETHEUS_PORT)
-                .waitingFor(Wait.forHttp(METRICS_ENDPOINT).forResponsePredicate(response -> response.contains("\"up\"")))
-                .withStartupTimeout(Duration.ofSeconds(120));
+                .waitingFor(Wait.forHttp(PROMETHEUS_QUERY_API).forResponsePredicate(response -> response.contains("\"values\"")))
+                .withStartupTimeout(Duration.ofSeconds(360));
         // Basic authentication was introduced in v2.24.0
         if (enableBasicAuth) {
             this.dockerContainer
