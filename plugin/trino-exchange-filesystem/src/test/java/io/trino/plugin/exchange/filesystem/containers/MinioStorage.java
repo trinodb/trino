@@ -86,7 +86,7 @@ public class MinioStorage
     public static Map<String, String> getExchangeManagerProperties(MinioStorage minioStorage)
     {
         return ImmutableMap.<String, String>builder()
-                .put("exchange.base-directories", "s3n://" + minioStorage.getBucketName())
+                .put("exchange.base-directories", "s3://" + minioStorage.getBucketName())
                 // TODO: enable exchange encryption after https is supported for Trino MinIO
                 .put("exchange.encryption-enabled", "false")
                 // to trigger file split in some tests

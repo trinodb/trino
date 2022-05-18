@@ -55,7 +55,7 @@ public class FileSystemExchangeModule
         if (scheme == null || scheme.equals("file")) {
             binder.bind(FileSystemExchangeStorage.class).to(LocalFileSystemExchangeStorage.class).in(Scopes.SINGLETON);
         }
-        else if (ImmutableSet.of("s3", "s3a", "s3n", "gs").contains(scheme)) {
+        else if (ImmutableSet.of("s3", "gs").contains(scheme)) {
             binder.bind(S3FileSystemExchangeStorageStats.class).in(Scopes.SINGLETON);
             newExporter(binder).export(S3FileSystemExchangeStorageStats.class).withGeneratedName();
             binder.bind(FileSystemExchangeStorage.class).to(S3FileSystemExchangeStorage.class).in(Scopes.SINGLETON);
