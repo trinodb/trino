@@ -30,7 +30,7 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
-public class PrestoVerifierModule
+public class TrinoVerifierModule
         extends AbstractConfigurationAwareModule
 {
     @Override
