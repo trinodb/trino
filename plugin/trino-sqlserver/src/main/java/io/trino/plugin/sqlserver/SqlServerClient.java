@@ -858,6 +858,9 @@ public class SqlServerClient
     @Override
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
         return format(
                 "CREATE TABLE %s (%s) %s",
                 quoted(remoteTableName),
