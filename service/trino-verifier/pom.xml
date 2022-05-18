@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <main-class>io.trino.verifier.PrestoVerifier</main-class>
+        <main-class>io.trino.verifier.TrinoVerifier</main-class>
     </properties>
 
     <dependencies>
