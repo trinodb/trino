@@ -550,6 +550,9 @@ public class RaptorMetadata
         if (retryMode != NO_RETRIES) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
         }
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
 
         if (viewExists(session, tableMetadata.getTable())) {
             throw new TrinoException(ALREADY_EXISTS, "View already exists: " + tableMetadata.getTable());

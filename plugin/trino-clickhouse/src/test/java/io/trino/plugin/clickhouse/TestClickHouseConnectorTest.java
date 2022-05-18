@@ -42,4 +42,20 @@ public class TestClickHouseConnectorTest
         assertThatThrownBy(super::testCommentTable)
                 .hasMessageContaining("Code: 62, e.displayText() = DB::Exception: Syntax error");
     }
+
+    @Override
+    public void testCreateTableWithTableComment()
+    {
+        // Table comment is unsupported in old ClickHouse version
+        assertThatThrownBy(super::testCreateTableWithTableComment)
+                .hasMessageMatching("(?s).* Syntax error: .* COMMENT 'test comment'.*");
+    }
+
+    @Override
+    public void testCreateTableAsSelectWithTableComment()
+    {
+        // Table comment is unsupported in old ClickHouse version
+        assertThatThrownBy(super::testCreateTableAsSelectWithTableComment)
+                .hasMessageMatching("(?s).* Syntax error: .* COMMENT 'test comment'.*");
+    }
 }

@@ -67,6 +67,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SampleType.SYSTEM;
@@ -235,6 +236,9 @@ public class MemoryMetadata
     @Override
     public synchronized MemoryOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
         checkSchemaExists(tableMetadata.getTable().getSchemaName());
         checkTableNotExists(tableMetadata.getTable());
         long tableId = nextTableId.getAndIncrement();

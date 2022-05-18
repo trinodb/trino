@@ -247,6 +247,9 @@ public class KuduMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
         clientSession.createTable(tableMetadata, ignoreExisting);
     }
 
@@ -328,6 +331,9 @@ public class KuduMetadata
     {
         if (retryMode != NO_RETRIES) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
         }
         PartitionDesign design = KuduTableProperties.getPartitionDesign(tableMetadata.getProperties());
         boolean generateUUID = !design.hasPartitions();
