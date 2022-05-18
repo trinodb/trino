@@ -107,13 +107,15 @@ public class LocalFileSystemExchangeStorage
     }
 
     @Override
-    public ListenableFuture<Void> deleteRecursively(URI dir)
+    public ListenableFuture<Void> deleteRecursively(List<URI> directories)
     {
-        try {
-            MoreFiles.deleteRecursively(Paths.get(dir.getPath()), ALLOW_INSECURE);
-        }
-        catch (IOException | RuntimeException e) {
-            return immediateFailedFuture(e);
+        for (URI dir : directories) {
+            try {
+                MoreFiles.deleteRecursively(Paths.get(dir.getPath()), ALLOW_INSECURE);
+            }
+            catch (IOException | RuntimeException e) {
+                return immediateFailedFuture(e);
+            }
         }
         return immediateVoidFuture();
     }

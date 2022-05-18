@@ -236,7 +236,7 @@ public class S3FileSystemExchangeStorage
     }
 
     @Override
-    public ListenableFuture<Void> deleteRecursively(URI dir)
+    public ListenableFuture<Void> deleteRecursively(List<URI> directories)
     {
         if (compatibilityMode == GCP) {
             // GCS is not compatible with S3's multi-object delete API https://cloud.google.com/storage/docs/migrating#methods-comparison
@@ -244,20 +244,24 @@ public class S3FileSystemExchangeStorage
             ListeningExecutorService deleteExecutor = gcsDeleteExecutor.orElseThrow(() -> new IllegalStateException("gcsDeleteExecutor is expected to be initialized"));
             return stats.getDeleteRecursively().record(asVoid(deleteExecutor.submit(() -> {
                 StorageBatch batch = storage.batch();
-                Page<Blob> blobs = storage.list(getBucketName(dir), Storage.BlobListOption.prefix(keyFromUri(dir)));
-                for (Blob blob : blobs.iterateAll()) {
-                    batch.delete(blob.getBlobId());
+                for (URI dir : directories) {
+                    Page<Blob> blobs = storage.list(getBucketName(dir), Storage.BlobListOption.prefix(keyFromUri(dir)));
+                    for (Blob blob : blobs.iterateAll()) {
+                        batch.delete(blob.getBlobId());
+                    }
                 }
                 batch.submit();
             })));
         }
         else {
-            ImmutableList.Builder<String> keys = ImmutableList.builder();
-            return stats.getDeleteRecursively().record(transformFuture(Futures.transformAsync(
-                    toListenableFuture((listObjectsRecursively(dir).subscribe(listObjectsV2Response ->
-                            listObjectsV2Response.contents().stream().map(S3Object::key).forEach(keys::add)))),
-                    ignored -> deleteObjects(getBucketName(dir), keys.build()),
-                    directExecutor())));
+            return stats.getDeleteRecursively().record(asVoid(Futures.allAsList(directories.stream().map(dir -> {
+                ImmutableList.Builder<String> keys = ImmutableList.builder();
+                return transformFuture(Futures.transformAsync(
+                        toListenableFuture((listObjectsRecursively(dir).subscribe(listObjectsV2Response ->
+                                listObjectsV2Response.contents().stream().map(S3Object::key).forEach(keys::add)))),
+                        ignored -> deleteObjects(getBucketName(dir), keys.build()),
+                        directExecutor()));
+            }).collect(toImmutableList()))));
         }
     }
 

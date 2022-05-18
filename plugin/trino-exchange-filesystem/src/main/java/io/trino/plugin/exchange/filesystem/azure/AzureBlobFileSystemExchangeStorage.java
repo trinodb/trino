@@ -158,12 +158,14 @@ public class AzureBlobFileSystemExchangeStorage
     }
 
     @Override
-    public ListenableFuture<Void> deleteRecursively(URI dir)
+    public ListenableFuture<Void> deleteRecursively(List<URI> directories)
     {
-        return asVoid(Futures.transformAsync(
-                toListenableFuture(listObjectsRecursively(dir).byPage().collectList().toFuture()),
-                pagedResponseList -> deleteObjects(getContainerName(dir), pagedResponseList),
-                directExecutor()));
+        return asVoid(Futures.allAsList(directories.stream()
+                .map(dir -> Futures.transformAsync(
+                        toListenableFuture(listObjectsRecursively(dir).byPage().collectList().toFuture()),
+                        pagedResponseList -> deleteObjects(getContainerName(dir), pagedResponseList),
+                        directExecutor()))
+                .collect(toImmutableList())));
     }
 
     @Override
