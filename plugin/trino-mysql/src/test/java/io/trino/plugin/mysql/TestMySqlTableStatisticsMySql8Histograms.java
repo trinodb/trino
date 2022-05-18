@@ -15,6 +15,7 @@ package io.trino.plugin.mysql;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -79,6 +80,12 @@ public class TestMySqlTableStatisticsMySql8Histograms
                             "('long_decimals_big_integral', null, 2.0, 0.0, null, null, null)," +
                             "(null, null, null, null, 2, null, null)");
         }
+    }
+
+    @Override
+    public void testNotAnalyzed()
+    {
+        throw new SkipException("MySql8 automatically calculates stats - https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_stats_auto_recalc");
     }
 
     @Override
