@@ -60,6 +60,10 @@ import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION;
+import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
 import static io.trino.spi.predicate.Domain.multipleValues;
@@ -70,6 +74,8 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
+import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingSplit.createRemoteSplit;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -337,6 +343,19 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         singleValue(BIGINT, 2L))));
     }
 
+    protected Session getDefaultSession()
+    {
+        return testSessionBuilder()
+                .setCatalog("test")
+                .setSchema("default")
+                .setSystemProperty(TASK_CONCURRENCY, "2")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
+                // disable semi join to inner join rewrite to test semi join operators explicitly
+                .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
+                .build();
+    }
+
     @DataProvider
     public Object[][] testJoinDistributionType()
     {
@@ -495,7 +514,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 {
                     assertEquals(dynamicFilter.getColumnsCovered(), expectedDynamicFilterColumnsCovered, "columns covered");
 
-                    return new EmptyPageSource() {
+                    return new EmptyPageSource()
+                    {
                         @Override
                         public CompletableFuture<?> isBlocked()
                         {
