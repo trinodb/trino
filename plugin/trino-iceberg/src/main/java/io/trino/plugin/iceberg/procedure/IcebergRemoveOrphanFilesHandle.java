@@ -20,13 +20,13 @@ import io.airlift.units.Duration;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class IcebergDeleteOrphanFilesHandle
+public class IcebergRemoveOrphanFilesHandle
         extends IcebergProcedureHandle
 {
     private final Duration retentionThreshold;
 
     @JsonCreator
-    public IcebergDeleteOrphanFilesHandle(Duration retentionThreshold)
+    public IcebergRemoveOrphanFilesHandle(Duration retentionThreshold)
     {
         this.retentionThreshold = requireNonNull(retentionThreshold, "retentionThreshold is null");
     }
