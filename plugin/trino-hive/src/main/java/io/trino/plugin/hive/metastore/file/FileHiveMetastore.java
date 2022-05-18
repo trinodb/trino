@@ -286,6 +286,13 @@ public class FileHiveMetastore
         }
     }
 
+    private void verifyDatabaseExists(String databaseName)
+    {
+        if (getDatabase(databaseName).isEmpty()) {
+            throw new SchemaNotFoundException(databaseName);
+        }
+    }
+
     @Override
     public synchronized List<String> getAllDatabases()
     {
@@ -298,6 +305,7 @@ public class FileHiveMetastore
     @Override
     public synchronized void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
+        verifyDatabaseExists(table.getDatabaseName());
         verifyTableNotExists(table.getDatabaseName(), table.getTableName());
 
         Path tableMetadataDirectory = getTableMetadataDirectory(table);

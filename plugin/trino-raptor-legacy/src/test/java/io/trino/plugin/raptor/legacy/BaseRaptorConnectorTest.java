@@ -170,6 +170,13 @@ public abstract class BaseRaptorConnectorTest
     }
 
     @Test
+    @Override
+    public void testCreateViewSchemaNotFound()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/11110) Raptor connector can create new views in a schema where it doesn't exist
+    }
+    
+    @Test
     public void testCreateTableViewAlreadyExists()
     {
         assertUpdate("CREATE VIEW view_already_exists AS SELECT 1 a");
