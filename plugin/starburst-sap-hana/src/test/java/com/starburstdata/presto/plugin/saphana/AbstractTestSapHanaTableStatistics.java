@@ -15,12 +15,15 @@ import io.trino.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Locale;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 import static io.trino.testing.sql.TestTable.fromColumns;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 
@@ -47,7 +50,7 @@ public abstract class AbstractTestSapHanaTableStatistics
     @Test
     public void testNotAnalyzed()
     {
-        String tableName = "test_stats_not_analyzed";
+        String tableName = "test_stats_not_analyzed_" + randomTableSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
@@ -75,7 +78,7 @@ public abstract class AbstractTestSapHanaTableStatistics
     @Test
     public void testBasic()
     {
-        String tableName = "test_stats_orders";
+        String tableName = "test_stats_orders_" + randomTableSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
@@ -103,7 +106,7 @@ public abstract class AbstractTestSapHanaTableStatistics
     @Test
     public void testAllNulls()
     {
-        String tableName = "test_stats_table_all_nulls";
+        String tableName = "test_stats_table_all_nulls_" + randomTableSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
         try {
@@ -127,7 +130,7 @@ public abstract class AbstractTestSapHanaTableStatistics
     @Test
     public void testNullsFraction()
     {
-        String tableName = "test_stats_table_with_nulls";
+        String tableName = "test_stats_table_with_nulls_" + randomTableSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " AS " +
@@ -188,7 +191,7 @@ public abstract class AbstractTestSapHanaTableStatistics
     }
 
     @Override
-    @Test(dataProvider = "testCaseColumnNamesDataProvider")
+    @Test(dataProvider = "testCaseColumnNamesWithRandomSuffixDataProvider")
     public void testCaseColumnNames(String tableName)
     {
         String schemaName = getSession().getSchema().orElseThrow();
@@ -265,5 +268,19 @@ public abstract class AbstractTestSapHanaTableStatistics
                             "('long_decimals_big_integral', null, 2.0, 0.0, null, '-1.2345678901234568E36', '1.2345678901234568E36')," +
                             "(null, null, null, null, 2, null, null)");
         }
+    }
+
+    @DataProvider
+    public Object[][] testCaseColumnNamesWithRandomSuffixDataProvider()
+    {
+        String suffix = randomTableSuffix();
+        return new Object[][] {
+                {"TEST_STATS_MIXED_UNQUOTED_UPPER_" + suffix.toUpperCase(Locale.ENGLISH)},
+                {"test_stats_mixed_unquoted_lower_" + suffix.toLowerCase(Locale.ENGLISH)},
+                {"test_stats_mixed_uNQuoTeD_miXED_" + suffix},
+                {format("\"TEST_STATS_MIXED_QUOTED_UPPER_%s\"", suffix.toUpperCase(Locale.ENGLISH))},
+                {format("\"test_stats_mixed_quoted_lower_%s\"", suffix.toLowerCase(Locale.ENGLISH))},
+                {format("\"test_stats_mixed_QuoTeD_miXED_%s\"", suffix)},
+        };
     }
 }
