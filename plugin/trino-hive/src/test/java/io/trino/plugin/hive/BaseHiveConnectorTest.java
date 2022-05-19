@@ -4642,16 +4642,16 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testMismatchedBucketWithBucketPredicate()
     {
-        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing8");
-        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing32");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate8");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate32");
 
         assertUpdate(
-                "CREATE TABLE test_mismatch_bucketing8 " +
+                "CREATE TABLE test_mismatch_bucketing_with_bucket_predicate8 " +
                         "WITH (bucket_count = 8, bucketed_by = ARRAY['key8']) AS " +
                         "SELECT nationkey key8, comment value8 FROM nation",
                 25);
         assertUpdate(
-                "CREATE TABLE test_mismatch_bucketing32 " +
+                "CREATE TABLE test_mismatch_bucketing_with_bucket_predicate32 " +
                         "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS " +
                         "SELECT nationkey key32, comment value32 FROM nation",
                 25);
@@ -4666,17 +4666,17 @@ public abstract class BaseHiveConnectorTest
         @Language("SQL") String query = "SELECT count(*) AS count " +
                 "FROM (" +
                 "  SELECT key32" +
-                "  FROM test_mismatch_bucketing32" +
+                "  FROM test_mismatch_bucketing_with_bucket_predicate32" +
                 "  WHERE \"$bucket\" between 16 AND 31" +
                 ") a " +
-                "JOIN test_mismatch_bucketing8 b " +
+                "JOIN test_mismatch_bucketing_with_bucket_predicate8 b " +
                 "ON a.key32 = b.key8";
 
         assertQuery(withMismatchOptimization, query, "SELECT 9");
         assertQuery(withoutMismatchOptimization, query, "SELECT 9");
 
-        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing8");
-        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing32");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate8");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate32");
     }
 
     @DataProvider
