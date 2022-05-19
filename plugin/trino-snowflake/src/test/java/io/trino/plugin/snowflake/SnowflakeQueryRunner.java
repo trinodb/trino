@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.snowflake;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -23,6 +23,7 @@ import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -50,10 +51,11 @@ public final class SnowflakeQueryRunner
             queryRunner.createCatalog("tpch", "tpch");
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
-            connectorProperties.putIfAbsent("connection-user", server.getUser());
-            connectorProperties.putIfAbsent("connection-password", server.getPassword());
-            connectorProperties.putIfAbsent("snowflake.database", server.getDatabase());
+            Properties serverProperties = server.getProperties();
+            connectorProperties.putIfAbsent("connection-url", server.TEST_URL);
+            connectorProperties.putIfAbsent("connection-user", serverProperties.getProperty("user"));
+            connectorProperties.putIfAbsent("connection-password", serverProperties.getProperty("password"));
+            connectorProperties.putIfAbsent("snowflake.database", serverProperties.getProperty("db"));
 
             queryRunner.installPlugin(new SnowflakePlugin());
             queryRunner.createCatalog("snowflake", "snowflake", connectorProperties);
@@ -79,13 +81,11 @@ public final class SnowflakeQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         DistributedQueryRunner queryRunner = createSnowflakeQueryRunner(
                 new TestingSnowflakeServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
-                TpchTable.getTables());
+                ImmutableList.of());
 
         Logger log = Logger.get(SnowflakeQueryRunner.class);
         log.info("======== SERVER STARTED ========");

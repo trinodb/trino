@@ -32,6 +32,7 @@ import io.trino.plugin.jdbc.credential.CredentialProvider;
 import java.util.Properties;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 
 public class SnowflakeClientModule
         implements Module
@@ -46,14 +47,11 @@ public class SnowflakeClientModule
 
     private static Properties getConnectionProperties(SnowflakeConfig snowflakeConfig)
     {
+        requireNonNull(snowflakeConfig, "snowflakeConfig is null");
         Properties connectionProperties = new Properties();
-        snowflakeConfig.getAccount().ifPresent(account -> connectionProperties.setProperty("account", account));
         snowflakeConfig.getDatabase().ifPresent(database -> connectionProperties.setProperty("db", database));
         snowflakeConfig.getRole().ifPresent(role -> connectionProperties.setProperty("role", role));
-        if (snowflakeConfig.getWarehouse() != null) {
-            connectionProperties.setProperty("warehouse", snowflakeConfig.getWarehouse());
-        }
-
+        snowflakeConfig.getWarehouse().ifPresent(warehouse -> connectionProperties.setProperty("warehouse", warehouse));
         return connectionProperties;
     }
 

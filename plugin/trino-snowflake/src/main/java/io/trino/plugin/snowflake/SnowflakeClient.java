@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
@@ -41,15 +42,13 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -59,9 +58,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
-import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -72,9 +68,16 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMappi
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -97,7 +100,6 @@ import static java.lang.String.format;
 public class SnowflakeClient
         extends BaseJdbcClient
 {
-    private final Type jsonType;
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
@@ -107,12 +109,9 @@ public class SnowflakeClient
             BaseJdbcConfig config,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
-            TypeManager typeManager,
             IdentifierMapping identifierMapping)
     {
         super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
-        this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
-
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .build();
@@ -124,7 +123,7 @@ public class SnowflakeClient
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementMinMax(true))
-                        .add(new ImplementSum(SnowflakeClient::toTypeHandle))
+                        .add(new ImplementSum(SnowflakeClient::decimalTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
                         .build());
@@ -150,39 +149,56 @@ public class SnowflakeClient
                 return Optional.of(booleanColumnMapping());
             // INT , INTEGER , BIGINT , SMALLINT , TINYINT , BYTEINT, DECIMAL , NUMERIC are aliases for NUMBER(38, 0)
             // https://docs.snowflake.com/en/sql-reference/data-types-numeric.html#int-integer-bigint-smallint-tinyint-byteint
-            case Types.INTEGER:
-            case Types.BIGINT:
-            case Types.SMALLINT:
             case Types.TINYINT:
+                return Optional.of(tinyintColumnMapping());
+            case Types.SMALLINT:
+                return Optional.of(smallintColumnMapping());
+            case Types.INTEGER:
+                return Optional.of(integerColumnMapping());
+            case Types.BIGINT:
                 return Optional.of(bigintColumnMapping());
+            case Types.REAL:
+                return Optional.of(realColumnMapping());
+            case Types.FLOAT:
+            case Types.DOUBLE:
+                return Optional.of(doubleColumnMapping());
             case Types.DECIMAL:
                 int decimalDigits = typeHandle.getRequiredDecimalDigits();
-                int precision = typeHandle.getRequiredColumnSize();
+                // Map decimal(p, -s) (negative scale) to decimal(p+s, 0)
+                int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0);
                 if (precision > Decimals.MAX_PRECISION) {
                     break;
                 }
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
-            case Types.REAL:
-            case Types.FLOAT:
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-            case Types.VARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
-            case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
-            case Types.BINARY:
-            case Types.VARBINARY:
-                return Optional.of(varbinaryColumnMapping());
             case Types.DATE:
                 return Optional.of(ColumnMapping.longMapping(
                         DATE,
                         ResultSet::getLong,
-                        (statement, index, value) -> statement.setString(index, DATE_FORMATTER.format(LocalDate.ofEpochDay(value)))));
+                        dateWriteFunctionUsingString()));
+            case Types.CHAR:
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+            case Types.VARCHAR:
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+            case Types.BINARY:
+            case Types.VARBINARY:
+                return Optional.of(varbinaryColumnMapping());
         }
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
+    }
+
+    private static LongWriteFunction dateWriteFunctionUsingString()
+    {
+        return new LongWriteFunction() {
+            @Override
+            public void set(PreparedStatement statement, int index, long value)
+                    throws SQLException
+            {
+                statement.setString(index, DATE_FORMATTER.format(LocalDate.ofEpochDay(value)));
+            }
+        };
     }
 
     @Override
@@ -191,8 +207,16 @@ public class SnowflakeClient
         if (type == BOOLEAN) {
             return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
         }
-
-        if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT) {
+        if (type == TINYINT) {
+            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
+        }
+        if (type == SMALLINT) {
+            return WriteMapping.longMapping("smallint", smallintWriteFunction());
+        }
+        if (type == INTEGER) {
+            return WriteMapping.longMapping("integer", integerWriteFunction());
+        }
+        if (type == BIGINT) {
             return WriteMapping.longMapping("bigint", bigintWriteFunction());
         }
 
@@ -212,6 +236,7 @@ public class SnowflakeClient
         }
 
         if (type instanceof CharType) {
+            // Snowflake CHAR is an alias for VARCHAR so we need to pad value with spaces
             return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
         }
 
@@ -230,9 +255,7 @@ public class SnowflakeClient
             return WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction());
         }
         if (type == DATE) {
-            return WriteMapping.longMapping(
-                    "Date",
-                    (statement, index, value) -> statement.setString(index, DATE_FORMATTER.format(LocalDate.ofEpochDay(value))));
+            return WriteMapping.longMapping("date", dateWriteFunctionUsingString());
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
@@ -244,9 +267,16 @@ public class SnowflakeClient
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
-    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
+    private static Optional<JdbcTypeHandle> decimalTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+        return Optional.of(
+            new JdbcTypeHandle(
+                Types.NUMERIC,
+                Optional.of("decimal"),
+                Optional.of(decimalType.getPrecision()),
+                Optional.of(decimalType.getScale()),
+                Optional.empty(),
+                Optional.empty()));
     }
 
     @Override
@@ -259,14 +289,5 @@ public class SnowflakeClient
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
-    }
-
-    private ColumnMapping jsonColumnMapping()
-    {
-        return ColumnMapping.sliceMapping(
-                jsonType,
-                (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
-                varcharWriteFunction(),
-                DISABLE_PUSHDOWN);
     }
 }

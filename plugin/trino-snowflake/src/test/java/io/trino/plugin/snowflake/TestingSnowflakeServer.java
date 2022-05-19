@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.snowflake;
 
+import org.intellij.lang.annotations.Language;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -23,25 +25,25 @@ import static java.util.Objects.requireNonNull;
 
 public class TestingSnowflakeServer
 {
-    public static final String TEST_URL = requireNonNull(System.getProperty("connection-url"), "connection-url is not set");
-    public static final String TEST_USER = requireNonNull(System.getProperty("connection-user"), "connection-user is not set");
-    public static final String TEST_PASSWORD = requireNonNull(System.getProperty("connection-password"), "connection-password is not set");
-    public static final String TEST_DATABASE = requireNonNull(System.getProperty("snowflake.database"), "snowflake.database is not set");
+    public static final String TEST_URL = requireNonNull(System.getProperty("snowflake.test.server.url"), "snowflake.test.server.url is not set");
+    public static final String TEST_USER = requireNonNull(System.getProperty("snowflake.test.server.user"), "snowflake.test.server.user is not set");
+    public static final String TEST_PASSWORD = requireNonNull(System.getProperty("snowflake.test.server.password"), "snowflake.test.server.password is not set");
+    public static final String TEST_DATABASE = requireNonNull(System.getProperty("snowflake.test.server.database"), "snowflake.test.server.database is not set");
+    public static final String TEST_WAREHOUSE = requireNonNull(System.getProperty("snowflake.test.server.warehouse"), "snowflake.test.server.warehouse is not set");
+    public static final String TEST_ROLE = requireNonNull(System.getProperty("snowflake.test.server.role"), "snowflake.test.server.role is not set");
     public static final String TEST_SCHEMA = "tpch";
-    public static final String TEST_WAREHOUSE = System.getProperty("snowflake.warehouse");
-    public static final String TEST_ROLE = requireNonNull(System.getProperty("snowflake.role"), "snowflake.role is not set");
 
     public TestingSnowflakeServer()
     {
-        execute("CREATE SCHEMA IF NOT EXISTS tpch ");
+        execute("CREATE SCHEMA IF NOT EXISTS tpch");
     }
 
-    public void execute(String sql)
+    public void execute(@Language("SQL") String sql)
     {
         execute(TEST_URL, getProperties(), sql);
     }
 
-    public static void execute(String url, Properties properties, String sql)
+    private static void execute(String url, Properties properties, String sql)
     {
         try (Connection connection = DriverManager.getConnection(url, properties);
                 Statement statement = connection.createStatement()) {
@@ -62,25 +64,5 @@ public class TestingSnowflakeServer
         properties.setProperty("warehouse", TEST_WAREHOUSE);
         properties.setProperty("role", TEST_ROLE);
         return properties;
-    }
-
-    public String getUser()
-    {
-        return TEST_USER;
-    }
-
-    public String getPassword()
-    {
-        return TEST_PASSWORD;
-    }
-
-    public String getJdbcUrl()
-    {
-        return TEST_URL;
-    }
-
-    public String getDatabase()
-    {
-        return TEST_DATABASE;
     }
 }

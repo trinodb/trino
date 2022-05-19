@@ -28,24 +28,21 @@ public class TestSnowflakeConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SnowflakeConfig.class)
-                .setAccount(null)
                 .setDatabase(null)
                 .setRole(null)
-                .setWarehouse(""));
+                .setWarehouse(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("snowflake.account", "MYACCOUNT")
                 .put("snowflake.database", "MYDATABASE")
                 .put("snowflake.role", "MYROLE")
                 .put("snowflake.warehouse", "MYWAREHOUSE")
                 .buildOrThrow();
 
         SnowflakeConfig expected = new SnowflakeConfig()
-                .setAccount("MYACCOUNT")
                 .setDatabase("MYDATABASE")
                 .setRole("MYROLE")
                 .setWarehouse("MYWAREHOUSE");

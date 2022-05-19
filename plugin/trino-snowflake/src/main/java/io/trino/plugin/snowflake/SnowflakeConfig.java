@@ -14,61 +14,52 @@
 package io.trino.plugin.snowflake;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 
 import java.util.Optional;
 
 public class SnowflakeConfig
 {
-    private String account;
-    private String database;
-    private String role;
-    private String warehouse = "";
-
-    public Optional<String> getAccount()
-    {
-        return Optional.ofNullable(account);
-    }
-
-    @Config("snowflake.account")
-    public SnowflakeConfig setAccount(String account)
-    {
-        this.account = account;
-        return this;
-    }
+    private Optional<String> database = Optional.empty();
+    private Optional<String> role = Optional.empty();
+    private Optional<String> warehouse = Optional.empty();
 
     public Optional<String> getDatabase()
     {
-        return Optional.ofNullable(database);
+        return database;
     }
 
     @Config("snowflake.database")
+    @ConfigDescription("Name of Snowflake database to use")
     public SnowflakeConfig setDatabase(String database)
     {
-        this.database = database;
+        this.database = Optional.ofNullable(database);
         return this;
     }
 
     public Optional<String> getRole()
     {
-        return Optional.ofNullable(role);
+        return role;
     }
 
     @Config("snowflake.role")
+    @ConfigDescription("Name of Snowflake role to use")
     public SnowflakeConfig setRole(String role)
     {
-        this.role = role;
+        this.role = Optional.ofNullable(role);
         return this;
     }
 
-    public String getWarehouse()
+    public Optional<String> getWarehouse()
     {
-        return warehouse;
+        return this.warehouse;
     }
 
     @Config("snowflake.warehouse")
+    @ConfigDescription("Name of Snowflake warehouse to use")
     public SnowflakeConfig setWarehouse(String warehouse)
     {
-        this.warehouse = warehouse;
+        this.warehouse = Optional.ofNullable(warehouse);
         return this;
     }
 }
