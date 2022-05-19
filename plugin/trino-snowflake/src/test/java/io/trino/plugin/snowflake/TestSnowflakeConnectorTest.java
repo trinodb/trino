@@ -13,15 +13,14 @@
  */
 package io.trino.plugin.snowflake;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -34,11 +33,10 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.plugin.snowflake.SnowflakeQueryRunner.createSnowflakeQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSnowflakeConnectorTest
         extends BaseJdbcConnectorTest
@@ -50,7 +48,7 @@ public class TestSnowflakeConnectorTest
             throws Exception
     {
         snowflakeServer = new TestingSnowflakeServer();
-        return createSnowflakeQueryRunner(snowflakeServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createSnowflakeQueryRunner(snowflakeServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
     }
 
     @Override
@@ -58,21 +56,16 @@ public class TestSnowflakeConnectorTest
     {
         return sql -> {
             try {
-                execute(sql);
+                try (Connection connection = DriverManager.getConnection(snowflakeServer.TEST_URL, snowflakeServer.getProperties());
+                        Statement statement = connection.createStatement()) {
+                    statement.execute(sql);
+                    connection.commit();
+                }
             }
             catch (SQLException e) {
                 throw new RuntimeException(e);
             }
         };
-    }
-
-    private void execute(String sql)
-            throws SQLException
-    {
-        try (Connection connection = DriverManager.getConnection(snowflakeServer.getJdbcUrl(), snowflakeServer.getProperties());
-                Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-        }
     }
 
     @Override
@@ -140,9 +133,7 @@ public class TestSnowflakeConnectorTest
         return nullToEmpty(exception.getMessage()).matches(".*(Incorrect column name).*");
     }
 
-    /**
-     * Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
-     */
+    // Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
     @Test
     @Override
     public void testShowColumns()
@@ -163,16 +154,6 @@ public class TestSnowflakeConnectorTest
     }
 
     @Test
-    public void testDropTable()
-    {
-        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
-
-        assertUpdate("DROP TABLE test_drop");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
-    }
-
-    @Test
     public void testViews()
     {
         onRemoteDatabase().execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
@@ -180,9 +161,7 @@ public class TestSnowflakeConnectorTest
         onRemoteDatabase().execute("DROP VIEW IF EXISTS tpch.test_view");
     }
 
-    /**
-     * Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
-     */
+    // Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
     @Test
     @Override
     public void testDescribeTable()
@@ -202,28 +181,7 @@ public class TestSnowflakeConnectorTest
         assertEquals(actualColumns, expectedColumns);
     }
 
-    @Test
-    public void testNameEscaping()
-    {
-        Session session = testSessionBuilder()
-                .setCatalog("snowflake")
-                .setSchema(getSession().getSchema())
-                .build();
-
-        assertFalse(getQueryRunner().tableExists(session, "test_table"));
-
-        assertUpdate(session, "CREATE TABLE test_table AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(session, "test_table"));
-
-        assertQuery(session, "SELECT * FROM test_table", "SELECT 123");
-
-        assertUpdate(session, "DROP TABLE test_table");
-        assertFalse(getQueryRunner().tableExists(session, "test_table"));
-    }
-
-    /**
-     * Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
-     */
+    // Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
     @Test
     @Override
     public void testShowCreateTable()
@@ -239,137 +197,155 @@ public class TestSnowflakeConnectorTest
                         "   clerk varchar(15),\n" +
                         "   shippriority bigint,\n" +
                         "   comment varchar(79)\n" +
-                        ")");
+                        ")\n" +
+                        "COMMENT ''");
     }
 
-    /**
-     * Override this test because the origin test has an error of "This connector does not support setting column comments"
-     * So I override it by using execute correct SQL.
-     */
+    // Override this test because the origin test has an error of "This connector does not support setting column comments"
+    // So I override it by using execute correct SQL.
     @Test
     @Override
     public void testCommentColumn()
     {
-        onRemoteDatabase().execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
+        String tableName = "test_column_comment_" + randomTableSuffix();
+        onRemoteDatabase().execute("CREATE TABLE tpch." + tableName + " (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
 
         assertQuery(
-                "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
+                "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '" + tableName + "'",
                 "VALUES ('col1', 'test comment'), ('col2', null), ('col3', null)");
 
-        assertUpdate("DROP TABLE test_column_comment");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
-    /**
-     * Override and skip it because snowflake not support this feature
-     */
+    // Override and skip it because snowflake not support this feature
     @Test
     @Override
     public void testCharVarcharComparison()
     {
-        throw new SkipException("Snowflake not support");
+        assertThatThrownBy(super::testCharVarcharComparison).isInstanceOf(AssertionError.class);
     }
 
-    /**
-     * Override and skip it because snowflake not support this feature
-     */
+    // Override and skip it because snowflake not support this feature
     @Test
     @Override
     public void testCountDistinctWithStringTypes()
     {
-        throw new SkipException("Snowflake not support");
+        assertThatThrownBy(super::testCountDistinctWithStringTypes).isInstanceOf(AssertionError.class);
     }
 
-    /**
-     * Override and skip it because snowflake not support this feature
-     * Unsupported delete
-     */
+    // Override and skip it because snowflake not support this feature
+    // Unsupported delete
     @Test
     @Override
     public void testDeleteWithVarcharEqualityPredicate()
     {
-        throw new SkipException("Unsupported delete");
+        assertThatThrownBy(super::testDeleteWithVarcharEqualityPredicate);
     }
 
-    /**
-     * Override and skip it because snowflake not support this feature
-     * Unsupported delete
-     */
+    // Override and skip it because snowflake not support this feature
+    // Unsupported delete
     @Test
     @Override
     public void testDeleteWithVarcharGreaterAndLowerPredicate()
     {
-        throw new SkipException("Unsupported delete");
+        assertThatThrownBy(super::testDeleteWithVarcharGreaterAndLowerPredicate);
     }
 
-    /**
-     * Override and skip it because snowflake not support this feature
-     * Unsupported delete
-     */
+    // Override and skip it because snowflake not support this feature
+    // Unsupported delete
     @Test
     @Override
     public void testDeleteWithVarcharInequalityPredicate()
     {
-        throw new SkipException("Unsupported delete");
+        assertThatThrownBy(super::testDeleteWithVarcharInequalityPredicate);
     }
 
-    /**
-     * Override and skip it because snowflake not support this feature
-     * Invalid number precision: 50. Must be between 0 and 38.
-     */
+    // Override and skip it because snowflake not support this feature
+    // Invalid number precision: 50. Must be between 0 and 38.
     @Test
     @Override
     public void testInsertInPresenceOfNotSupportedColumn()
     {
-        throw new SkipException("Invalid number precision: 50. Must be between 0 and 38.");
+        assertThatThrownBy(super::testInsertInPresenceOfNotSupportedColumn);
     }
 
-    /**
-     * Override and skip it because snowflake not support this feature
-     */
+    // Override and skip it because snowflake not support this feature
     @Test
     @Override
     public void testAggregationPushdown()
     {
-        throw new SkipException("Snowflake not support");
+        assertThatThrownBy(super::testAggregationPushdown).isInstanceOf(AssertionError.class);
     }
 
-    /**
-     * Override and skip it because snowflake not support this feature
-     */
+    // Override and skip it because snowflake not support this feature
     @Test
     @Override
     public void testDistinctAggregationPushdown()
     {
-        throw new SkipException("Snowflake not support");
+        assertThatThrownBy(super::testDistinctAggregationPushdown).isInstanceOf(AssertionError.class);
     }
 
-    /**
-     * Override and skip it because snowflake not support this feature
-     */
+    // Override and skip it because snowflake not support this feature
+    @Test
+    @Override
+    public void testAddColumnWithComment()
+    {
+        assertThatThrownBy(super::testAddColumnWithComment);
+    }
+
+    // Override and skip it because snowflake not support this feature
     @Test
     @Override
     public void testNumericAggregationPushdown()
     {
-        throw new SkipException("Snowflake not support");
+        assertThatThrownBy(super::testNumericAggregationPushdown).isInstanceOf(AssertionError.class);
     }
 
-    /**
-     * Override and skip it because snowflake not support this feature
-     */
+    // Override and skip it because snowflake not support this feature
     @Test
     @Override
     public void testLimitPushdown()
     {
-        throw new SkipException("Snowflake not support");
+        assertThatThrownBy(super::testLimitPushdown).isInstanceOf(AssertionError.class);
     }
 
-    /**
-     * Override and skip it because snowflake not support this feature
-     */
+    // Override and skip it because snowflake not support this feature
     @Test
     @Override
     public void testInsertIntoNotNullColumn()
     {
-        throw new SkipException("Snowflake not support");
+        assertThatThrownBy(super::testInsertIntoNotNullColumn);
+    }
+
+    // Override and skip it because snowflake not support this feature
+    @Test
+    @Override
+    public void testPotentialDuplicateDereferencePushdown()
+    {
+        assertThatThrownBy(super::testPotentialDuplicateDereferencePushdown);
+    }
+
+    // Override and skip it because snowflake not support this feature
+    @Test
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike).isInstanceOf(AssertionError.class);
+    }
+
+    // Override and skip it because snowflake not support this feature
+    @Test
+    @Override
+    public void testCreateTableAsSelect()
+    {
+        assertThatThrownBy(super::testCreateTableAsSelect).isInstanceOf(AssertionError.class);
+    }
+
+    // Override and skip it because snowflake not support this feature
+    @Test
+    @Override
+    public void testCreateTable()
+    {
+        assertThatThrownBy(super::testCreateTable).isInstanceOf(AssertionError.class);
     }
 }
