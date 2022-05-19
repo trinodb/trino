@@ -34,7 +34,6 @@ import io.trino.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentatio
 import io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.acid.AcidOperation;
-import io.trino.plugin.hive.acid.AcidSchema;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Column;
@@ -163,14 +162,9 @@ import static io.trino.plugin.hive.HiveApplyProjectionUtil.find;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.trino.plugin.hive.HiveBasicStatistics.createZeroStatistics;
-import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
-import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
-import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
-import static io.trino.plugin.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
-import static io.trino.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveColumnHandle.updateRowIdColumnHandle;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
@@ -276,6 +270,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isSparkBucketedTable;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveUtil.verifyPartitionTypeSupported;
 import static io.trino.plugin.hive.util.HiveWriteUtils.checkTableIsWritable;
+import static io.trino.plugin.hive.util.HiveWriteUtils.checkedDelete;
 import static io.trino.plugin.hive.util.HiveWriteUtils.initializeSerializer;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
@@ -1966,7 +1961,7 @@ public class HiveMetadata
             while (iterator.hasNext()) {
                 Path file = iterator.next().getPath();
                 if (!isFileCreatedByQuery(file.getName(), queryId)) {
-                    fileSystem.delete(file, false);
+                    checkedDelete(fileSystem, file, false);
                 }
             }
         }
@@ -2055,7 +2050,7 @@ public class HiveMetadata
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> executeProperties, RetryMode retryMode)
     {
-        // TODO lots of that is copied from beginInsert; rafactoring opportunity
+        // TODO lots of that is copied from beginInsert; refactoring opportunity
         if (!isNonTransactionalOptimizeEnabled(session)) {
             // OPTIMIZE procedure is disabled by default; even though code is written in a way to avoid data loss, calling procedure is inherently
             // unsafe due to non transactional nature of committing changes done to Hive table. If Trino looses connectivity to HDFS cluster while deleting
@@ -2168,7 +2163,7 @@ public class HiveMetadata
 
     private void finishOptimize(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
-        // TODO lots of that is copied from finishInsert; rafactoring opportunity
+        // TODO lots of that is copied from finishInsert; refactoring opportunity
 
         HiveTableExecuteHandle handle = (HiveTableExecuteHandle) tableExecuteHandle;
         checkArgument(handle.getWriteDeclarationId().isPresent(), "no write declaration id present in tableExecuteHandle");
@@ -2247,7 +2242,10 @@ public class HiveMetadata
                 if (firstScannedPath.isEmpty()) {
                     firstScannedPath = Optional.of(scannedPath);
                 }
-                retry().run("delete " + scannedPath, () -> fs.delete(scannedPath, false));
+                retry().run("delete " + scannedPath, () -> {
+                    checkedDelete(fs, scannedPath, false);
+                    return null;
+                });
                 someDeleted = true;
                 remainingFilesToDelete.remove(scannedPath);
             }
@@ -3407,29 +3405,12 @@ public class HiveMetadata
             }
         }
 
-        // add hidden columns
-        builder.put(PATH_COLUMN_NAME, Optional.empty());
-        if (table.getStorage().getBucketProperty().isPresent()) {
-            builder.put(BUCKET_COLUMN_NAME, Optional.empty());
-        }
-        builder.put(FILE_SIZE_COLUMN_NAME, Optional.empty());
-        builder.put(FILE_MODIFIED_TIME_COLUMN_NAME, Optional.empty());
-        if (!table.getPartitionColumns().isEmpty()) {
-            builder.put(PARTITION_COLUMN_NAME, Optional.empty());
-        }
-
-        if (isFullAcidTable(table.getParameters())) {
-            for (String name : AcidSchema.ACID_COLUMN_NAMES) {
-                builder.put(name, Optional.empty());
-            }
-        }
-
         Map<String, Optional<String>> columnComment = builder.buildOrThrow();
 
         return handle -> ColumnMetadata.builder()
                 .setName(handle.getName())
                 .setType(handle.getType())
-                .setComment(columnComment.get(handle.getName()))
+                .setComment(handle.isHidden() ? Optional.empty() : columnComment.get(handle.getName()))
                 .setExtraInfo(Optional.ofNullable(columnExtraInfo(handle.isPartitionKey())))
                 .setHidden(handle.isHidden())
                 .build();

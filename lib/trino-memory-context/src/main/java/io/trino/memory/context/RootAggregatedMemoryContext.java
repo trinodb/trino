@@ -46,6 +46,7 @@ class RootAggregatedMemoryContext
     @Override
     synchronized boolean tryUpdateBytes(String allocationTag, long delta)
     {
+        checkState(!isClosed(), "RootAggregatedMemoryContext is already closed");
         if (reservationHandler.tryReserveMemory(allocationTag, delta)) {
             addBytes(delta);
             return true;

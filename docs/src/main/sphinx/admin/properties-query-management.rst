@@ -32,7 +32,7 @@ stages of a query. You can use the following execution policies:
 The number of partitions to use for processing distributed operations, such as
 joins, aggregations, partitioned window functions and others.
 
-``query.low-memory-query-killer.policy``
+``query.low-memory-killer.policy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-string`
@@ -50,7 +50,7 @@ memory availability. Supports the following values:
 
     Only applies for queries with task level retries disabled (``retry-policy`` set to ``NONE`` or ``QUERY``)
 
-``query.low-memory-task-killer.policy``
+``task.low-memory-killer.policy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-string`
@@ -63,7 +63,7 @@ memory availability. Supports the following values:
 * ``total-reservation-on-blocked-nodes`` - Kill the tasks which are part of the queries
   which has task retries enabled and are currently using the most memory specifically
   on nodes that are now out of memory.
-* ``least-wasted`` - Kill the tasks which are part of the queries
+* ``least-waste`` - Kill the tasks which are part of the queries
   which has task retries enabled and use significant amount of memory on nodes
   which are now out of memory. This policy avoids killing tasks which are already
   executing for a long time, so significant amount of work is not wasted.
@@ -79,8 +79,8 @@ memory availability. Supports the following values:
 * **Default value:** ``5m``
 
 The amount of time a query is allowed to recover between running out of memory
-and being killed, if ``query.low-memory-query-killer.policy`` or
-``query.low-memory-task-killer.policy`` is set to value differnt than ``none``.
+and being killed, if ``query.low-memory-killer.policy`` or
+``task.low-memory-killer.policy`` is set to value differnt than ``none``.
 
 ``query.max-execution-time``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

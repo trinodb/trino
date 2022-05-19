@@ -285,13 +285,9 @@ public final class DiscoveryNodeManager
             if (isNodeShuttingDown(node.getNodeIdentifier())) {
                 return SHUTTING_DOWN;
             }
-            else {
-                return ACTIVE;
-            }
+            return ACTIVE;
         }
-        else {
-            return INACTIVE;
-        }
+        return INACTIVE;
     }
 
     private boolean isNodeShuttingDown(String nodeId)
@@ -348,7 +344,7 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public NodesSnapshot getActiveNodesSnapshot()
+    public synchronized NodesSnapshot getActiveNodesSnapshot()
     {
         return new NodesSnapshot(allNodes.getActiveNodes(), activeNodesByCatalogName);
     }

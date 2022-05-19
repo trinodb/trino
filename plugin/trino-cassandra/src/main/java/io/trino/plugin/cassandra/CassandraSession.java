@@ -395,11 +395,6 @@ public class CassandraSession
             rows = queryPartitionKeysLegacyWithMultipleQueries(table, filterPrefixes);
         }
 
-        if (rows == null) {
-            // just split the whole partition range
-            return ImmutableList.of(CassandraPartition.UNPARTITIONED);
-        }
-
         ByteBuffer buffer = ByteBuffer.allocate(1000);
         HashMap<ColumnHandle, NullableValue> map = new HashMap<>();
         Set<String> uniquePartitionIds = new HashSet<>();
@@ -489,7 +484,7 @@ public class CassandraSession
 
             log.debug("Execute cql for partition keys with multiple queries: %s", partitionKeys);
             List<Row> resultRows = execute(partitionKeys.build()).all();
-            if (resultRows != null && !resultRows.isEmpty()) {
+            if (!resultRows.isEmpty()) {
                 rowList.addAll(resultRows);
             }
         }

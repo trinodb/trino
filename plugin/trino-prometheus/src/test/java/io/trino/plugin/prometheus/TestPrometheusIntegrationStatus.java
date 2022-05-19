@@ -45,7 +45,7 @@ public class TestPrometheusIntegrationStatus
             throws Exception
     {
         this.server = new PrometheusServer();
-        return createPrometheusQueryRunner(server, ImmutableMap.of());
+        return createPrometheusQueryRunner(server, ImmutableMap.of(), ImmutableMap.of());
     }
 
     @Test

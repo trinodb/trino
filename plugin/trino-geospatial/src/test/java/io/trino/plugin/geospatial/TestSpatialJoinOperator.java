@@ -497,7 +497,7 @@ public class TestSpatialJoinOperator
         ListenableFuture<PagesSpatialIndex> pagesSpatialIndex = pagesSpatialIndexFactory.createPagesSpatialIndex();
 
         while (!pagesSpatialIndex.isDone()) {
-            driver.process();
+            driver.processUntilBlocked();
         }
 
         runDriverInThread(executor, driver);
@@ -512,7 +512,7 @@ public class TestSpatialJoinOperator
         executor.execute(() -> {
             if (!driver.isFinished()) {
                 try {
-                    driver.process();
+                    driver.processUntilBlocked();
                 }
                 catch (TrinoException e) {
                     driver.getDriverContext().failed(e);

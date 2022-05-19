@@ -15,9 +15,9 @@ package io.trino.verifier;
 
 import picocli.CommandLine;
 
-public final class PrestoVerifier
+public final class TrinoVerifier
 {
-    private PrestoVerifier() {}
+    private TrinoVerifier() {}
 
     public static void main(String[] args)
     {

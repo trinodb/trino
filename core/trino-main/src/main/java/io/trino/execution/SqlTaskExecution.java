@@ -1089,7 +1089,7 @@ public class SqlTaskExecution
                 driver = this.driver;
             }
 
-            return driver.processFor(duration);
+            return driver.processForDuration(duration);
         }
 
         @Override

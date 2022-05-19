@@ -137,6 +137,8 @@ Property                                              Description               
 ``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See the `requirements <#requirements>`_ section.
 ``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See the `requirements <#requirements>`_ section.
 ``bigquery.case-insensitive-name-matching``           Match dataset and table names case-insensitively               ``false``
+``bigquery.query-results-cache.enabled``              Enable `query results cache
+                                                      <https://cloud.google.com/bigquery/docs/cached-results>`_      ``false``
 ===================================================== ============================================================== ======================================================
 
 Data types
