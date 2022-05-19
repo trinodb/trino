@@ -615,6 +615,11 @@ public class FaultTolerantStageScheduler
                                 delaySchedulingFuture = null;
                             }
 
+                            // Remove taskDescriptor for finished partition to conserve memory
+                            // We may revisit the approach when we support volatile exchanges, for which
+                            // it may be needed to restart already finished task to recreate output it produced.
+                            taskDescriptorStorage.remove(stage.getStageId(), partitionId);
+
                             break;
                         case CANCELED:
                             log.debug("Task cancelled: %s", taskId);

@@ -80,8 +80,17 @@ public class TestTaskDescriptorStorage
                 .flatMap(TestTaskDescriptorStorage::getCatalogName)
                 .contains("catalog6");
 
-        manager.destroy(QUERY_1);
-        manager.destroy(QUERY_2);
+        manager.remove(QUERY_1_STAGE_1, 0);
+        manager.remove(QUERY_2_STAGE_2, 1);
+
+        assertThatThrownBy(() -> manager.get(QUERY_1_STAGE_1, 0))
+                .hasMessageContaining("descriptor not found for key");
+        assertThatThrownBy(() -> manager.get(QUERY_2_STAGE_2, 1))
+                .hasMessageContaining("descriptor not found for key");
+
+        assertThat(manager.getReservedBytes())
+                .isGreaterThanOrEqualTo(toBytes(5, KILOBYTE))
+                .isLessThanOrEqualTo(toBytes(7, KILOBYTE));
     }
 
     @Test
@@ -140,6 +149,12 @@ public class TestTaskDescriptorStorage
                 .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
         assertThatThrownBy(() -> manager.get(QUERY_1_STAGE_2, 0))
                 .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
+        assertThatThrownBy(() -> manager.remove(QUERY_1_STAGE_1, 0))
+                .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
+        assertThatThrownBy(() -> manager.remove(QUERY_1_STAGE_1, 1))
+                .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
+        assertThatThrownBy(() -> manager.remove(QUERY_1_STAGE_2, 0))
+                .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
 
         // QUERY_2 is still active
         assertThat(manager.get(QUERY_2_STAGE_1, 0))
@@ -159,6 +174,8 @@ public class TestTaskDescriptorStorage
         assertThatThrownBy(() -> manager.put(QUERY_2_STAGE_2, createTaskDescriptor(3, DataSize.of(1, KILOBYTE))))
                 .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
         assertThatThrownBy(() -> manager.get(QUERY_2_STAGE_1, 0))
+                .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
+        assertThatThrownBy(() -> manager.remove(QUERY_2_STAGE_1, 0))
                 .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
     }
 
