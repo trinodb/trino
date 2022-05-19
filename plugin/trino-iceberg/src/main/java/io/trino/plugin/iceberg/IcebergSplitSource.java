@@ -21,6 +21,7 @@ import com.google.common.collect.Iterators;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.iceberg.delete.TrinoDeleteFile;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitionHandle;
@@ -222,12 +223,13 @@ public class IcebergSplitSource
             }
 
             CombinedScanTask combinedScanTask = combinedScanTaskIterator.next();
-            return new CombinedIcebergSplit(
-                    combinedScanTask.files().stream()
-                            .map(IcebergSplitSource.this::splitForFileScanTask)
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .collect(toImmutableList()));
+            List<IcebergSplit> splits = combinedScanTask.files().stream()
+                    .map(IcebergSplitSource.this::splitForFileScanTask)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(toImmutableList());
+            SplitWeight splitWeight = SplitWeight.fromProportion(Math.min((double) splits.stream().mapToLong(IcebergSplit::getLength).sum() / tableScan.targetSplitSize(), 1.0));
+            return new CombinedIcebergSplit(splits, splitWeight);
         }
     }
 
@@ -474,7 +476,7 @@ public class IcebergSplitSource
         return true;
     }
 
-    private static IcebergSplit toIcebergSplit(FileScanTask task)
+    private IcebergSplit toIcebergSplit(FileScanTask task)
     {
         return new IcebergSplit(
                 hadoopPath(task.file().path().toString()),
@@ -488,7 +490,8 @@ public class IcebergSplitSource
                 PartitionData.toJson(task.file().partition()),
                 task.deletes().stream()
                         .map(TrinoDeleteFile::copyOf)
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                SplitWeight.fromProportion(Math.min((double) task.length() / tableScan.targetSplitSize(), 1.0)));
     }
 
     private static String hadoopPath(String path)

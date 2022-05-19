@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.Collection;
@@ -31,11 +32,13 @@ public class CombinedIcebergSplit
         implements ConnectorSplit
 {
     List<IcebergSplit> entries;
+    private final SplitWeight splitWeight;
 
     @JsonCreator
-    public CombinedIcebergSplit(@JsonProperty("entries") List<IcebergSplit> entries)
+    public CombinedIcebergSplit(@JsonProperty("entries") List<IcebergSplit> entries, @JsonProperty("splitWeight") SplitWeight splitWeight)
     {
         this.entries = ImmutableList.copyOf(requireNonNull(entries, "entries is null"));
+        this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
     }
 
     @JsonProperty
@@ -67,10 +70,17 @@ public class CombinedIcebergSplit
                 .collect(toImmutableList());
     }
 
+    @JsonProperty
+    @Override
+    public SplitWeight getSplitWeight()
+    {
+        return splitWeight;
+    }
+
     @Override
     public long getRetainedSizeInBytes()
     {
-        return entries.stream()
+        return splitWeight.getRetainedSizeInBytes() + entries.stream()
                 .mapToLong(IcebergSplit::getRetainedSizeInBytes)
                 .sum();
     }
