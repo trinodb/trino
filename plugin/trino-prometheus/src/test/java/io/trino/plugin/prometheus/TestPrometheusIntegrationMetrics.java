@@ -71,4 +71,11 @@ public class TestPrometheusIntegrationMetrics
                         "('timestamp', 'timestamp(3) with time zone', '', '')," +
                         "('value', 'double', '', '')");
     }
+
+    @Test
+    public void testSelectWithoutLabels()
+    {
+        assertQuerySucceeds("SELECT timestamp, value FROM prometheus.default.up");
+        assertQuery("SELECT value FROM prometheus.default.up LIMIT 1", "VALUES ('1.0')");
+    }
 }
