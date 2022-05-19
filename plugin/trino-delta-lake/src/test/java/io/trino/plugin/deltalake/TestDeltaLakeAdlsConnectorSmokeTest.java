@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
@@ -24,11 +23,9 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
 import io.trino.plugin.deltalake.util.DockerizedDataLake;
-import io.trino.plugin.deltalake.util.TestingHadoop;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -43,7 +40,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -55,14 +51,14 @@ import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 import static org.assertj.core.api.Assertions.assertThat;
 
-// TODO (https://github.com/trinodb/trino/issues/11325): removeTestData cleanup fails; enable the class by making it non-abstract
-public abstract class TestDeltaLakeAdlsConnectorSmokeTest
+public class TestDeltaLakeAdlsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
 {
     private final String container;
     private final String account;
     private final String accessKey;
     private final BlobContainerClient azureContainerClient;
+    private final String adlsDirectory;
 
     @Parameters({
             "hive.hadoop2.azure-abfs-container",
@@ -77,46 +73,7 @@ public abstract class TestDeltaLakeAdlsConnectorSmokeTest
         String connectionString = format("DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s;EndpointSuffix=core.windows.net", account, accessKey);
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder().connectionString(connectionString).buildClient();
         this.azureContainerClient = blobServiceClient.getBlobContainerClient(container);
-    }
-
-    @Test
-    public void testDropSchemaExternalFiles()
-    {
-        // TODO move this test to base class, so it's exercised for S3 too
-
-        String schemaName = "externalFileSchema";
-        String schemaDir = fullAdlsUrl() + "drop-schema-with-external-files/";
-        String subDir = schemaDir + "subdir/";
-        String externalFile = subDir + "external-file";
-
-        TestingHadoop hadoopContainer = dockerizedDataLake.getTestingHadoop();
-
-        // Create file in a subdirectory of the schema directory before creating schema
-        hadoopContainer.runCommandInContainer("hdfs", "dfs", "-mkdir", "-p", subDir);
-        hadoopContainer.runCommandInContainer("hdfs", "dfs", "-touchz", externalFile);
-
-        query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
-        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
-                .as("external file exists after creating schema")
-                .isEqualTo(0);
-
-        query("DROP SCHEMA " + schemaName);
-        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
-                .as("external file exists after dropping schema")
-                .isEqualTo(0);
-
-        // Test behavior without external file
-        hadoopContainer.runCommandInContainer("hdfs", "dfs", "-rm", "-r", subDir);
-
-        query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
-        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-d", schemaDir).getExitCode())
-                .as("schema directory exists after creating schema")
-                .isEqualTo(0);
-
-        query("DROP SCHEMA " + schemaName);
-        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
-                .as("schema directory deleted after dropping schema without external file")
-                .isEqualTo(1);
+        this.adlsDirectory = format("abfs://%s@%s.dfs.core.windows.net/%s/", container, account, bucketName);
     }
 
     @Override
@@ -154,20 +111,10 @@ public abstract class TestDeltaLakeAdlsConnectorSmokeTest
     @AfterClass(alwaysRun = true)
     public void removeTestData()
     {
-        recursiveDelete(azureContainerClient.listBlobsByHierarchy(bucketName + "/").stream());
-    }
-
-    private void recursiveDelete(Stream<BlobItem> blobs)
-    {
-        blobs.forEach(blob -> {
-            BlobClient blobClient = azureContainerClient.getBlobClient(blob.getName());
-            if (blobClient.exists()) {
-                blobClient.delete();
-            }
-            if (blob.isPrefix() != null && blob.isPrefix()) {
-                recursiveDelete(azureContainerClient.listBlobsByHierarchy(blob.getName()).stream());
-            }
-        });
+        if (adlsDirectory != null && dockerizedDataLake.getTestingHadoop() != null) {
+            dockerizedDataLake.getTestingHadoop().runCommandInContainer("hadoop", "fs", "-rm", "-f", "-r", adlsDirectory);
+        }
+        assertThat(azureContainerClient.listBlobsByHierarchy(bucketName + "/").stream()).hasSize(0);
     }
 
     @Override
@@ -197,7 +144,7 @@ public abstract class TestDeltaLakeAdlsConnectorSmokeTest
     @Override
     String getLocationForTable(String bucketName, String tableName)
     {
-        return fullAdlsUrl() + tableName;
+        return bucketUrl() + tableName;
     }
 
     @Override
@@ -232,7 +179,8 @@ public abstract class TestDeltaLakeAdlsConnectorSmokeTest
                 .collect(toImmutableList());
     }
 
-    private String fullAdlsUrl()
+    @Override
+    protected String bucketUrl()
     {
         return format("abfs://%s@%s.dfs.core.windows.net/%s/", container, account, bucketName);
     }

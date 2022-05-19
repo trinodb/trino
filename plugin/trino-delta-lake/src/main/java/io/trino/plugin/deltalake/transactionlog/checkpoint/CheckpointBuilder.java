@@ -39,7 +39,7 @@ public class CheckpointBuilder
     public void addLogEntry(DeltaLakeTransactionLogEntry logEntry)
     {
         if (logEntry.getMetaData() != null) {
-            // TODO: validate if schema in this entry and previous one did not diverge.
+            // TODO: validate if schema in this entry and previous one did not diverge. (https://github.com/trinodb/trino/issues/12028)
             metadataEntry = logEntry.getMetaData();
         }
         if (logEntry.getProtocol() != null) {
@@ -56,7 +56,7 @@ public class CheckpointBuilder
             return;
         }
         TransactionEntry currentEntry = transactionEntries.get(entry.getAppId());
-        // TODO: Investigate if logic is ok.
+        // TODO: Investigate if logic is ok. (https://github.com/trinodb/trino/issues/12029)
         // It is not super obvious from documentation if we should compare version to find a winner
         // Or should just latest entry for given appId win.
         if (currentEntry != null && currentEntry.getVersion() > entry.getVersion()) {

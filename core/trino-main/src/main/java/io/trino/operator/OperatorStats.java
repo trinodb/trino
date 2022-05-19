@@ -49,6 +49,7 @@ public class OperatorStats
     private final Duration addInputCpu;
     private final DataSize physicalInputDataSize;
     private final long physicalInputPositions;
+    private final Duration physicalInputReadTime;
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
     private final DataSize rawInputDataSize;
@@ -102,6 +103,7 @@ public class OperatorStats
             @JsonProperty("addInputCpu") Duration addInputCpu,
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
             @JsonProperty("physicalInputPositions") long physicalInputPositions,
+            @JsonProperty("physicalInputReadTime") Duration physicalInputReadTime,
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
@@ -155,6 +157,7 @@ public class OperatorStats
         this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
         this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
         this.physicalInputPositions = physicalInputPositions;
+        this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
@@ -260,6 +263,12 @@ public class OperatorStats
     public long getPhysicalInputPositions()
     {
         return physicalInputPositions;
+    }
+
+    @JsonProperty
+    public Duration getPhysicalInputReadTime()
+    {
+        return physicalInputReadTime;
     }
 
     @JsonProperty
@@ -439,6 +448,7 @@ public class OperatorStats
         long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
         long physicalInputDataSize = this.physicalInputDataSize.toBytes();
         long physicalInputPositions = this.physicalInputPositions;
+        long physicalInputReadTimeNanos = this.physicalInputReadTime.roundTo(NANOSECONDS);
         long internalNetworkInputDataSize = this.internalNetworkInputDataSize.toBytes();
         long internalNetworkInputPositions = this.internalNetworkInputPositions;
         long rawInputDataSize = this.rawInputDataSize.toBytes();
@@ -486,6 +496,7 @@ public class OperatorStats
             addInputCpu += operator.getAddInputCpu().roundTo(NANOSECONDS);
             physicalInputDataSize += operator.getPhysicalInputDataSize().toBytes();
             physicalInputPositions += operator.getPhysicalInputPositions();
+            physicalInputReadTimeNanos += operator.getPhysicalInputReadTime().roundTo(NANOSECONDS);
             internalNetworkInputDataSize += operator.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += operator.getInternalNetworkInputPositions();
             rawInputDataSize += operator.getRawInputDataSize().toBytes();
@@ -545,6 +556,7 @@ public class OperatorStats
                 new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 DataSize.ofBytes(physicalInputDataSize),
                 physicalInputPositions,
+                new Duration(physicalInputReadTimeNanos, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 DataSize.ofBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
                 DataSize.ofBytes(rawInputDataSize),
@@ -617,6 +629,7 @@ public class OperatorStats
                 addInputCpu,
                 physicalInputDataSize,
                 physicalInputPositions,
+                physicalInputReadTime,
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
                 rawInputDataSize,

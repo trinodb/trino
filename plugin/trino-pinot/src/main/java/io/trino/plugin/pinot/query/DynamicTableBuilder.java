@@ -86,10 +86,12 @@ public final class DynamicTableBuilder
         BrokerRequest request = REQUEST_COMPILER.compileToBrokerRequest(query);
         PinotQuery pinotQuery = request.getPinotQuery();
         QueryContext queryContext = BrokerRequestToQueryContextConverter.convert(request);
-        String pinotTableName = stripSuffix(request.getQuerySource().getTableName());
-        Optional<String> suffix = getSuffix(request.getQuerySource().getTableName());
+        String tableName = request.getQuerySource().getTableName();
+        String trinoTableName = stripSuffix(tableName).toLowerCase(ENGLISH);
+        String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(trinoTableName);
+        Optional<String> suffix = getSuffix(tableName);
 
-        Map<String, ColumnHandle> columnHandles = pinotMetadata.getPinotColumnHandles(pinotTableName);
+        Map<String, ColumnHandle> columnHandles = pinotMetadata.getPinotColumnHandles(trinoTableName);
         List<OrderByExpression> orderBy = ImmutableList.of();
         PinotTypeResolver pinotTypeResolver = new PinotTypeResolver(pinotClient, pinotTableName);
         List<PinotColumnHandle> selectColumns = ImmutableList.of();
@@ -248,9 +250,9 @@ public final class DynamicTableBuilder
                 .build();
         DataSchema preAggregationSchema = getPreAggregationDataSchema(queryContext);
         PostAggregationHandler postAggregationHandler = new PostAggregationHandler(queryContext, preAggregationSchema);
-        DataSchema postAggregtionSchema = postAggregationHandler.getResultDataSchema();
+        DataSchema postAggregationSchema = postAggregationHandler.getResultDataSchema();
         ImmutableMap.Builder<String, PinotColumnNameAndTrinoType> aggregationTypesBuilder = ImmutableMap.builder();
-        for (int index = 0; index < postAggregtionSchema.size(); index++) {
+        for (int index = 0; index < postAggregationSchema.size(); index++) {
             aggregationTypesBuilder.put(
                     // ExpressionContext#toString performs quoting of literals
                     // Quoting of identifiers is not done to match the corresponding column name in the ResultTable returned from Pinot. Quoting will be done by `DynamicTablePqlExtractor`.
@@ -258,8 +260,8 @@ public final class DynamicTableBuilder
                             aggregateColumnExpressions.get(index),
                             columnHandles).toString(),
                     new PinotColumnNameAndTrinoType(
-                            postAggregtionSchema.getColumnName(index),
-                            toTrinoType(postAggregtionSchema.getColumnDataType(index))));
+                            postAggregationSchema.getColumnName(index),
+                            toTrinoType(postAggregationSchema.getColumnDataType(index))));
         }
         return aggregationTypesBuilder.buildOrThrow();
     }

@@ -56,6 +56,7 @@ public final class PlanSanityChecker
                         new VerifyNoFilteredAggregations(),
                         new VerifyUseConnectorNodePartitioningSet(),
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
+                        new ValidateScaledWritersUsage(),
                         new ValidateStreamingAggregations(),
                         new ValidateLimitWithPresortedInput(),
                         new DynamicFiltersChecker(),

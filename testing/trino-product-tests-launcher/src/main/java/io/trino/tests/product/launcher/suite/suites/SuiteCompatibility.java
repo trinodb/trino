@@ -52,12 +52,12 @@ public class SuiteCompatibility
 
         ImmutableList<SuiteTestRun> trinoCompatibilityTestRuns = testedTrinoDockerImages().stream()
                 .map(image -> testOnEnvironment(EnvSinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
-                        .withGroups("hive_view_compatibility")
+                        .withGroups("configured_features", "hive_view_compatibility")
                         .build())
                 .collect(toImmutableList());
         ImmutableList<SuiteTestRun> prestoCompatibilityTestRuns = testedPrestoDockerImages().stream()
                 .map(image -> testOnEnvironment(EnvSinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
-                        .withGroups("hive_view_compatibility")
+                        .withGroups("configured_features", "hive_view_compatibility")
                         .build())
                 .collect(toImmutableList());
 

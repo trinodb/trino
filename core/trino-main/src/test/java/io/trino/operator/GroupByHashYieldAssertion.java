@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.spi.Page;
@@ -77,6 +79,7 @@ public final class GroupByHashYieldAssertion
 
         // mock an adjustable memory pool
         QueryId queryId = new QueryId("test_query");
+        TaskId anotherTaskId = new TaskId(new StageId("another_query", 0), 0, 0);
         MemoryPool memoryPool = new MemoryPool(DataSize.of(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(
                 queryId,
@@ -102,7 +105,7 @@ public final class GroupByHashYieldAssertion
 
             // saturate the pool with a tiny memory left
             long reservedMemoryInBytes = memoryPool.getFreeBytes() - additionalMemoryInBytes;
-            memoryPool.reserve(queryId, "test", reservedMemoryInBytes);
+            memoryPool.reserve(anotherTaskId, "test", reservedMemoryInBytes);
 
             long oldMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
             int oldCapacity = getHashCapacity.apply(operator);
@@ -122,7 +125,7 @@ public final class GroupByHashYieldAssertion
             // between rehash and memory used by aggregator
             if (newMemoryUsage < DataSize.of(4, MEGABYTE).toBytes()) {
                 // free the pool for the next iteration
-                memoryPool.free(queryId, "test", reservedMemoryInBytes);
+                memoryPool.free(anotherTaskId, "test", reservedMemoryInBytes);
                 // this required in case input is blocked
                 operator.getOutput();
                 continue;
@@ -143,7 +146,7 @@ public final class GroupByHashYieldAssertion
                 assertLessThan(actualIncreasedMemory, additionalMemoryInBytes);
 
                 // free the pool for the next iteration
-                memoryPool.free(queryId, "test", reservedMemoryInBytes);
+                memoryPool.free(anotherTaskId, "test", reservedMemoryInBytes);
             }
             else {
                 // We failed to finish the page processing i.e. we yielded
@@ -170,7 +173,7 @@ public final class GroupByHashYieldAssertion
                 assertNull(operator.getOutput());
 
                 // Free the pool to unblock
-                memoryPool.free(queryId, "test", reservedMemoryInBytes);
+                memoryPool.free(anotherTaskId, "test", reservedMemoryInBytes);
 
                 // Trigger a process through getOutput() or needsInput()
                 output = operator.getOutput();

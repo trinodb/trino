@@ -89,6 +89,13 @@ public class TestMultimapAggAggregation
     }
 
     @Test
+    public void testKeysUseIsDistinctSemantics()
+    {
+        testMultimapAgg(DOUBLE, ImmutableList.of(Double.NaN, Double.NaN), BIGINT, ImmutableList.of(1L, 1L));
+        testMultimapAgg(DOUBLE, ImmutableList.of(Double.NaN, Double.NaN, Double.NaN), BIGINT, ImmutableList.of(2L, 1L, 2L));
+    }
+
+    @Test
     public void testDoubleMapMultimap()
     {
         Type mapType = mapType(VARCHAR, BIGINT);
@@ -177,6 +184,11 @@ public class TestMultimapAggAggregation
         return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of(MultimapAggregationFunction.NAME), fromTypes(keyType, valueType));
     }
 
+    /**
+     * Given a list of keys and a list of corresponding values, manually
+     * aggregate them into a map of list and check that Trino's aggregation has
+     * the same results.
+     */
     private static <K, V> void testMultimapAgg(Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)
     {
         checkState(expectedKeys.size() == expectedValues.size(), "expectedKeys and expectedValues should have equal size");

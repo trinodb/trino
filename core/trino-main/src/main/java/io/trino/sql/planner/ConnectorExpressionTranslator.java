@@ -66,6 +66,7 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.JoniRegexp;
 import io.trino.type.Re2JRegexp;
+import io.trino.type.Re2JRegexpType;
 
 import java.util.List;
 import java.util.Map;
@@ -79,6 +80,7 @@ import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
@@ -97,9 +99,14 @@ import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ConnectorExpressionTranslator
@@ -225,8 +232,12 @@ public final class ConnectorExpressionTranslator
             if (IS_NULL_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
                 return translateIsNull(call.getArguments().get(0));
             }
+
             if (NULLIF_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2) {
                 return translateNullIf(call.getArguments().get(0), call.getArguments().get(1));
+            }
+            if (CAST_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
+                return translateCast(call.getType(), call.getArguments().get(0));
             }
 
             // comparisons
@@ -270,9 +281,23 @@ public final class ConnectorExpressionTranslator
             FunctionCallBuilder builder = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                     .setName(name);
             for (int i = 0; i < call.getArguments().size(); i++) {
-                Type type = resolved.getSignature().getArgumentTypes().get(i);
-                Expression expression = ConnectorExpressionTranslator.translate(session, call.getArguments().get(i), plannerContext, variableMappings, literalEncoder);
-                builder.addArgument(type, expression);
+                ConnectorExpression argument = call.getArguments().get(i);
+                Type formalType = resolved.getSignature().getArgumentTypes().get(i);
+                Type argumentType = argument.getType();
+                Optional<Expression> translated = translate(argument);
+                if (translated.isEmpty()) {
+                    return Optional.empty();
+                }
+                Expression expression = translated.get();
+                if ((formalType == JONI_REGEXP || formalType instanceof Re2JRegexpType) && argumentType instanceof VarcharType) {
+                    // These types are not used in connector expressions, so require special handling when translating back to expressions.
+                    expression = new Cast(expression, toSqlType(formalType));
+                }
+                else if (!argumentType.equals(formalType)) {
+                    // There are no implicit coercions in connector expressions except for engine types that are not exposed in connector expressions.
+                    throw new IllegalArgumentException(format("Unexpected type %s for argument %s of type %s of %s", argumentType, formalType, i, name));
+                }
+                builder.addArgument(formalType, expression);
             }
             return Optional.of(builder.build());
         }
@@ -302,6 +327,16 @@ public final class ConnectorExpressionTranslator
             Optional<Expression> translatedArgument = translate(argument);
             if (argument.getType().equals(BOOLEAN) && translatedArgument.isPresent()) {
                 return Optional.of(new NotExpression(translatedArgument.get()));
+            }
+            return Optional.empty();
+        }
+
+        private Optional<Expression> translateCast(Type type, ConnectorExpression expression)
+        {
+            Optional<Expression> translatedExpression = translate(expression);
+
+            if (translatedExpression.isPresent()) {
+                return Optional.of(new Cast(translatedExpression.get(), toSqlType(type)));
             }
 
             return Optional.empty();
@@ -442,7 +477,7 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitStringLiteral(StringLiteral node, Void context)
         {
-            return Optional.of(new Constant(node.getSlice(), typeOf(node)));
+            return Optional.of(new Constant(Slices.utf8Slice(node.getValue()), typeOf(node)));
         }
 
         @Override
@@ -460,13 +495,13 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitCharLiteral(CharLiteral node, Void context)
         {
-            return Optional.of(new Constant(node.getSlice(), typeOf(node)));
+            return Optional.of(new Constant(Slices.utf8Slice(node.getValue()), typeOf(node)));
         }
 
         @Override
         protected Optional<ConnectorExpression> visitBinaryLiteral(BinaryLiteral node, Void context)
         {
-            return Optional.of(new Constant(node.getValue(), typeOf(node)));
+            return Optional.of(new Constant(Slices.wrappedBuffer(node.getValue()), typeOf(node)));
         }
 
         @Override
@@ -573,6 +608,22 @@ public final class ConnectorExpressionTranslator
             if (isEffectivelyLiteral(plannerContext, session, node)) {
                 return Optional.of(constantFor(node));
             }
+
+            if (node.isSafe()) {
+                // try_cast would need to be modeled separately
+                return Optional.empty();
+            }
+
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+
+            Optional<ConnectorExpression> translatedExpression = process(node.getExpression());
+            if (translatedExpression.isPresent()) {
+                Type type = plannerContext.getTypeManager().getType(toTypeSignature(node.getType()));
+                return Optional.of(new Call(type, CAST_FUNCTION_NAME, List.of(translatedExpression.get())));
+            }
+
             return Optional.empty();
         }
 
@@ -593,19 +644,8 @@ public final class ConnectorExpressionTranslator
 
             String functionName = ResolvedFunction.extractFunctionName(node.getName());
             checkArgument(!DynamicFilters.Function.NAME.equals(functionName), "Dynamic filter has no meaning for a connector, it should not be translated into ConnectorExpression");
-
-            if (LiteralFunction.LITERAL_FUNCTION_NAME.equalsIgnoreCase(functionName)) {
-                Object value = evaluateConstant(node);
-                if (value instanceof JoniRegexp) {
-                    Slice pattern = ((JoniRegexp) value).pattern();
-                    return Optional.of(new Constant(pattern, VarcharType.createVarcharType(countCodePoints(pattern))));
-                }
-                if (value instanceof Re2JRegexp) {
-                    Slice pattern = Slices.utf8Slice(((Re2JRegexp) value).pattern());
-                    return Optional.of(new Constant(pattern, VarcharType.createVarcharType(countCodePoints(pattern))));
-                }
-                return Optional.of(new Constant(value, types.get(NodeRef.of(node))));
-            }
+            // literals should be handled by isEffectivelyLiteral case above
+            checkArgument(!LiteralFunction.LITERAL_FUNCTION_NAME.equalsIgnoreCase(functionName), "Unexpected literal function");
 
             ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();
             for (Expression argumentExpression : node.getArguments()) {
@@ -664,6 +704,15 @@ public final class ConnectorExpressionTranslator
                     session,
                     new AllowAllAccessControl(),
                     ImmutableMap.of());
+
+            if (type == JONI_REGEXP) {
+                Slice pattern = ((JoniRegexp) value).pattern();
+                return new Constant(pattern, createVarcharType(countCodePoints(pattern)));
+            }
+            if (type instanceof Re2JRegexpType) {
+                Slice pattern = Slices.utf8Slice(((Re2JRegexp) value).pattern());
+                return new Constant(pattern, createVarcharType(countCodePoints(pattern)));
+            }
             return new Constant(value, type);
         }
 

@@ -153,8 +153,10 @@ public final class SystemSessionProperties
     public static final String QUERY_RETRY_ATTEMPTS = "query_retry_attempts";
     public static final String TASK_RETRY_ATTEMPTS_OVERALL = "task_retry_attempts_overall";
     public static final String TASK_RETRY_ATTEMPTS_PER_TASK = "task_retry_attempts_per_task";
+    public static final String MAX_TASKS_WAITING_FOR_NODE_PER_STAGE = "max_tasks_waiting_for_node_per_stage";
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
+    public static final String RETRY_DELAY_SCALE_FACTOR = "retry_delay_scale_factor";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE = "fault_tolerant_execution_target_task_input_size";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_TASK_SPLIT_COUNT = "fault_tolerant_execution_min_task_split_count";
@@ -162,9 +164,12 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT = "fault_tolerant_execution_max_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY = "fault_tolerant_execution_task_memory";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR = "fault_tolerant_execution_task_memory_growth_factor";
+    public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE = "fault_tolerant_execution_task_memory_estimation_quantile";
+    public static final String FAULT_TOLERANT_EXECUTION_PARTITION_COUNT = "fault_tolerant_execution_partition_count";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
+    public static final String JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT = "join_partitioned_build_min_row_count";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -731,6 +736,11 @@ public final class SystemSessionProperties
                         "Maximum number of task retry attempts per single task",
                         queryManagerConfig.getTaskRetryAttemptsPerTask(),
                         false),
+                integerProperty(
+                        MAX_TASKS_WAITING_FOR_NODE_PER_STAGE,
+                        "Maximum possible number of tasks waiting for node allocation per stage before scheduling of new tasks for stage is paused",
+                        queryManagerConfig.getMaxTasksWaitingForNodePerStage(),
+                        false),
                 durationProperty(
                         RETRY_INITIAL_DELAY,
                         "Initial delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt up to 'retry_max_delay'",
@@ -740,6 +750,18 @@ public final class SystemSessionProperties
                         RETRY_MAX_DELAY,
                         "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
                         queryManagerConfig.getRetryMaxDelay(),
+                        false),
+                doubleProperty(
+                        RETRY_DELAY_SCALE_FACTOR,
+                        "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
+                        queryManagerConfig.getRetryDelayScaleFactor(),
+                        value -> {
+                            if (value < 1.0) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be greater or equal to 1.0", RETRY_MAX_DELAY));
+                            }
+                        },
                         false),
                 booleanProperty(
                         HIDE_INACCESSIBLE_COLUMNS,
@@ -777,6 +799,17 @@ public final class SystemSessionProperties
                         "Factor by which estimated task memory is increased if task execution runs out of memory; value is used allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantExecutionTaskMemoryGrowthFactor(),
                         false),
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE,
+                        "What quantile of memory usage of completed tasks to look at when estimating memory usage for upcoming tasks",
+                        memoryManagerConfig.getFaultTolerantExecutionTaskMemoryEstimationQuantile(),
+                        value -> validateDoubleRange(value, FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE, 0.0, 1.0),
+                        false),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_PARTITION_COUNT,
+                        "Number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
+                        queryManagerConfig.getFaultTolerantExecutionPartitionCount(),
+                        false),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
@@ -791,6 +824,12 @@ public final class SystemSessionProperties
                         ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD,
                         "Ratio between aggregation output and input rows above which partial aggregation might be adaptively turned off",
                         optimizerConfig.getAdaptivePartialAggregationUniqueRowsRatioThreshold(),
+                        false),
+                longProperty(
+                        JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT,
+                        "Minimum number of join build side rows required to use partitioned join lookup",
+                        optimizerConfig.getJoinPartitionedBuildMinRowCount(),
+                        value -> validateNonNegativeLongValue(value, JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT),
                         false));
     }
 
@@ -1172,6 +1211,13 @@ public final class SystemSessionProperties
         return intValue;
     }
 
+    private static void validateNonNegativeLongValue(Long value, String property)
+    {
+        if (value < 0) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than 0", property));
+        }
+    }
+
     private static double validateDoubleRange(Object value, String property, double lowerBoundIncluded, double upperBoundIncluded)
     {
         double doubleValue = (double) value;
@@ -1250,6 +1296,10 @@ public final class SystemSessionProperties
 
     public static boolean isEnableDynamicFiltering(Session session)
     {
+        if (getRetryPolicy(session) == RetryPolicy.TASK) {
+            // dynamic filtering is not supported with task level failure recovery enabled
+            return false;
+        }
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
     }
 
@@ -1341,11 +1391,6 @@ public final class SystemSessionProperties
     public static RetryPolicy getRetryPolicy(Session session)
     {
         RetryPolicy retryPolicy = session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
-        if (retryPolicy != RetryPolicy.NONE) {
-            if (retryPolicy != RetryPolicy.QUERY && isEnableDynamicFiltering(session)) {
-                throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic task retries enabled");
-            }
-        }
         if (retryPolicy == RetryPolicy.TASK) {
             if (isGroupedExecutionEnabled(session) || isDynamicScheduleForGroupedExecution(session)) {
                 throw new TrinoException(NOT_SUPPORTED, "Grouped execution is not supported with task level retries enabled");
@@ -1369,6 +1414,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(TASK_RETRY_ATTEMPTS_PER_TASK, Integer.class);
     }
 
+    public static int getMaxTasksWaitingForNodePerStage(Session session)
+    {
+        return session.getSystemProperty(MAX_TASKS_WAITING_FOR_NODE_PER_STAGE, Integer.class);
+    }
+
     public static Duration getRetryInitialDelay(Session session)
     {
         return session.getSystemProperty(RETRY_INITIAL_DELAY, Duration.class);
@@ -1377,6 +1427,11 @@ public final class SystemSessionProperties
     public static Duration getRetryMaxDelay(Session session)
     {
         return session.getSystemProperty(RETRY_MAX_DELAY, Duration.class);
+    }
+
+    public static double getRetryDelayScaleFactor(Session session)
+    {
+        return session.getSystemProperty(RETRY_DELAY_SCALE_FACTOR, Double.class);
     }
 
     public static boolean isHideInaccessibleColumns(Session session)
@@ -1414,6 +1469,16 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR, Double.class);
     }
 
+    public static double getFaultTolerantExecutionTaskMemoryEstimationQuantile(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE, Double.class);
+    }
+
+    public static int getFaultTolerantExecutionPartitionCount(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_PARTITION_COUNT, Integer.class);
+    }
+
     public static boolean isAdaptivePartialAggregationEnabled(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_ENABLED, Boolean.class);
@@ -1427,5 +1492,10 @@ public final class SystemSessionProperties
     public static double getAdaptivePartialAggregationUniqueRowsRatioThreshold(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD, Double.class);
+    }
+
+    public static long getJoinPartitionedBuildMinRowCount(Session session)
+    {
+        return session.getSystemProperty(JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT, Long.class);
     }
 }

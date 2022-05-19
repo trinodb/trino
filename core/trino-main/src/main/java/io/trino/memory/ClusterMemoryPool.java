@@ -69,7 +69,10 @@ public class ClusterMemoryPool
                 reservedRevocableDistributedBytes,
                 ImmutableMap.copyOf(queryMemoryReservations),
                 ImmutableMap.copyOf(queryMemoryAllocations),
-                ImmutableMap.copyOf(queryMemoryRevocableReservations));
+                ImmutableMap.copyOf(queryMemoryRevocableReservations),
+                // not providing per-task memory info for cluster-wide pool
+                ImmutableMap.of(),
+                ImmutableMap.of());
     }
 
     @Managed

@@ -275,6 +275,8 @@ Filter and mask environment
 
     These rules do not apply to ``information_schema``.
 
+    ``mask`` can contain conditional expressions such as ``IF`` or ``CASE``, which achieves conditional masking.
+
 The example below defines the following table access policy:
 
 * Role ``admin`` has all privileges across all tables and schemas
@@ -626,6 +628,10 @@ Filter environment and mask environment
 These rules apply to ``filter_environment`` and ``mask_environment``.
 
 * ``user`` (optional): username for checking permission of subqueries in a mask.
+
+.. note::
+
+    ``mask`` can contain conditional expressions such as ``IF`` or ``CASE``, which achieves conditional masking.
 
 Session property rules
 ^^^^^^^^^^^^^^^^^^^^^^

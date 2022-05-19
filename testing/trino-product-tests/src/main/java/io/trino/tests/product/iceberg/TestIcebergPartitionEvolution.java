@@ -32,7 +32,7 @@ public class TestIcebergPartitionEvolution
     {
         onTrino().executeQuery("USE iceberg.default");
         onTrino().executeQuery("DROP TABLE IF EXISTS test_dropped_partition_field");
-        onTrino().executeQuery("CREATE TABLE test_dropped_partition_field(a varchar, b varchar, c varchar) WITH (partitioning = ARRAY['a','b'])");
+        onTrino().executeQuery("CREATE TABLE test_dropped_partition_field(a varchar, b varchar, c varchar) WITH (format_version = 1, partitioning = ARRAY['a','b'])");
         onTrino().executeQuery("INSERT INTO test_dropped_partition_field VALUES " +
                 "('one', 'small', 'snake')," +
                 "('one', 'small', 'rabbit')," +
@@ -52,6 +52,7 @@ public class TestIcebergPartitionEvolution
                                 ")\n" +
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
+                                "   format_version = 1,\n" +
                                 "   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/test_dropped_partition_field',\n" +
                                 "   partitioning = ARRAY[" + (dropFirst ? "'void(a)','b'" : "'a','void(b)'") + "]\n" +
                                 ")"));

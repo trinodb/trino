@@ -15,7 +15,6 @@ package io.trino.operator.scalar;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import io.airlift.bytecode.BytecodeBlock;
@@ -28,7 +27,9 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TypeVariableConstraint;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
@@ -56,7 +57,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static io.trino.metadata.Signature.withVariadicBound;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -78,7 +78,7 @@ import static java.lang.invoke.MethodType.methodType;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class RowToRowCast
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     private static final MethodHandle OBJECT_IS_NULL;
     private static final MethodHandle BLOCK_IS_NULL;
@@ -108,15 +108,20 @@ public class RowToRowCast
 
     private RowToRowCast()
     {
-        super(CAST,
-                ImmutableList.of(
-                        // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for row to row cast
-                        new TypeVariableConstraint("F", false, false, "row", ImmutableSet.of(new TypeSignature("T")), ImmutableSet.of()),
-                        withVariadicBound("T", "row")),
-                ImmutableList.of(),
-                new TypeSignature("T"),
-                ImmutableList.of(new TypeSignature("F")),
-                false);
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .operatorType(CAST)
+                        .typeVariableConstraint(
+                                // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for row to row cast
+                                TypeVariableConstraint.builder("F")
+                                        .variadicBound("row")
+                                        .castableTo(new TypeSignature("T"))
+                                        .build())
+                        .variadicTypeParameter("T", "row")
+                        .returnType(new TypeSignature("T"))
+                        .argumentType(new TypeSignature("F"))
+                        .build())
+                .build());
     }
 
     @Override

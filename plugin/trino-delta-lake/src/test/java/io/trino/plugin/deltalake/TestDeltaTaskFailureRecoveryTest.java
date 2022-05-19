@@ -16,8 +16,8 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
-import io.trino.plugin.exchange.FileSystemExchangePlugin;
-import io.trino.plugin.exchange.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
+import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -27,7 +27,7 @@ import java.util.Map;
 
 import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.exchange.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,11 +57,7 @@ public class TestDeltaTaskFailureRecoveryTest
         DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
-                ImmutableMap.<String, String>builder()
-                        .putAll(configProperties)
-                        // currently not supported for fault tolerant execution mode
-                        .put("enable-dynamic-filtering", "false")
-                        .buildOrThrow(),
+                configProperties,
                 coordinatorProperties,
                 ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
                 dockerizedMinioDataLake.getMinioAddress(),
@@ -80,6 +76,6 @@ public class TestDeltaTaskFailureRecoveryTest
     public void testJoinDynamicFilteringEnabled()
     {
         assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
-                .hasMessageContaining("Dynamic filtering is not supported with automatic task retries enabled");
+                .hasMessageContaining("Dynamic filter is missing");
     }
 }

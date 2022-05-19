@@ -27,6 +27,7 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchConnectorFactory
@@ -45,6 +46,7 @@ public class ElasticsearchConnectorFactory
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
+        checkSpiVersion(context, this);
 
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),

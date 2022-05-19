@@ -17,6 +17,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -50,6 +51,7 @@ import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.CASE_INSENSITIVE_CHARACTER_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
@@ -407,7 +409,13 @@ public final class StandardColumnMappings
             public long readLong(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
-                return resultSet.getObject(columnIndex, LocalDate.class).toEpochDay();
+                LocalDate value = resultSet.getObject(columnIndex, LocalDate.class);
+                // Some drivers (e.g. MemSQL's) return null LocalDate even though the value isn't null
+                if (value == null) {
+                    throw new TrinoException(JDBC_ERROR, "Driver returned null LocalDate for a non-null value");
+                }
+
+                return value.toEpochDay();
             }
         };
     }

@@ -18,7 +18,6 @@ import io.airlift.stats.QuantileDigest;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
@@ -36,8 +35,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
@@ -56,7 +53,6 @@ import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.insertArguments;
-import static java.util.Collections.nCopies;
 
 public final class QuantileDigestAggregationFunction
         extends SqlAggregationFunction
@@ -75,22 +71,19 @@ public final class QuantileDigestAggregationFunction
     private QuantileDigestAggregationFunction(TypeSignature... typeSignatures)
     {
         super(
-                new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(comparableTypeParameter("V")),
-                                ImmutableList.of(),
-                                parametricType("qdigest", new TypeSignature("V")),
-                                ImmutableList.copyOf(typeSignatures),
-                                false),
-                        new FunctionNullability(true, nCopies(typeSignatures.length, false)),
-                        false,
-                        true,
-                        "Returns a qdigest from the set of reals, bigints or doubles",
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        true,
-                        parametricType(QDIGEST, new TypeSignature("V"))));
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
+                                .name(NAME)
+                                .comparableTypeParameter("V")
+                                .returnType(parametricType(QDIGEST, new TypeSignature("V")))
+                                .argumentTypes(ImmutableList.copyOf(typeSignatures))
+                                .build())
+                        .description("Returns a qdigest from the set of reals, bigints or doubles")
+                        .build(),
+                AggregationFunctionMetadata.builder()
+                        .orderSensitive()
+                        .intermediateType(parametricType(QDIGEST, new TypeSignature("V")))
+                        .build());
     }
 
     @Override

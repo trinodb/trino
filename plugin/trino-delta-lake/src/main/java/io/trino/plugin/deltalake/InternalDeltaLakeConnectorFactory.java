@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -38,6 +37,7 @@ import io.trino.plugin.hive.HiveHdfsModule;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
+import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.s3.HiveS3Module;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
@@ -66,7 +66,6 @@ public final class InternalDeltaLakeConnectorFactory
 {
     private InternalDeltaLakeConnectorFactory() {}
 
-    @VisibleForTesting
     public static Connector createConnector(
             String catalogName,
             Map<String, String> config,
@@ -83,6 +82,7 @@ public final class InternalDeltaLakeConnectorFactory
                     new HiveHdfsModule(),
                     new HiveS3Module(),
                     new HiveAzureModule(),
+                    new HiveGcsModule(),
                     new HdfsAuthenticationModule(),
                     new CatalogNameModule(catalogName),
                     new DeltaLakeMetastoreModule(),

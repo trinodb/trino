@@ -193,7 +193,6 @@ public final class ExpressionConverter
             return (double) trinoNativeValue;
         }
 
-        // TODO: Remove this conversion once we move to next iceberg version
         if (type instanceof DateType) {
             return toIntExact(((Long) trinoNativeValue));
         }

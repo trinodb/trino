@@ -276,6 +276,14 @@ public abstract class AbstractKuduConnectorTest
     }
 
     @Override
+    public void testDropTable()
+    {
+        assertThatThrownBy(super::testDropTable)
+                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+        throw new SkipException("TODO Enable the test once Kudu connector can create tables with default partitions");
+    }
+
+    @Override
     protected String tableDefinitionForAddColumn()
     {
         return "(x VARCHAR WITH (primary_key=true)) WITH (partition_by_hash_columns = ARRAY['x'], partition_by_hash_buckets = 2)";
@@ -331,9 +339,8 @@ public abstract class AbstractKuduConnectorTest
         throw new SkipException("TODO");
     }
 
-    @Test
     @Override
-    public void testDelete()
+    public void testInsertRowConcurrently()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
         throw new SkipException("TODO");
@@ -341,11 +348,10 @@ public abstract class AbstractKuduConnectorTest
 
     @Test
     @Override
-    public void testDeleteWithLike()
+    public void testDelete()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
-        assertThatThrownBy(super::testDeleteWithLike)
-                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+        throw new SkipException("TODO");
     }
 
     @Test

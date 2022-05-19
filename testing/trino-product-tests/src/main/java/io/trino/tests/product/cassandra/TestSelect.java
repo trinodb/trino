@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.cassandra;
 
-import com.datastax.driver.core.utils.Bytes;
 import io.airlift.units.Duration;
 import io.trino.jdbc.Row;
 import io.trino.tempto.ProductTest;
@@ -32,6 +31,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.function.Consumer;
 
+import static com.datastax.oss.driver.api.core.data.ByteUtils.fromHexString;
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -191,7 +191,7 @@ public class TestSelect
                 .containsOnly(
                         row("\0",
                                 Long.MIN_VALUE,
-                                Bytes.fromHexString("0x00").array(),
+                                fromHexString("0x00").array(),
                                 false,
                                 0f,
                                 Double.MIN_VALUE,
@@ -305,7 +305,7 @@ public class TestSelect
                 .containsOnly(
                         row("\0",
                                 Long.MIN_VALUE,
-                                Bytes.fromHexString("0x00").array(),
+                                fromHexString("0x00").array(),
                                 false,
                                 0f,
                                 Double.MIN_VALUE,

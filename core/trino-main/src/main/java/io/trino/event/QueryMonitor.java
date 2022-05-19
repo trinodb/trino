@@ -254,8 +254,9 @@ public class QueryMonitor
 
     private QueryStatistics createQueryStatistics(QueryInfo queryInfo)
     {
-        ImmutableList.Builder<String> operatorSummaries = ImmutableList.builder();
-        for (OperatorStats summary : queryInfo.getQueryStats().getOperatorSummaries()) {
+        List<OperatorStats> operatorStats = queryInfo.getQueryStats().getOperatorSummaries();
+        ImmutableList.Builder<String> operatorSummaries = ImmutableList.builderWithExpectedSize(operatorStats.size());
+        for (OperatorStats summary : operatorStats) {
             operatorSummaries.add(operatorStatsCodec.toJson(summary));
         }
 
@@ -297,7 +298,7 @@ public class QueryMonitor
                 queryStats.getFailedCumulativeUserMemory(),
                 queryStats.getStageGcStatistics(),
                 queryStats.getCompletedDrivers(),
-                queryInfo.isCompleteInfo(),
+                queryInfo.isFinalQueryInfo(),
                 getCpuDistributions(queryInfo),
                 operatorSummaries.build(),
                 serializedPlanNodeStatsAndCosts);
@@ -350,7 +351,7 @@ public class QueryMonitor
     {
         Multimap<FragmentNode, OperatorStats> planNodeStats = extractPlanNodeStats(queryInfo);
 
-        ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builder();
+        ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builderWithExpectedSize(queryInfo.getInputs().size());
         for (Input input : queryInfo.getInputs()) {
             // Note: input table can be mapped to multiple operators
             Collection<OperatorStats> inputTableOperatorStats = planNodeStats.get(new FragmentNode(input.getFragmentId(), input.getPlanNodeId()));

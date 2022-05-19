@@ -39,6 +39,7 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.tree.Trim;
 import io.trino.sql.util.AstUtils;
 
 import java.util.Arrays;
@@ -308,6 +309,27 @@ class TranslationMap
                         new SubscriptExpression(
                                 treeRewriter.rewrite(node.getBase(), context),
                                 new LongLiteral(Long.toString(index + 1))));
+            }
+
+            @Override
+            public Expression rewriteTrim(Trim node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<Expression> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
+                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
+
+                Trim rewritten = treeRewriter.defaultRewrite(node, context);
+
+                ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+                arguments.add(rewritten.getTrimSource());
+                rewritten.getTrimCharacter().ifPresent(arguments::add);
+
+                FunctionCall functionCall = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
+                return coerceIfNecessary(node, functionCall);
             }
 
             @Override

@@ -13,13 +13,31 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.base.Ticker;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.Session;
+import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogName;
+import io.trino.execution.scheduler.PartitionMemoryEstimator.MemoryRequirements;
+import io.trino.memory.MemoryInfo;
+import io.trino.metadata.InMemoryNodeManager;
+import io.trino.metadata.InternalNode;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.memory.MemoryPoolInfo;
 import io.trino.testing.TestingSession;
 import org.testng.annotations.Test;
 
+import java.net.URI;
+import java.time.Duration;
+import java.util.Optional;
+
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
+import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
+import static java.time.temporal.ChronoUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExponentialGrowthPartitionMemoryEstimator
@@ -28,52 +46,135 @@ public class TestExponentialGrowthPartitionMemoryEstimator
     public void testEstimator()
             throws Exception
     {
-        ExponentialGrowthPartitionMemoryEstimator estimator = new ExponentialGrowthPartitionMemoryEstimator();
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeManager.addNode(new CatalogName("catalog"), new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false));
+        BinPackingNodeAllocatorService nodeAllocatorService = new BinPackingNodeAllocatorService(
+                nodeManager,
+                () -> ImmutableMap.of(new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(), Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),
+                false,
+                Duration.of(1, MINUTES),
+                DataSize.ofBytes(0),
+                Ticker.systemTicker());
+        nodeAllocatorService.refreshNodePoolMemoryInfos();
+        PartitionMemoryEstimator estimator = nodeAllocatorService.createPartitionMemoryEstimator();
+
         Session session = TestingSession.testSessionBuilder().build();
 
         assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(107, MEGABYTE)))
-                .isEqualTo(new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(107, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(107, MEGABYTE), false));
 
         // peak memory of failed task 10MB
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         session,
-                        new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(50, MEGABYTE), false),
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE), false),
                         DataSize.of(10, MEGABYTE),
                         StandardErrorCode.CORRUPT_PAGE.toErrorCode()))
-                .isEqualTo(new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(50, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(50, MEGABYTE), false));
 
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         session,
-                        new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(50, MEGABYTE), false),
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE), false),
                         DataSize.of(10, MEGABYTE),
                         StandardErrorCode.CLUSTER_OUT_OF_MEMORY.toErrorCode()))
-                .isEqualTo(new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(100, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(150, MEGABYTE), false));
 
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         session,
-                        new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(50, MEGABYTE), false),
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE), false),
                         DataSize.of(10, MEGABYTE),
-                        StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()))
-                .isEqualTo(new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(100, MEGABYTE), false));
+                        EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()))
+                .isEqualTo(new MemoryRequirements(DataSize.of(150, MEGABYTE), false));
 
         // peak memory of failed task 70MB
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         session,
-                        new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(50, MEGABYTE), false),
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE), false),
                         DataSize.of(70, MEGABYTE),
                         StandardErrorCode.CORRUPT_PAGE.toErrorCode()))
-                .isEqualTo(new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(70, MEGABYTE), false));
+                .isEqualTo(new MemoryRequirements(DataSize.of(70, MEGABYTE), false));
 
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         session,
-                        new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(50, MEGABYTE), false),
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE), false),
                         DataSize.of(70, MEGABYTE),
-                        StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()))
-                .isEqualTo(new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(140, MEGABYTE), false));
+                        EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()))
+                .isEqualTo(new MemoryRequirements(DataSize.of(210, MEGABYTE), false));
+
+        // register a couple successful attempts; 90th percentile is at 300MB
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(1000, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(300, MEGABYTE), true, Optional.empty());
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(100, MEGABYTE), true, Optional.empty());
+
+        // for initial we should pick estimate if greater than default
+        assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(100, MEGABYTE)))
+                .isEqualTo(new MemoryRequirements(DataSize.of(300, MEGABYTE), false));
+
+        // if default memory requirements is greater than estimate it should be picked still
+        assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(500, MEGABYTE)))
+                .isEqualTo(new MemoryRequirements(DataSize.of(500, MEGABYTE), false));
+
+        // for next we should still pick current initial if greater
+        assertThat(
+                estimator.getNextRetryMemoryRequirements(
+                        session,
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE), false),
+                        DataSize.of(70, MEGABYTE),
+                        EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()))
+                .isEqualTo(new MemoryRequirements(DataSize.of(300, MEGABYTE), false));
+
+        // a couple oom errors are registered
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(200, MEGABYTE), false, Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(200, MEGABYTE), true, Optional.of(CLUSTER_OUT_OF_MEMORY.toErrorCode()));
+
+        // 90th percentile should be now at 200*3 (600)
+        assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(100, MEGABYTE)))
+                .isEqualTo(new MemoryRequirements(DataSize.of(600, MEGABYTE), false));
+
+        // a couple oom errors are registered with requested memory greater than peak
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(300, MEGABYTE), false), DataSize.of(200, MEGABYTE), false, Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(300, MEGABYTE), false), DataSize.of(200, MEGABYTE), false, Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(300, MEGABYTE), false), DataSize.of(200, MEGABYTE), true, Optional.of(CLUSTER_OUT_OF_MEMORY.toErrorCode()));
+
+        // 90th percentile should be now at 300*3 (900)
+        assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(100, MEGABYTE)))
+                .isEqualTo(new MemoryRequirements(DataSize.of(900, MEGABYTE), false));
+
+        // other errors should not change estimate
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
+        estimator.registerPartitionFinished(session, new MemoryRequirements(DataSize.of(100, MEGABYTE), false), DataSize.of(500, MEGABYTE), false, Optional.of(ADMINISTRATIVELY_PREEMPTED.toErrorCode()));
+
+        assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(100, MEGABYTE)))
+                .isEqualTo(new MemoryRequirements(DataSize.of(900, MEGABYTE), false));
+    }
+
+    private MemoryInfo buildWorkerMemoryInfo(DataSize usedMemory)
+    {
+        return new MemoryInfo(
+                4,
+                new MemoryPoolInfo(
+                        DataSize.of(64, GIGABYTE).toBytes(),
+                        usedMemory.toBytes(),
+                        0,
+                        ImmutableMap.of(),
+                        ImmutableMap.of(),
+                        ImmutableMap.of(),
+                        ImmutableMap.of(),
+                        ImmutableMap.of()));
     }
 }

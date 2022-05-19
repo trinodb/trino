@@ -16,11 +16,13 @@ package io.trino.verifier;
 import io.airlift.event.client.AbstractEventClient;
 import io.airlift.json.JsonCodec;
 
+import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalDouble;
 
 import static java.util.Objects.requireNonNull;
 
@@ -58,12 +60,24 @@ public class DatabaseEventClient
                 queryEvent.getTestSetupQueryIds().isEmpty() ? Optional.empty() : Optional.of(codec.toJson(queryEvent.getTestSetupQueryIds())),
                 Optional.ofNullable(queryEvent.getTestQueryId()),
                 queryEvent.getTestTeardownQueryIds().isEmpty() ? Optional.empty() : Optional.of(codec.toJson(queryEvent.getTestTeardownQueryIds())),
+                toOptionalDouble(queryEvent.getTestCpuTimeSecs()),
+                toOptionalDouble(queryEvent.getTestWallTimeSecs()),
                 Optional.ofNullable(queryEvent.getControlCatalog()),
                 Optional.ofNullable(queryEvent.getControlSchema()),
                 queryEvent.getControlSetupQueryIds().isEmpty() ? Optional.empty() : Optional.of(codec.toJson(queryEvent.getControlSetupQueryIds())),
                 Optional.ofNullable(queryEvent.getControlQueryId()),
                 queryEvent.getControlTeardownQueryIds().isEmpty() ? Optional.empty() : Optional.of(codec.toJson(queryEvent.getControlTeardownQueryIds())),
+                toOptionalDouble(queryEvent.getControlCpuTimeSecs()),
+                toOptionalDouble(queryEvent.getControlWallTimeSecs()),
                 Optional.ofNullable(queryEvent.getErrorMessage()));
         dao.store(entity);
+    }
+
+    private static OptionalDouble toOptionalDouble(@Nullable Double value)
+    {
+        if (value == null) {
+            return OptionalDouble.empty();
+        }
+        return OptionalDouble.of(value);
     }
 }

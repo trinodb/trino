@@ -71,10 +71,15 @@ import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE;
+import static org.apache.iceberg.io.DeleteSchemaUtil.pathPosSchema;
 import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
 
 public class IcebergFileWriterFactory
 {
+    private static final Schema POSITION_DELETE_SCHEMA = pathPosSchema();
+    private static final MetricsConfig FULL_METRICS_CONFIG = MetricsConfig.fromProperties(ImmutableMap.of(DEFAULT_WRITE_METRICS_MODE, "full"));
+
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
@@ -104,7 +109,7 @@ public class IcebergFileWriterFactory
         return orcWriterStats;
     }
 
-    public IcebergFileWriter createFileWriter(
+    public IcebergFileWriter createDataFileWriter(
             Path outputPath,
             Schema icebergSchema,
             JobConf jobConf,
@@ -120,7 +125,24 @@ public class IcebergFileWriterFactory
             case ORC:
                 return createOrcWriter(metricsConfig, outputPath, icebergSchema, jobConf, session);
             default:
-                throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
+                throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
+        }
+    }
+
+    public IcebergFileWriter createPositionDeleteWriter(
+            Path outputPath,
+            JobConf jobConf,
+            ConnectorSession session,
+            HdfsContext hdfsContext,
+            IcebergFileFormat fileFormat)
+    {
+        switch (fileFormat) {
+            case PARQUET:
+                return createParquetWriter(outputPath, POSITION_DELETE_SCHEMA, jobConf, session, hdfsContext);
+            case ORC:
+                return createOrcWriter(FULL_METRICS_CONFIG, outputPath, POSITION_DELETE_SCHEMA, jobConf, session);
+            default:
+                throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
         }
     }
 

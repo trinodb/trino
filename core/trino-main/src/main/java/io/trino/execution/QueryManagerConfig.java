@@ -29,6 +29,7 @@ import javax.validation.constraints.NotNull;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -55,7 +56,7 @@ public class QueryManagerConfig
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
-    private int maxStageCount = 100;
+    private int maxStageCount = 150;
     private int stageCountWarningThreshold = 50;
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
@@ -77,10 +78,13 @@ public class QueryManagerConfig
 
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
     private int queryRetryAttempts = 4;
-    private int taskRetryAttemptsPerTask = 2;
+    private int taskRetryAttemptsPerTask = 4;
     private int taskRetryAttemptsOverall = Integer.MAX_VALUE;
     private Duration retryInitialDelay = new Duration(10, SECONDS);
     private Duration retryMaxDelay = new Duration(1, MINUTES);
+    private double retryDelayScaleFactor = 2.0;
+
+    private int maxTasksWaitingForNodePerStage = 5;
 
     private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(1, GIGABYTE);
 
@@ -88,6 +92,7 @@ public class QueryManagerConfig
     private int faultTolerantExecutionTargetTaskSplitCount = 16;
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
+    private int faultTolerantExecutionPartitionCount = 50;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -484,6 +489,35 @@ public class QueryManagerConfig
     }
 
     @NotNull
+    public double getRetryDelayScaleFactor()
+    {
+        return retryDelayScaleFactor;
+    }
+
+    @Config("retry-delay-scale-factor")
+    @ConfigDescription("Factor by which retry delay is scaled on subsequent failures")
+    public QueryManagerConfig setRetryDelayScaleFactor(double retryDelayScaleFactor)
+    {
+        checkArgument(retryDelayScaleFactor >= 1.0, "retry-delay-scale-factor must be greater or equal to 1");
+        this.retryDelayScaleFactor = retryDelayScaleFactor;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxTasksWaitingForNodePerStage()
+    {
+        return maxTasksWaitingForNodePerStage;
+    }
+
+    @Config("max-tasks-waiting-for-node-per-stage")
+    @ConfigDescription("Maximum possible number of tasks waiting for node allocation per stage before scheduling of new tasks for stage is paused")
+    public QueryManagerConfig setMaxTasksWaitingForNodePerStage(int maxTasksWaitingForNodePerStage)
+    {
+        this.maxTasksWaitingForNodePerStage = maxTasksWaitingForNodePerStage;
+        return this;
+    }
+
+    @NotNull
     public DataSize getFaultTolerantExecutionTargetTaskInputSize()
     {
         return faultTolerantExecutionTargetTaskInputSize;
@@ -550,6 +584,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory)
     {
         this.faultTolerantExecutionTaskDescriptorStorageMaxMemory = faultTolerantExecutionTaskDescriptorStorageMaxMemory;
+        return this;
+    }
+
+    @Min(1)
+    public int getFaultTolerantExecutionPartitionCount()
+    {
+        return faultTolerantExecutionPartitionCount;
+    }
+
+    @Config("fault-tolerant-execution-partition-count")
+    @ConfigDescription("Number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled")
+    public QueryManagerConfig setFaultTolerantExecutionPartitionCount(int faultTolerantExecutionPartitionCount)
+    {
+        this.faultTolerantExecutionPartitionCount = faultTolerantExecutionPartitionCount;
         return this;
     }
 }

@@ -31,7 +31,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
-import io.trino.plugin.exchange.FileSystemExchangePlugin;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -291,6 +291,20 @@ public abstract class BaseHiveConnectorTest
         assertThatThrownBy(super::testUpdateRowConcurrently)
                 .hasMessage("Unexpected concurrent update failure")
                 .getCause()
+                .hasMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Override
+    public void testUpdateWithPredicates()
+    {
+        assertThatThrownBy(super::testUpdateWithPredicates)
+                .hasMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Override
+    public void testUpdateAllValues()
+    {
+        assertThatThrownBy(super::testUpdateAllValues)
                 .hasMessage("Hive update is only supported for ACID transactional tables");
     }
 
@@ -1796,6 +1810,7 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("scale_writers", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters);
@@ -1838,6 +1853,7 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node per partition
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("scale_writers", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters * 3);
@@ -4621,6 +4637,46 @@ public abstract class BaseHiveConnectorTest
         finally {
             assertUpdate("DROP TABLE test_table_with_char");
         }
+    }
+
+    @Test
+    public void testMismatchedBucketWithBucketPredicate()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate8");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate32");
+
+        assertUpdate(
+                "CREATE TABLE test_mismatch_bucketing_with_bucket_predicate8 " +
+                        "WITH (bucket_count = 8, bucketed_by = ARRAY['key8']) AS " +
+                        "SELECT nationkey key8, comment value8 FROM nation",
+                25);
+        assertUpdate(
+                "CREATE TABLE test_mismatch_bucketing_with_bucket_predicate32 " +
+                        "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS " +
+                        "SELECT nationkey key32, comment value32 FROM nation",
+                25);
+
+        Session withMismatchOptimization = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "true")
+                .build();
+        Session withoutMismatchOptimization = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "false")
+                .build();
+
+        @Language("SQL") String query = "SELECT count(*) AS count " +
+                "FROM (" +
+                "  SELECT key32" +
+                "  FROM test_mismatch_bucketing_with_bucket_predicate32" +
+                "  WHERE \"$bucket\" between 16 AND 31" +
+                ") a " +
+                "JOIN test_mismatch_bucketing_with_bucket_predicate8 b " +
+                "ON a.key32 = b.key8";
+
+        assertQuery(withMismatchOptimization, query, "SELECT 9");
+        assertQuery(withoutMismatchOptimization, query, "SELECT 9");
+
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate8");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate32");
     }
 
     @DataProvider
@@ -8270,6 +8326,30 @@ public abstract class BaseHiveConnectorTest
         assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', 57, 'CA'), (333, %s, 35, 'WA')", caryValue));
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "hiddenColumnNames")
+    public void testHiddenColumnNameConflict(String columnName)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_hidden_column_name_conflict",
+                format("(\"%s\" int, _bucket int, _partition int) WITH (partitioned_by = ARRAY['_partition'], bucketed_by = ARRAY['_bucket'], bucket_count = 10)", columnName))) {
+            assertThatThrownBy(() -> query("SELECT * FROM " + table.getName()))
+                    .hasMessageContaining("Multiple entries with same key: " + columnName);
+        }
+    }
+
+    @DataProvider
+    public Object[][] hiddenColumnNames()
+    {
+        return new Object[][] {
+                {"$path"},
+                {"$bucket"},
+                {"$file_size"},
+                {"$file_modified_time"},
+                {"$partition"},
+        };
     }
 
     @Test(dataProvider = "legalUseColumnNamesProvider")

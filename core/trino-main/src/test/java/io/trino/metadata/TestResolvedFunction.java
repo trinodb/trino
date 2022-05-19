@@ -54,7 +54,8 @@ public class TestResolvedFunction
                 FunctionId.toFunctionId(Signature.builder()
                         .name(name)
                         .returnType(new TypeSignature("x"))
-                        .argumentTypes(new TypeSignature("y"), new TypeSignature("z"))
+                        .argumentType(new TypeSignature("y"))
+                        .argumentType(new TypeSignature("z"))
                         .build()),
                 SCALAR,
                 true,

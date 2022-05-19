@@ -44,7 +44,7 @@ import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTables
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tempto.query.QueryExecutor.param;
-import static io.trino.tests.product.TestGroups.BIG_QUERY;
+import static io.trino.tests.product.TestGroups.LARGE_QUERY;
 import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_DEFAULT;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V1;
@@ -115,7 +115,7 @@ public class TestHiveBucketedTables
         assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).matches(PRESTO_NATION_RESULT);
     }
 
-    @Test(groups = BIG_QUERY)
+    @Test(groups = LARGE_QUERY)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testIgnorePartitionBucketingIfNotBucketed()
     {
@@ -133,7 +133,7 @@ public class TestHiveBucketedTables
                 .containsExactlyInOrder(row(2));
     }
 
-    @Test(groups = BIG_QUERY)
+    @Test(groups = LARGE_QUERY)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testAllowMultipleFilesPerBucket()
     {

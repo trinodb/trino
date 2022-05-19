@@ -592,6 +592,11 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
+    {
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
@@ -602,9 +607,10 @@ public class FileBasedAccessControl
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableName))
                 .map(rule -> rule.getFilter(identity.getUser(), catalogName, tableName.getSchemaName()))
-                .flatMap(Optional::stream)
                 // we return the first one we find
-                .limit(1)
+                .findFirst()
+                .stream()
+                .flatMap(Optional::stream)
                 .collect(toImmutableList());
     }
 
@@ -619,9 +625,10 @@ public class FileBasedAccessControl
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableName))
                 .map(rule -> rule.getColumnMask(identity.getUser(), catalogName, tableName.getSchemaName(), columnName))
-                .flatMap(Optional::stream)
                 // we return the first one we find
-                .limit(1)
+                .findFirst()
+                .stream()
+                .flatMap(Optional::stream)
                 .collect(toImmutableList());
     }
 

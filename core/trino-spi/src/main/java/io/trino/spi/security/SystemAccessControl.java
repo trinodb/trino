@@ -809,6 +809,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to execute the specified function
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
+    {
+        denyExecuteFunction(functionName.toString());
+    }
+
+    /**
      * Check if identity is allowed to execute the specified table procedure on specified table
      *
      * @throws AccessDeniedException if not allowed

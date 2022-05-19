@@ -15,14 +15,18 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.execution.QueryInfo;
 import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
 import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -122,6 +126,20 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Override
+    protected void verifyConcurrentInsertFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessage("Failed to write Delta Lake transaction log entry")
+                .getCause()
+                .hasMessageMatching(
+                        "Transaction log locked.*" +
+                                "|.*/_delta_log/\\d+.json already exists" +
+                                "|Conflicting concurrent writes found..*" +
+                                "|Multiple live locks found for:.*" +
+                                "|Target file .* was created during locking");
+    }
+
+    @Override
     protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
@@ -205,6 +223,18 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                         ")");
     }
 
+    // not pushdownable means not convertible to a tuple domain
+    @Test
+    public void testQueryNullPartitionWithNotPushdownablePredicate()
+    {
+        String tableName = "test_null_partitions_" + randomTableSuffix();
+        assertUpdate("" +
+                        "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + format("s3://%s/%s", bucketName, tableName) + "', partitioned_by = ARRAY['c']) " +
+                        "AS VALUES (1, 1, 1), (2, 2, 2), (3, 3, 3), (null, null, null), (4, 4, 4)",
+                "VALUES 5");
+        assertQuery("SELECT a FROM " + tableName + " WHERE c % 5 = 1", "VALUES (1)");
+    }
+
     @Override
     public void testShowCreateSchema()
     {
@@ -237,6 +267,50 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         // Delta Lake doesn't have a char type
         assertThatThrownBy(super::testCharVarcharComparison)
                 .hasStackTraceContaining("Unsupported type: char(3)");
+    }
+
+    @Test(dataProvider = "timestampValues")
+    public void testTimestampPredicatePushdown(String value)
+    {
+        String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomTableSuffix();
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        assertUpdate("CREATE TABLE " + tableName + " (t TIMESTAMP WITH TIME ZONE)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (TIMESTAMP '" + value + "')", 1);
+
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM " + tableName + " WHERE t < TIMESTAMP '" + value + "'");
+        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+
+        queryResult = queryRunner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM " + tableName + " WHERE t > TIMESTAMP '" + value + "'");
+        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+
+        assertQueryStats(
+                getSession(),
+                "SELECT * FROM " + tableName + " WHERE t = TIMESTAMP '" + value + "'",
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
+                results -> {});
+    }
+
+    @DataProvider
+    public Object[][] timestampValues()
+    {
+        return new Object[][] {
+                {"1965-10-31 01:00:08.123 UTC"},
+                {"1965-10-31 01:00:08.999 UTC"},
+                {"1970-01-01 01:13:42.000 America/Bahia_Banderas"}, // There is a gap in JVM zone
+                {"1970-01-01 00:00:00.000 Asia/Kathmandu"},
+                {"2018-10-28 01:33:17.456 Europe/Vilnius"},
+                {"9999-12-31 23:59:59.999 UTC"}};
+    }
+
+    private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
+    {
+        return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
     }
 
     @Override

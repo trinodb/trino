@@ -42,6 +42,7 @@ import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
+import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
@@ -139,9 +140,9 @@ public interface Metadata
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
     /**
-     * Return statistics for specified table for given filtering contraint.
+     * Return statistics for specified table.
      */
-    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint constraint);
+    TableStatistics getTableStatistics(Session session, TableHandle tableHandle);
 
     /**
      * Get the relation names that match the specified table prefix (never null).
@@ -473,6 +474,8 @@ public interface Metadata
             List<SortItem> sortItems,
             Map<String, ColumnHandle> assignments);
 
+    Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle);
+
     default void validateScan(Session session, TableHandle table) {}
 
     //
@@ -602,7 +605,7 @@ public interface Metadata
     // Functions
     //
 
-    Collection<FunctionMetadata> listFunctions();
+    Collection<FunctionMetadata> listFunctions(Session session);
 
     ResolvedFunction decodeFunction(QualifiedName name);
 
@@ -624,11 +627,11 @@ public interface Metadata
      * Is the named function an aggregation function?  This does not need type parameters
      * because overloads between aggregation and other function types are not allowed.
      */
-    boolean isAggregationFunction(QualifiedName name);
+    boolean isAggregationFunction(Session session, QualifiedName name);
 
-    FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction);
+    FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 
-    AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction);
+    AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 
     /**
      * Creates the specified materialized view with the specified view definition.
@@ -700,6 +703,16 @@ public interface Metadata
      * Verifies that a version is valid for a given table
      */
     boolean isValidTableVersion(Session session, QualifiedObjectName tableName, TableVersion version);
+
+    /**
+     * Returns true if the connector reports number of written bytes for an existing table. Otherwise, it returns false.
+     */
+    boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle);
+
+    /**
+     * Returns true if the connector reports number of written bytes for a new table. Otherwise, it returns false.
+     */
+    boolean supportsReportingWrittenBytes(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties);
 
     /**
      * Returns a table handle for the specified table name with a specified version

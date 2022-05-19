@@ -394,6 +394,7 @@ public class SqlTask
                 outputBuffer.getInfo(),
                 noMoreSplits,
                 taskStats,
+                Optional.empty(),
                 needsPlan.get());
     }
 

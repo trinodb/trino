@@ -1135,6 +1135,22 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanExecuteFunction(SecurityContext securityContext, QualifiedObjectName functionName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(functionName, "functionName is null");
+
+        checkCanAccessCatalog(securityContext, functionName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanExecuteFunction(securityContext.toSystemSecurityContext(), functionName.asCatalogSchemaRoutineName()));
+
+        catalogAuthorizationCheck(
+                functionName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanExecuteFunction(context, functionName.asSchemaRoutineName()));
+    }
+
+    @Override
     public void checkCanExecuteTableProcedure(SecurityContext securityContext, QualifiedObjectName tableName, String procedureName)
     {
         requireNonNull(securityContext, "securityContext is null");

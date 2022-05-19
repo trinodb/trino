@@ -65,6 +65,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -72,6 +73,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASET_ERROR;
+import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_DATE;
+import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_TIME;
+import static io.trino.plugin.bigquery.BigQueryTableHandle.BigQueryPartitionType.INGESTION;
 import static io.trino.plugin.bigquery.BigQueryType.toField;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -173,7 +177,7 @@ public class BigQueryMetadata
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String remoteSchemaName : remoteSchemaNames) {
             try {
-                Iterable<Table> tables = client.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW);
+                Iterable<Table> tables = client.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW, MATERIALIZED_VIEW);
                 for (Table table : tables) {
                     // filter ambiguous tables
                     client.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
@@ -247,6 +251,10 @@ public class BigQueryMetadata
         for (BigQueryColumnHandle column : client.getColumns(handle)) {
             columnMetadata.add(column.getColumnMetadata());
         }
+        if (handle.getPartitionType().isPresent() && handle.getPartitionType().get() == INGESTION) {
+            columnMetadata.add(PARTITION_DATE.getColumnMetadata());
+            columnMetadata.add(PARTITION_TIME.getColumnMetadata());
+        }
         return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
     }
 
@@ -290,7 +298,15 @@ public class BigQueryMetadata
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
         log.debug("getColumnHandles(session=%s, tableHandle=%s)", session, tableHandle);
-        return client.getColumns((BigQueryTableHandle) tableHandle).stream()
+
+        BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
+        ImmutableList.Builder<BigQueryColumnHandle> columns = ImmutableList.builder();
+        columns.addAll(client.getColumns(table));
+        if (table.getPartitionType().isPresent() && table.getPartitionType().get() == INGESTION) {
+            columns.add(PARTITION_DATE.getColumnHandle());
+            columns.add(PARTITION_TIME.getColumnHandle());
+        }
+        return columns.build().stream()
                 .collect(toImmutableMap(columnHandle -> columnHandle.getColumnMetadata().getName(), identity()));
     }
 

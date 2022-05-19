@@ -86,14 +86,14 @@ public class TestIcebergPlugin
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
 
-        assertThatThrownBy(() -> factory.create(
+        factory.create(
                 "test",
                 Map.of(
                         "iceberg.catalog.type", "glue",
                         "hive.metastore.glue.catalogid", "123",
                         "hive.metastore.glue.region", "us-east-1"),
-                new TestingConnectorContext()))
-                .hasMessageContaining("catalogId configuration is not supported");
+                new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test

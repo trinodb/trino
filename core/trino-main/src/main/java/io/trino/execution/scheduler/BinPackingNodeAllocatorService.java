@@ -13,17 +13,31 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.base.Stopwatch;
+import com.google.common.base.Ticker;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Ordering;
+import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Streams;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
+import io.airlift.stats.TDigest;
+import io.airlift.units.DataSize;
 import io.trino.Session;
+import io.trino.execution.TaskId;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.MemoryInfo;
+import io.trino.memory.MemoryManagerConfig;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.InternalNodeManager.NodesSnapshot;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
+import io.trino.spi.memory.MemoryPoolInfo;
 import org.assertj.core.util.VisibleForTesting;
 
 import javax.annotation.PostConstruct;
@@ -31,6 +45,7 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.time.Duration;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -41,26 +56,34 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
-import static com.clearspring.analytics.util.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryEstimationQuantile;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
+import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class BinPackingNodeAllocatorService
-        implements NodeAllocatorService, NodeAllocator
+        implements NodeAllocatorService, NodeAllocator, PartitionMemoryEstimatorFactory
 {
     private static final Logger log = Logger.get(BinPackingNodeAllocatorService.class);
 
@@ -74,32 +97,47 @@ public class BinPackingNodeAllocatorService
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
     private final Semaphore processSemaphore = new Semaphore(0);
-    private final AtomicReference<Map<String, Long>> nodePoolSizes = new AtomicReference<>(ImmutableMap.of());
+    private final AtomicReference<Map<String, MemoryPoolInfo>> nodePoolMemoryInfos = new AtomicReference<>(ImmutableMap.of());
+    private final AtomicReference<Optional<DataSize>> maxNodePoolSize = new AtomicReference<>(Optional.empty());
     private final boolean scheduleOnCoordinator;
+    private final DataSize taskRuntimeMemoryEstimationOverhead;
+    private final Ticker ticker;
 
     private final ConcurrentMap<String, Long> allocatedMemory = new ConcurrentHashMap<>();
     private final Deque<PendingAcquire> pendingAcquires = new ConcurrentLinkedDeque<>();
+    private final Set<BinPackingNodeLease> fulfilledAcquires = newConcurrentHashSet();
+    private final Duration allowedNoMatchingNodePeriod;
 
     @Inject
     public BinPackingNodeAllocatorService(
             InternalNodeManager nodeManager,
             ClusterMemoryManager clusterMemoryManager,
-            NodeSchedulerConfig config)
+            NodeSchedulerConfig nodeSchedulerConfig,
+            MemoryManagerConfig memoryManagerConfig)
     {
         this(nodeManager,
                 requireNonNull(clusterMemoryManager, "clusterMemoryManager is null")::getWorkerMemoryInfo,
-                config.isIncludeCoordinator());
+                nodeSchedulerConfig.isIncludeCoordinator(),
+                Duration.ofMillis(nodeSchedulerConfig.getAllowedNoMatchingNodePeriod().toMillis()),
+                memoryManagerConfig.getFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(),
+                Ticker.systemTicker());
     }
 
     @VisibleForTesting
     BinPackingNodeAllocatorService(
             InternalNodeManager nodeManager,
             Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier,
-            boolean scheduleOnCoordinator)
+            boolean scheduleOnCoordinator,
+            Duration allowedNoMatchingNodePeriod,
+            DataSize taskRuntimeMemoryEstimationOverhead,
+            Ticker ticker)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.workerMemoryInfoSupplier = requireNonNull(workerMemoryInfoSupplier, "workerMemoryInfoSupplier is null");
         this.scheduleOnCoordinator = scheduleOnCoordinator;
+        this.allowedNoMatchingNodePeriod = requireNonNull(allowedNoMatchingNodePeriod, "allowedNoMatchingNodePeriod is null");
+        this.taskRuntimeMemoryEstimationOverhead = requireNonNull(taskRuntimeMemoryEstimationOverhead, "taskRuntimeMemoryEstimationOverhead is null");
+        this.ticker = requireNonNull(ticker, "ticker is null");
     }
 
     @PostConstruct
@@ -126,8 +164,8 @@ public class BinPackingNodeAllocatorService
             }, 0, TimeUnit.SECONDS);
         }
 
-        refreshNodePoolSizes();
-        executor.scheduleWithFixedDelay(this::refreshNodePoolSizes, 1, 5, TimeUnit.SECONDS);
+        refreshNodePoolMemoryInfos();
+        executor.scheduleWithFixedDelay(this::refreshNodePoolMemoryInfos, 1, 1, TimeUnit.SECONDS);
     }
 
     @PreDestroy
@@ -137,18 +175,23 @@ public class BinPackingNodeAllocatorService
         executor.shutdownNow();
     }
 
-    private void refreshNodePoolSizes()
+    @VisibleForTesting
+    void refreshNodePoolMemoryInfos()
     {
-        ImmutableMap.Builder<String, Long> newNodePoolSizes = ImmutableMap.builder();
+        ImmutableMap.Builder<String, MemoryPoolInfo> newNodePoolMemoryInfos = ImmutableMap.builder();
 
-        Map<String, Optional<MemoryInfo>> workerMemoryInfo = workerMemoryInfoSupplier.get();
-        for (Map.Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfo.entrySet()) {
+        Map<String, Optional<MemoryInfo>> workerMemoryInfos = workerMemoryInfoSupplier.get();
+        long maxNodePoolSizeBytes = -1;
+        for (Map.Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfos.entrySet()) {
             if (entry.getValue().isEmpty()) {
                 continue;
             }
-            newNodePoolSizes.put(entry.getKey(), entry.getValue().get().getPool().getMaxBytes());
+            MemoryPoolInfo poolInfo = entry.getValue().get().getPool();
+            newNodePoolMemoryInfos.put(entry.getKey(), poolInfo);
+            maxNodePoolSizeBytes = Math.max(poolInfo.getMaxBytes(), maxNodePoolSizeBytes);
         }
-        nodePoolSizes.set(newNodePoolSizes.buildOrThrow());
+        maxNodePoolSize.set(maxNodePoolSizeBytes == -1 ? Optional.empty() : Optional.of(DataSize.ofBytes(maxNodePoolSizeBytes)));
+        nodePoolMemoryInfos.set(newNodePoolMemoryInfos.buildOrThrow());
     }
 
     @VisibleForTesting
@@ -159,9 +202,11 @@ public class BinPackingNodeAllocatorService
 
         BinPackingSimulation simulation = new BinPackingSimulation(
                 nodeManager.getActiveNodesSnapshot(),
-                nodePoolSizes.get(),
+                nodePoolMemoryInfos.get(),
+                fulfilledAcquires,
                 allocatedMemory,
-                scheduleOnCoordinator);
+                scheduleOnCoordinator,
+                taskRuntimeMemoryEstimationOverhead);
 
         while (iterator.hasNext()) {
             PendingAcquire pendingAcquire = iterator.next();
@@ -176,18 +221,28 @@ public class BinPackingNodeAllocatorService
             switch (result.getStatus()) {
                 case RESERVED:
                     InternalNode reservedNode = result.getNode().orElseThrow();
+                    fulfilledAcquires.add(pendingAcquire.getLease());
+                    updateAllocatedMemory(reservedNode, pendingAcquire.getMemoryLease());
                     pendingAcquire.getFuture().set(reservedNode);
-                    if (!pendingAcquire.getFuture().isCancelled()) {
-                        updateAllocatedMemory(reservedNode, pendingAcquire.getMemoryLease());
-                    }
-                    else {
-                        // request was cancelled in the meantime
+                    if (pendingAcquire.getFuture().isCancelled()) {
+                        // completing future was unsuccessful - request was cancelled in the meantime
+                        pendingAcquire.getLease().deallocateMemory(reservedNode);
+
+                        fulfilledAcquires.remove(pendingAcquire.getLease());
+
                         // run once again when we are done
                         wakeupProcessPendingAcquires();
                     }
                     iterator.remove();
                     break;
                 case NONE_MATCHING:
+                    Duration noMatchingNodePeriod = pendingAcquire.markNoMatchingNodeFound();
+
+                    if (noMatchingNodePeriod.compareTo(allowedNoMatchingNodePeriod) <= 0) {
+                        // wait some more time
+                        break;
+                    }
+
                     pendingAcquire.getFuture().setException(new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query"));
                     iterator.remove();
                     break;
@@ -213,13 +268,11 @@ public class BinPackingNodeAllocatorService
     @Override
     public NodeLease acquire(NodeRequirements requirements)
     {
-        PendingAcquire pendingAcquire = new PendingAcquire(requirements);
+        BinPackingNodeLease nodeLease = new BinPackingNodeLease(requirements.getMemory().toBytes());
+        PendingAcquire pendingAcquire = new PendingAcquire(requirements, nodeLease, ticker);
         pendingAcquires.add(pendingAcquire);
         wakeupProcessPendingAcquires();
-
-        return new BinPackingNodeLease(
-                pendingAcquire.getFuture(),
-                requirements.getMemory().toBytes());
+        return nodeLease;
     }
 
     @Override
@@ -247,12 +300,14 @@ public class BinPackingNodeAllocatorService
     private static class PendingAcquire
     {
         private final NodeRequirements nodeRequirements;
-        private final SettableFuture<InternalNode> future;
+        private final BinPackingNodeLease lease;
+        private final Stopwatch noMatchingNodeStopwatch;
 
-        private PendingAcquire(NodeRequirements nodeRequirements)
+        private PendingAcquire(NodeRequirements nodeRequirements, BinPackingNodeLease lease, Ticker ticker)
         {
             this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
-            this.future = SettableFuture.create();
+            this.lease = requireNonNull(lease, "lease is null");
+            this.noMatchingNodeStopwatch = Stopwatch.createUnstarted(ticker);
         }
 
         public NodeRequirements getNodeRequirements()
@@ -260,27 +315,41 @@ public class BinPackingNodeAllocatorService
             return nodeRequirements;
         }
 
+        public BinPackingNodeLease getLease()
+        {
+            return lease;
+        }
+
         public SettableFuture<InternalNode> getFuture()
         {
-            return future;
+            return lease.getNodeSettableFuture();
         }
 
         public long getMemoryLease()
         {
             return nodeRequirements.getMemory().toBytes();
         }
+
+        public Duration markNoMatchingNodeFound()
+        {
+            if (!noMatchingNodeStopwatch.isRunning()) {
+                noMatchingNodeStopwatch.start();
+            }
+            return noMatchingNodeStopwatch.elapsed();
+        }
     }
 
     private class BinPackingNodeLease
             implements NodeAllocator.NodeLease
     {
-        private final ListenableFuture<InternalNode> node;
+        private final SettableFuture<InternalNode> node = SettableFuture.create();
         private final AtomicBoolean released = new AtomicBoolean();
+        private final AtomicBoolean memoryDeallocated = new AtomicBoolean();
         private final long memoryLease;
+        private final AtomicReference<TaskId> taskId = new AtomicReference<>();
 
-        private BinPackingNodeLease(ListenableFuture<InternalNode> node, long memoryLease)
+        private BinPackingNodeLease(long memoryLease)
         {
-            this.node = requireNonNull(node, "node is null");
             this.memoryLease = memoryLease;
         }
 
@@ -290,18 +359,59 @@ public class BinPackingNodeAllocatorService
             return node;
         }
 
+        InternalNode getAssignedNode()
+        {
+            try {
+                return Futures.getDone(node);
+            }
+            catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        SettableFuture<InternalNode> getNodeSettableFuture()
+        {
+            return node;
+        }
+
+        @Override
+        public void attachTaskId(TaskId taskId)
+        {
+            if (!this.taskId.compareAndSet(null, taskId)) {
+                throw new IllegalStateException("cannot attach taskId " + taskId + "; already attached to " + this.taskId.get());
+            }
+        }
+
+        public Optional<TaskId> getAttachedTaskId()
+        {
+            return Optional.ofNullable(this.taskId.get());
+        }
+
+        public long getMemoryLease()
+        {
+            return memoryLease;
+        }
+
         @Override
         public void release()
         {
             if (released.compareAndSet(false, true)) {
                 node.cancel(true);
                 if (node.isDone() && !node.isCancelled()) {
-                    updateAllocatedMemory(getFutureValue(node), -memoryLease);
+                    deallocateMemory(getFutureValue(node));
+                    checkState(fulfilledAcquires.remove(this), "node lease %s not found in fulfilledAcquires %s", this, fulfilledAcquires);
                     wakeupProcessPendingAcquires();
                 }
             }
             else {
                 throw new IllegalStateException("Node " + node + " already released");
+            }
+        }
+
+        public void deallocateMemory(InternalNode node)
+        {
+            if (memoryDeallocated.compareAndSet(false, true)) {
+                updateAllocatedMemory(node, -memoryLease);
             }
         }
     }
@@ -311,14 +421,18 @@ public class BinPackingNodeAllocatorService
         private final NodesSnapshot nodesSnapshot;
         private final List<InternalNode> allNodesSorted;
         private final Map<String, Long> nodesRemainingMemory;
-        private final ImmutableMap<String, Long> nodePoolSizes;
+        private final Map<String, Long> nodesRemainingMemoryRuntimeAdjusted;
+
+        private final Map<String, MemoryPoolInfo> nodeMemoryPoolInfos;
         private final boolean scheduleOnCoordinator;
 
         public BinPackingSimulation(
                 NodesSnapshot nodesSnapshot,
-                Map<String, Long> nodePoolSizes,
+                Map<String, MemoryPoolInfo> nodeMemoryPoolInfos,
+                Set<BinPackingNodeLease> fulfilledAcquires,
                 Map<String, Long> preReservedMemory,
-                boolean scheduleOnCoordinator)
+                boolean scheduleOnCoordinator,
+                DataSize taskRuntimeMemoryEstimationOverhead)
         {
             this.nodesSnapshot = requireNonNull(nodesSnapshot, "nodesSnapshot is null");
             // use same node ordering for each simulation
@@ -326,21 +440,65 @@ public class BinPackingNodeAllocatorService
                     .sorted(comparing(InternalNode::getNodeIdentifier))
                     .collect(toImmutableList());
 
-            requireNonNull(nodePoolSizes, "nodePoolSizes is null");
-            this.nodePoolSizes = ImmutableMap.copyOf(nodePoolSizes);
+            requireNonNull(nodeMemoryPoolInfos, "nodeMemoryPoolInfos is null");
+            this.nodeMemoryPoolInfos = ImmutableMap.copyOf(nodeMemoryPoolInfos);
 
             requireNonNull(preReservedMemory, "preReservedMemory is null");
             this.scheduleOnCoordinator = scheduleOnCoordinator;
 
+            Map<String, Map<String, Long>> realtimeTasksMemoryPerNode = new HashMap<>();
+            for (InternalNode node : nodesSnapshot.getAllNodes()) {
+                MemoryPoolInfo memoryPoolInfo = nodeMemoryPoolInfos.get(node.getNodeIdentifier());
+                if (memoryPoolInfo == null) {
+                    realtimeTasksMemoryPerNode.put(node.getNodeIdentifier(), ImmutableMap.of());
+                    continue;
+                }
+                realtimeTasksMemoryPerNode.put(node.getNodeIdentifier(), memoryPoolInfo.getTaskMemoryReservations());
+            }
+
+            SetMultimap<String, BinPackingNodeLease> fulfilledAcquiresByNode = HashMultimap.create();
+            for (BinPackingNodeLease fulfilledAcquire : fulfilledAcquires) {
+                InternalNode node = fulfilledAcquire.getAssignedNode();
+                fulfilledAcquiresByNode.put(node.getNodeIdentifier(), fulfilledAcquire);
+            }
+
             nodesRemainingMemory = new HashMap<>();
             for (InternalNode node : nodesSnapshot.getAllNodes()) {
-                Long nodePoolSize = nodePoolSizes.get(node.getNodeIdentifier());
-                if (nodePoolSize == null) {
+                MemoryPoolInfo memoryPoolInfo = nodeMemoryPoolInfos.get(node.getNodeIdentifier());
+                if (memoryPoolInfo == null) {
                     nodesRemainingMemory.put(node.getNodeIdentifier(), 0L);
                     continue;
                 }
                 long nodeReservedMemory = preReservedMemory.getOrDefault(node.getNodeIdentifier(), 0L);
-                nodesRemainingMemory.put(node.getNodeIdentifier(), nodePoolSize - nodeReservedMemory);
+                nodesRemainingMemory.put(node.getNodeIdentifier(), memoryPoolInfo.getMaxBytes() - nodeReservedMemory);
+            }
+
+            nodesRemainingMemoryRuntimeAdjusted = new HashMap<>();
+            for (InternalNode node : nodesSnapshot.getAllNodes()) {
+                MemoryPoolInfo memoryPoolInfo = nodeMemoryPoolInfos.get(node.getNodeIdentifier());
+                if (memoryPoolInfo == null) {
+                    nodesRemainingMemoryRuntimeAdjusted.put(node.getNodeIdentifier(), 0L);
+                    continue;
+                }
+
+                Map<String, Long> realtimeNodeMemory = realtimeTasksMemoryPerNode.get(node.getNodeIdentifier());
+                Set<BinPackingNodeLease> nodeFulfilledAcquires = fulfilledAcquiresByNode.get(node.getNodeIdentifier());
+
+                long nodeUsedMemoryRuntimeAdjusted = 0;
+                for (BinPackingNodeLease lease : nodeFulfilledAcquires) {
+                    long realtimeTaskMemory = 0;
+                    if (lease.getAttachedTaskId().isPresent()) {
+                        realtimeTaskMemory = realtimeNodeMemory.getOrDefault(lease.getAttachedTaskId().get().toString(), 0L);
+                        realtimeTaskMemory += taskRuntimeMemoryEstimationOverhead.toBytes();
+                    }
+                    long reservedTaskMemory = lease.getMemoryLease();
+                    nodeUsedMemoryRuntimeAdjusted += max(realtimeTaskMemory, reservedTaskMemory);
+                }
+
+                // if globally reported memory usage of node is greater than computed one lets use that.
+                // it can be greater if there are tasks executed on cluster which do not have task retries enabled.
+                nodeUsedMemoryRuntimeAdjusted = max(nodeUsedMemoryRuntimeAdjusted, memoryPoolInfo.getReservedBytes());
+                nodesRemainingMemoryRuntimeAdjusted.put(node.getNodeIdentifier(), memoryPoolInfo.getMaxBytes() - nodeUsedMemoryRuntimeAdjusted);
             }
         }
 
@@ -349,7 +507,7 @@ public class BinPackingNodeAllocatorService
             NodeRequirements requirements = acquire.getNodeRequirements();
             Optional<Set<InternalNode>> catalogNodes = requirements.getCatalogName().map(nodesSnapshot::getConnectorNodes);
 
-            Optional<InternalNode> selectedNode = allNodesSorted.stream()
+            List<InternalNode> candidates = allNodesSorted.stream()
                     .filter(node -> catalogNodes.isEmpty() || catalogNodes.get().contains(node))
                     .filter(node -> {
                         // Allow using coordinator if explicitly requested
@@ -361,37 +519,52 @@ public class BinPackingNodeAllocatorService
                         }
                         return false;
                     })
-                    .max(comparing(node -> nodesRemainingMemory.get(node.getNodeIdentifier())));
+                    .collect(toImmutableList());
 
-            if (selectedNode.isEmpty()) {
+            if (candidates.isEmpty()) {
                 return ReserveResult.NONE_MATCHING;
             }
 
-            boolean selectedCandidateMatches = false;
-            if (nodesRemainingMemory.get(selectedNode.get().getNodeIdentifier()) >= acquire.getMemoryLease() || isNodeEmpty(selectedNode.get())) {
+            InternalNode selectedNode = candidates.stream()
+                    .max(comparing(node -> nodesRemainingMemoryRuntimeAdjusted.get(node.getNodeIdentifier())))
+                    .orElseThrow();
+
+            if (nodesRemainingMemoryRuntimeAdjusted.get(selectedNode.getNodeIdentifier()) >= acquire.getMemoryLease() || isNodeEmpty(selectedNode.getNodeIdentifier())) {
                 // there is enough unreserved memory on the node
                 // OR
                 // there is not enough memory available on the node but the node is empty so we cannot to better anyway
 
                 // todo: currant logic does not handle heterogenous clusters best. There is a chance that there is a larger node in the cluster but
                 //       with less memory available right now, hence that one was not selected as a candidate.
-                selectedCandidateMatches = true;
+                // mark memory reservation
+                subtractFromRemainingMemory(selectedNode.getNodeIdentifier(), acquire.getMemoryLease());
+                return ReserveResult.reserved(selectedNode);
             }
 
-            // mark memory reservation
-            nodesRemainingMemory.compute(
-                    selectedNode.get().getNodeIdentifier(),
-                    (key, free) -> free - acquire.getMemoryLease());
-
-            if (!selectedCandidateMatches) {
-                return ReserveResult.NOT_ENOUGH_RESOURCES_NOW;
-            }
-            return ReserveResult.reserved(selectedNode.get());
+            // If selected node cannot be used right now, select best one ignoring runtime memory usage and reserve space there
+            // for later use. This is important from algorithm liveliness perspective. If we did not reserve space for a task which
+            // is too big to be scheduled right now, it could be starved by smaller tasks coming later.
+            InternalNode fallbackNode = candidates.stream()
+                    .max(comparing(node -> nodesRemainingMemory.get(node.getNodeIdentifier())))
+                    .orElseThrow();
+            subtractFromRemainingMemory(fallbackNode.getNodeIdentifier(), acquire.getMemoryLease());
+            return ReserveResult.NOT_ENOUGH_RESOURCES_NOW;
         }
 
-        private boolean isNodeEmpty(InternalNode node)
+        private void subtractFromRemainingMemory(String nodeIdentifier, long memoryLease)
         {
-            return nodePoolSizes.containsKey(node.getNodeIdentifier()) && nodesRemainingMemory.get(node.getNodeIdentifier()).equals(nodePoolSizes.get(node.getNodeIdentifier()));
+            nodesRemainingMemoryRuntimeAdjusted.compute(
+                    nodeIdentifier,
+                    (key, free) -> free - memoryLease);
+            nodesRemainingMemory.compute(
+                    nodeIdentifier,
+                    (key, free) -> free - memoryLease);
+        }
+
+        private boolean isNodeEmpty(String nodeIdentifier)
+        {
+            return nodeMemoryPoolInfos.containsKey(nodeIdentifier)
+                    && nodesRemainingMemory.get(nodeIdentifier).equals(nodeMemoryPoolInfos.get(nodeIdentifier).getMaxBytes());
         }
 
         public enum ReservationStatus
@@ -430,6 +603,105 @@ public class BinPackingNodeAllocatorService
             {
                 return node;
             }
+        }
+    }
+
+    @Override
+    public PartitionMemoryEstimator createPartitionMemoryEstimator()
+    {
+        return new ExponentialGrowthPartitionMemoryEstimator();
+    }
+
+    private class ExponentialGrowthPartitionMemoryEstimator
+            implements PartitionMemoryEstimator
+    {
+        private final TDigest memoryUsageDistribution = new TDigest();
+
+        private ExponentialGrowthPartitionMemoryEstimator() {}
+
+        @Override
+        public MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit)
+        {
+            DataSize memory = Ordering.natural().max(defaultMemoryLimit, getEstimatedMemoryUsage(session));
+            memory = capMemoryToMaxNodeSize(memory);
+            return new MemoryRequirements(
+                    memory,
+                    false);
+        }
+
+        @Override
+        public MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode)
+        {
+            DataSize previousMemory = previousMemoryRequirements.getRequiredMemory();
+
+            // start with the maximum of previously used memory and actual usage
+            DataSize newMemory = Ordering.natural().max(peakMemoryUsage, previousMemory);
+            if (isOutOfMemoryError(errorCode)) {
+                // multiply if we hit an oom error
+                double growthFactor = getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
+                newMemory = DataSize.of((long) (newMemory.toBytes() * growthFactor), DataSize.Unit.BYTE);
+            }
+
+            // if we are still below current estimate for new partition let's bump further
+            newMemory = Ordering.natural().max(newMemory, getEstimatedMemoryUsage(session));
+
+            newMemory = capMemoryToMaxNodeSize(newMemory);
+            return new MemoryRequirements(newMemory, false);
+        }
+
+        private DataSize capMemoryToMaxNodeSize(DataSize memory)
+        {
+            Optional<DataSize> currentMaxNodePoolSize = maxNodePoolSize.get();
+            if (currentMaxNodePoolSize.isEmpty()) {
+                return memory;
+            }
+            return Ordering.natural().min(memory, currentMaxNodePoolSize.get());
+        }
+
+        @Override
+        public synchronized void registerPartitionFinished(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode)
+        {
+            if (success) {
+                memoryUsageDistribution.add(peakMemoryUsage.toBytes());
+            }
+            if (!success && errorCode.isPresent() && isOutOfMemoryError(errorCode.get())) {
+                double growthFactor = getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
+                // take previousRequiredBytes into account when registering failure on oom. It is conservative hence safer (and in-line with getNextRetryMemoryRequirements)
+                long previousRequiredBytes = previousMemoryRequirements.getRequiredMemory().toBytes();
+                long previousPeakBytes = peakMemoryUsage.toBytes();
+                memoryUsageDistribution.add(Math.max(previousRequiredBytes, previousPeakBytes) * growthFactor);
+            }
+        }
+
+        private synchronized DataSize getEstimatedMemoryUsage(Session session)
+        {
+            double estimationQuantile = getFaultTolerantExecutionTaskMemoryEstimationQuantile(session);
+            double estimation = memoryUsageDistribution.valueAt(estimationQuantile);
+            if (Double.isNaN(estimation)) {
+                return DataSize.ofBytes(0);
+            }
+            return DataSize.ofBytes((long) estimation);
+        }
+
+        private String memoryUsageDistributionInfo()
+        {
+            List<Double> quantiles = ImmutableList.of(0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95, 0.99);
+            List<Double> values;
+            synchronized (this) {
+                values = memoryUsageDistribution.valuesAt(quantiles);
+            }
+
+            return Streams.zip(
+                            quantiles.stream(),
+                            values.stream(),
+                            (quantile, value) -> "" + quantile + "=" + value)
+                    .collect(Collectors.joining(", ", "[", "]"));
+        }
+
+        @Override
+        public String toString()
+        {
+            return "memoryUsageDistribution=" + memoryUsageDistributionInfo();
         }
     }
 }

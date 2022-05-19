@@ -13,10 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.exchange.FileSystemExchangePlugin;
-import io.trino.plugin.exchange.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
+import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -24,7 +23,7 @@ import org.testng.annotations.AfterClass;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.exchange.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -51,11 +50,7 @@ public class TestIcebergTaskFailureRecoveryTest
         return IcebergQueryRunner.builder()
                 .setInitialTables(requiredTpchTables)
                 .setCoordinatorProperties(coordinatorProperties)
-                .setExtraProperties(ImmutableMap.<String, String>builder()
-                        .putAll(configProperties)
-                        // currently not supported for fault tolerant execution mode
-                        .put("enable-dynamic-filtering", "false")
-                        .buildOrThrow())
+                .setExtraProperties(configProperties)
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
@@ -67,7 +62,7 @@ public class TestIcebergTaskFailureRecoveryTest
     public void testJoinDynamicFilteringEnabled()
     {
         assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
-                .hasMessageContaining("Dynamic filtering is not supported with automatic task retries enabled");
+                .hasMessageContaining("Dynamic filter is missing");
     }
 
     @AfterClass(alwaysRun = true)

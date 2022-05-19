@@ -28,6 +28,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
+import org.apache.pinot.spi.config.table.TableType;
 
 import javax.inject.Inject;
 
@@ -51,6 +52,9 @@ public class PinotSplitManager
         implements ConnectorSplitManager
 {
     private static final Logger LOG = Logger.get(PinotSplitManager.class);
+    private static final String REALTIME_SUFFIX = "_" + TableType.REALTIME;
+    private static final String OFFLINE_SUFFIX = "_" + TableType.OFFLINE;
+
     private final PinotClient pinotClient;
 
     @Inject
@@ -73,9 +77,12 @@ public class PinotSplitManager
         LOG.info("Got routing table for %s: %s", tableName, routingTable);
         List<ConnectorSplit> splits = new ArrayList<>();
         if (!routingTable.isEmpty()) {
-            PinotClient.TimeBoundary timeBoundary = pinotClient.getTimeBoundaryForTable(tableName);
-            generateSegmentSplits(splits, routingTable, tableName, "_REALTIME", session, timeBoundary.getOnlineTimePredicate());
-            generateSegmentSplits(splits, routingTable, tableName, "_OFFLINE", session, timeBoundary.getOfflineTimePredicate());
+            PinotClient.TimeBoundary timeBoundary = new PinotClient.TimeBoundary(null, null);
+            if (routingTable.containsKey(tableName + REALTIME_SUFFIX) && routingTable.containsKey(tableName + OFFLINE_SUFFIX)) {
+                timeBoundary = pinotClient.getTimeBoundaryForTable(tableName);
+            }
+            generateSegmentSplits(splits, routingTable, tableName, REALTIME_SUFFIX, session, timeBoundary.getOnlineTimePredicate());
+            generateSegmentSplits(splits, routingTable, tableName, OFFLINE_SUFFIX, session, timeBoundary.getOfflineTimePredicate());
         }
 
         Collections.shuffle(splits);

@@ -218,6 +218,7 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
@@ -1646,6 +1647,12 @@ public class LocalExecutionPlanner
         }
 
         @Override
+        public PhysicalOperation visitTableFunction(TableFunctionNode node, LocalExecutionPlanContext context)
+        {
+            throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
+        }
+
+        @Override
         public PhysicalOperation visitTopN(TopNNode node, LocalExecutionPlanContext context)
         {
             PhysicalOperation source = node.getSource().accept(this, context);
@@ -1980,7 +1987,11 @@ public class LocalExecutionPlanner
                 throw e;
             }
             catch (RuntimeException e) {
-                throw new TrinoException(COMPILER_ERROR, "Compiler failed", e);
+                throw new TrinoException(
+                        COMPILER_ERROR,
+                        "Compiler failed. Possible reasons include: the query may have too many or too complex expressions, " +
+                                "or the underlying tables may have too many columns",
+                        e);
             }
         }
 

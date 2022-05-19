@@ -92,10 +92,11 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(VARCHAR), page);
-        assertEquals(pageSize, 44); // page overhead
+        assertEquals(pageSize, 60); // page overhead ideally 44 but since a 0 sized block will be a RLEBlock we have an overhead of 16
 
         // page with one value
         VARCHAR.writeString(builder, "alice");
+        pageSize = 44; // Now we have moved to the normal block implementation so the page size overhead is 44
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - pageSize;
         assertEquals(firstValueSize, 4 + 5); // length + "alice"

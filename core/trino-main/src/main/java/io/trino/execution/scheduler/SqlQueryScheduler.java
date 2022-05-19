@@ -108,6 +108,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -122,8 +123,10 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.trino.SystemSessionProperties.getConcurrentLifespansPerNode;
-import static io.trino.SystemSessionProperties.getHashPartitionCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionPartitionCount;
+import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerStage;
 import static io.trino.SystemSessionProperties.getQueryRetryAttempts;
+import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
 import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
@@ -177,7 +180,8 @@ public class SqlQueryScheduler
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeScheduler nodeScheduler;
     private final NodeAllocatorService nodeAllocatorService;
-    private final PartitionMemoryEstimator partitionMemoryEstimator;
+    private final PartitionMemoryEstimatorFactory partitionMemoryEstimatorFactory;
+    private final TaskExecutionStats taskExecutionStats;
     private final int splitBatchSize;
     private final ExecutorService executor;
     private final ScheduledExecutorService schedulerExecutor;
@@ -198,9 +202,11 @@ public class SqlQueryScheduler
     private final int maxQueryRetryAttempts;
     private final int maxTaskRetryAttemptsOverall;
     private final int maxTaskRetryAttemptsPerTask;
+    private final int maxTasksWaitingForNodePerStage;
     private final AtomicInteger currentAttempt = new AtomicInteger();
     private final Duration retryInitialDelay;
     private final Duration retryMaxDelay;
+    private final double retryDelayScaleFactor;
 
     @GuardedBy("this")
     private boolean started;
@@ -216,7 +222,8 @@ public class SqlQueryScheduler
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
             NodeAllocatorService nodeAllocatorService,
-            PartitionMemoryEstimator partitionMemoryEstimator,
+            PartitionMemoryEstimatorFactory partitionMemoryEstimatorFactory,
+            TaskExecutionStats taskExecutionStats,
             RemoteTaskFactory remoteTaskFactory,
             boolean summarizeTaskInfo,
             int splitBatchSize,
@@ -239,7 +246,8 @@ public class SqlQueryScheduler
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
         this.nodeAllocatorService = requireNonNull(nodeAllocatorService, "nodeAllocatorService is null");
-        this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
+        this.partitionMemoryEstimatorFactory = requireNonNull(partitionMemoryEstimatorFactory, "partitionMemoryEstimatorFactory is null");
+        this.taskExecutionStats = requireNonNull(taskExecutionStats, "taskExecutionStats is null");
         this.splitBatchSize = splitBatchSize;
         this.executor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
@@ -277,8 +285,10 @@ public class SqlQueryScheduler
         maxQueryRetryAttempts = getQueryRetryAttempts(queryStateMachine.getSession());
         maxTaskRetryAttemptsOverall = getTaskRetryAttemptsOverall(queryStateMachine.getSession());
         maxTaskRetryAttemptsPerTask = getTaskRetryAttemptsPerTask(queryStateMachine.getSession());
+        maxTasksWaitingForNodePerStage = getMaxTasksWaitingForNodePerStage(queryStateMachine.getSession());
         retryInitialDelay = getRetryInitialDelay(queryStateMachine.getSession());
         retryMaxDelay = getRetryMaxDelay(queryStateMachine.getSession());
+        retryDelayScaleFactor = getRetryDelayScaleFactor(queryStateMachine.getSession());
     }
 
     public synchronized void start()
@@ -334,7 +344,7 @@ public class SqlQueryScheduler
         if (queryStateMachine.isDone()) {
             return Optional.empty();
         }
-        if (attempt > 0 && retryPolicy == RetryPolicy.QUERY) {
+        if (attempt > 0) {
             dynamicFilterService.registerQueryRetry(queryStateMachine.getQueryId(), attempt);
         }
         DistributedStagesScheduler distributedStagesScheduler;
@@ -352,10 +362,12 @@ public class SqlQueryScheduler
                         coordinatorStagesScheduler.getTaskLifecycleListener(),
                         maxTaskRetryAttemptsOverall,
                         maxTaskRetryAttemptsPerTask,
+                        maxTasksWaitingForNodePerStage,
                         schedulerExecutor,
                         schedulerStats,
                         nodeAllocatorService,
-                        partitionMemoryEstimator);
+                        partitionMemoryEstimatorFactory,
+                        taskExecutionStats);
                 break;
             case QUERY:
             case NONE:
@@ -407,7 +419,7 @@ public class SqlQueryScheduler
                         .orElseGet(() -> new StageFailureInfo(toFailure(new VerifyException("distributedStagesScheduler failed but failure cause is not present")), Optional.empty()));
                 ErrorCode errorCode = stageFailureInfo.getFailureInfo().getErrorCode();
                 if (shouldRetry(errorCode)) {
-                    long delayInMillis = min(retryInitialDelay.toMillis() * ((long) pow(2, currentAttempt.get())), retryMaxDelay.toMillis());
+                    long delayInMillis = min(retryInitialDelay.toMillis() * ((long) pow(retryDelayScaleFactor, currentAttempt.get())), retryMaxDelay.toMillis());
                     currentAttempt.incrementAndGet();
                     scheduleRetryWithDelay(delayInMillis);
                 }
@@ -1754,10 +1766,12 @@ public class SqlQueryScheduler
                 TaskLifecycleListener coordinatorTaskLifecycleListener,
                 int taskRetryAttemptsOverall,
                 int taskRetryAttemptsPerTask,
+                int maxTasksWaitingForNodePerStage,
                 ScheduledExecutorService scheduledExecutorService,
                 SplitSchedulerStats schedulerStats,
                 NodeAllocatorService nodeAllocatorService,
-                PartitionMemoryEstimator partitionMemoryEstimator)
+                PartitionMemoryEstimatorFactory partitionMemoryEstimatorFactory,
+                TaskExecutionStats taskExecutionStats)
         {
             taskDescriptorStorage.initialize(queryStateMachine.getQueryId());
             queryStateMachine.addStateChangeListener(state -> {
@@ -1769,8 +1783,8 @@ public class SqlQueryScheduler
             DistributedStagesSchedulerStateMachine stateMachine = new DistributedStagesSchedulerStateMachine(queryStateMachine.getQueryId(), scheduledExecutorService);
 
             Session session = queryStateMachine.getSession();
-            int hashPartitionCount = getHashPartitionCount(session);
-            Function<PartitioningHandle, BucketToPartition> bucketToPartitionCache = createBucketToPartitionCache(nodePartitioningManager, session, hashPartitionCount);
+            int partitionCount = getFaultTolerantExecutionPartitionCount(session);
+            Function<PartitioningHandle, BucketToPartition> bucketToPartitionCache = createBucketToPartitionCache(nodePartitioningManager, session, partitionCount);
 
             ImmutableList.Builder<FaultTolerantStageScheduler> schedulers = ImmutableList.builder();
             Map<PlanFragmentId, Exchange> exchanges = new HashMap<>();
@@ -1800,7 +1814,7 @@ public class SqlQueryScheduler
                     else {
                         // create external exchange
                         ExchangeContext context = new ExchangeContext(session.getQueryId(), new ExchangeId("external-exchange-" + stage.getStageId().getId()));
-                        exchange = Optional.of(exchangeManager.createExchange(context, hashPartitionCount));
+                        exchange = Optional.of(exchangeManager.createExchange(context, partitionCount));
                         exchanges.put(fragment.getId(), exchange.get());
                         taskLifecycleListener = TaskLifecycleListener.NO_OP;
                     }
@@ -1821,15 +1835,19 @@ public class SqlQueryScheduler
                             taskSourceFactory,
                             nodeAllocator,
                             taskDescriptorStorage,
-                            partitionMemoryEstimator,
+                            partitionMemoryEstimatorFactory.createPartitionMemoryEstimator(),
+                            taskExecutionStats,
                             taskLifecycleListener,
+                            (future, delay) -> scheduledExecutorService.schedule(() -> future.set(null), delay.toMillis(), MILLISECONDS),
+                            systemTicker(),
                             exchange,
                             bucketToPartitionCache.apply(fragment.getPartitioningScheme().getPartitioning().getHandle()).getBucketToPartitionMap(),
                             sourceExchanges.buildOrThrow(),
                             inputBucketToPartition.getBucketToPartitionMap(),
                             inputBucketToPartition.getBucketNodeMap(),
                             remainingTaskRetryAttemptsOverall,
-                            taskRetryAttemptsPerTask);
+                            taskRetryAttemptsPerTask,
+                            maxTasksWaitingForNodePerStage);
 
                     schedulers.add(scheduler);
                 }
@@ -1883,23 +1901,23 @@ public class SqlQueryScheduler
             }
         }
 
-        private static Function<PartitioningHandle, BucketToPartition> createBucketToPartitionCache(NodePartitioningManager nodePartitioningManager, Session session, int hashPartitionCount)
+        private static Function<PartitioningHandle, BucketToPartition> createBucketToPartitionCache(NodePartitioningManager nodePartitioningManager, Session session, int partitionCount)
         {
             Map<PartitioningHandle, BucketToPartition> cachingMap = new HashMap<>();
             return partitioningHandle ->
                     cachingMap.computeIfAbsent(
                             partitioningHandle,
-                            handle -> createBucketToPartitionMap(session, hashPartitionCount, handle, nodePartitioningManager));
+                            handle -> createBucketToPartitionMap(session, partitionCount, handle, nodePartitioningManager));
         }
 
         private static BucketToPartition createBucketToPartitionMap(
                 Session session,
-                int hashPartitionCount,
+                int partitionCount,
                 PartitioningHandle partitioningHandle,
                 NodePartitioningManager nodePartitioningManager)
         {
             if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
-                return new BucketToPartition(Optional.of(IntStream.range(0, hashPartitionCount).toArray()), Optional.empty());
+                return new BucketToPartition(Optional.of(IntStream.range(0, partitionCount).toArray()), Optional.empty());
             }
             else if (partitioningHandle.getConnectorId().isPresent()) {
                 BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, true);
@@ -1908,7 +1926,7 @@ public class SqlQueryScheduler
                 if (bucketNodeMap.isDynamic()) {
                     int nextPartitionId = 0;
                     for (int bucket = 0; bucket < bucketCount; bucket++) {
-                        bucketToPartition[bucket] = nextPartitionId++ % hashPartitionCount;
+                        bucketToPartition[bucket] = nextPartitionId++ % partitionCount;
                     }
                 }
                 else {

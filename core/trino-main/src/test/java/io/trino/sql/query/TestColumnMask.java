@@ -180,6 +180,19 @@ public class TestColumnMask
     }
 
     @Test
+    public void testConditionalMask()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "IF (orderkey < 2, null, -custkey)"));
+        assertThat(assertions.query("SELECT custkey FROM orders LIMIT 2"))
+                .matches("VALUES (NULL), CAST('-781' AS BIGINT)");
+    }
+
+    @Test
     public void testMultipleMasksOnSameColumn()
     {
         accessControl.reset();
@@ -725,5 +738,120 @@ public class TestColumnMask
                 .hasMessage("line 1:1: Delete from table with column mask");
         assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_with_hidden_column SET name = 'X'"))
                 .hasMessage("line 1:1: Updating a table with column masks is not supported");
+    }
+
+    @Test
+    public void testMultipleMasksUsingOtherMaskedColumns()
+    {
+        // Showcase original row values
+        String query = "SELECT comment, orderstatus, clerk FROM orders WHERE orderkey = 1";
+        String expected = "VALUES (CAST('nstructions sleep furiously among ' as varchar(79)), 'O', 'Clerk#000000951')";
+        accessControl.reset();
+        assertThat(assertions.query(query)).matches(expected);
+
+        // Mask "clerk" and "orderstatus" using "comment" ("comment" appears after "clerk" and "orderstatus" in table definition)
+        // Nothing changes for "clerk" and "orderstatus" since the condition on "clerk" is not satisfied
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "comment",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(comment,'(password: [^ ]+)','password: ****') as varchar(79))"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "orderstatus",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(comment,'(country: [^ ]+)') IN ('country: 1'), '*', orderstatus)"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(comment,'(country: [^ ]+)') IN ('country: 1'), '***', clerk)"));
+
+        assertThat(assertions.query(query)).matches(expected);
+
+        // Mask "comment" using "clerk" ("clerk" column appears before "comment" in table definition)
+        // Nothing changes for "comment" since the condition on "clerk" is not satisfied
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(password: [^ ]+)','password: ****') as varchar(15))"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "comment",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'(country: [^ ]+)') IN ('country: 1'), '***', comment)"));
+
+        assertThat(assertions.query(query)).matches(expected);
+
+        // Mask "orderstatus" and "comment" using "clerk"
+        // Nothing changes for "orderstatus" and "comment" since the condition on "clerk" is not satisfied
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(password: [^ ]+)','password: ****') as varchar(15))"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "orderstatus",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'(country: [^ ]+)') IN ('country: 1'), '*', orderstatus)"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "comment",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'(country: [^ ]+)') IN ('country: 1'), '***', comment)"));
+
+        assertThat(assertions.query(query)).matches(expected);
+
+        // Mask "comment" using "clerk" ("clerk" appears before "comment" in table definition)
+        // "comment" is masked as the condition on "clerk" is satisfied
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(Clerk#)','***#') as varchar(15))"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "comment",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'([1-9]+)') IN ('951'), '***', comment)"));
+
+        assertThat(assertions.query(query))
+                .matches("VALUES (CAST('***' as varchar(79)), 'O', CAST('***#000000951' as varchar(15)))");
+
+        // Mask "comment" and "orderstatus" using "clerk" ("clerk" appears between "orderstatus" and "comment" in table definition)
+        // "comment" and "orderstatus" are masked as the condition on "clerk" is satisfied
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(Clerk#)','***#') as varchar(15))"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "orderstatus",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'([1-9]+)') IN ('951'), '*', orderstatus)"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "comment",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'([1-9]+)') IN ('951'), '***', comment)"));
+
+        assertThat(assertions.query(query))
+                .matches("VALUES (CAST('***' as varchar(79)), '*', CAST('***#000000951' as varchar(15)))");
     }
 }

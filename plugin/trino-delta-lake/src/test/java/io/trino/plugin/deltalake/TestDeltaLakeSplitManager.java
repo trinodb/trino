@@ -295,7 +295,7 @@ public class TestDeltaLakeSplitManager
         }
 
         @Override
-        public TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle, Constraint constraint)
+        public TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle)
         {
             throw new UnsupportedOperationException("Unimplemented");
         }

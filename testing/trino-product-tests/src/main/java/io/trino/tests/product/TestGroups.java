@@ -23,6 +23,7 @@ public final class TestGroups
     public static final String FUNCTIONS = "functions";
     public static final String CLI = "cli";
     public static final String SYSTEM_CONNECTOR = "system";
+    public static final String CONFIGURED_FEATURES = "configured_features";
     public static final String JMX_CONNECTOR = "jmx";
     public static final String BLACKHOLE_CONNECTOR = "blackhole";
     public static final String SMOKE = "smoke";
@@ -50,6 +51,7 @@ public final class TestGroups
     public static final String HIVE_ICEBERG_REDIRECTIONS = "hive_iceberg_redirections";
     public static final String AUTHORIZATION = "authorization";
     public static final String HIVE_COERCION = "hive_coercion";
+    public static final String AZURE = "azure";
     public static final String CASSANDRA = "cassandra";
     public static final String SQL_SERVER = "sqlserver";
     public static final String LDAP = "ldap";
@@ -61,7 +63,7 @@ public final class TestGroups
     public static final String TLS = "tls";
     public static final String ROLES = "roles";
     public static final String CANCEL_QUERY = "cancel_query";
-    public static final String BIG_QUERY = "big_query";
+    public static final String LARGE_QUERY = "large_query";
     public static final String KAFKA = "kafka";
     public static final String TWO_HIVES = "two_hives";
     public static final String ICEBERG = "iceberg";
@@ -69,6 +71,7 @@ public final class TestGroups
     public static final String PHOENIX = "phoenix";
     public static final String CLICKHOUSE = "clickhouse";
     public static final String KUDU = "kudu";
+    public static final String MARIADB = "mariadb";
 
     private TestGroups() {}
 }

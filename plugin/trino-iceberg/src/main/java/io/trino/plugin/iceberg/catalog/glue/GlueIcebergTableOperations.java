@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.services.glue.AWSGlueAsync;
+import com.amazonaws.services.glue.model.ConcurrentModificationException;
 import com.amazonaws.services.glue.model.CreateTableRequest;
 import com.amazonaws.services.glue.model.EntityNotFoundException;
 import com.amazonaws.services.glue.model.GetTableRequest;
@@ -31,9 +32,10 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 
+import javax.annotation.Nullable;
+
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
@@ -53,6 +55,9 @@ public class GlueIcebergTableOperations
     private final AWSGlueAsync glueClient;
     private final GlueMetastoreStats stats;
 
+    @Nullable
+    private String glueVersionId;
+
     protected GlueIcebergTableOperations(
             AWSGlueAsync glueClient,
             GlueMetastoreStats stats,
@@ -69,9 +74,10 @@ public class GlueIcebergTableOperations
     }
 
     @Override
-    protected String getRefreshedLocation()
+    protected String getRefreshedLocation(boolean invalidateCaches)
     {
         Table table = getTable();
+        glueVersionId = table.getVersionId();
 
         if (isPrestoView(table.getParameters()) && isHiveOrPrestoView(table.getTableType())) {
             // this is a Presto Hive view, hence not a table
@@ -115,19 +121,17 @@ public class GlueIcebergTableOperations
                 .put(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
                 .buildOrThrow());
 
-        Table table = getTable();
-
-        checkState(currentMetadataLocation != null, "No current metadata location for existing table");
-        String metadataLocation = table.getParameters().get(METADATA_LOCATION_PROP);
-        if (!currentMetadataLocation.equals(metadataLocation)) {
-            throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
-                    currentMetadataLocation, metadataLocation, getSchemaTableName());
-        }
-
         UpdateTableRequest updateTableRequest = new UpdateTableRequest()
                 .withDatabaseName(database)
-                .withTableInput(tableInput);
-        stats.getUpdateTable().call(() -> glueClient.updateTable(updateTableRequest));
+                .withTableInput(tableInput)
+                .withVersionId(glueVersionId);
+        try {
+            stats.getUpdateTable().call(() -> glueClient.updateTable(updateTableRequest));
+        }
+        catch (ConcurrentModificationException e) {
+            // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
+            throw new CommitFailedException(e, "Failed to commit to Glue table due to concurrent updates: %s.%s", database, tableName);
+        }
         shouldRefresh = true;
     }
 

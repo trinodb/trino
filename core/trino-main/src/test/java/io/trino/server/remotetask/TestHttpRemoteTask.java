@@ -431,6 +431,7 @@ public class TestHttpRemoteTask
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
                 outboundDynamicFilterIds,
+                Optional.empty(),
                 true);
     }
 
@@ -739,6 +740,7 @@ public class TestHttpRemoteTask
                     initialTaskInfo.getOutputBuffers(),
                     initialTaskInfo.getNoMoreSplits(),
                     initialTaskInfo.getStats(),
+                    initialTaskInfo.getEstimatedMemory(),
                     initialTaskInfo.isNeedsPlan());
         }
 

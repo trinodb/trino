@@ -173,7 +173,11 @@ public class TestTpchMetadata
     private void testTableStats(String schema, TpchTable<?> table, Constraint constraint, double expectedRowCount)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
-        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, constraint);
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = tpchMetadata.applyFilter(session, tableHandle, constraint);
+        if (result.isPresent()) {
+            tableHandle = (TpchTableHandle) result.get().getHandle();
+        }
+        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle);
 
         double actualRowCountValue = tableStatistics.getRowCount().getValue();
         assertEquals(tableStatistics.getRowCount(), Estimate.of(actualRowCountValue));
@@ -274,7 +278,11 @@ public class TestTpchMetadata
     private void testColumnStats(String schema, TpchTable<?> table, TpchColumn<?> column, Constraint constraint, ColumnStatistics expected)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
-        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, constraint);
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = tpchMetadata.applyFilter(session, tableHandle, constraint);
+        if (result.isPresent()) {
+            tableHandle = (TpchTableHandle) result.get().getHandle();
+        }
+        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle);
         ColumnHandle columnHandle = tpchMetadata.getColumnHandles(session, tableHandle).get(column.getSimplifiedColumnName());
 
         ColumnStatistics actual = tableStatistics.getColumnStatistics().get(columnHandle);

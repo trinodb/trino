@@ -129,6 +129,7 @@ public class TestNodeLocalDynamicSplitPruning
                 ImmutableList.of(new HivePartitionKey(PARTITION_COLUMN.getName(), "42")),
                 ImmutableList.of(),
                 OptionalInt.of(1),
+                OptionalInt.of(1),
                 0,
                 false,
                 TableToPartitionMapping.empty(),

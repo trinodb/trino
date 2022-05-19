@@ -68,6 +68,7 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -215,7 +216,7 @@ public class AddExchanges
         {
             Set<Symbol> partitioningRequirement = ImmutableSet.copyOf(node.getGroupingKeys());
 
-            boolean preferSingleNode = node.hasSingleNodeExecutionPreference(plannerContext.getMetadata());
+            boolean preferSingleNode = node.hasSingleNodeExecutionPreference(session, plannerContext.getMetadata());
             PreferredProperties preferredProperties = preferSingleNode ? PreferredProperties.undistributed() : PreferredProperties.any();
 
             if (!node.getGroupingKeys().isEmpty()) {
@@ -356,6 +357,12 @@ public class AddExchanges
             }
 
             return rebaseAndDeriveProperties(node, child);
+        }
+
+        @Override
+        public PlanWithProperties visitTableFunction(TableFunctionNode node, PreferredProperties preferredProperties)
+        {
+            throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
         }
 
         @Override
@@ -592,13 +599,13 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableWriter(TableWriterNode node, PreferredProperties preferredProperties)
         {
-            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), preferredProperties);
+            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), preferredProperties, node.getTarget());
         }
 
         @Override
         public PlanWithProperties visitTableExecute(TableExecuteNode node, PreferredProperties preferredProperties)
         {
-            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), preferredProperties);
+            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), preferredProperties, node.getTarget());
         }
 
         @Override
@@ -611,12 +618,12 @@ public class AddExchanges
                             .build());
         }
 
-        private PlanWithProperties visitTableWriter(PlanNode node, Optional<PartitioningScheme> partitioningScheme, PlanNode source, PreferredProperties preferredProperties)
+        private PlanWithProperties visitTableWriter(PlanNode node, Optional<PartitioningScheme> partitioningScheme, PlanNode source, PreferredProperties preferredProperties, TableWriterNode.WriterTarget writerTarget)
         {
             PlanWithProperties newSource = source.accept(this, preferredProperties);
 
             if (partitioningScheme.isEmpty()) {
-                if (scaleWriters) {
+                if (scaleWriters && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)) {
                     partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols()));
                 }
                 else if (redistributeWrites) {

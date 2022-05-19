@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -30,7 +29,6 @@ import io.trino.spi.function.AccumulatorStateSerializer;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
@@ -55,23 +53,18 @@ public class RealAverageAggregation
     protected RealAverageAggregation()
     {
         super(
-                new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(),
-                                ImmutableList.of(),
-                                REAL.getTypeSignature(),
-                                ImmutableList.of(REAL.getTypeSignature()),
-                                false),
-                        new FunctionNullability(true, ImmutableList.of(false)),
-                        false,
-                        true,
-                        "Returns the average value of the argument",
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        false,
-                        BIGINT.getTypeSignature(),
-                        DOUBLE.getTypeSignature()));
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
+                                .name(NAME)
+                                .returnType(REAL)
+                                .argumentType(REAL)
+                                .build())
+                        .description("Returns the average value of the argument")
+                        .build(),
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(BIGINT)
+                        .intermediateType(DOUBLE)
+                        .build());
     }
 
     @Override

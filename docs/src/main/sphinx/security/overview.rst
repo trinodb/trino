@@ -30,6 +30,8 @@ order of steps. Do not skip or combine steps.
      HTTPS, if possible.
    * Use a globally trusted TLS certificate.
 
+#. **Configure** a :doc:`a shared secret </security/internal-communication>`
+
 #. **Enable authentication**
 
    * Start with :doc:`password file authentication <password-file>` to get up

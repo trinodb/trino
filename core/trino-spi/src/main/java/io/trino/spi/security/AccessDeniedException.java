@@ -150,7 +150,12 @@ public class AccessDeniedException
 
     public static void denySetSchemaAuthorization(String schemaName, TrinoPrincipal principal)
     {
-        throw new AccessDeniedException(format("Cannot set authorization for schema %s to %s", schemaName, principal));
+        denySetSchemaAuthorization(schemaName, principal, null);
+    }
+
+    public static void denySetSchemaAuthorization(String schemaName, TrinoPrincipal principal, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set authorization for schema %s to %s%s", schemaName, principal, formatExtraInfo(extraInfo)));
     }
 
     public static void denyShowSchemas()
@@ -165,7 +170,12 @@ public class AccessDeniedException
 
     public static void denyShowCreateSchema(String schemaName)
     {
-        throw new AccessDeniedException(format("Cannot show create schema for %s", schemaName));
+        denyShowCreateSchema(schemaName, null);
+    }
+
+    public static void denyShowCreateSchema(String schemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show create schema for %s%s", schemaName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyShowCreateTable(String tableName)
@@ -275,7 +285,12 @@ public class AccessDeniedException
 
     public static void denySetTableAuthorization(String tableName, TrinoPrincipal principal)
     {
-        throw new AccessDeniedException(format("Cannot set authorization for table %s to %s", tableName, principal));
+        denySetTableAuthorization(tableName, principal, null);
+    }
+
+    public static void denySetTableAuthorization(String tableName, TrinoPrincipal principal, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set authorization for table %s to %s%s", tableName, principal, formatExtraInfo(extraInfo)));
     }
 
     public static void denyRenameColumn(String tableName)
@@ -385,7 +400,12 @@ public class AccessDeniedException
 
     public static void denySetViewAuthorization(String viewName, TrinoPrincipal principal)
     {
-        throw new AccessDeniedException(format("Cannot set authorization for view %s to %s", viewName, principal));
+        denySetViewAuthorization(viewName, principal, null);
+    }
+
+    public static void denySetViewAuthorization(String viewName, TrinoPrincipal principal, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set authorization for view %s to %s%s", viewName, principal, formatExtraInfo(extraInfo)));
     }
 
     public static void denyDropView(String viewName)
@@ -600,7 +620,12 @@ public class AccessDeniedException
 
     public static void denyExecuteProcedure(String procedureName)
     {
-        throw new AccessDeniedException(format("Cannot execute procedure %s", procedureName));
+        denyExecuteProcedure(procedureName, null);
+    }
+
+    public static void denyExecuteProcedure(String procedureName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot execute procedure %s%s", procedureName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyExecuteFunction(String functionName)

@@ -14,8 +14,10 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -26,12 +28,7 @@ public class AggregationFunctionMetadata
     private final boolean orderSensitive;
     private final List<TypeSignature> intermediateTypes;
 
-    public AggregationFunctionMetadata(boolean orderSensitive, TypeSignature... intermediateTypes)
-    {
-        this(orderSensitive, ImmutableList.copyOf(requireNonNull(intermediateTypes, "intermediateTypes is null")));
-    }
-
-    public AggregationFunctionMetadata(boolean orderSensitive, List<TypeSignature> intermediateTypes)
+    private AggregationFunctionMetadata(boolean orderSensitive, List<TypeSignature> intermediateTypes)
     {
         this.orderSensitive = orderSensitive;
         this.intermediateTypes = ImmutableList.copyOf(requireNonNull(intermediateTypes, "intermediateTypes is null"));
@@ -59,5 +56,41 @@ public class AggregationFunctionMetadata
                 .add("orderSensitive", orderSensitive)
                 .add("intermediateTypes", intermediateTypes)
                 .toString();
+    }
+
+    public static AggregationFunctionMetadataBuilder builder()
+    {
+        return new AggregationFunctionMetadataBuilder();
+    }
+
+    public static class AggregationFunctionMetadataBuilder
+    {
+        private boolean orderSensitive;
+        private final List<TypeSignature> intermediateTypes = new ArrayList<>();
+
+        private AggregationFunctionMetadataBuilder() {}
+
+        public AggregationFunctionMetadataBuilder orderSensitive()
+        {
+            this.orderSensitive = true;
+            return this;
+        }
+
+        public AggregationFunctionMetadataBuilder intermediateType(Type type)
+        {
+            this.intermediateTypes.add(requireNonNull(type, "type is null").getTypeSignature());
+            return this;
+        }
+
+        public AggregationFunctionMetadataBuilder intermediateType(TypeSignature type)
+        {
+            this.intermediateTypes.add(requireNonNull(type, "type is null"));
+            return this;
+        }
+
+        public AggregationFunctionMetadata build()
+        {
+            return new AggregationFunctionMetadata(orderSensitive, intermediateTypes);
+        }
     }
 }

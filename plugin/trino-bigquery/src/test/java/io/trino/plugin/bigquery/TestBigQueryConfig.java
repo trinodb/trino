@@ -37,13 +37,15 @@ public class TestBigQueryConfig
                 .setParentProjectId(null)
                 .setParallelism(null)
                 .setViewExpireDuration(new Duration(24, HOURS))
+                .setSkipViewMaterialization(false)
                 .setViewMaterializationProject(null)
                 .setViewMaterializationDataset(null)
                 .setMaxReadRowsRetries(3)
                 .setCaseInsensitiveNameMatching(false)
                 .setViewsCacheTtl(new Duration(15, MINUTES))
                 .setServiceCacheTtl(new Duration(3, MINUTES))
-                .setViewsEnabled(false));
+                .setViewsEnabled(false)
+                .setQueryResultsCacheEnabled(false));
     }
 
     @Test
@@ -55,12 +57,14 @@ public class TestBigQueryConfig
                 .put("bigquery.parallelism", "20")
                 .put("bigquery.views-enabled", "true")
                 .put("bigquery.view-expire-duration", "30m")
+                .put("bigquery.skip-view-materialization", "true")
                 .put("bigquery.view-materialization-project", "vmproject")
                 .put("bigquery.view-materialization-dataset", "vmdataset")
                 .put("bigquery.max-read-rows-retries", "10")
                 .put("bigquery.case-insensitive-name-matching", "true")
                 .put("bigquery.views-cache-ttl", "1m")
                 .put("bigquery.service-cache-ttl", "10d")
+                .put("bigquery.query-results-cache.enabled", "true")
                 .buildOrThrow();
 
         BigQueryConfig expected = new BigQueryConfig()
@@ -69,12 +73,14 @@ public class TestBigQueryConfig
                 .setParallelism(20)
                 .setViewsEnabled(true)
                 .setViewExpireDuration(new Duration(30, MINUTES))
+                .setSkipViewMaterialization(true)
                 .setViewMaterializationProject("vmproject")
                 .setViewMaterializationDataset("vmdataset")
                 .setMaxReadRowsRetries(10)
                 .setCaseInsensitiveNameMatching(true)
                 .setViewsCacheTtl(new Duration(1, MINUTES))
-                .setServiceCacheTtl(new Duration(10, DAYS));
+                .setServiceCacheTtl(new Duration(10, DAYS))
+                .setQueryResultsCacheEnabled(true);
 
         assertFullMapping(properties, expected);
     }
@@ -88,5 +94,12 @@ public class TestBigQueryConfig
                 .validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("View expiration duration must be longer than view cache TTL");
+
+        assertThatThrownBy(() -> new BigQueryConfig()
+                .setSkipViewMaterialization(true)
+                .setViewsEnabled(false)
+                .validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("bigquery.views-enabled config property must be enabled when skipping view materialization");
     }
 }

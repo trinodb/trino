@@ -237,7 +237,8 @@ public class BeginTableWrite
                 return new TableExecuteTarget(
                         target.getExecuteHandle(),
                         findTableScanHandleForTableExecute(((TableExecuteNode) node).getSource()),
-                        target.getSchemaTableName());
+                        target.getSchemaTableName(),
+                        target.isReportingWrittenBytesSupported());
             }
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
                 Set<WriterTarget> writerTargets = node.getSources().stream()
@@ -254,11 +255,11 @@ public class BeginTableWrite
             // TODO: we shouldn't need to store the schemaTableName in the handles, but there isn't a good way to pass this around with the current architecture
             if (target instanceof CreateReference) {
                 CreateReference create = (CreateReference) target;
-                return new CreateTarget(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()), create.getTableMetadata().getTable());
+                return new CreateTarget(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()), create.getTableMetadata().getTable(), target.supportsReportingWrittenBytes(metadata, session));
             }
             if (target instanceof InsertReference) {
                 InsertReference insert = (InsertReference) target;
-                return new InsertTarget(metadata.beginInsert(session, insert.getHandle(), insert.getColumns()), metadata.getTableMetadata(session, insert.getHandle()).getTable());
+                return new InsertTarget(metadata.beginInsert(session, insert.getHandle(), insert.getColumns()), metadata.getTableMetadata(session, insert.getHandle()).getTable(), target.supportsReportingWrittenBytes(metadata, session));
             }
             if (target instanceof DeleteTarget) {
                 DeleteTarget delete = (DeleteTarget) target;
@@ -285,8 +286,7 @@ public class BeginTableWrite
             if (target instanceof TableExecuteTarget) {
                 TableExecuteTarget tableExecute = (TableExecuteTarget) target;
                 BeginTableExecuteResult<TableExecuteHandle, TableHandle> result = metadata.beginTableExecute(session, tableExecute.getExecuteHandle(), tableExecute.getMandatorySourceHandle());
-
-                return new TableExecuteTarget(result.getTableExecuteHandle(), Optional.of(result.getSourceHandle()), tableExecute.getSchemaTableName());
+                return new TableExecuteTarget(result.getTableExecuteHandle(), Optional.of(result.getSourceHandle()), tableExecute.getSchemaTableName(), tableExecute.isReportingWrittenBytesSupported());
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }

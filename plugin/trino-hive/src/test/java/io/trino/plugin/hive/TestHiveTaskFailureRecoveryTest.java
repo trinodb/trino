@@ -15,8 +15,8 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.exchange.FileSystemExchangePlugin;
-import io.trino.plugin.exchange.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
+import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
@@ -27,7 +27,7 @@ import org.testng.annotations.AfterClass;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.exchange.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -58,11 +58,7 @@ public class TestHiveTaskFailureRecoveryTest
 
         return S3HiveQueryRunner.builder(dockerizedS3DataLake)
                 .setInitialTables(requiredTpchTables)
-                .setExtraProperties(ImmutableMap.<String, String>builder()
-                        .putAll(configProperties)
-                        // currently not supported for fault tolerant execution mode
-                        .put("enable-dynamic-filtering", "false")
-                        .buildOrThrow())
+                .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
@@ -81,7 +77,7 @@ public class TestHiveTaskFailureRecoveryTest
     public void testJoinDynamicFilteringEnabled()
     {
         assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
-                .hasMessageContaining("Dynamic filtering is not supported with automatic task retries enabled");
+                .hasMessageContaining("Dynamic filter is missing");
     }
 
     @AfterClass(alwaysRun = true)

@@ -18,7 +18,6 @@ import io.trino.array.ObjectBigArray;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata;
@@ -30,17 +29,14 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.type.BlockTypeOperators;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
+import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.TypeSignature.rowType;
@@ -57,7 +53,7 @@ public class MultimapAggregationFunction
             MultimapAggregationFunction.class,
             "output",
             Type.class,
-            BlockPositionEqual.class,
+            BlockPositionIsDistinctFrom.class,
             BlockPositionHashCode.class,
             Type.class,
             MultimapAggregationState.class,
@@ -80,22 +76,22 @@ public class MultimapAggregationFunction
     public MultimapAggregationFunction(BlockTypeOperators blockTypeOperators)
     {
         super(
-                new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                                ImmutableList.of(),
-                                mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))),
-                                ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")),
-                                false),
-                        new FunctionNullability(true, ImmutableList.of(false, true)),
-                        false,
-                        true,
-                        "Aggregates all the rows (key/value pairs) into a single multimap",
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        true,
-                        arrayType(rowType(anonymousField(new TypeSignature("V")), anonymousField(new TypeSignature("K"))))));
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
+                                .name(NAME)
+                                .comparableTypeParameter("K")
+                                .typeVariable("V")
+                                .returnType(mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))))
+                                .argumentType(new TypeSignature("K"))
+                                .argumentType(new TypeSignature("V"))
+                                .build())
+                        .argumentNullability(false, true)
+                        .description("Aggregates all the rows (key/value pairs) into a single multimap")
+                        .build(),
+                AggregationFunctionMetadata.builder()
+                        .orderSensitive()
+                        .intermediateType(arrayType(rowType(anonymousField(new TypeSignature("V")), anonymousField(new TypeSignature("K")))))
+                        .build());
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
@@ -103,7 +99,7 @@ public class MultimapAggregationFunction
     public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type keyType = boundSignature.getArgumentType(0);
-        BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
+        BlockPositionIsDistinctFrom keyDistinctOperator = blockTypeOperators.getDistinctFromOperator(keyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
 
         Type valueType = boundSignature.getArgumentType(1);
@@ -114,7 +110,7 @@ public class MultimapAggregationFunction
                 INPUT_FUNCTION,
                 Optional.empty(),
                 Optional.of(COMBINE_FUNCTION),
-                MethodHandles.insertArguments(OUTPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType),
+                MethodHandles.insertArguments(OUTPUT_FUNCTION, 0, keyType, keyDistinctOperator, keyHashCode, valueType),
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         MultimapAggregationState.class,
                         stateSerializer,
@@ -131,7 +127,7 @@ public class MultimapAggregationFunction
         state.merge(otherState);
     }
 
-    public static void output(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType, MultimapAggregationState state, BlockBuilder out)
+    public static void output(Type keyType, BlockPositionIsDistinctFrom keyDistinctOperator, BlockPositionHashCode keyHashCode, Type valueType, MultimapAggregationState state, BlockBuilder out)
     {
         if (state.isEmpty()) {
             out.appendNull();
@@ -141,7 +137,7 @@ public class MultimapAggregationFunction
             ObjectBigArray<BlockBuilder> valueArrayBlockBuilders = new ObjectBigArray<>();
             valueArrayBlockBuilders.ensureCapacity(state.getEntryCount());
             BlockBuilder distinctKeyBlockBuilder = keyType.createBlockBuilder(null, state.getEntryCount(), expectedValueSize(keyType, 100));
-            TypedSet keySet = createEqualityTypedSet(keyType, keyEqual, keyHashCode, state.getEntryCount(), NAME);
+            TypedSet keySet = createDistinctTypedSet(keyType, keyDistinctOperator, keyHashCode, state.getEntryCount(), NAME);
 
             state.forEach((key, value, keyValueIndex) -> {
                 // Merge values of the same key into an array

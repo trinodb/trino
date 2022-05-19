@@ -72,7 +72,7 @@ public abstract class AbstractRowBlock
     }
 
     @Override
-    public final Block copyPositions(int[] positions, int offset, int length)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 

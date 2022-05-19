@@ -226,7 +226,7 @@ public class TestScalarFunctionAdapter
                 expectedConvention.getArgumentConventions(),
                 expectedConvention.getReturnConvention(),
                 actualConvention.supportsSession(),
-                actualConvention.supportsInstanceFactor());
+                actualConvention.supportsInstanceFactory());
 
         // crete an exact invoker to the handle, so we can use object invoke interface without type coercion concerns
         MethodHandle exactInvoker = MethodHandles.exactInvoker(adaptedMethodHandle.type())

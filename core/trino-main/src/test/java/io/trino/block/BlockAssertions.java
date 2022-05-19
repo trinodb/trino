@@ -355,6 +355,16 @@ public final class BlockAssertions
         return unmodifiableList(result);
     }
 
+    public static Set<Integer> chooseNullPositions(int positionCount, float nullRate)
+    {
+        int nullCount = (int) (positionCount * nullRate);
+        if (nullCount == 0) {
+            verify(nullRate == 0 || positionCount == 0, "position count %s too small to have at least one null with rate %s", (Object) positionCount, nullRate);
+            return ImmutableSet.of();
+        }
+        return chooseRandomUnique(positionCount, nullCount);
+    }
+
     public static Block createStringsBlock(String... values)
     {
         requireNonNull(values, "values is null");
@@ -869,16 +879,6 @@ public final class BlockAssertions
     private interface ValueWriter<T>
     {
         void write(BlockBuilder builder, T value);
-    }
-
-    private static Set<Integer> chooseNullPositions(int positionCount, float nullRate)
-    {
-        int nullCount = (int) (positionCount * nullRate);
-        if (nullCount == 0) {
-            verify(nullRate == 0, "position count %s too small to have at least one null with rate %s", (Object) positionCount, nullRate);
-            return ImmutableSet.of();
-        }
-        return chooseRandomUnique(positionCount, nullCount);
     }
 
     private static Set<Integer> chooseRandomUnique(int bound, int count)

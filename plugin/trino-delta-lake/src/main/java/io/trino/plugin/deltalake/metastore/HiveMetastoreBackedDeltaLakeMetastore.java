@@ -32,7 +32,6 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -62,6 +61,7 @@ import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
+import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
@@ -118,6 +118,10 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     {
         Optional<Table> candidate = delegate.getTable(databaseName, tableName);
         candidate.ifPresent(table -> {
+            if (isHiveOrPrestoView(table)) {
+                // this is a Hive view, hence not a table
+                throw new NotADeltaLakeTableException(databaseName, tableName);
+            }
             if (!TABLE_PROVIDER_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_PROVIDER_PROPERTY))) {
                 throw new NotADeltaLakeTableException(databaseName, tableName);
             }
@@ -213,7 +217,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle, Constraint constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
         TableSnapshot tableSnapshot = getSnapshot(tableHandle.getSchemaTableName(), session);
 
@@ -238,7 +242,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
                 .filter(column -> column.getColumnType() == PARTITION_KEY)
                 .forEach(column -> partitioningColumnsDistinctValues.put(column, new HashSet<>()));
 
-        if (tableHandle.getEnforcedPartitionConstraint().isNone() || tableHandle.getNonPartitionConstraint().isNone() || constraint.getSummary().isNone()) {
+        if (tableHandle.getEnforcedPartitionConstraint().isNone() || tableHandle.getNonPartitionConstraint().isNone()) {
             return createZeroStatistics(columns);
         }
 

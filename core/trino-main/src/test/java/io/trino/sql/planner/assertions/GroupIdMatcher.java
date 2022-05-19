@@ -52,9 +52,9 @@ public class GroupIdMatcher
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
-        GroupIdNode groudIdNode = (GroupIdNode) node;
-        List<List<Symbol>> actualGroupingSets = groudIdNode.getGroupingSets();
-        List<Symbol> actualAggregationArguments = groudIdNode.getAggregationArguments();
+        GroupIdNode groupIdNode = (GroupIdNode) node;
+        List<List<Symbol>> actualGroupingSets = groupIdNode.getGroupingSets();
+        List<Symbol> actualAggregationArguments = groupIdNode.getAggregationArguments();
 
         if (actualGroupingSets.size() != groupingSets.size()) {
             return NO_MATCH;
@@ -70,7 +70,7 @@ public class GroupIdMatcher
             return NO_MATCH;
         }
 
-        return match(groupIdSymbol, groudIdNode.getGroupIdSymbol().toSymbolReference());
+        return match(groupIdSymbol, groupIdNode.getGroupIdSymbol().toSymbolReference());
     }
 
     @Override

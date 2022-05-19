@@ -713,35 +713,15 @@ public class StageTaskSourceFactory
 
             List<TaskDescriptor> result = new ArrayList<>();
 
-            while (true) {
-                boolean includeRemainder = splitSource.isFinished();
-
-                result.addAll(getReadyTasks(
-                        remotelyAccessibleSplitBuffer,
-                        ImmutableList.of(),
-                        new NodeRequirements(catalogRequirement, ImmutableSet.of(), taskMemory),
-                        includeRemainder));
-                for (HostAddress remoteHost : locallyAccessibleSplitBuffer.keySet()) {
-                    result.addAll(getReadyTasks(
-                            locallyAccessibleSplitBuffer.get(remoteHost),
-                            locallyAccessibleSplitBuffer.entrySet().stream()
-                                    .filter(entry -> !entry.getKey().equals(remoteHost))
-                                    .map(Map.Entry::getValue)
-                                    .collect(toImmutableList()),
-                            new NodeRequirements(catalogRequirement, ImmutableSet.of(remoteHost), taskMemory),
-                            includeRemainder));
-                }
-
-                if (!result.isEmpty() || splitSource.isFinished()) {
-                    break;
-                }
-
+            boolean splitSourceFinished = false;
+            while (result.isEmpty()) {
                 ListenableFuture<SplitBatch> splitBatchFuture = splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), splitBatchSize);
 
                 long start = System.nanoTime();
                 addSuccessCallback(splitBatchFuture, () -> getSplitTimeRecorder.accept(start));
 
-                List<Split> splits = getFutureValue(splitBatchFuture).getSplits();
+                SplitBatch splitBatch = getFutureValue(splitBatchFuture);
+                List<Split> splits = splitBatch.getSplits();
 
                 for (Split split : splits) {
                     if (split.isRemotelyAccessible()) {
@@ -755,9 +735,31 @@ public class StageTaskSourceFactory
                         }
                     }
                 }
+
+                splitSourceFinished = splitSource.isFinished();
+
+                result.addAll(getReadyTasks(
+                        remotelyAccessibleSplitBuffer,
+                        ImmutableList.of(),
+                        new NodeRequirements(catalogRequirement, ImmutableSet.of(), taskMemory),
+                        splitSourceFinished));
+                for (HostAddress remoteHost : locallyAccessibleSplitBuffer.keySet()) {
+                    result.addAll(getReadyTasks(
+                            locallyAccessibleSplitBuffer.get(remoteHost),
+                            locallyAccessibleSplitBuffer.entrySet().stream()
+                                    .filter(entry -> !entry.getKey().equals(remoteHost))
+                                    .map(Map.Entry::getValue)
+                                    .collect(toImmutableList()),
+                            new NodeRequirements(catalogRequirement, ImmutableSet.of(remoteHost), taskMemory),
+                            splitSourceFinished));
+                }
+
+                if (splitSourceFinished) {
+                    break;
+                }
             }
 
-            if (splitSource.isFinished()) {
+            if (splitSourceFinished) {
                 Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
 
                 // Here we assume that we can get non-empty tableExecuteSplitsInfo only for queries which facilitate single split source.

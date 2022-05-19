@@ -184,6 +184,7 @@ import static io.trino.spi.predicate.Range.greaterThanOrEqual;
 import static io.trino.spi.predicate.Range.lessThanOrEqual;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
+import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.predicate.ValueSet.ofRanges;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES_SUMMARY;
@@ -241,7 +242,6 @@ public class DeltaLakeMetadata
     private final long defaultCheckpointInterval;
     private final boolean ignoreCheckpointWriteFailures;
     private final int domainCompactionThreshold;
-    private final boolean hideNonDeltaLakeTables;
     private final boolean unsafeWritesEnabled;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
     private final JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec;
@@ -259,7 +259,6 @@ public class DeltaLakeMetadata
             TypeManager typeManager,
             AccessControlMetadata accessControlMetadata,
             int domainCompactionThreshold,
-            boolean hideNonDeltaLakeTables,
             boolean unsafeWritesEnabled,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec,
@@ -277,7 +276,6 @@ public class DeltaLakeMetadata
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
         this.domainCompactionThreshold = domainCompactionThreshold;
-        this.hideNonDeltaLakeTables = hideNonDeltaLakeTables;
         this.unsafeWritesEnabled = unsafeWritesEnabled;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
         this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "updateResultJsonCodec is null");
@@ -365,6 +363,12 @@ public class DeltaLakeMetadata
                 Optional.empty(),
                 tableSnapshot.getVersion(),
                 false);
+    }
+
+    @Override
+    public SchemaTableName getSchemaTableName(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return ((DeltaLakeTableHandle) table).getSchemaTableName();
     }
 
     @Override
@@ -494,9 +498,6 @@ public class DeltaLakeMetadata
                 });
             }
             catch (NotADeltaLakeTableException e) {
-                if (!hideNonDeltaLakeTables) {
-                    throw e;
-                }
                 return Stream.empty();
             }
             catch (RuntimeException e) {
@@ -521,12 +522,12 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         if (!isTableStatisticsEnabled(session)) {
             return TableStatistics.empty();
         }
-        return metastore.getTableStatistics(session, (DeltaLakeTableHandle) tableHandle, constraint);
+        return metastore.getTableStatistics(session, (DeltaLakeTableHandle) tableHandle);
     }
 
     @Override
@@ -1066,7 +1067,7 @@ public class DeltaLakeMetadata
         }
         catch (Exception e) {
             if (!writeCommitted) {
-                // TODO perhaps it should happen in a background thread
+                // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
                 cleanupFailedWrite(session, handle.getLocation(), dataFileInfos);
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
@@ -1358,7 +1359,7 @@ public class DeltaLakeMetadata
         }
         catch (Exception e) {
             if (!writeCommitted) {
-                // TODO perhaps it should happen in a background thread
+                // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
                 cleanupFailedWrite(session, tableLocation, dataFileInfos);
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
@@ -1451,7 +1452,7 @@ public class DeltaLakeMetadata
                             0, // TODO Insert fills this in with, probably should do so here too
                             ISOLATION_LEVEL,
                             true));
-            // TODO: Delta writes another field "operationMetrics" that I haven't
+            // TODO: Delta writes another field "operationMetrics" that I haven't (https://github.com/trinodb/trino/issues/12005)
             //   seen before. It contains delete/update metrics. Investigate/include it.
 
             long writeTimestamp = Instant.now().toEpochMilli();
@@ -1475,7 +1476,7 @@ public class DeltaLakeMetadata
         }
         catch (Exception e) {
             if (!writeCommitted) {
-                // TODO perhaps it should happen in a background thread
+                // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
                 cleanupFailedWrite(session, tableLocation, updateResults.stream()
                         .map(DeltaLakeUpdateResult::getNewFile)
                         .filter(Optional::isPresent)
@@ -1497,8 +1498,9 @@ public class DeltaLakeMetadata
                 return;
             }
 
-            // TODO: There is a race possibility here, which may result in us not writing checkpoints at exactly the planned frequency.
-            // The snapshot obtained above may already be on a version higher than `newVersion` because some other transaction could have just been commited.
+            // TODO: There is a race possibility here(https://github.com/trinodb/trino/issues/12004),
+            // which may result in us not writing checkpoints at exactly the planned frequency.
+            // The snapshot obtained above may already be on a version higher than `newVersion` because some other transaction could have just been committed.
             // This does not pose correctness issue but may be confusing if someone looks into transaction log.
             // To fix that we should allow for getting snapshot for given version.
             if (snapshot.getVersion() > newVersion) {
@@ -1924,6 +1926,18 @@ public class DeltaLakeMetadata
         statisticsAccess.updateExtendedStatistics(session, location, mergedExtendedStatistics);
     }
 
+    @Override
+    public boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean supportsReportingWrittenBytes(ConnectorSession session, SchemaTableName fullTableName, Map<String, Object> tableProperties)
+    {
+        return true;
+    }
+
     private void cleanExtraOutputFiles(ConnectorSession session, String baseLocation, List<DataFileInfo> validDataFiles)
     {
         Set<String> writtenFilePaths = validDataFiles.stream()
@@ -2034,7 +2048,7 @@ public class DeltaLakeMetadata
                                 return DeltaLakeColumnStatistics.create(HyperLogLog.newInstance(4096)); // empty HLL with number of buckets used by $approx_set
                             }
                             else {
-                                Slice serializedSummary = HyperLogLogType.HYPER_LOG_LOG.getSlice(entry.getValue(), 0);
+                                Slice serializedSummary = (Slice) blockToNativeValue(HyperLogLogType.HYPER_LOG_LOG, entry.getValue());
                                 return DeltaLakeColumnStatistics.create(HyperLogLog.newInstance(serializedSummary));
                             }
                         }));

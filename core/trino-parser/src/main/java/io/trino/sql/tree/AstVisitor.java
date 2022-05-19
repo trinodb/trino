@@ -352,6 +352,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitTrim(Trim node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitNullIfExpression(NullIfExpression node, C context)
     {
         return visitExpression(node, context);
@@ -1078,6 +1083,36 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitQueryPeriod(QueryPeriod node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitTableFunctionInvocation(TableFunctionInvocation node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
+    protected R visitTableFunctionArgument(TableFunctionArgument node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitTableArgument(TableArgument node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitDescriptorArgument(DescriptorArgument node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitDescriptor(Descriptor node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitDescriptorField(DescriptorField node, C context)
     {
         return visitNode(node, context);
     }

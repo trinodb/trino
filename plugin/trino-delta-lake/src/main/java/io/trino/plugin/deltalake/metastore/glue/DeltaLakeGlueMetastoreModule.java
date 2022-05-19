@@ -16,11 +16,8 @@ package io.trino.plugin.deltalake.metastore.glue;
 import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
-import com.google.inject.Provides;
-import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.deltalake.HideNonDeltaLakeTables;
 import io.trino.plugin.hive.metastore.glue.ForGlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
 
@@ -41,13 +38,5 @@ public class DeltaLakeGlueMetastoreModule
                 .setBinding().toProvider(DeltaLakeGlueMetastoreTableFilterProvider.class);
 
         install(new GlueMetastoreModule());
-    }
-
-    @Provides
-    @Singleton
-    @HideNonDeltaLakeTables
-    public boolean provideHideNonDeltaLakeTables(DeltaLakeGlueMetastoreConfig glueMetastoreConfig)
-    {
-        return glueMetastoreConfig.isHideNonDeltaLakeTables();
     }
 }

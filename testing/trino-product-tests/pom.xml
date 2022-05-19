@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>376-SNAPSHOT</version>
+        <version>382-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -57,11 +57,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.trino.cassandra</groupId>
-            <artifactId>cassandra-driver</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino.hive</groupId>
             <artifactId>hive-apache</artifactId>
         </dependency>
@@ -109,6 +104,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.datastax.oss</groupId>
+            <artifactId>java-driver-core</artifactId>
         </dependency>
 
         <dependency>
@@ -210,6 +210,12 @@
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
             <scope>runtime</scope>
         </dependency>
 

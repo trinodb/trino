@@ -39,10 +39,8 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
-// TODO (https://github.com/trinodb/trino/issues/11325): hadoop container sometimes fails during the test (e.g. testAnalyzeWithFilesModifiedAfter)
-//   enable the class by making it non-abstract
 // smoke test which covers ANALYZE compatibility with different filesystems is part of AbstractTestDeltaLakeIntegrationSmokeTest
-public abstract class TestDeltaLakeAnalyze
+public class TestDeltaLakeAnalyze
         extends AbstractTestQueryFramework
 {
     private static final String SCHEMA = "default";

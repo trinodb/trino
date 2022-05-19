@@ -9,11 +9,11 @@ username and password is supported. The Trino client sends a username
 and password to the coordinator, and the coordinator validates these
 credentials using an external LDAP service.
 
-To enable LDAP authentication for Trino, configuration changes are made on
-the Trino coordinator. No changes are required to the worker configuration;
-only the communication from the clients to the coordinator is authenticated.
-However, if you want to secure the communication between
-Trino nodes with SSL/TLS configure :doc:`/security/internal-communication`.
+To enable LDAP authentication for Trino, LDAP-related configuration changes are
+made on the Trino coordinator.
+
+Using :doc:`TLS <tls>` and :doc:`a configured shared secret
+</security/internal-communication>` is required for LDAP authentication.
 
 Trino server configuration
 ---------------------------
@@ -275,28 +275,8 @@ wrapper script.
     --user <LDAP user> \
     --password
 
-=============================== =========================================================================
-Option                          Description
-=============================== =========================================================================
-``--server``                    The address and port of the Trino coordinator.  The port must
-                                be set to the port the Trino coordinator is listening for HTTPS
-                                connections on. Trino CLI does not support using ``http`` scheme for
-                                the URL when using LDAP authentication.
-``--keystore-path``             The location of the Java Keystore file that will be used
-                                to secure TLS.
-``--keystore-password``         The password for the keystore. This must match the
-                                password you specified when creating the keystore.
-``--truststore-path``           The location of the Java truststore file that will be used
-                                to secure TLS.
-``--truststore-password``       The password for the truststore. This must match the
-                                password you specified when creating the truststore.
-``--user``                      The LDAP username. For Active Directory this should be your
-                                ``sAMAccountName`` and for OpenLDAP this should be the ``uid`` of
-                                the user. This is the username which is
-                                used to replace the ``${USER}`` placeholder pattern in the properties
-                                specified in ``config.properties``.
-``--password``                  Prompts for a password for the ``user``.
-=============================== =========================================================================
+Find details on the options used in :ref:`cli-tls` and
+:ref:`cli-username-password-auth`.
 
 Troubleshooting
 ---------------

@@ -111,8 +111,9 @@ public final class HiveSessionProperties
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "experimental_parquet_optimized_writer_enabled";
     private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
-    private static final String LEGACY_HIVE_VIEW_TRANSLATION = "legacy_hive_view_translation";
+    private static final String HIVE_VIEWS_LEGACY_TRANSLATION = "hive_views_legacy_translation";
     private static final String ICEBERG_CATALOG_NAME = "iceberg_catalog_name";
+    public static final String DELTA_LAKE_CATALOG_NAME = "delta_lake_catalog_name";
     public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     public static final String NON_TRANSACTIONAL_OPTIMIZE_ENABLED = "non_transactional_optimize_enabled";
@@ -461,7 +462,7 @@ public final class HiveSessionProperties
                         hiveConfig.isOptimizeSymlinkListing(),
                         false),
                 booleanProperty(
-                        LEGACY_HIVE_VIEW_TRANSLATION,
+                        HIVE_VIEWS_LEGACY_TRANSLATION,
                         "Use legacy Hive view translation mechanism",
                         hiveConfig.isLegacyHiveViewTranslation(),
                         false),
@@ -491,7 +492,14 @@ public final class HiveSessionProperties
                         NON_TRANSACTIONAL_OPTIMIZE_ENABLED,
                         "Enable OPTIMIZE table procedure",
                         false,
-                        false));
+                        false),
+                stringProperty(
+                        DELTA_LAKE_CATALOG_NAME,
+                        "Catalog to redirect to when a Delta Lake table is referenced",
+                        hiveConfig.getDeltaLakeCatalogName().orElse(null),
+                        // Session-level redirections configuration does not work well with views, as view body is analyzed in context
+                        // of a session with properties stripped off. Thus, this property is more of a test-only, or at most POC usefulness.
+                        true));
     }
 
     @Override
@@ -794,9 +802,9 @@ public final class HiveSessionProperties
         return session.getProperty(OPTIMIZE_SYMLINK_LISTING, Boolean.class);
     }
 
-    public static boolean isLegacyHiveViewTranslation(ConnectorSession session)
+    public static boolean isHiveViewsLegacyTranslation(ConnectorSession session)
     {
-        return session.getProperty(LEGACY_HIVE_VIEW_TRANSLATION, Boolean.class);
+        return session.getProperty(HIVE_VIEWS_LEGACY_TRANSLATION, Boolean.class);
     }
 
     public static Optional<String> getIcebergCatalogName(ConnectorSession session)
@@ -817,5 +825,10 @@ public final class HiveSessionProperties
     public static boolean isNonTransactionalOptimizeEnabled(ConnectorSession session)
     {
         return session.getProperty(NON_TRANSACTIONAL_OPTIMIZE_ENABLED, Boolean.class);
+    }
+
+    public static Optional<String> getDeltaLakeCatalogName(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(DELTA_LAKE_CATALOG_NAME, String.class));
     }
 }

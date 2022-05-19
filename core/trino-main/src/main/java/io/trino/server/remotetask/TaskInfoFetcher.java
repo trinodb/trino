@@ -21,6 +21,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.StateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -67,6 +68,7 @@ public class TaskInfoFetcher
 
     private final boolean summarizeTaskInfo;
     private final RemoteTaskStats stats;
+    private final Optional<DataSize> estimatedMemory;
 
     @GuardedBy("this")
     private boolean running;
@@ -89,7 +91,8 @@ public class TaskInfoFetcher
             Executor executor,
             ScheduledExecutorService updateScheduledExecutor,
             ScheduledExecutorService errorScheduledExecutor,
-            RemoteTaskStats stats)
+            RemoteTaskStats stats,
+            Optional<DataSize> estimatedMemory)
     {
         requireNonNull(initialTask, "initialTask is null");
         requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
@@ -110,6 +113,7 @@ public class TaskInfoFetcher
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.estimatedMemory = requireNonNull(estimatedMemory, "estimatedMemory is null");
     }
 
     public TaskInfo getTaskInfo()
@@ -215,15 +219,16 @@ public class TaskInfoFetcher
         TaskStatus localTaskStatus = taskStatusFetcher.getTaskStatus();
         TaskStatus newRemoteTaskStatus = newTaskInfo.getTaskStatus();
 
-        TaskInfo newValue;
         if (localTaskStatus.getState().isDone() && newRemoteTaskStatus.getState().isDone() && localTaskStatus.getState() != newRemoteTaskStatus.getState()) {
             // prefer local
-            newValue = newTaskInfo.withTaskStatus(localTaskStatus);
-        }
-        else {
-            newValue = newTaskInfo;
+            newTaskInfo = newTaskInfo.withTaskStatus(localTaskStatus);
         }
 
+        if (estimatedMemory.isPresent()) {
+            newTaskInfo = newTaskInfo.withEstimatedMemory(estimatedMemory.get());
+        }
+
+        TaskInfo newValue = newTaskInfo;
         boolean updated = taskInfo.setIf(newValue, oldValue -> {
             TaskStatus oldTaskStatus = oldValue.getTaskStatus();
             TaskStatus newTaskStatus = newValue.getTaskStatus();

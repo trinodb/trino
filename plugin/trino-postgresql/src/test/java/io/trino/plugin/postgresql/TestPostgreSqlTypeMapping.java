@@ -222,10 +222,10 @@ public class TestPostgreSqlTypeMapping
     {
         try (TestTable table = new TestTable(postgreSqlServer::execute, "tpch.test_unsupported_smallint", "(data smallint)")) {
             assertPostgreSqlQueryFails(
-                    format("INSERT INTO %s VALUES (-32769)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-32769)", // min - 1
                     "ERROR: smallint out of range");
             assertPostgreSqlQueryFails(
-                    format("INSERT INTO %s VALUES (32768)", table.getName()), // max + 1
+                    "INSERT INTO " + table.getName() + " VALUES (32768)", // max + 1
                     "ERROR: smallint out of range");
         }
     }
@@ -260,10 +260,10 @@ public class TestPostgreSqlTypeMapping
     {
         try (TestTable table = new TestTable(postgreSqlServer::execute, "tpch.test_unsupported_integer", "(data integer)")) {
             assertPostgreSqlQueryFails(
-                    format("INSERT INTO %s VALUES (-2147483649)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-2147483649)", // min - 1
                     "ERROR: integer out of range");
             assertPostgreSqlQueryFails(
-                    format("INSERT INTO %s VALUES (2147483648)", table.getName()), // max + 1
+                    "INSERT INTO " + table.getName() + " VALUES (2147483648)", // max + 1
                     "ERROR: integer out of range");
         }
     }
@@ -298,10 +298,10 @@ public class TestPostgreSqlTypeMapping
     {
         try (TestTable table = new TestTable(postgreSqlServer::execute, "tpch.test_unsupported_bigint", "(data bigint)")) {
             assertPostgreSqlQueryFails(
-                    format("INSERT INTO %s VALUES (-9223372036854775809)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-9223372036854775809)", // min - 1
                     "ERROR: bigint out of range");
             assertPostgreSqlQueryFails(
-                    format("INSERT INTO %s VALUES (9223372036854775808)", table.getName()), // max + 1
+                    "INSERT INTO " + table.getName() + " VALUES (9223372036854775808)", // max + 1
                     "ERROR: bigint out of range");
         }
     }
@@ -1092,7 +1092,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'") // change forward at midnight in JVM
                 .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'") // change forward at midnight in Vilnius
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'") // change backward at midnight in Vilnius
-                .addRoundTrip("date", "DATE '5874897-12-31'", DATE, "DATE '5874897-12-31'") // max value in Trino
+                .addRoundTrip("date", "DATE '5874897-12-31'", DATE, "DATE '5874897-12-31'") // max value in PostgreSQL
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))

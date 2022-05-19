@@ -53,6 +53,8 @@ import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.Descriptor;
+import io.trino.sql.tree.DescriptorField;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
@@ -73,6 +75,7 @@ import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.FunctionCall.NullTreatment;
+import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.GrantOnType;
@@ -132,6 +135,7 @@ import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.RefreshMaterializedView;
+import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
@@ -174,11 +178,15 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableArgument;
 import io.trino.sql.tree.TableExecute;
+import io.trino.sql.tree.TableFunctionArgument;
+import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.TransactionAccessMode;
+import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
@@ -239,6 +247,8 @@ import static io.trino.sql.tree.ArithmeticUnaryExpression.negative;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.positive;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP;
+import static io.trino.sql.tree.DescriptorArgument.descriptorArgument;
+import static io.trino.sql.tree.DescriptorArgument.nullDescriptorArgument;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.trino.sql.tree.PatternSearchMode.Mode.SEEK;
@@ -246,9 +256,13 @@ import static io.trino.sql.tree.ProcessingMode.Mode.FINAL;
 import static io.trino.sql.tree.ProcessingMode.Mode.RUNNING;
 import static io.trino.sql.tree.SetProperties.Type.MATERIALIZED_VIEW;
 import static io.trino.sql.tree.SkipTo.skipToNextRow;
+import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.trino.sql.tree.Trim.Specification.BOTH;
+import static io.trino.sql.tree.Trim.Specification.LEADING;
+import static io.trino.sql.tree.Trim.Specification.TRAILING;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -946,6 +960,26 @@ public class TestSqlParser
     public void testCurrentTimestamp()
     {
         assertExpression("CURRENT_TIMESTAMP", new CurrentTime(CurrentTime.Function.TIMESTAMP));
+    }
+
+    @Test
+    public void testTrim()
+    {
+        assertThat(expression("trim(BOTH FROM ' abc ')"))
+                .isEqualTo(new Trim(location(1, 1), BOTH, new StringLiteral(location(1, 16), " abc "), Optional.empty()));
+        assertThat(expression("trim(LEADING FROM ' abc ')"))
+                .isEqualTo(new Trim(location(1, 1), LEADING, new StringLiteral(location(1, 19), " abc "), Optional.empty()));
+        assertThat(expression("trim(TRAILING FROM ' abc ')"))
+                .isEqualTo(new Trim(location(1, 1), TRAILING, new StringLiteral(location(1, 20), " abc "), Optional.empty()));
+
+        assertThat(expression("trim(BOTH ' ' FROM ' abc ')"))
+                .isEqualTo(new Trim(location(1, 1), BOTH, new StringLiteral(location(1, 20), " abc "), Optional.of(new StringLiteral(location(1, 11), " "))));
+        assertThat(expression("trim(LEADING ' ' FROM ' abc ')"))
+                .isEqualTo(new Trim(location(1, 1), LEADING, new StringLiteral(location(1, 23), " abc "), Optional.of(new StringLiteral(location(1, 14), " "))));
+        assertThat(expression("trim(TRAILING ' ' FROM ' abc ')"))
+                .isEqualTo(new Trim(location(1, 1), TRAILING, new StringLiteral(location(1, 24), " abc "), Optional.of(new StringLiteral(location(1, 15), " "))));
+
+        assertInvalidExpression("trim(FROM ' abc ')", "The 'trim' function must have specification, char or both arguments when it takes FROM");
     }
 
     @Test
@@ -3831,6 +3865,101 @@ public class TestSqlParser
                                 new BooleanLiteral("false"),
                                 new StringLiteral("HIDDEN"),
                                 new BooleanLiteral("false"))));
+    }
+
+    @Test
+    public void testTableFunctionInvocation()
+    {
+        assertThat(statement("SELECT * FROM TABLE(some_ptf(input => 1))"))
+                .isEqualTo(selectAllFrom(new TableFunctionInvocation(
+                        location(1, 21),
+                        qualifiedName(location(1, 21), "some_ptf"),
+                        ImmutableList.of(new TableFunctionArgument(
+                                location(1, 30),
+                                Optional.of(new Identifier(location(1, 30), "input", false)),
+                                new LongLiteral(location(1, 39), "1"))),
+                        ImmutableList.of())));
+
+        assertThat(statement("SELECT * FROM TABLE(some_ptf(" +
+                "                                               arg1 => TABLE(orders) AS ord(a, b, c) " +
+                "                                                                    PARTITION BY a " +
+                "                                                                    PRUNE WHEN EMPTY " +
+                "                                                                    ORDER BY b ASC NULLS LAST, " +
+                "                                               arg2 => CAST(NULL AS DESCRIPTOR), " +
+                "                                               arg3 => DESCRIPTOR(x integer, y varchar), " +
+                "                                               arg4 => 5, " +
+                "                                               'not-named argument' " +
+                "                                               COPARTITION (ord, nation)))"))
+                .isEqualTo(selectAllFrom(new TableFunctionInvocation(
+                        location(1, 21),
+                        qualifiedName(location(1, 21), "some_ptf"),
+                        ImmutableList.of(
+                                new TableFunctionArgument(
+                                        location(1, 77),
+                                        Optional.of(new Identifier(location(1, 77), "arg1", false)),
+                                        new TableArgument(
+                                                location(1, 85),
+                                                new AliasedRelation(
+                                                        location(1, 85),
+                                                        new Table(location(1, 85), qualifiedName(location(1, 91), "orders")),
+                                                        new Identifier(location(1, 102), "ord", false),
+                                                        ImmutableList.of(
+                                                                new Identifier(location(1, 106), "a", false),
+                                                                new Identifier(location(1, 109), "b", false),
+                                                                new Identifier(location(1, 112), "c", false))),
+                                                Optional.of(ImmutableList.of(new Identifier(location(1, 196), "a", false))),
+                                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(location(1, 360), new Identifier(location(1, 360), "b", false), ASCENDING, LAST)))),
+                                                true)),
+                                new TableFunctionArgument(
+                                        location(1, 425),
+                                        Optional.of(new Identifier(location(1, 425), "arg2", false)),
+                                        nullDescriptorArgument(location(1, 433))),
+                                new TableFunctionArgument(
+                                        location(1, 506),
+                                        Optional.of(new Identifier(location(1, 506), "arg3", false)),
+                                        descriptorArgument(
+                                                location(1, 514),
+                                                new Descriptor(location(1, 514), ImmutableList.of(
+                                                        new DescriptorField(
+                                                                location(1, 525),
+                                                                new Identifier(location(1, 525), "x", false),
+                                                                Optional.of(new GenericDataType(location(1, 527), new Identifier(location(1, 527), "integer", false), ImmutableList.of()))),
+                                                        new DescriptorField(
+                                                                location(1, 536),
+                                                                new Identifier(location(1, 536), "y", false),
+                                                                Optional.of(new GenericDataType(location(1, 538), new Identifier(location(1, 538), "varchar", false), ImmutableList.of()))))))),
+                                new TableFunctionArgument(
+                                        location(1, 595),
+                                        Optional.of(new Identifier(location(1, 595), "arg4", false)),
+                                        new LongLiteral(location(1, 603), "5")),
+                                new TableFunctionArgument(
+                                        location(1, 653),
+                                        Optional.empty(),
+                                        new StringLiteral(location(1, 653), "not-named argument"))),
+                        ImmutableList.of(ImmutableList.of(
+                                qualifiedName(location(1, 734), "ord"),
+                                qualifiedName(location(1, 739), "nation"))))));
+    }
+
+    private static Query selectAllFrom(Relation relation)
+    {
+        return new Query(
+                location(1, 1),
+                Optional.empty(),
+                new QuerySpecification(
+                        location(1, 1),
+                        new Select(location(1, 1), false, ImmutableList.of(new AllColumns(location(1, 8), Optional.empty(), ImmutableList.of()))),
+                        Optional.of(relation),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     private static QualifiedName makeQualifiedName(String tableName)

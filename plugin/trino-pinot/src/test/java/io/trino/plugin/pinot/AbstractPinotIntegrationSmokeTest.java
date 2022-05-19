@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.trino.Session;
 import io.trino.plugin.pinot.client.PinotHostMapper;
@@ -36,10 +37,29 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.pinot.common.utils.TarGzCompressionUtils;
+import org.apache.pinot.segment.local.recordtransformer.CompositeTransformer;
+import org.apache.pinot.segment.local.recordtransformer.RecordTransformer;
+import org.apache.pinot.segment.local.segment.creator.RecordReaderSegmentCreationDataSource;
+import org.apache.pinot.segment.local.segment.creator.impl.SegmentIndexCreationDriverImpl;
+import org.apache.pinot.segment.local.segment.readers.GenericRowRecordReader;
+import org.apache.pinot.segment.spi.creator.SegmentCreationDataSource;
+import org.apache.pinot.segment.spi.creator.SegmentGeneratorConfig;
+import org.apache.pinot.segment.spi.creator.name.NormalizedDateSegmentNameGenerator;
+import org.apache.pinot.spi.config.table.TableConfig;
+import org.apache.pinot.spi.data.DateTimeFormatSpec;
+import org.apache.pinot.spi.data.readers.GenericRow;
+import org.apache.pinot.spi.data.readers.RecordReader;
+import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 import org.testcontainers.shaded.org.bouncycastle.util.encoders.Hex;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -49,17 +69,25 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
+import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_PREVIOUS_IMAGE_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.String.format;
+import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.joining;
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
+import static org.apache.pinot.spi.utils.JsonUtils.inputStreamToObject;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -79,6 +107,10 @@ public abstract class AbstractPinotIntegrationSmokeTest
     private static final String MIXED_CASE_DISTINCT_TABLE = "mixed_case_distinct";
     private static final String TOO_MANY_ROWS_TABLE = "too_many_rows";
     private static final String TOO_MANY_BROKER_ROWS_TABLE = "too_many_broker_rows";
+    private static final String MIXED_CASE_TABLE_NAME = "mixedCase";
+    private static final String HYBRID_TABLE_NAME = "hybrid";
+    private static final String DUPLICATE_TABLE_LOWERCASE = "dup_table";
+    private static final String DUPLICATE_TABLE_MIXED_CASE = "dup_Table";
     private static final String JSON_TABLE = "my_table";
     private static final String RESERVED_KEYWORD_TABLE = "reserved_keyword";
     private static final String QUOTES_IN_COLUMN_NAME_TABLE = "quotes_in_column_name";
@@ -90,13 +122,18 @@ public abstract class AbstractPinotIntegrationSmokeTest
 
     protected abstract boolean isSecured();
 
+    protected String getPinotImageName()
+    {
+        return PINOT_PREVIOUS_IMAGE_NAME;
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         TestingKafka kafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         kafka.start();
-        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), isSecured()));
+        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), isSecured(), getPinotImageName()));
         pinot.start();
 
         // Create and populate the all_types topic and table
@@ -188,6 +225,10 @@ public abstract class AbstractPinotIntegrationSmokeTest
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("mixed_case_distinct_schema.json"), MIXED_CASE_DISTINCT_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("mixed_case_distinct_realtimeSpec.json"), MIXED_CASE_DISTINCT_TABLE);
 
+        // Create mixed case table name, populated from the mixed case topic
+        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("mixed_case_table_name_schema.json"), MIXED_CASE_TABLE_NAME);
+        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("mixed_case_table_name_realtimeSpec.json"), MIXED_CASE_TABLE_NAME);
+
         // Create and populate too many rows table and topic
         kafka.createTopic(TOO_MANY_ROWS_TABLE);
         Schema tooManyRowsAvroSchema = SchemaBuilder.record(TOO_MANY_ROWS_TABLE).fields()
@@ -226,6 +267,15 @@ public abstract class AbstractPinotIntegrationSmokeTest
         kafka.sendMessages(tooManyBrokerRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("too_many_broker_rows_schema.json"), TOO_MANY_BROKER_ROWS_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("too_many_broker_rows_realtimeSpec.json"), TOO_MANY_BROKER_ROWS_TABLE);
+
+        // Create the duplicate tables and topics
+        kafka.createTopic(DUPLICATE_TABLE_LOWERCASE);
+        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("dup_table_lower_case_schema.json"), DUPLICATE_TABLE_LOWERCASE);
+        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("dup_table_lower_case_realtimeSpec.json"), DUPLICATE_TABLE_LOWERCASE);
+
+        kafka.createTopic(DUPLICATE_TABLE_MIXED_CASE);
+        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("dup_table_mixed_case_schema.json"), DUPLICATE_TABLE_MIXED_CASE);
+        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("dup_table_mixed_case_realtimeSpec.json"), DUPLICATE_TABLE_MIXED_CASE);
 
         // Create and populate date time fields table and topic
         kafka.createTopic(DATE_TIME_FIELDS_TABLE);
@@ -269,6 +319,92 @@ public abstract class AbstractPinotIntegrationSmokeTest
 
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("schema.json"), JSON_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("realtimeSpec.json"), JSON_TABLE);
+
+        // Create and populate mixed case table and topic
+        kafka.createTopic(HYBRID_TABLE_NAME);
+        Schema hybridAvroSchema = SchemaBuilder.record(HYBRID_TABLE_NAME).fields()
+                .name("stringCol").type().stringType().noDefault()
+                .name("longCol").type().optional().longType()
+                .name("updatedAt").type().longType().noDefault()
+                .endRecord();
+
+        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("hybrid_schema.json"), HYBRID_TABLE_NAME);
+        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("hybrid_realtimeSpec.json"), HYBRID_TABLE_NAME);
+        pinot.addOfflineTable(getClass().getClassLoader().getResourceAsStream("hybrid_offlineSpec.json"), HYBRID_TABLE_NAME);
+
+        List<ProducerRecord<String, GenericRecord>> hybridProducerRecords = ImmutableList.<ProducerRecord<String, GenericRecord>>builder()
+                .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key0", new GenericRecordBuilder(hybridAvroSchema)
+                        .set("stringCol", "string_0")
+                        .set("longCol", 0L)
+                        .set("updatedAt", initialUpdatedAt.toEpochMilli())
+                        .build()))
+                .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key1", new GenericRecordBuilder(hybridAvroSchema)
+                        .set("stringCol", "string_1")
+                        .set("longCol", 1L)
+                        .set("updatedAt", initialUpdatedAt.plusMillis(1000).toEpochMilli())
+                        .build()))
+                .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key2", new GenericRecordBuilder(hybridAvroSchema)
+                        .set("stringCol", "string_2")
+                        .set("longCol", 2L)
+                        .set("updatedAt", initialUpdatedAt.plusMillis(2000).toEpochMilli())
+                        .build()))
+                .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key3", new GenericRecordBuilder(hybridAvroSchema)
+                        .set("stringCol", "string_3")
+                        .set("longCol", 3L)
+                        .set("updatedAt", initialUpdatedAt.plusMillis(3000).toEpochMilli())
+                        .build()))
+                .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key4", new GenericRecordBuilder(hybridAvroSchema)
+                        .set("stringCol", "string_4")
+                        .set("longCol", 0L)
+                        .set("updatedAt", initialUpdatedAt.truncatedTo(DAYS).minusSeconds(3600).toEpochMilli())
+                        .build()))
+                .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key5", new GenericRecordBuilder(hybridAvroSchema)
+                        .set("stringCol", "string_5")
+                        .set("longCol", 1L)
+                        .set("updatedAt", initialUpdatedAt.truncatedTo(DAYS).minusSeconds(3600 * 2).toEpochMilli())
+                        .build()))
+                .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key6", new GenericRecordBuilder(hybridAvroSchema)
+                        .set("stringCol", "string_6")
+                        .set("longCol", 2L)
+                        .set("updatedAt", initialUpdatedAt.truncatedTo(DAYS).minusSeconds(86400 * 2 - 3600).toEpochMilli())
+                        .build()))
+                .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key7", new GenericRecordBuilder(hybridAvroSchema)
+                        .set("stringCol", "string_7")
+                        .set("longCol", 3L)
+                        .set("updatedAt", initialUpdatedAt.truncatedTo(DAYS).minusSeconds(86400 * 2 - 7200).toEpochMilli())
+                        .build()))
+                .build();
+
+        Path temporaryDirectory = Paths.get("/tmp/segments-" + randomUUID());
+        try {
+            Files.createDirectory(temporaryDirectory);
+            ImmutableList.Builder<GenericRow> offlineRowsBuilder = ImmutableList.builder();
+            for (int i = 8; i < 12; i++) {
+                GenericRow row = new GenericRow();
+                row.putValue("stringCol", "string_" + i);
+                row.putValue("longCol", (long) i - 8);
+                row.putValue("updatedAt", initialUpdatedAt.truncatedTo(DAYS).minusSeconds(3600 * 12 * (i - 8)).toEpochMilli());
+                offlineRowsBuilder.add(row);
+            }
+            Path segmentPath = createSegment(getClass().getClassLoader().getResourceAsStream("hybrid_offlineSpec.json"), getClass().getClassLoader().getResourceAsStream("hybrid_schema.json"), new GenericRowRecordReader(offlineRowsBuilder.build()), temporaryDirectory.toString(), 0);
+            pinot.publishOfflineSegment("hybrid", segmentPath);
+
+            offlineRowsBuilder = ImmutableList.builder();
+            for (int i = 12; i < 16; i++) {
+                GenericRow row = new GenericRow();
+                row.putValue("stringCol", "string_" + i);
+                row.putValue("longCol", (long) i - 12);
+                row.putValue("updatedAt", initialUpdatedAt.truncatedTo(DAYS).minusSeconds(100 + 3600 * 12 * (i - 12)).toEpochMilli());
+                offlineRowsBuilder.add(row);
+            }
+            segmentPath = createSegment(getClass().getClassLoader().getResourceAsStream("hybrid_offlineSpec.json"), getClass().getClassLoader().getResourceAsStream("hybrid_schema.json"), new GenericRowRecordReader(offlineRowsBuilder.build()), temporaryDirectory.toString(), 1);
+            pinot.publishOfflineSegment("hybrid", segmentPath);
+        }
+        finally {
+            deleteRecursively(temporaryDirectory, ALLOW_INSECURE);
+        }
+
+        kafka.sendMessages(hybridProducerRecords.stream(), schemaRegistryAwareProducer(kafka));
 
         // Create a table having reserved keyword column names
         kafka.createTopic(RESERVED_KEYWORD_TABLE);
@@ -380,6 +516,58 @@ public abstract class AbstractPinotIntegrationSmokeTest
     protected Map<String, String> additionalPinotProperties()
     {
         return ImmutableMap.of();
+    }
+
+    private static Path createSegment(InputStream tableConfigInputStream, InputStream pinotSchemaInputStream, RecordReader recordReader, String outputDirectory, int sequenceId)
+    {
+        try {
+            org.apache.pinot.spi.data.Schema pinotSchema = org.apache.pinot.spi.data.Schema.fromInputSteam(pinotSchemaInputStream);
+            TableConfig tableConfig = inputStreamToObject(tableConfigInputStream, TableConfig.class);
+            String tableName = TableNameBuilder.extractRawTableName(tableConfig.getTableName());
+            String timeColumnName = tableConfig.getValidationConfig().getTimeColumnName();
+            String segmentTempLocation = String.join(File.separator, outputDirectory, tableName, "segments");
+            Files.createDirectories(Paths.get(outputDirectory));
+            SegmentGeneratorConfig segmentGeneratorConfig = new SegmentGeneratorConfig(tableConfig, pinotSchema);
+            segmentGeneratorConfig.setTableName(tableName);
+            segmentGeneratorConfig.setOutDir(segmentTempLocation);
+            if (timeColumnName != null) {
+                DateTimeFormatSpec formatSpec = new DateTimeFormatSpec(pinotSchema.getDateTimeSpec(timeColumnName).getFormat());
+                segmentGeneratorConfig.setSegmentNameGenerator(new NormalizedDateSegmentNameGenerator(
+                        tableName,
+                        null,
+                        false,
+                        tableConfig.getValidationConfig().getSegmentPushType(),
+                        tableConfig.getValidationConfig().getSegmentPushFrequency(),
+                        formatSpec,
+                        null));
+            }
+            else {
+                checkState(tableConfig.isDimTable(), "Null time column only allowed for dimension tables");
+            }
+            segmentGeneratorConfig.setSequenceId(sequenceId);
+            SegmentCreationDataSource dataSource = new RecordReaderSegmentCreationDataSource(recordReader);
+            RecordTransformer recordTransformer = genericRow -> {
+                GenericRow record = null;
+                try {
+                    record = CompositeTransformer.getDefaultTransformer(tableConfig, pinotSchema).transform(genericRow);
+                }
+                catch (Exception e) {
+                    // ignored
+                    record = null;
+                }
+                return record;
+            };
+            SegmentIndexCreationDriverImpl driver = new SegmentIndexCreationDriverImpl();
+            driver.init(segmentGeneratorConfig, dataSource, recordTransformer, null);
+            driver.build();
+            File segmentOutputDirectory = driver.getOutputDirectory();
+            File tgzPath = new File(String.join(File.separator, outputDirectory, segmentOutputDirectory.getName() + ".tar.gz"));
+            TarGzCompressionUtils.createTarGzFile(segmentOutputDirectory, tgzPath);
+            return Paths.get(tgzPath.getAbsolutePath());
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static Map<String, String> schemaRegistryAwareProducer(TestingKafka testingKafka)
@@ -746,6 +934,67 @@ public abstract class AbstractPinotIntegrationSmokeTest
                         "  (VARCHAR 'string_2', DOUBLE '2.0', BIGINT '2', BIGINT '2', BIGINT '1', BIGINT '2')," +
                         "  (VARCHAR 'string_3', DOUBLE '3.0', BIGINT '3', BIGINT '3', BIGINT '1', BIGINT '3')")
                 .isFullyPushedDown();
+    }
+
+    @Test
+    public void testNonLowerTable()
+    {
+        long rowCount = (long) computeScalar("SELECT COUNT(*) FROM " + MIXED_CASE_TABLE_NAME);
+        List<String> rows = new ArrayList<>();
+        for (int i = 0; i < rowCount; i++) {
+            rows.add(format("('string_%s', '%s', '%s')", i, i, initialUpdatedAt.plusMillis(i * 1000).getEpochSecond()));
+        }
+
+        String mixedCaseColumnNamesTableValues = rows.stream().collect(joining(",", "VALUES ", ""));
+
+        // Test segment query all rows
+        assertQuery("SELECT stringcol, longcol, updatedatseconds" +
+                        "  FROM " + MIXED_CASE_TABLE_NAME,
+                mixedCaseColumnNamesTableValues);
+
+        // Test broker query all rows
+        assertQuery("SELECT stringcol, longcol, updatedatseconds" +
+                        "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_TABLE_NAME + "\"",
+                mixedCaseColumnNamesTableValues);
+
+        String singleRowValues = "VALUES (VARCHAR 'string_3', BIGINT '3', BIGINT '" + initialUpdatedAt.plusMillis(3 * 1000).getEpochSecond() + "')";
+
+        // Test segment query single row
+        assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
+                "  FROM " + MIXED_CASE_TABLE_NAME +
+                "  WHERE longcol = 3"))
+                .matches(singleRowValues)
+                .isFullyPushedDown();
+
+        // Test broker query single row
+        assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
+                "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_TABLE_NAME +
+                "\" WHERE longcol = 3"))
+                .matches(singleRowValues)
+                .isFullyPushedDown();
+
+        // Test information schema
+        assertQuery(
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = 'default' AND table_name = 'mixedcase'",
+                "VALUES 'stringcol', 'updatedatseconds', 'longcol'");
+        assertQuery(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'mixedcase'",
+                "VALUES 'stringcol', 'updatedatseconds', 'longcol'");
+        assertEquals(
+                computeActual("SHOW COLUMNS FROM default.mixedcase").getMaterializedRows().stream()
+                        .map(row -> row.getField(0))
+                        .collect(toImmutableSet()),
+                ImmutableSet.of("stringcol", "updatedatseconds", "longcol"));
+    }
+
+    @Test
+    public void testAmbiguousTables()
+    {
+        assertQueryFails("SELECT * FROM " + DUPLICATE_TABLE_LOWERCASE, "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
+        assertQueryFails("SELECT * FROM " + DUPLICATE_TABLE_MIXED_CASE, "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
+        assertQueryFails("SELECT * FROM \"SELECT * FROM " + DUPLICATE_TABLE_LOWERCASE + "\"", "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
+        assertQueryFails("SELECT * FROM \"SELECT * FROM " + DUPLICATE_TABLE_MIXED_CASE + "\"", "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
+        assertQueryFails("SELECT * FROM information_schema.columns", "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
     }
 
     @Test
@@ -1641,15 +1890,10 @@ public abstract class AbstractPinotIntegrationSmokeTest
                         "  (56, BIGINT '-3147483640')," +
                         "  (56, BIGINT '-3147483639')");
 
-        // Query with a function on a column and an alias with the same column name fails
-        // For more details see https://github.com/apache/pinot/issues/7545
-        assertThatExceptionOfType(RuntimeException.class)
-                .isThrownBy(() -> query("SELECT int_col FROM " +
-                        "\"SELECT floor(int_col / 3) AS int_col" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col IS NOT null AND string_col != 'array_null'\""))
-                .withRootCauseInstanceOf(RuntimeException.class)
-                .withMessage("Alias int_col cannot be referred in SELECT Clause");
+        assertQuerySucceeds("SELECT int_col FROM " +
+                "\"SELECT floor(int_col / 3) AS int_col" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col IS NOT null AND string_col != 'array_null'\"");
     }
 
     @Test
@@ -1691,16 +1935,10 @@ public abstract class AbstractPinotIntegrationSmokeTest
                 "  GROUP BY int_col2, long_col2"))
                 .isFullyPushedDown();
 
-        // Query with grouping columns but no aggregates ignores aliases.
-        // For more details see: https://github.com/apache/pinot/issues/7546
-        assertThatExceptionOfType(RuntimeException.class)
-                .isThrownBy(() -> query("SELECT DISTINCT int_col2, long_col2 FROM " +
-                        "\"SELECT int_col AS int_col2, long_col AS long_col2" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col IS NOT null AND string_col != 'array_null'\""))
-                .withRootCauseInstanceOf(RuntimeException.class)
-                .withMessage("column index for 'int_col2' was not found");
-
+        assertQuerySucceeds("SELECT DISTINCT int_col2, long_col2 FROM " +
+                "\"SELECT int_col AS int_col2, long_col AS long_col2" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col IS NOT null AND string_col != 'array_null'\"");
         assertThat(query("SELECT int_col2, count(*) FROM " +
                 "\"SELECT int_col AS int_col2, long_col AS long_col2" +
                 "  FROM " + ALL_TYPES_TABLE +

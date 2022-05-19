@@ -25,6 +25,7 @@ import io.trino.testing.kafka.TestingKafka;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class PinotQueryRunner
@@ -66,7 +67,7 @@ public class PinotQueryRunner
     {
         TestingKafka kafka = TestingKafka.createWithSchemaRegistry();
         kafka.start();
-        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork(), false);
+        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork(), false, PINOT_LATEST_IMAGE_NAME);
         pinot.start();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
         Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()

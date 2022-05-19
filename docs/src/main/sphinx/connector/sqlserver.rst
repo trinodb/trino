@@ -84,6 +84,23 @@ catalog named ``sales`` using the configured connector.
 
 .. include:: jdbc-common-configurations.fragment
 
+Specific configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The SQL Server connector supports additional catalog properties to configure the
+behavior of the connector and the issues queries to the database.
+
+.. list-table::
+  :widths: 45, 55
+  :header-rows: 1
+
+  * - Property name
+    - Description
+  * - ``sqlserver.snapshot-isolation.disabled``
+    - Control the automatic use of snapshot isolation for transactions issued by
+      Trino in SQL Server. Defaults to ``false``, which means that snapshot
+      isolation is enabled.
+
 .. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment
@@ -164,10 +181,49 @@ supports the following features:
 
 .. include:: alter-table-limitation.fragment
 
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+.. _sqlserver-table-statistics:
+
+Table statistics
+^^^^^^^^^^^^^^^^
+
+The SQL Server connector can use :doc:`table and column statistics
+</optimizer/statistics>` for :doc:`cost based optimizations
+</optimizer/cost-based-optimizations>`, to improve query processing performance
+based on the actual data in the data source.
+
+The statistics are collected by SQL Server and retrieved by the connector.
+
+The connector can use information stored in single-column statistics. SQL Server
+Database can automatically create column statistics for certain columns. If
+column statistics are not created automatically for a certain column, you can
+create them by executing the following statement in SQL Server Database.
+
+.. code-block:: sql
+
+    CREATE STATISTICS my_statistics_name ON table_schema.table_name (column_name);
+
+SQL Server Database routinely updates the statistics. In some cases, you may
+want to force statistics update (e.g. after defining new column statistics or
+after changing data in the table). You can do that by executing the following
+statement in SQL Server Database.
+
+.. code-block:: sql
+
+    UPDATE STATISTICS table_schema.table_name;
+
+Refer to SQL Server documentation for information about options, limitations and
+additional considerations.
+
 .. _sqlserver-pushdown:
 
 Pushdown
---------
+^^^^^^^^
 
 The connector supports pushdown for a number of operations:
 
@@ -189,7 +245,48 @@ The connector supports pushdown for a number of operations:
 * :func:`var_pop`
 * :func:`var_samp`
 
+.. include:: join-pushdown-enabled-true.fragment
+
 .. include:: no-pushdown-text-type.fragment
+
+.. _sqlserver-bulk-insert:
+
+Bulk insert
+^^^^^^^^^^^
+
+You can optionally use the `bulk copy API
+<https://docs.microsoft.com/en-us/sql/connect/jdbc/use-bulk-copy-api-batch-insert-operation>`_
+to drastically speed up write operations.
+
+Enable bulk copying and a lock on the destination table to meet `minimal
+logging requirements
+<https://docs.microsoft.com/en-us/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import>`_.
+
+The following table shows the relevant catalog configuration properties and
+their default values:
+
+.. list-table:: Bulk load properties
+  :widths: 30, 60, 10
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default
+  * - ``sqlserver.bulk-copy-for-write.enabled``
+    - Use the SQL Server bulk copy API for writes. The corresponding catalog
+      session property is ``bulk_copy_for_write``.
+    - ``false``
+  * - ``sqlserver.bulk-copy-for-write.lock-destination-table``
+    - Obtain a bulk update lock on the destination table for write operations.
+      The corresponding catalog session property is
+      ``bulk_copy_for_write_lock_destination_table``. Setting is only used when
+      ``bulk-copy-for-write.enabled=true``.
+    - ``false``
+
+Limitations:
+
+* Column names with leading and trailing spaces are not supported.
+
 
 Data compression
 ----------------

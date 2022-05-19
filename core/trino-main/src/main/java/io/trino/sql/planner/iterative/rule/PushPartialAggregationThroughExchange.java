@@ -86,7 +86,7 @@ public class PushPartialAggregationThroughExchange
     {
         ExchangeNode exchangeNode = captures.get(EXCHANGE_NODE);
 
-        boolean decomposable = aggregationNode.isDecomposable(plannerContext.getMetadata());
+        boolean decomposable = aggregationNode.isDecomposable(context.getSession(), plannerContext.getMetadata());
 
         if (aggregationNode.getStep() == SINGLE &&
                 aggregationNode.hasEmptyGroupingSet() &&
@@ -203,7 +203,7 @@ public class PushPartialAggregationThroughExchange
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
             ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
-            AggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(resolvedFunction);
+            AggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(context.getSession(), resolvedFunction);
             List<Type> intermediateTypes = functionMetadata.getIntermediateTypes().stream()
                     .map(plannerContext.getTypeManager()::getType)
                     .collect(toImmutableList());

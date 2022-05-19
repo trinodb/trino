@@ -146,9 +146,9 @@ public class TestEffectivePredicateExtractor
         }
 
         @Override
-        public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
+        public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
         {
-            return delegate.getFunctionMetadata(resolvedFunction);
+            return delegate.getFunctionMetadata(session, resolvedFunction);
         }
 
         @Override

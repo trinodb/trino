@@ -28,7 +28,6 @@ import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.HiveViewNotSupportedException;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
@@ -254,13 +253,13 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public List<String> getAllDatabases()
+    public List<String> getAllDatabases(HiveIdentity identity)
     {
         try {
             return retry()
                     .stopOnIllegalExceptions()
                     .run("getAllDatabases", stats.getGetAllDatabases().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             return client.getAllDatabases();
                         }
                     }));
@@ -274,14 +273,14 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Optional<Database> getDatabase(String databaseName)
+    public Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
         try {
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getDatabase", stats.getGetDatabase().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             return Optional.of(client.getDatabase(databaseName));
                         }
                     }));
@@ -298,14 +297,14 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
         try {
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getAllTables", () -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             return client.getAllTables(databaseName);
                         }
                     });
@@ -322,14 +321,14 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
     {
         try {
             return retry()
                     .stopOn(UnknownDBException.class)
                     .stopOnIllegalExceptions()
                     .run("getTablesWithParameter", stats.getGetTablesWithParameter().wrap(
-                            () -> doGetTablesWithParameter(databaseName, parameterKey, parameterValue)));
+                            () -> doGetTablesWithParameter(identity, databaseName, parameterKey, parameterValue)));
         }
         catch (UnknownDBException e) {
             return ImmutableList.of();
@@ -347,7 +346,7 @@ public class ThriftHiveMetastore
     {
         try {
             return retry()
-                    .stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class)
+                    .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getTable", stats.getGetTable().wrap(() -> {
                         Table table = getTableFromMetastore(identity, databaseName, tableName);
@@ -397,7 +396,7 @@ public class ThriftHiveMetastore
     {
         try {
             return retry()
-                    .stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class)
+                    .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getTableColumnStatistics", stats.getGetTableColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
@@ -492,7 +491,7 @@ public class ThriftHiveMetastore
     {
         try {
             return retry()
-                    .stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class)
+                    .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getPartitionColumnStatistics", stats.getGetPartitionColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
@@ -751,14 +750,14 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void createRole(String role, String grantor)
+    public void createRole(HiveIdentity identity, String role, String grantor)
     {
         try {
             retry()
                     .stopOn(MetaException.class)
                     .stopOnIllegalExceptions()
                     .run("createRole", stats.getCreateRole().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             client.createRole(role, grantor);
                             return null;
                         }
@@ -773,14 +772,14 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void dropRole(String role)
+    public void dropRole(HiveIdentity identity, String role)
     {
         try {
             retry()
                     .stopOn(MetaException.class)
                     .stopOnIllegalExceptions()
                     .run("dropRole", stats.getDropRole().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             client.dropRole(role);
                             return null;
                         }
@@ -795,14 +794,14 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Set<String> listRoles()
+    public Set<String> listRoles(HiveIdentity identity)
     {
         try {
             return retry()
                     .stopOn(MetaException.class)
                     .stopOnIllegalExceptions()
                     .run("listRoles", stats.getListRoles().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             return ImmutableSet.copyOf(client.getRoleNames());
                         }
                     }));
@@ -816,11 +815,12 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
+    public void grantRoles(HiveIdentity identity, Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         for (HivePrincipal grantee : grantees) {
             for (String role : roles) {
                 grantRole(
+                        identity,
                         role,
                         grantee.getName(), fromTrinoPrincipalType(grantee.getType()),
                         grantor.getName(), fromTrinoPrincipalType(grantor.getType()),
@@ -829,14 +829,14 @@ public class ThriftHiveMetastore
         }
     }
 
-    private void grantRole(String role, String granteeName, PrincipalType granteeType, String grantorName, PrincipalType grantorType, boolean grantOption)
+    private void grantRole(HiveIdentity identity, String role, String granteeName, PrincipalType granteeType, String grantorName, PrincipalType grantorType, boolean grantOption)
     {
         try {
             retry()
                     .stopOn(MetaException.class)
                     .stopOnIllegalExceptions()
                     .run("grantRole", stats.getGrantRole().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             client.grantRole(role, granteeName, granteeType, grantorName, grantorType, grantOption);
                             return null;
                         }
@@ -851,11 +851,12 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
+    public void revokeRoles(HiveIdentity identity, Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         for (HivePrincipal grantee : grantees) {
             for (String role : roles) {
                 revokeRole(
+                        identity,
                         role,
                         grantee.getName(), fromTrinoPrincipalType(grantee.getType()),
                         adminOption);
@@ -863,14 +864,14 @@ public class ThriftHiveMetastore
         }
     }
 
-    private void revokeRole(String role, String granteeName, PrincipalType granteeType, boolean grantOption)
+    private void revokeRole(HiveIdentity identity, String role, String granteeName, PrincipalType granteeType, boolean grantOption)
     {
         try {
             retry()
                     .stopOn(MetaException.class)
                     .stopOnIllegalExceptions()
                     .run("revokeRole", stats.getRevokeRole().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             client.revokeRole(role, granteeName, granteeType, grantOption);
                             return null;
                         }
@@ -885,14 +886,14 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Set<RoleGrant> listGrantedPrincipals(String role)
+    public Set<RoleGrant> listGrantedPrincipals(HiveIdentity identity, String role)
     {
         try {
             return retry()
                     .stopOn(MetaException.class)
                     .stopOnIllegalExceptions()
                     .run("listPrincipals", stats.getListGrantedPrincipals().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             return fromRolePrincipalGrants(client.listGrantedPrincipals(role));
                         }
                     }));
@@ -906,14 +907,14 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
+    public Set<RoleGrant> listRoleGrants(HiveIdentity identity, HivePrincipal principal)
     {
         try {
             return retry()
                     .stopOn(MetaException.class)
                     .stopOnIllegalExceptions()
                     .run("listRoleGrants", stats.getListRoleGrants().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             return fromRolePrincipalGrants(client.listRoleGrants(principal.getName(), fromTrinoPrincipalType(principal.getType())));
                         }
                     }));
@@ -927,7 +928,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
         try {
             return retry()
@@ -936,14 +937,14 @@ public class ThriftHiveMetastore
                     .run("getAllViews", stats.getGetAllViews().wrap(() -> {
                         if (translateHiveViews) {
                             return alternativeCall(
-                                    this::createMetastoreClient,
+                                    () -> createMetastoreClient(identity),
                                     exception -> !isUnknownMethodExceptionalResponse(exception),
                                     chosesGetAllViewsAlternative,
                                     client -> client.getTableNamesByType(databaseName, TableType.VIRTUAL_VIEW.name()),
                                     // fallback to enumerating Presto views only (Hive views will still be executed, but will be listed as tables)
-                                    client -> doGetTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true"));
+                                    client -> doGetTablesWithParameter(identity, databaseName, PRESTO_VIEW_FLAG, "true"));
                         }
-                        return doGetTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true");
+                        return doGetTablesWithParameter(identity, databaseName, PRESTO_VIEW_FLAG, "true");
                     }));
         }
         catch (UnknownDBException e) {
@@ -957,7 +958,7 @@ public class ThriftHiveMetastore
         }
     }
 
-    private List<String> doGetTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    private List<String> doGetTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
             throws TException
     {
         checkArgument(TABLE_PARAMETER_SAFE_KEY_PATTERN.matcher(parameterKey).matches(), "Parameter key contains invalid characters: '%s'", parameterKey);
@@ -978,7 +979,7 @@ public class ThriftHiveMetastore
         String filterWithLike = HIVE_FILTER_FIELD_PARAMS + parameterKey + " LIKE \"" + parameterValue + "\"";
 
         return alternativeCall(
-                this::createMetastoreClient,
+                () -> createMetastoreClient(identity),
                 ThriftHiveMetastore::defaultIsValidExceptionalResponse,
                 chosenTableParamAlternative,
                 client -> client.getTableNamesByFilter(databaseName, filterWithEquals),
@@ -1442,7 +1443,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
+    public void grantTablePrivileges(HiveIdentity identity, String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         Set<PrivilegeGrantInfo> requestedPrivileges = privileges.stream()
                 .map(privilege -> new HivePrivilegeInfo(privilege, grantOption, grantor, grantee))
@@ -1454,8 +1455,8 @@ public class ThriftHiveMetastore
             retry()
                     .stopOnIllegalExceptions()
                     .run("grantTablePrivileges", stats.getGrantTablePrivileges().wrap(() -> {
-                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            Set<HivePrivilegeInfo> existingPrivileges = listTablePrivileges(databaseName, tableName, Optional.of(tableOwner), Optional.of(grantee));
+                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient(identity)) {
+                            Set<HivePrivilegeInfo> existingPrivileges = listTablePrivileges(identity, databaseName, tableName, Optional.of(tableOwner), Optional.of(grantee));
 
                             Set<PrivilegeGrantInfo> privilegesToGrant = new HashSet<>(requestedPrivileges);
                             Iterator<PrivilegeGrantInfo> iterator = privilegesToGrant.iterator();
@@ -1494,7 +1495,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
+    public void revokeTablePrivileges(HiveIdentity identity, String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         Set<PrivilegeGrantInfo> requestedPrivileges = privileges.stream()
                 .map(privilege -> new HivePrivilegeInfo(privilege, grantOption, grantor, grantee))
@@ -1506,8 +1507,8 @@ public class ThriftHiveMetastore
             retry()
                     .stopOnIllegalExceptions()
                     .run("revokeTablePrivileges", stats.getRevokeTablePrivileges().wrap(() -> {
-                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            Set<HivePrivilege> existingHivePrivileges = listTablePrivileges(databaseName, tableName, Optional.of(tableOwner), Optional.of(grantee)).stream()
+                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient(identity)) {
+                            Set<HivePrivilege> existingHivePrivileges = listTablePrivileges(identity, databaseName, tableName, Optional.of(tableOwner), Optional.of(grantee)).stream()
                                     .map(HivePrivilegeInfo::getHivePrivilege)
                                     .collect(toImmutableSet());
 
@@ -1533,13 +1534,13 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(HiveIdentity identity, String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         try {
             return retry()
                     .stopOnIllegalExceptions()
                     .run("listTablePrivileges", stats.getListTablePrivileges().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
                             List<HiveObjectPrivilege> hiveObjectPrivilegeList;
                             if (principal.isEmpty()) {
@@ -1857,13 +1858,13 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Optional<String> getConfigValue(String name)
+    public Optional<String> getConfigValue(HiveIdentity identity, String name)
     {
         try {
             return retry()
                     .stopOnIllegalExceptions()
                     .run("getConfigValueFromServer", () -> {
-                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
+                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient(identity)) {
                             return Optional.ofNullable(metastoreClient.getConfigValue(name, null));
                         }
                     });

@@ -39,7 +39,7 @@ public class BasicRelationStatistics
 
     /**
      * Returns estimated row count.
-     * It is guaranteed that retured value will not be NaN.
+     * It is guaranteed that returned value will not be NaN.
      */
     public double getRowCount()
     {
@@ -48,7 +48,7 @@ public class BasicRelationStatistics
 
     /**
      * Returns estimated data size.
-     * It is guaranteed that retured value will not be NaN.
+     * It is guaranteed that returned value will not be NaN.
      */
     public double getDataSize()
     {

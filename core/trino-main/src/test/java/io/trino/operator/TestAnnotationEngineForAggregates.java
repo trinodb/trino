@@ -23,7 +23,6 @@ import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.LongVariableConstraint;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Signature;
@@ -60,7 +59,6 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.type.Constraint;
 import org.testng.annotations.Test;
 
@@ -73,7 +71,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinitions;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
@@ -82,10 +79,12 @@ import static io.trino.operator.aggregation.AggregationFunctionAdapter.Aggregati
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
-import static io.trino.spi.type.StandardTypes.ARRAY;
 import static io.trino.spi.type.StandardTypes.DOUBLE;
+import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.invoke.MethodType.methodType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -123,10 +122,11 @@ public class TestAnnotationEngineForAggregates
     @Test
     public void testSimpleExactAggregationParse()
     {
-        Signature expectedSignature = new Signature(
-                "simple_exact_aggregate",
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
+        Signature expectedSignature = Signature.builder()
+                .name("simple_exact_aggregate")
+                .returnType(DoubleType.DOUBLE)
+                .argumentType(DoubleType.DOUBLE)
+                .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(ExactAggregationFunction.class));
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple exact aggregate description");
@@ -147,12 +147,43 @@ public class TestAnnotationEngineForAggregates
         aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
-    @AggregationFunction("simple_exact_aggregate_aggregation_state_moved")
-    @Description("Simple exact function which has @AggregationState on different than first positions")
-    public static final class StateOnDifferentThanFirstPositionAggregationFunction
+    @AggregationFunction("input_parameters_wrong_order")
+    @Description("AggregationState must be the first input parameter")
+    public static final class InputParametersWrongOrder
     {
         @InputFunction
         public static void input(@SqlType(DOUBLE) double value, @AggregationState NullableDoubleState state)
+        {
+            // noop this is only for annotation testing puproses
+        }
+
+        @CombineFunction
+        public static void combine(@AggregationState NullableDoubleState combine1, @AggregationState NullableDoubleState combine2)
+        {
+            // noop this is only for annotation testing puproses
+        }
+
+        @OutputFunction(DOUBLE)
+        public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
+        {
+            // noop this is only for annotation testing puproses
+        }
+    }
+
+    @Test
+    public void testInputParameterOrderEnforced()
+    {
+        assertThatThrownBy(() -> parseFunctionDefinitions(InputParametersWrongOrder.class))
+                .hasMessage("Expected input function non-dependency parameters to begin with state type NullableDoubleState: " +
+                        "public static void io.trino.operator.TestAnnotationEngineForAggregates$InputParametersWrongOrder.input(double,io.trino.operator.aggregation.state.NullableDoubleState)");
+    }
+
+    @AggregationFunction("output_parameters_wrong_order")
+    @Description("AggregationState must be the first output parameter")
+    public static final class OutputParametersWrongOrder
+    {
+        @InputFunction
+        public static void input(@AggregationState NullableDoubleState state, @SqlType(DOUBLE) double value)
         {
             // noop this is only for annotation testing puproses
         }
@@ -171,19 +202,11 @@ public class TestAnnotationEngineForAggregates
     }
 
     @Test
-    public void testStateOnDifferentThanFirstPositionAggregationParse()
+    public void testOutputParameterOrderEnforced()
     {
-        Signature expectedSignature = new Signature(
-                "simple_exact_aggregate_aggregation_state_moved",
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
-
-        ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(StateOnDifferentThanFirstPositionAggregationFunction.class));
-        assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-
-        AggregationImplementation implementation = getOnlyElement(aggregation.getImplementations().getExactImplementations().values());
-        assertEquals(implementation.getDefinitionClass(), StateOnDifferentThanFirstPositionAggregationFunction.class);
-        assertEquals(implementation.getInputParameterKinds(), ImmutableList.of(INPUT_CHANNEL, STATE));
+        assertThatThrownBy(() -> parseFunctionDefinitions(OutputParametersWrongOrder.class))
+                .hasMessage("Expected output function non-dependency parameters to be [NullableDoubleState, BlockBuilder]: " +
+                        "public static void io.trino.operator.TestAnnotationEngineForAggregates$OutputParametersWrongOrder.output(io.trino.spi.block.BlockBuilder,io.trino.operator.aggregation.state.NullableDoubleState)");
     }
 
     @AggregationFunction("no_aggregation_state_aggregate")
@@ -248,10 +271,11 @@ public class TestAnnotationEngineForAggregates
     @Test
     public void testNotDecomposableAggregationParse()
     {
-        Signature expectedSignature = new Signature(
-                "custom_decomposable_aggregate",
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
+        Signature expectedSignature = Signature.builder()
+                .name("custom_decomposable_aggregate")
+                .returnType(DoubleType.DOUBLE)
+                .argumentType(DoubleType.DOUBLE)
+                .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(NotDecomposableAggregationFunction.class));
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Aggregate with Decomposable=false");
@@ -307,13 +331,12 @@ public class TestAnnotationEngineForAggregates
     @Test
     public void testSimpleGenericAggregationFunctionParse()
     {
-        Signature expectedSignature = new Signature(
-                "simple_generic_implementations",
-                ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
-                new TypeSignature("T"),
-                ImmutableList.of(new TypeSignature("T")),
-                false);
+        Signature expectedSignature = Signature.builder()
+                .name("simple_generic_implementations")
+                .typeVariable("T")
+                .returnType(new TypeSignature("T"))
+                .argumentType(new TypeSignature("T"))
+                .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(GenericAggregationFunction.class));
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with two generic implementations");
@@ -380,10 +403,11 @@ public class TestAnnotationEngineForAggregates
     @Test
     public void testSimpleBlockInputAggregationParse()
     {
-        Signature expectedSignature = new Signature(
-                "block_input_aggregate",
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
+        Signature expectedSignature = Signature.builder()
+                .name("block_input_aggregate")
+                .returnType(DoubleType.DOUBLE)
+                .argumentType(DoubleType.DOUBLE)
+                .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(BlockInputAggregationFunction.class));
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with @BlockPosition usage");
@@ -462,13 +486,13 @@ public class TestAnnotationEngineForAggregates
     @Test(enabled = false) // TODO this is not yet supported
     public void testSimpleImplicitSpecializedAggregationParse()
     {
-        Signature expectedSignature = new Signature(
-                "implicit_specialized_aggregate",
-                ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
-                new TypeSignature("T"),
-                ImmutableList.of(new TypeSignature(ARRAY, TypeSignatureParameter.typeParameter(new TypeSignature("T"))), new TypeSignature("T")),
-                false);
+        Signature expectedSignature = Signature.builder()
+                .name("implicit_specialized_aggregate")
+                .typeVariable("T")
+                .returnType(new TypeSignature("T"))
+                .argumentType(arrayType(new TypeSignature("T")))
+                .argumentType(new TypeSignature("T"))
+                .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(ImplicitSpecializedAggregationFunction.class));
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple implicit specialized aggregate");
@@ -553,13 +577,12 @@ public class TestAnnotationEngineForAggregates
     @Test(enabled = false) // TODO this is not yet supported
     public void testSimpleExplicitSpecializedAggregationParse()
     {
-        Signature expectedSignature = new Signature(
-                "explicit_specialized_aggregate",
-                ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
-                new TypeSignature("T"),
-                ImmutableList.of(new TypeSignature(ARRAY, TypeSignatureParameter.typeParameter(new TypeSignature("T")))),
-                false);
+        Signature expectedSignature = Signature.builder()
+                .name("explicit_specialized_aggregate")
+                .typeVariable("T")
+                .returnType(new TypeSignature("T"))
+                .argumentType(arrayType(new TypeSignature("T")))
+                .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(ExplicitSpecializedAggregationFunction.class));
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple explicit specialized aggregate");
@@ -627,15 +650,17 @@ public class TestAnnotationEngineForAggregates
     @Test
     public void testMultiOutputAggregationParse()
     {
-        Signature expectedSignature1 = new Signature(
-                "multi_output_aggregate_1",
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
+        Signature expectedSignature1 = Signature.builder()
+                .name("multi_output_aggregate_1")
+                .returnType(DoubleType.DOUBLE)
+                .argumentType(DoubleType.DOUBLE)
+                .build();
 
-        Signature expectedSignature2 = new Signature(
-                "multi_output_aggregate_2",
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
+        Signature expectedSignature2 = Signature.builder()
+                .name("multi_output_aggregate_2")
+                .returnType(DoubleType.DOUBLE)
+                .argumentType(DoubleType.DOUBLE)
+                .build();
 
         List<ParametricAggregation> aggregations = parseFunctionDefinitions(MultiOutputAggregationFunction.class);
         assertEquals(aggregations.size(), 2);
@@ -714,10 +739,11 @@ public class TestAnnotationEngineForAggregates
     @Test
     public void testInjectOperatorAggregateParse()
     {
-        Signature expectedSignature = new Signature(
-                "inject_operator_aggregate",
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
+        Signature expectedSignature = Signature.builder()
+                .name("inject_operator_aggregate")
+                .returnType(DoubleType.DOUBLE)
+                .argumentType(DoubleType.DOUBLE)
+                .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(InjectOperatorAggregateFunction.class));
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with operator injected");
@@ -776,13 +802,12 @@ public class TestAnnotationEngineForAggregates
     @Test
     public void testInjectTypeAggregateParse()
     {
-        Signature expectedSignature = new Signature(
-                "inject_type_aggregate",
-                ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
-                new TypeSignature("T"),
-                ImmutableList.of(new TypeSignature("T")),
-                false);
+        Signature expectedSignature = Signature.builder()
+                .name("inject_type_aggregate")
+                .typeVariable("T")
+                .returnType(new TypeSignature("T"))
+                .argumentType(new TypeSignature("T"))
+                .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(InjectTypeAggregateFunction.class));
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with type injected");
@@ -842,10 +867,11 @@ public class TestAnnotationEngineForAggregates
     @Test
     public void testInjectLiteralAggregateParse()
     {
-        Signature expectedSignature = new Signature(
-                "inject_literal_aggregate",
-                new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x")),
-                ImmutableList.of(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"))));
+        Signature expectedSignature = Signature.builder()
+                .name("inject_literal_aggregate")
+                .returnType(new TypeSignature("varchar", typeVariable("x")))
+                .argumentType(new TypeSignature("varchar", typeVariable("x")))
+                .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(InjectLiteralAggregateFunction.class));
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with type literal");
@@ -907,14 +933,13 @@ public class TestAnnotationEngineForAggregates
     @Test
     public void testLongConstraintAggregateFunctionParse()
     {
-        Signature expectedSignature = new Signature(
-                "parametric_aggregate_long_constraint",
-                ImmutableList.of(),
-                ImmutableList.of(new LongVariableConstraint("z", "x + y")),
-                new TypeSignature("varchar", TypeSignatureParameter.typeVariable("z")),
-                ImmutableList.of(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x")),
-                        new TypeSignature("varchar", TypeSignatureParameter.typeVariable("y"))),
-                false);
+        Signature expectedSignature = Signature.builder()
+                .name("parametric_aggregate_long_constraint")
+                .longVariable("z", "x + y")
+                .returnType(new TypeSignature("varchar", typeVariable("z")))
+                .argumentType(new TypeSignature("varchar", typeVariable("x")))
+                .argumentType(new TypeSignature("varchar", typeVariable("y")))
+                .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(LongConstraintAggregateFunction.class));
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Parametric aggregate with parametric type returned");
@@ -972,13 +997,11 @@ public class TestAnnotationEngineForAggregates
     @Test
     public void testFixedTypeParameterInjectionAggregateFunctionParse()
     {
-        Signature expectedSignature = new Signature(
-                "fixed_type_parameter_injection",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()),
-                false);
+        Signature expectedSignature = Signature.builder()
+                .name("fixed_type_parameter_injection")
+                .returnType(DoubleType.DOUBLE.getTypeSignature())
+                .argumentType(DoubleType.DOUBLE.getTypeSignature())
+                .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(FixedTypeParameterInjectionAggregateFunction.class));
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with fixed parameter type injected");
@@ -1035,13 +1058,14 @@ public class TestAnnotationEngineForAggregates
     @Test
     public void testPartiallyFixedTypeParameterInjectionAggregateFunctionParse()
     {
-        Signature expectedSignature = new Signature(
-                "partially_fixed_type_parameter_injection",
-                ImmutableList.of(typeVariable("T1"), typeVariable("T2")),
-                ImmutableList.of(),
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(new TypeSignature("T1"), new TypeSignature("T2")),
-                false);
+        Signature expectedSignature = Signature.builder()
+                .name("partially_fixed_type_parameter_injection")
+                .typeVariable("T1")
+                .typeVariable("T2")
+                .returnType(DoubleType.DOUBLE)
+                .argumentType(new TypeSignature("T1"))
+                .argumentType(new TypeSignature("T2"))
+                .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(PartiallyFixedTypeParameterInjectionAggregateFunction.class));
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with fixed parameter type injected");

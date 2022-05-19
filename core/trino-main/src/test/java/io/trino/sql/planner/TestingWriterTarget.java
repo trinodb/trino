@@ -14,6 +14,8 @@
 
 package io.trino.sql.planner;
 
+import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.sql.planner.plan.TableWriterNode;
 
 public class TestingWriterTarget
@@ -23,5 +25,11 @@ public class TestingWriterTarget
     public String toString()
     {
         return "testing handle";
+    }
+
+    @Override
+    public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+    {
+        return false;
     }
 }

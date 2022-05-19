@@ -62,16 +62,14 @@ import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.scheduler.BinPackingNodeAllocatorService;
 import io.trino.execution.scheduler.ConstantPartitionMemoryEstimator;
-import io.trino.execution.scheduler.ExponentialGrowthPartitionMemoryEstimator;
-import io.trino.execution.scheduler.FallbackToFullNodePartitionMemoryEstimator;
 import io.trino.execution.scheduler.FixedCountNodeAllocatorService;
-import io.trino.execution.scheduler.FullNodeCapableNodeAllocatorService;
 import io.trino.execution.scheduler.NodeAllocatorService;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.execution.scheduler.PartitionMemoryEstimator;
+import io.trino.execution.scheduler.PartitionMemoryEstimatorFactory;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.StageTaskSourceFactory;
 import io.trino.execution.scheduler.TaskDescriptorStorage;
+import io.trino.execution.scheduler.TaskExecutionStats;
 import io.trino.execution.scheduler.TaskSourceFactory;
 import io.trino.execution.scheduler.policy.AllAtOnceExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
@@ -80,12 +78,17 @@ import io.trino.execution.scheduler.policy.PhasedExecutionPolicy;
 import io.trino.failuredetector.FailureDetectorModule;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.ForMemoryManager;
+import io.trino.memory.LeastWastedEffortTaskLowMemoryKiller;
 import io.trino.memory.LowMemoryKiller;
+import io.trino.memory.LowMemoryKiller.ForQueryLowMemoryKiller;
+import io.trino.memory.LowMemoryKiller.ForTaskLowMemoryKiller;
 import io.trino.memory.MemoryManagerConfig;
-import io.trino.memory.MemoryManagerConfig.LowMemoryKillerPolicy;
+import io.trino.memory.MemoryManagerConfig.LowMemoryQueryKillerPolicy;
+import io.trino.memory.MemoryManagerConfig.LowMemoryTaskKillerPolicy;
 import io.trino.memory.NoneLowMemoryKiller;
 import io.trino.memory.TotalReservationLowMemoryKiller;
-import io.trino.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
+import io.trino.memory.TotalReservationOnBlockedNodesQueryLowMemoryKiller;
+import io.trino.memory.TotalReservationOnBlockedNodesTaskLowMemoryKiller;
 import io.trino.metadata.CatalogManager;
 import io.trino.operator.ForScheduler;
 import io.trino.operator.OperatorStats;
@@ -138,7 +141,6 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeAllocatorType.BIN_PACKING;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeAllocatorType.FIXED_COUNT;
-import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeAllocatorType.FULL_NODE_CAPABLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -216,9 +218,14 @@ public class CoordinatorModule
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 });
-        bindLowMemoryKiller(LowMemoryKillerPolicy.NONE, NoneLowMemoryKiller.class);
-        bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
-        bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesLowMemoryKiller.class);
+
+        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.NONE, NoneLowMemoryKiller.class);
+        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesTaskLowMemoryKiller.class);
+        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.LEAST_WASTE, LeastWastedEffortTaskLowMemoryKiller.class);
+        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.NONE, NoneLowMemoryKiller.class);
+        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
+        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesQueryLowMemoryKiller.class);
+
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
 
         // node allocator
@@ -227,21 +234,15 @@ public class CoordinatorModule
                 config -> FIXED_COUNT == config.getNodeAllocatorType(),
                 innerBinder -> {
                     innerBinder.bind(NodeAllocatorService.class).to(FixedCountNodeAllocatorService.class).in(Scopes.SINGLETON);
-                    innerBinder.bind(PartitionMemoryEstimator.class).to(ConstantPartitionMemoryEstimator.class).in(Scopes.SINGLETON);
-                }));
-        install(conditionalModule(
-                NodeSchedulerConfig.class,
-                config -> FULL_NODE_CAPABLE == config.getNodeAllocatorType(),
-                innerBinder -> {
-                    innerBinder.bind(NodeAllocatorService.class).to(FullNodeCapableNodeAllocatorService.class).in(Scopes.SINGLETON);
-                    innerBinder.bind(PartitionMemoryEstimator.class).to(FallbackToFullNodePartitionMemoryEstimator.class).in(Scopes.SINGLETON);
+                    innerBinder.bind(PartitionMemoryEstimatorFactory.class).toInstance(ConstantPartitionMemoryEstimator::new);
                 }));
         install(conditionalModule(
                 NodeSchedulerConfig.class,
                 config -> BIN_PACKING == config.getNodeAllocatorType(),
                 innerBinder -> {
-                    innerBinder.bind(NodeAllocatorService.class).to(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
-                    innerBinder.bind(PartitionMemoryEstimator.class).to(ExponentialGrowthPartitionMemoryEstimator.class).in(Scopes.SINGLETON);
+                    innerBinder.bind(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
+                    innerBinder.bind(NodeAllocatorService.class).to(BinPackingNodeAllocatorService.class);
+                    innerBinder.bind(PartitionMemoryEstimatorFactory.class).to(BinPackingNodeAllocatorService.class);
                 }));
 
         // node monitor
@@ -326,6 +327,9 @@ public class CoordinatorModule
         binder.bind(TaskDescriptorStorage.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskDescriptorStorage.class).withGeneratedName();
 
+        binder.bind(TaskExecutionStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(TaskExecutionStats.class).withGeneratedName();
+
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);
         executionPolicyBinder.addBinding("legacy-phased").to(LegacyPhasedExecutionPolicy.class);
@@ -403,12 +407,28 @@ public class CoordinatorModule
         return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, versionEmbedder.embedVersion(finishingExecutor));
     }
 
-    private void bindLowMemoryKiller(LowMemoryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
+    private void bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
     {
         install(conditionalModule(
                 MemoryManagerConfig.class,
-                config -> policy == config.getLowMemoryKillerPolicy(),
-                binder -> binder.bind(LowMemoryKiller.class).to(clazz).in(Scopes.SINGLETON)));
+                config -> policy == config.getLowMemoryQueryKillerPolicy(),
+                binder -> binder
+                        .bind(LowMemoryKiller.class)
+                        .annotatedWith(ForQueryLowMemoryKiller.class)
+                        .to(clazz)
+                        .in(Scopes.SINGLETON)));
+    }
+
+    private void bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
+    {
+        install(conditionalModule(
+                MemoryManagerConfig.class,
+                config -> policy == config.getLowMemoryTaskKillerPolicy(),
+                binder -> binder
+                        .bind(LowMemoryKiller.class)
+                        .annotatedWith(ForTaskLowMemoryKiller.class)
+                        .to(clazz)
+                        .in(Scopes.SINGLETON)));
     }
 
     public static class ExecutorCleanup

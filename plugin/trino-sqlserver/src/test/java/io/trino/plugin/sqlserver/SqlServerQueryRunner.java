@@ -36,7 +36,7 @@ public final class SqlServerQueryRunner
 
     private SqlServerQueryRunner() {}
 
-    private static final String CATALOG = "sqlserver";
+    public static final String CATALOG = "sqlserver";
 
     private static final String TEST_SCHEMA = "dbo";
 

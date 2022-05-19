@@ -15,10 +15,12 @@ package io.trino.testing;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.cost.StatsAndCosts;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
@@ -41,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.CountDownLatch;
@@ -101,6 +104,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.lang.Thread.currentThread;
@@ -2115,17 +2119,17 @@ public abstract class BaseConnectorTest
         String schemaName = "test_schema_" + randomTableSuffix();
         assertUpdate("CREATE SCHEMA " + schemaName);
 
-        String renamedTable = schemaName + ".test_rename_new_" + randomTableSuffix();
-        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
+        String renamedTable = "test_rename_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + schemaName + "." + renamedTable);
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
+        assertQuery("SELECT x FROM " + schemaName + "." + renamedTable, "VALUES 123");
 
-        assertUpdate("DROP TABLE " + renamedTable);
+        assertUpdate("DROP TABLE " + schemaName + "." + renamedTable);
         assertUpdate("DROP SCHEMA " + schemaName);
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
+        assertFalse(getQueryRunner().tableExists(Session.builder(getSession()).setSchema(schemaName).build(), renamedTable));
     }
 
     @Test
@@ -2401,6 +2405,34 @@ public abstract class BaseConnectorTest
         throw new UnsupportedOperationException("This method should be overridden");
     }
 
+    protected boolean isReportingWrittenBytesSupported(Session session)
+    {
+        CatalogName catalogName = session.getCatalog()
+                .map(CatalogName::new)
+                .orElseThrow();
+        Metadata metadata = getQueryRunner().getMetadata();
+        metadata.getCatalogHandle(session, catalogName.getCatalogName());
+        QualifiedObjectName fullTableName = new QualifiedObjectName(catalogName.getCatalogName(), "any", "any");
+        return getQueryRunner().getMetadata().supportsReportingWrittenBytes(session, fullTableName, ImmutableMap.of());
+    }
+
+    @Test
+    public void isReportingWrittenBytesSupported()
+    {
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .singleStatement()
+                .execute(getSession(), (Consumer<Session>) session -> skipTestUnless(isReportingWrittenBytesSupported(session)));
+
+        @Language("SQL")
+        String query = "CREATE TABLE temp AS SELECT * FROM tpch.tiny.nation";
+
+        assertQueryStats(
+                getSession(),
+                query,
+                queryStats -> assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isGreaterThan(0L),
+                results -> {});
+    }
+
     @Test
     public void testInsertIntoNotNullColumn()
     {
@@ -2453,7 +2485,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testDelete()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // delete successive parts of the table
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_", "AS SELECT * FROM orders")) {
@@ -2497,7 +2529,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testDeleteWithLike()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_with_like_", "AS SELECT * FROM nation")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%a%'", "VALUES 0");
@@ -2508,7 +2540,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testDeleteWithComplexPredicate()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_complex_", "AS SELECT * FROM orders")) {
@@ -2526,7 +2558,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testDeleteWithSubquery()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_subquery", "AS SELECT * FROM nation")) {
@@ -2550,7 +2582,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         String tableName = "test_delete_" + randomTableSuffix();
 
@@ -2564,7 +2596,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testDeleteWithSemiJoin()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_semijoin", "AS SELECT * FROM nation")) {
@@ -2599,22 +2631,11 @@ public abstract class BaseConnectorTest
     @Test
     public void testDeleteWithVarcharPredicate()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_with_varchar_predicate_", "AS SELECT * FROM orders")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE orderstatus <> 'O'");
-        }
-    }
-
-    protected void skipTestUnlessSupportsDeletes()
-    {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "(col varchar(1))")) {
-            if (!hasBehavior(SUPPORTS_DELETE)) {
-                assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
-                throw new SkipException("This connector does not support deletes");
-            }
         }
     }
 
@@ -2756,6 +2777,139 @@ public abstract class BaseConnectorTest
     {
         // By default, do not expect UPDATE to fail in case of concurrent updates
         throw new AssertionError("Unexpected concurrent update failure", e);
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @Test(timeOut = 60_000, invocationCount = 4)
+    public void testInsertRowConcurrently()
+            throws Exception
+    {
+        if (!hasBehavior(SUPPORTS_INSERT)) {
+            // Covered by testInsert
+            return;
+        }
+
+        int threads = 4;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert", "(col integer)")) {
+            String tableName = table.getName();
+
+            List<Future<OptionalInt>> futures = IntStream.range(0, threads)
+                    .mapToObj(threadNumber -> executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        try {
+                            getQueryRunner().execute("INSERT INTO " + tableName + " VALUES (" + threadNumber + ")");
+                            return OptionalInt.of(threadNumber);
+                        }
+                        catch (Exception e) {
+                            RuntimeException trinoException = getTrinoExceptionCause(e);
+                            try {
+                                verifyConcurrentInsertFailurePermissible(trinoException);
+                            }
+                            catch (Throwable verifyFailure) {
+                                if (trinoException != e && verifyFailure != e) {
+                                    verifyFailure.addSuppressed(e);
+                                }
+                                throw verifyFailure;
+                            }
+                            return OptionalInt.empty();
+                        }
+                    }))
+                    .collect(toImmutableList());
+
+            List<Integer> values = futures.stream()
+                    .map(future -> tryGetFutureValue(future, 10, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .filter(OptionalInt::isPresent)
+                    .map(OptionalInt::getAsInt)
+                    .collect(toImmutableList());
+
+            if (values.isEmpty()) {
+                assertQueryReturnsEmptyResult("TABLE " + tableName);
+            }
+            else {
+                // Cast to integer because some connectors (e.g. Oracle) map integer to different types that skippingTypesCheck can't resolve the mismatch.
+                assertThat(query("SELECT CAST(col AS INTEGER) FROM " + tableName))
+                        .matches(values.stream()
+                                .map(value -> format("(%s)", value))
+                                .collect(joining(",", "VALUES ", "")));
+            }
+        }
+        finally {
+            executor.shutdownNow();
+            executor.awaitTermination(10, SECONDS);
+        }
+    }
+
+    protected void verifyConcurrentInsertFailurePermissible(Exception e)
+    {
+        // By default, do not expect INSERT to fail in case of concurrent inserts
+        throw new AssertionError("Unexpected concurrent insert failure", e);
+    }
+
+    @Test
+    public void testUpdateWithPredicates()
+    {
+        if (!hasBehavior(SUPPORTS_UPDATE)) {
+            // Note this change is a no-op, if actually run
+            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", "This connector does not support updates");
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_with_predicates", "(a INT, b INT, c INT)")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2, 3), (11, 12, 13), (21, 22, 23)", 3);
+            assertUpdate("UPDATE " + tableName + " SET a = a - 1 WHERE c = 3", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 13), (21, 22, 23)");
+
+            assertUpdate("UPDATE " + tableName + " SET c = c + 1 WHERE a = 11", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 22, 23)");
+
+            assertUpdate("UPDATE " + tableName + " SET b = b * 2 WHERE b = 22", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 44, 23)");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_with_predicates_on_row_types", "(int_t INT, row_t ROW(f1 INT, f2 INT))")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(2, 3)), (11, ROW(12, 13)), (21, ROW(22, 23))", 3);
+            assertUpdate("UPDATE " + tableName + " SET int_t = int_t - 1 WHERE row_t.f2 = 3", 1);
+            assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 13), (21, 22, 23)");
+
+            assertUpdate("UPDATE " + tableName + " SET row_t = ROW(row_t.f1, row_t.f2 + 1) WHERE int_t = 11", 1);
+            assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 22, 23)");
+
+            assertUpdate("UPDATE " + tableName + " SET row_t = ROW(row_t.f1 * 2, row_t.f2) WHERE row_t.f1 = 22", 1);
+            assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 44, 23)");
+        }
+    }
+
+    @Test
+    public void testUpdateAllValues()
+    {
+        if (!hasBehavior(SUPPORTS_UPDATE)) {
+            // Note this change is a no-op, if actually run
+            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", "This connector does not support updates");
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_all_columns", "(a INT, b INT, c INT)")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2, 3), (11, 12, 13), (21, 22, 23)", 3);
+            assertUpdate("UPDATE " + tableName + " SET a = a + 1, b = b - 1, c = c * 2", 3);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (2, 1, 6), (12, 11, 26), (22, 21, 46)");
+        }
+    }
+
+    @Test
+    public void testDropTable()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        String tableName = "test_drop_table_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(col bigint)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Test

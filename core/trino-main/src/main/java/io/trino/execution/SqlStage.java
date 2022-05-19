@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -213,7 +214,8 @@ public final class SqlStage
             OutputBuffers outputBuffers,
             Multimap<PlanNodeId, Split> splits,
             Multimap<PlanNodeId, Lifespan> noMoreSplitsForLifespan,
-            Set<PlanNodeId> noMoreSplits)
+            Set<PlanNodeId> noMoreSplits,
+            Optional<DataSize> estimatedMemory)
     {
         if (stateMachine.getState().isDone()) {
             return Optional.empty();
@@ -232,6 +234,7 @@ public final class SqlStage
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
                 outboundDynamicFilterIds,
+                estimatedMemory,
                 summarizeTaskInfo);
 
         noMoreSplitsForLifespan.forEach(task::noMoreSplits);

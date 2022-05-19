@@ -17,6 +17,8 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.spi.ErrorCode;
 
+import java.util.Optional;
+
 public class ConstantPartitionMemoryEstimator
         implements PartitionMemoryEstimator
 {
@@ -33,4 +35,7 @@ public class ConstantPartitionMemoryEstimator
     {
         return previousMemoryRequirements;
     }
+
+    @Override
+    public void registerPartitionFinished(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode) {}
 }

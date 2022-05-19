@@ -216,8 +216,10 @@ public class TestHiveRedirectionToIceberg
 
         createIcebergTable(icebergTableName, true);
 
-        assertQueryFailure(() -> onTrino().executeQuery("UPDATE " + hiveTableName + " SET nationkey = nationkey + 100 WHERE regionkey = 1"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): This connector does not support updates");
+        assertThat(onTrino().executeQuery("UPDATE " + hiveTableName + " SET nationkey = nationkey + 100 WHERE regionkey = 1")).updatedRowsCountIsEqualTo(5);
+        assertResultsEqual(
+                onTrino().executeQuery("SELECT comment, nationkey FROM " + hiveTableName),
+                onTrino().executeQuery("SELECT comment, IF(regionkey = 1, nationkey + 100, nationkey) FROM tpch.tiny.nation"));
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
@@ -269,6 +271,7 @@ public class TestHiveRedirectionToIceberg
                         ")\n" +
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
+                        "   format_version = 2,\n" +
                         format("   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/%s',\n", tableName) +
                         "   partitioning = ARRAY['regionkey']\n" + // 'partitioning' comes from Iceberg
                         ")"));

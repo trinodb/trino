@@ -56,7 +56,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     {
         super(FileFormat.PARQUET);
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
-        this.schemaName = "iceberg_smoke_test_" + randomTableSuffix();
+        this.schemaName = "test_iceberg_smoke_" + randomTableSuffix();
     }
 
     @Override
@@ -118,18 +118,11 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 ")\n" +
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
+                                "   format_version = 2,\n" +
                                 "   location = '%2$s/%1$s.db/region'\n" +
                                 ")",
                         schemaName,
                         schemaPath()));
-    }
-
-    @Test
-    @Override
-    public void testMaterializedView()
-    {
-        assertThatThrownBy(super::testMaterializedView)
-                .hasStackTraceContaining("createMaterializedView is not supported for Iceberg Glue catalogs");
     }
 
     @Test

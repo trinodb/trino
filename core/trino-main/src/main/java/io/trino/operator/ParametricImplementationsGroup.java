@@ -28,7 +28,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
 import static io.trino.operator.annotations.FunctionsParserHelper.validateSignaturesCompatibility;
 import static java.util.Objects.requireNonNull;
 
@@ -126,7 +125,7 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
                 genericImplementations.stream()
                         .map(implementation -> withAlias(alias, implementation))
                         .collect(toImmutableList()),
-                signatureWithName(alias, signature));
+                signature.withName(alias));
     }
 
     @SuppressWarnings("unchecked")

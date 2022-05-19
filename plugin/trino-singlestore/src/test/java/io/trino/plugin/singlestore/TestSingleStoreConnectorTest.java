@@ -167,16 +167,6 @@ public class TestSingleStoreConnectorTest
         throw new SkipException("SingleStore doesn't support utf8mb4");
     }
 
-    @Test
-    public void testDropTable()
-    {
-        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
-
-        assertUpdate("DROP TABLE test_drop");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
-    }
-
     @Override
     public void testDeleteWithLike()
     {
@@ -227,21 +217,6 @@ public class TestSingleStoreConnectorTest
         assertEquals(row.getField(0), (byte) 127);
 
         assertUpdate("DROP TABLE mysql_test_tinyint1");
-    }
-
-    @Test
-    public void testCharTrailingSpace()
-    {
-        onRemoteDatabase().execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
-        assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
-
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test  '", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test        '", "VALUES 'test'");
-
-        assertEquals(getQueryRunner().execute("SELECT * FROM char_trailing_space WHERE x = char ' test'").getRowCount(), 0);
-
-        assertUpdate("DROP TABLE char_trailing_space");
     }
 
     @Override
@@ -313,9 +288,7 @@ public class TestSingleStoreConnectorTest
     {
         // TODO (https://github.com/trinodb/trino/issues/10320) SingleStore stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
         assertThatThrownBy(super::testCreateTableAsSelectNegativeDate)
-                .hasCauseInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("JDBC_ERROR")
-                .hasStackTraceContaining("JdbcRecordCursor.getLong");
+                .hasStackTraceContaining("TrinoException: Driver returned null LocalDate for a non-null value");
     }
 
     @Test
@@ -324,9 +297,7 @@ public class TestSingleStoreConnectorTest
     {
         // TODO (https://github.com/trinodb/trino/issues/10320) SingleStore stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
         assertThatThrownBy(super::testInsertNegativeDate)
-                .hasCauseInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("JDBC_ERROR")
-                .hasStackTraceContaining("JdbcRecordCursor.getLong");
+                .hasStackTraceContaining("TrinoException: Driver returned null LocalDate for a non-null value");
     }
 
     /**

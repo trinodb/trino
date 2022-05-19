@@ -52,19 +52,19 @@ public abstract class BaseSharedMetastoreTest
     @Test
     public void testReadInformationSchema()
     {
-        assertThat(query("SELECT table_schema FROM hive.information_schema.tables WHERE table_name = 'region'"))
+        assertThat(query("SELECT table_schema FROM hive.information_schema.tables WHERE table_name = 'region' AND table_schema='" + schema + "'"))
                 .skippingTypesCheck()
                 .containsAll("VALUES '" + schema + "'");
-        assertThat(query("SELECT table_schema FROM iceberg.information_schema.tables WHERE table_name = 'nation'"))
+        assertThat(query("SELECT table_schema FROM iceberg.information_schema.tables WHERE table_name = 'nation' AND table_schema='" + schema + "'"))
                 .skippingTypesCheck()
                 .containsAll("VALUES '" + schema + "'");
-        assertThat(query("SELECT table_schema FROM hive_with_redirections.information_schema.tables WHERE table_name = 'region'"))
+        assertThat(query("SELECT table_schema FROM hive_with_redirections.information_schema.tables WHERE table_name = 'region' AND table_schema='" + schema + "'"))
                 .skippingTypesCheck()
                 .containsAll("VALUES '" + schema + "'");
-        assertThat(query("SELECT table_schema FROM hive_with_redirections.information_schema.tables WHERE table_name = 'nation'"))
+        assertThat(query("SELECT table_schema FROM hive_with_redirections.information_schema.tables WHERE table_name = 'nation' AND table_schema='" + schema + "'"))
                 .skippingTypesCheck()
                 .containsAll("VALUES '" + schema + "'");
-        assertThat(query("SELECT table_schema FROM iceberg_with_redirections.information_schema.tables WHERE table_name = 'region'"))
+        assertThat(query("SELECT table_schema FROM iceberg_with_redirections.information_schema.tables WHERE table_name = 'region' AND table_schema='" + schema + "'"))
                 .skippingTypesCheck()
                 .containsAll("VALUES '" + schema + "'");
 

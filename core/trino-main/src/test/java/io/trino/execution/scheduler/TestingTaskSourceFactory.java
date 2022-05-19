@@ -135,7 +135,7 @@ public class TestingTaskSourceFactory
                         nextPartitionId.getAndIncrement(),
                         ImmutableListMultimap.of(tableScanPlanNodeId, split),
                         exchangeSourceHandles,
-                        new NodeRequirements(catalogRequirement, ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
+                        new NodeRequirements(catalogRequirement, ImmutableSet.copyOf(split.getAddresses()), DataSize.of(4, GIGABYTE)));
                 result.add(task);
             }
 
