@@ -2,14 +2,9 @@
 
 set -xeuo pipefail
 
-set +e
-grep -s -q 'node.id' /etc/trino/node.properties
-NODE_ID_EXISTS=$?
-set -e
-
-NODE_ID=""
-if [[ ${NODE_ID_EXISTS} != 0 ]] ; then
-    NODE_ID="-Dnode.id=${HOSTNAME}"
+launcher_opts=(--etc-dir /etc/trino)
+if ! grep -s -q 'node.id' /etc/trino/node.properties; then
+    launcher_opts+=("-Dnode.id=${HOSTNAME}")
 fi
 
-exec /usr/lib/trino/bin/launcher run --etc-dir /etc/trino ${NODE_ID} "$@"
+exec /usr/lib/trino/bin/launcher run "${launcher_opts[@]}" "$@"
