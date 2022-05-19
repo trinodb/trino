@@ -170,6 +170,13 @@ public abstract class BaseIcebergConnectorTest
         assertThat(e).hasMessageContaining("Failed to commit Iceberg update to table");
     }
 
+    @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessageContaining("Cannot update Iceberg table: supplied previous location does not match current location");
+    }
+
     @Test
     public void testDeleteOnV1Table()
     {

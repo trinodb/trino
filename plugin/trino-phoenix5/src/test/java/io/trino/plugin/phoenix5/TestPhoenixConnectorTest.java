@@ -566,6 +566,13 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessageContaining("Concurrent modification to table");
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return sql -> {

@@ -568,6 +568,13 @@ public abstract class BaseMongoConnectorTest
         assertThat(query("SELECT name FROM nation LIMIT 2147483648")).isNotFullyPushedDown(LimitNode.class);
     }
 
+    @Override
+    public void testAddColumnConcurrently()
+    {
+        // TODO: Enable after supporting multi-document transaction https://www.mongodb.com/docs/manual/core/transactions/
+        throw new SkipException("TODO");
+    }
+
     private void assertOneNotNullResult(String query)
     {
         MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();
