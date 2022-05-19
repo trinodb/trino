@@ -120,6 +120,13 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
+    public void testAddColumnConcurrently()
+    {
+        // TODO: Default storage engine doesn't support adding new columns
+        throw new SkipException("TODO: test not implemented yet");
+    }
+
+    @Override
     public void testAddColumn()
     {
         String tableName = "test_add_column_" + randomTableSuffix();

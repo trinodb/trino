@@ -417,6 +417,13 @@ public abstract class BaseOracleConnectorTest
         return format("ORA-01400: cannot insert NULL into \\(.*\"%s\"\\)\n", columnName.toUpperCase(ENGLISH));
     }
 
+    @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessage("ORA-14411: The DDL cannot be run concurrently with other DDLs\n");
+    }
+
     private void predicatePushdownTest(String oracleType, String oracleLiteral, String operator, String filterLiteral)
     {
         String tableName = ("test_pdown_" + oracleType.replaceAll("[^a-zA-Z0-9]", ""))
