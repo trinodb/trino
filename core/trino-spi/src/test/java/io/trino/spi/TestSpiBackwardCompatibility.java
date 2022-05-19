@@ -53,6 +53,10 @@ public class TestSpiBackwardCompatibility
                     "Field: public java.util.List<io.trino.spi.predicate.Range> io.trino.spi.predicate.BenchmarkSortedRangeSet$Data.ranges"))
             .put("377", ImmutableSet.of(
                     "Constructor: public io.trino.spi.memory.MemoryPoolInfo(long,long,long,java.util.Map<io.trino.spi.QueryId, java.lang.Long>,java.util.Map<io.trino.spi.QueryId, java.util.List<io.trino.spi.memory.MemoryAllocation>>,java.util.Map<io.trino.spi.QueryId, java.lang.Long>)"))
+            .put("382", ImmutableSet.of(
+                    "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.rowSemantics(boolean)",
+                    "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.pruneWhenEmpty(boolean)",
+                    "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.passThroughColumns(boolean)"))
             .buildOrThrow();
 
     @Test
