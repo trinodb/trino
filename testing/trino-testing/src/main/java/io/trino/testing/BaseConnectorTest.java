@@ -2847,6 +2847,71 @@ public abstract class BaseConnectorTest
         throw new AssertionError("Unexpected concurrent insert failure", e);
     }
 
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @Test(timeOut = 60_000, invocationCount = 4)
+    public void testAddColumnConcurrently()
+            throws Exception
+    {
+        if (!hasBehavior(SUPPORTS_ADD_COLUMN)) {
+            // Covered by testAddColumn
+            return;
+        }
+
+        int threads = 4;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column", "(col integer)")) {
+            String tableName = table.getName();
+
+            List<Future<Optional<String>>> futures = IntStream.range(0, threads)
+                    .mapToObj(threadNumber -> executor.submit(() -> {
+                        barrier.await(30, SECONDS);
+                        try {
+                            String columnName = "col" + threadNumber;
+                            getQueryRunner().execute("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " integer");
+                            return Optional.of(columnName);
+                        }
+                        catch (Exception e) {
+                            RuntimeException trinoException = getTrinoExceptionCause(e);
+                            try {
+                                verifyConcurrentAddColumnFailurePermissible(trinoException);
+                            }
+                            catch (Throwable verifyFailure) {
+                                if (verifyFailure != e) {
+                                    verifyFailure.addSuppressed(e);
+                                }
+                                throw verifyFailure;
+                            }
+                            return Optional.<String>empty();
+                        }
+                    }))
+                    .collect(toImmutableList());
+
+            List<String> addedColumns = futures.stream()
+                    .map(future -> tryGetFutureValue(future, 30, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(toImmutableList());
+
+            assertThat(query("DESCRIBE " + tableName))
+                    .projected(0)
+                    .skippingTypesCheck()
+                    .matches(Stream.concat(Stream.of("col"), addedColumns.stream())
+                            .map(value -> format("'%s'", value))
+                            .collect(joining(",", "VALUES ", "")));
+        }
+        finally {
+            executor.shutdownNow();
+            executor.awaitTermination(30, SECONDS);
+        }
+    }
+
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        // By default, do not expect ALTER TABLE ADD COLUMN to fail in case of concurrent inserts
+        throw new AssertionError("Unexpected concurrent add column failure", e);
+    }
+
     @Test
     public void testUpdateWithPredicates()
     {
