@@ -13,6 +13,8 @@
  */
 package io.trino.tests.product.hive;
 
+import io.trino.tempto.AfterTestWithContext;
+import io.trino.tempto.BeforeTestWithContext;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
@@ -32,6 +34,19 @@ public class TestAbfsSyncPartitionMetadata
         extends BaseTestSyncPartitionMetadata
 {
     private final String schema = "test_" + randomTableSuffix();
+
+    @BeforeTestWithContext
+    public void setUp()
+    {
+        removeHdfsDirectory(schemaLocation());
+        makeHdfsDirectory(schemaLocation());
+    }
+
+    @AfterTestWithContext
+    public void tearDown()
+    {
+        removeHdfsDirectory(schemaLocation());
+    }
 
     @Override
     protected String schemaLocation()
@@ -123,6 +138,13 @@ public class TestAbfsSyncPartitionMetadata
     {
         String orcFilePath = generateOrcFile();
         onHive().executeQuery(format("dfs -cp %s %s", orcFilePath, targetDirectory));
+    }
+
+    @Override
+    protected void createTable(String tableName, String tableLocation)
+    {
+        makeHdfsDirectory(tableLocation);
+        onHive().executeQuery("CREATE TABLE " + tableName + " (payload bigint) PARTITIONED BY (col_x string, col_y string) STORED AS ORC LOCATION '" + tableLocation + "'");
     }
 
     // Drop and create a table. Then, return single ORC file path

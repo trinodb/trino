@@ -13,8 +13,6 @@
  */
 package io.trino.tests.product.hive;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
@@ -23,7 +21,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTableLocation;
-import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,19 +31,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public abstract class BaseTestSyncPartitionMetadata
         extends ProductTest
 {
-    @BeforeTestWithContext
-    public void setUp()
-    {
-        removeHdfsDirectory(schemaLocation());
-        makeHdfsDirectory(schemaLocation());
-    }
-
-    @AfterTestWithContext
-    public void tearDown()
-    {
-        removeHdfsDirectory(schemaLocation());
-    }
-
     public void testAddPartition()
     {
         String tableName = "test_sync_partition_metadata_add_partition";
@@ -214,9 +198,8 @@ public abstract class BaseTestSyncPartitionMetadata
         String tableLocation = tableLocation(tableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         removeHdfsDirectory(tableLocation);
-        makeHdfsDirectory(tableLocation);
 
-        onHive().executeQuery("CREATE TABLE " + tableName + " (payload bigint) PARTITIONED BY (col_x string, col_y string) STORED AS ORC LOCATION '" + tableLocation + "'");
+        createTable(tableName, tableLocation);
         onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 'a', '1'), (2, 'b', '2')");
 
         // remove partition col_x=b/col_y=2
@@ -237,6 +220,8 @@ public abstract class BaseTestSyncPartitionMetadata
 
         assertPartitions(tableName, row("a", "1"), row("b", "2"));
     }
+
+    protected abstract void createTable(String tableName, String location);
 
     protected abstract void removeHdfsDirectory(String path);
 
