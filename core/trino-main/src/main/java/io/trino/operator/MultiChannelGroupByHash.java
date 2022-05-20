@@ -351,8 +351,7 @@ public class MultiChannelGroupByHash
     {
         if (currentPageBuilder != null) {
             completedPagesMemorySize += currentPageBuilder.getRetainedSizeInBytes();
-            // TODO: (https://github.com/trinodb/trino/issues/12484) pre-size new PageBuilder to OUTPUT_PAGE_SIZE
-            currentPageBuilder = currentPageBuilder.newPageBuilderLike();
+            currentPageBuilder.reset(currentPageBuilder.getPositionCount());
         }
         else {
             currentPageBuilder = new PageBuilder(types);

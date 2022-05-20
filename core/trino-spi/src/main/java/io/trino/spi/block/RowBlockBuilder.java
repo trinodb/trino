@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.RowBlock.createRowBlockInternal;
@@ -241,14 +240,13 @@ public class RowBlockBuilder
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
-        int newSize = calculateBlockResetSize(getPositionCount());
         BlockBuilder[] newBlockBuilders = new BlockBuilder[numFields];
         for (int i = 0; i < numFields; i++) {
             newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus);
         }
-        return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new int[newSize + 1], new boolean[newSize]);
+        return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new int[expectedEntries + 1], new boolean[expectedEntries]);
     }
 
     @Override
