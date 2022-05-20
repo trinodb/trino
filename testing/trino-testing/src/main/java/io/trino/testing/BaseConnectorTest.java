@@ -748,6 +748,26 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateViewSchemaNotFound()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+
+        String schemaName = "test_schema_" + randomTableSuffix();
+        String viewName = "test_view_create_no_schema_" + randomTableSuffix();
+        try {
+            assertQueryFails(
+                    format("CREATE VIEW %s.%s AS SELECT 1 AS c1", schemaName, viewName),
+                    format("Schema %s not found", schemaName));
+            assertQueryFails(
+                    format("CREATE OR REPLACE VIEW %s.%s AS SELECT 1 AS c1", schemaName, viewName),
+                    format("Schema %s not found", schemaName));
+        }
+        finally {
+            assertUpdate(format("DROP VIEW IF EXISTS %s.%s", schemaName, viewName));
+        }
+    }
+
+    @Test
     public void testViewCaseSensitivity()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
