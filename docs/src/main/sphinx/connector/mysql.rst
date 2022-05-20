@@ -23,8 +23,8 @@ Configuration
 -------------
 
 To configure the MySQL connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``mysql.properties``, to
-mount the MySQL connector as the ``mysql`` catalog.
+in ``etc/catalog`` (in ``/etc/trino/catalog`` for Docker) named, for example,
+``mysql.properties``, to mount the MySQL connector as the ``mysql`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
 

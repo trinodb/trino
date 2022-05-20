@@ -23,7 +23,7 @@ Configuration
 -------------
 
 To configure the Kudu connector, create a catalog properties file
-``etc/catalog/kudu.properties`` with the following contents,
+``etc/catalog/kudu.properties`` (in ``/etc/trino/catalog`` for Docker) with the following contents,
 replacing the properties as appropriate:
 
 .. code-block:: properties

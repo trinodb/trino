@@ -10,7 +10,7 @@ Configuration
 -------------
 
 To configure the Memory connector, create a catalog properties file
-``etc/catalog/memory.properties`` with the following contents:
+``etc/catalog/memory.properties`` (in ``/etc/trino/catalog`` for Docker) with the following contents:
 
 .. code-block:: text
 

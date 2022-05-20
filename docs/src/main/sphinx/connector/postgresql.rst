@@ -28,8 +28,8 @@ properties file that specifies the PostgreSQL connector by setting the
 ``connector.name`` to ``postgresql``.
 
 For example, to access a database as the ``postgresql`` catalog, create the
-file ``etc/catalog/postgresql.properties``. Replace the connection properties
-as appropriate for your setup:
+file ``etc/catalog/postgresql.properties`` (in ``/etc/trino/catalog`` for Docker).
+Replace the connection properties as appropriate for your setup:
 
 .. code-block:: text
 

@@ -17,7 +17,7 @@ Configuration
 -------------
 
 To configure the Elasticsearch connector, create a catalog properties file
-``etc/catalog/elasticsearch.properties`` with the following contents,
+``etc/catalog/elasticsearch.properties`` (in ``/etc/trino/catalog`` for Docker) with the following contents,
 replacing the properties as appropriate:
 
 .. code-block:: text

@@ -9,7 +9,8 @@ Configuration
 -------------
 
 To configure the local file connector, create a catalog properties file
-under ``etc/catalog`` named, for example, ``localfile.properties`` with the following contents:
+under ``etc/catalog`` (in ``/etc/trino/catalog`` for Docker) named, for example,
+``localfile.properties`` with the following contents:
 
 .. code-block:: text
 

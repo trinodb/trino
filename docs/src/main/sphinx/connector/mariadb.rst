@@ -22,7 +22,8 @@ Configuration
 -------------
 
 To configure the MariaDB connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``mariadb.properties``, to
+in ``etc/catalog``  (in ``/etc/trino/catalog`` for Docker)named,
+for example, ``mariadb.properties``, to
 mount the MariaDB connector as the ``mariadb`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:

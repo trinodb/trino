@@ -39,7 +39,7 @@ Configuration
 -------------
 
 To configure the Kafka connector, create a catalog properties file
-``etc/catalog/kafka.properties`` with the following contents,
+``etc/catalog/kafka.properties`` (in ``/etc/trino/catalog`` for Docker) with the following contents,
 replacing the properties as appropriate.
 
 In some cases, such as when using specialized authentication methods, it is necessary to specify

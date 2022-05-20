@@ -169,7 +169,7 @@ functionality:
 Configuration
 -------------
 
-Create ``etc/catalog/hive.properties`` with the following contents
+Create ``etc/catalog/hive.properties`` (in ``/etc/trino/catalog`` for Docker) with the following contents
 to mount the ``hive`` connector as the ``hive`` catalog,
 replacing ``example.net:9083`` with the correct host and port
 for your Hive metastore Thrift service:

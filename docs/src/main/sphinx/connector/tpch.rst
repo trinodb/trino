@@ -15,7 +15,7 @@ Configuration
 -------------
 
 To configure the TPCH connector, create a catalog properties file
-``etc/catalog/tpch.properties`` with the following contents:
+``etc/catalog/tpch.properties`` (in ``/etc/trino/catalog`` for Docker) with the following contents:
 
 .. code-block:: text
 

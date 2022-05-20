@@ -24,7 +24,7 @@ Configuration
 -------------
 
 To configure the SingleStore connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``singlestore.properties``, to
+in ``etc/catalog`` (in ``/etc/trino/catalog`` for Docker) named, for example, ``singlestore.properties``, to
 mount the SingleStore connector as the ``singlestore`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:

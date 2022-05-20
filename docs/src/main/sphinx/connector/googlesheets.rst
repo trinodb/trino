@@ -11,7 +11,7 @@ The Google Sheets connector allows reading `Google Sheets <https://www.google.co
 Configuration
 -------------
 
-Create ``etc/catalog/sheets.properties``
+Create ``etc/catalog/sheets.properties`` (in ``/etc/trino/catalog`` for Docker)
 to mount the Google Sheets connector as the ``sheets`` catalog,
 replacing the properties as appropriate:
 

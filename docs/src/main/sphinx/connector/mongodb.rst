@@ -24,8 +24,8 @@ Configuration
 -------------
 
 To configure the MongoDB connector, create a catalog properties file
-``etc/catalog/mongodb.properties`` with the following contents,
-replacing the properties as appropriate:
+``etc/catalog/mongodb.properties`` (in ``/etc/trino/catalog`` for Docker)
+with the following contents, replacing the properties as appropriate:
 
 .. code-block:: text
 

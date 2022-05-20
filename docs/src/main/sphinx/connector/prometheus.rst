@@ -28,7 +28,7 @@ To query Prometheus, you need:
 Configuration
 -------------
 
-Create ``etc/catalog/prometheus.properties``
+Create ``etc/catalog/prometheus.properties`` (in ``/etc/trino/catalog`` for Docker)
 to mount the Prometheus connector as the ``prometheus`` catalog,
 replacing the properties as appropriate:
 

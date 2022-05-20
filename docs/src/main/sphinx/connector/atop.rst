@@ -18,7 +18,7 @@ The connector can read disk utilization statistics on the Trino cluster.
 Create a catalog properties file that specifies the Atop connector by
 setting the ``connector.name`` to ``atop``.
 
-For example, create the file ``etc/catalog/system_monitor.properties``
+For example, create the file ``etc/catalog/system_monitor.properties`` (in ``/etc/trino/catalog`` for Docker)
 and replace the connector properties as appropriate for your setup:
 
 .. code-block:: text

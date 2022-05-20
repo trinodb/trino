@@ -28,7 +28,7 @@ that specifies the ClickHouse connector by setting the ``connector.name`` to
 ``clickhouse``.
 
 For example, to access a server as ``clickhouse``, create the file
-``etc/catalog/clickhouse.properties``. Replace the connection properties as
+``etc/catalog/clickhouse.properties`` (in ``/etc/trino/catalog`` for Docker). Replace the connection properties as
 appropriate for your setup:
 
 .. code-block:: none

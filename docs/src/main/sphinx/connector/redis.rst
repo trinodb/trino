@@ -29,8 +29,8 @@ Configuration
 -------------
 
 To configure the Redis connector, create a catalog properties file
-``etc/catalog/redis.properties`` with the following content,
-replacing the properties as appropriate:
+``etc/catalog/redis.properties`` (in ``/etc/trino/catalog`` for Docker)
+with the following content, replacing the properties as appropriate:
 
 .. code-block:: text
 

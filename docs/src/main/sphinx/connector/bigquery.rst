@@ -65,7 +65,7 @@ Configuration
 -------------
 
 To configure the BigQuery connector, create a catalog properties file in
-``etc/catalog`` named, for example, ``bigquery.properties``, to mount the
+``etc/catalog`` (in ``/etc/trino/catalog`` for Docker) named, for example, ``bigquery.properties``, to mount the
 BigQuery connector as the ``bigquery`` catalog. Create the file with the
 following contents, replacing the connection properties as appropriate for
 your setup:

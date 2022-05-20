@@ -16,7 +16,7 @@ Configuration
 -------------
 
 To configure the JMX connector, create a catalog properties file
-``etc/catalog/jmx.properties`` with the following contents:
+``etc/catalog/jmx.properties`` (in ``/etc/trino/catalog`` for Docker) with the following contents:
 
 .. code-block:: text
 

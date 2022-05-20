@@ -23,8 +23,8 @@ Configuration
 -------------
 
 To configure the Oracle connector as the ``oracle`` catalog, create a file named
-``oracle.properties`` in ``etc/catalog``. Include the following connection
-properties in the file:
+``oracle.properties`` in ``etc/catalog`` (in ``/etc/trino/catalog`` for Docker).
+Include the following connection properties in the file:
 
 .. code-block:: text
 

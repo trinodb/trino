@@ -24,7 +24,7 @@ This connector is a **read-only** connector. It can only fetch data from Kinesis
 but cannot create streams or push data into existing streams.
 
 To configure the Kinesis connector, create a catalog properties file ``etc/catalog/kinesis.properties``
-with the following contents, replacing the properties as appropriate:
+(in ``/etc/trino/catalog`` for Docker) with the following contents, replacing the properties as appropriate:
 
 .. code-block:: text
 

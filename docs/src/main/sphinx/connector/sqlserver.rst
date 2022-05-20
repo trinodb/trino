@@ -28,8 +28,8 @@ catalog properties file that specifies the SQL server connector by setting the
 ``connector.name`` to ``sqlserver``.
 
 For example, to access a database as ``sqlserver``, create the file
-``etc/catalog/sqlserver.properties``. Replace the connection properties as
-appropriate for your setup:
+``etc/catalog/sqlserver.properties`` (in ``/etc/trino/catalog`` for Docker).
+Replace the connection properties as appropriate for your setup:
 
 .. code-block:: properties
 

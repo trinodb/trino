@@ -29,7 +29,7 @@ Configuration
 -------------
 
 To configure the Phoenix connector, create a catalog properties file
-``etc/catalog/phoenix.properties`` with the following contents,
+``etc/catalog/phoenix.properties`` (in ``/etc/trino/catalog`` for Docker) with the following contents,
 replacing ``host1,host2,host3`` with a comma-separated list of the ZooKeeper
 nodes used for discovery of the HBase cluster:
 

@@ -15,7 +15,7 @@ Configuration
 -------------
 
 To configure the TPCDS connector, create a catalog properties file
-``etc/catalog/tpcds.properties`` with the following contents:
+``etc/catalog/tpcds.properties`` (in ``/etc/trino/catalog`` for Docker) with the following contents:
 
 .. code-block:: text
 

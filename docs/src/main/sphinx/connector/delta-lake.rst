@@ -36,7 +36,7 @@ runtime. If non-Delta tables are present in the metastore, as well, they are not
 visible to the connector.
 
 To configure the Delta Lake connector, create a catalog properties file, for
-example ``etc/catalog/delta.properties``, that references the ``delta-lake``
+example ``etc/catalog/delta.properties`` (in ``/etc/trino/catalog`` for Docker), that references the ``delta-lake``
 connector. Update the ``hive.metastore.uri`` with the URI of your Hive metastore
 Thrift service:
 

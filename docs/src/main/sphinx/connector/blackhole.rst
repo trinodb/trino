@@ -25,7 +25,7 @@ Configuration
 -------------
 
 To configure the Black Hole connector, create a catalog properties file
-``etc/catalog/blackhole.properties`` with the following contents:
+``etc/catalog/blackhole.properties`` (in ``/etc/trino/catalog`` for Docker) with the following contents:
 
 .. code-block:: text
 

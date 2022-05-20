@@ -23,7 +23,7 @@ Configuration
 -------------
 
 To configure the Redshift connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``redshift.properties``, to
+in ``etc/catalog``(in ``/etc/trino/catalog`` for Docker)  named, for example, ``redshift.properties``, to
 mount the Redshift connector as the ``redshift`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:

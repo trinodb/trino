@@ -26,7 +26,7 @@ the ``connector.name`` to ``druid`` and configuring the ``connection-url`` with
 the JDBC string to connect to Druid.
 
 For example, to access a database as ``druid``, create the file
-``etc/catalog/druid.properties``. Replace ``BROKER:8082`` with the correct
+``etc/catalog/druid.properties`` (in ``/etc/trino/catalog`` for Docker). Replace ``BROKER:8082`` with the correct
 host and port of your Druid broker.
 
 .. code-block:: properties
