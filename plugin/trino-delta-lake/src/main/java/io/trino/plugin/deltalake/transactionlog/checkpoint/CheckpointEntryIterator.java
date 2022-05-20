@@ -521,8 +521,12 @@ public class CheckpointEntryIterator
         return DeltaLakeTransactionLogEntry.transactionEntry(result);
     }
 
+    @Nullable
     private String getString(Block block, int position)
     {
+        if (block.isNull(position)) {
+            return null;
+        }
         return block.getSlice(position, 0, block.getSliceLength(position)).toString(UTF_8);
     }
 
