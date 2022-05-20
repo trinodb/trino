@@ -24,7 +24,6 @@ import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
@@ -109,9 +108,9 @@ public class ByteArrayBlockBuilder
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
-        return new ByteArrayBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount));
+        return new ByteArrayBlockBuilder(blockBuilderStatus, expectedEntries);
     }
 
     private void growCapacity()
