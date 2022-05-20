@@ -142,14 +142,14 @@ public class PartitionTable
 
     private Optional<RowType> getPartitionColumnType(List<PartitionField> fields, Schema schema)
     {
+        if (fields.isEmpty()) {
+            return Optional.empty();
+        }
         List<RowType.Field> partitionFields = fields.stream()
                 .map(field -> RowType.field(
                         field.name(),
                         toTrinoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)))
                 .collect(toImmutableList());
-        if (partitionFields.isEmpty()) {
-            return Optional.empty();
-        }
         return Optional.of(RowType.from(partitionFields));
     }
 
