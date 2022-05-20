@@ -32,6 +32,7 @@
 * Improve compatibility when Glue storage properties are used. ({issue}`12164`)
 * Prevent data loss when queries modify a table concurrently when Glue catalog
   is used. ({issue}`11713`)
+* Enable commit retries when conflicts occur writing a transaction to a Hive Metastore. ({issue}`12419`)
 * Always return the number of deleted rows for {doc}`/sql/delete` statements. ({issue}`12055`)
 
 ## Pinot connector

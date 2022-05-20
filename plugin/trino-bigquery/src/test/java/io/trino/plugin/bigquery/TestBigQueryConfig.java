@@ -44,7 +44,8 @@ public class TestBigQueryConfig
                 .setCaseInsensitiveNameMatching(false)
                 .setViewsCacheTtl(new Duration(15, MINUTES))
                 .setServiceCacheTtl(new Duration(3, MINUTES))
-                .setViewsEnabled(false));
+                .setViewsEnabled(false)
+                .setQueryResultsCacheEnabled(false));
     }
 
     @Test
@@ -63,6 +64,7 @@ public class TestBigQueryConfig
                 .put("bigquery.case-insensitive-name-matching", "true")
                 .put("bigquery.views-cache-ttl", "1m")
                 .put("bigquery.service-cache-ttl", "10d")
+                .put("bigquery.query-results-cache.enabled", "true")
                 .buildOrThrow();
 
         BigQueryConfig expected = new BigQueryConfig()
@@ -77,7 +79,8 @@ public class TestBigQueryConfig
                 .setMaxReadRowsRetries(10)
                 .setCaseInsensitiveNameMatching(true)
                 .setViewsCacheTtl(new Duration(1, MINUTES))
-                .setServiceCacheTtl(new Duration(10, DAYS));
+                .setServiceCacheTtl(new Duration(10, DAYS))
+                .setQueryResultsCacheEnabled(true);
 
         assertFullMapping(properties, expected);
     }

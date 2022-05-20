@@ -15,10 +15,11 @@ package io.trino.execution.scheduler;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -47,7 +48,6 @@ import javax.inject.Inject;
 import java.time.Duration;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -399,8 +399,8 @@ public class BinPackingNodeAllocatorService
                 node.cancel(true);
                 if (node.isDone() && !node.isCancelled()) {
                     deallocateMemory(getFutureValue(node));
-                    wakeupProcessPendingAcquires();
                     checkState(fulfilledAcquires.remove(this), "node lease %s not found in fulfilledAcquires %s", this, fulfilledAcquires);
+                    wakeupProcessPendingAcquires();
                 }
             }
             else {
@@ -456,16 +456,10 @@ public class BinPackingNodeAllocatorService
                 realtimeTasksMemoryPerNode.put(node.getNodeIdentifier(), memoryPoolInfo.getTaskMemoryReservations());
             }
 
-            Map<String, Set<BinPackingNodeLease>> fulfilledAcquiresByNode = new HashMap<>();
+            SetMultimap<String, BinPackingNodeLease> fulfilledAcquiresByNode = HashMultimap.create();
             for (BinPackingNodeLease fulfilledAcquire : fulfilledAcquires) {
                 InternalNode node = fulfilledAcquire.getAssignedNode();
-                fulfilledAcquiresByNode.compute(node.getNodeIdentifier(), (key, set) -> {
-                    if (set == null) {
-                        set = new HashSet<>();
-                    }
-                    set.add(fulfilledAcquire);
-                    return set;
-                });
+                fulfilledAcquiresByNode.put(node.getNodeIdentifier(), fulfilledAcquire);
             }
 
             nodesRemainingMemory = new HashMap<>();
@@ -488,7 +482,7 @@ public class BinPackingNodeAllocatorService
                 }
 
                 Map<String, Long> realtimeNodeMemory = realtimeTasksMemoryPerNode.get(node.getNodeIdentifier());
-                Set<BinPackingNodeLease> nodeFulfilledAcquires = fulfilledAcquiresByNode.getOrDefault(node.getNodeIdentifier(), ImmutableSet.of());
+                Set<BinPackingNodeLease> nodeFulfilledAcquires = fulfilledAcquiresByNode.get(node.getNodeIdentifier());
 
                 long nodeUsedMemoryRuntimeAdjusted = 0;
                 for (BinPackingNodeLease lease : nodeFulfilledAcquires) {

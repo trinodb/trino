@@ -70,27 +70,26 @@ public class HiveMetastoreTableOperations
                 database,
                 tableName);
         try {
-            Table table;
+            Table currentTable = fromMetastoreApiTable(thriftMetastore.getTable(identity, database, tableName)
+                    .orElseThrow(() -> new TableNotFoundException(getSchemaTableName())));
+
+            checkState(currentMetadataLocation != null, "No current metadata location for existing table");
+            String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION_PROP);
+            if (!currentMetadataLocation.equals(metadataLocation)) {
+                throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
+                        currentMetadataLocation, metadataLocation, getSchemaTableName());
+            }
+
+            Table table = Table.builder(currentTable)
+                    .setDataColumns(toHiveColumns(metadata.schema().columns()))
+                    .withStorage(storage -> storage.setLocation(metadata.location()))
+                    .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
+                    .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
+                    .build();
+
+            // todo privileges should not be replaced for an alter
+            PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
             try {
-                Table currentTable = fromMetastoreApiTable(thriftMetastore.getTable(identity, database, tableName)
-                        .orElseThrow(() -> new TableNotFoundException(getSchemaTableName())));
-
-                checkState(currentMetadataLocation != null, "No current metadata location for existing table");
-                String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION_PROP);
-                if (!currentMetadataLocation.equals(metadataLocation)) {
-                    throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
-                            currentMetadataLocation, metadataLocation, getSchemaTableName());
-                }
-
-                table = Table.builder(currentTable)
-                        .setDataColumns(toHiveColumns(metadata.schema().columns()))
-                        .withStorage(storage -> storage.setLocation(metadata.location()))
-                        .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
-                        .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
-                        .build();
-
-                // todo privileges should not be replaced for an alter
-                PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
                 metastore.replaceTable(database, tableName, table, privileges);
             }
             catch (RuntimeException e) {

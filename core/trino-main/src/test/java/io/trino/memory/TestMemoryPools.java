@@ -436,7 +436,7 @@ public class TestMemoryPools
         // run driver, until it blocks
         while (!isOperatorBlocked(drivers, reason)) {
             for (Driver driver : drivers) {
-                driver.process();
+                driver.processForNumberOfIterations(1);
             }
             iterationsCount++;
         }
@@ -454,7 +454,7 @@ public class TestMemoryPools
             assertFalse(isOperatorBlocked(drivers, reason));
             boolean progress = false;
             for (Driver driver : drivers) {
-                ListenableFuture<Void> blocked = driver.process();
+                ListenableFuture<Void> blocked = driver.processUntilBlocked();
                 progress = progress | blocked.isDone();
             }
             // query should not block

@@ -84,6 +84,7 @@ import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.invoke.MethodType.methodType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -146,12 +147,43 @@ public class TestAnnotationEngineForAggregates
         aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
-    @AggregationFunction("simple_exact_aggregate_aggregation_state_moved")
-    @Description("Simple exact function which has @AggregationState on different than first positions")
-    public static final class StateOnDifferentThanFirstPositionAggregationFunction
+    @AggregationFunction("input_parameters_wrong_order")
+    @Description("AggregationState must be the first input parameter")
+    public static final class InputParametersWrongOrder
     {
         @InputFunction
         public static void input(@SqlType(DOUBLE) double value, @AggregationState NullableDoubleState state)
+        {
+            // noop this is only for annotation testing puproses
+        }
+
+        @CombineFunction
+        public static void combine(@AggregationState NullableDoubleState combine1, @AggregationState NullableDoubleState combine2)
+        {
+            // noop this is only for annotation testing puproses
+        }
+
+        @OutputFunction(DOUBLE)
+        public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
+        {
+            // noop this is only for annotation testing puproses
+        }
+    }
+
+    @Test
+    public void testInputParameterOrderEnforced()
+    {
+        assertThatThrownBy(() -> parseFunctionDefinitions(InputParametersWrongOrder.class))
+                .hasMessage("Expected input function non-dependency parameters to begin with state type NullableDoubleState: " +
+                        "public static void io.trino.operator.TestAnnotationEngineForAggregates$InputParametersWrongOrder.input(double,io.trino.operator.aggregation.state.NullableDoubleState)");
+    }
+
+    @AggregationFunction("output_parameters_wrong_order")
+    @Description("AggregationState must be the first output parameter")
+    public static final class OutputParametersWrongOrder
+    {
+        @InputFunction
+        public static void input(@AggregationState NullableDoubleState state, @SqlType(DOUBLE) double value)
         {
             // noop this is only for annotation testing puproses
         }
@@ -170,20 +202,11 @@ public class TestAnnotationEngineForAggregates
     }
 
     @Test
-    public void testStateOnDifferentThanFirstPositionAggregationParse()
+    public void testOutputParameterOrderEnforced()
     {
-        Signature expectedSignature = Signature.builder()
-                .name("simple_exact_aggregate_aggregation_state_moved")
-                .returnType(DoubleType.DOUBLE)
-                .argumentType(DoubleType.DOUBLE)
-                .build();
-
-        ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(StateOnDifferentThanFirstPositionAggregationFunction.class));
-        assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-
-        AggregationImplementation implementation = getOnlyElement(aggregation.getImplementations().getExactImplementations().values());
-        assertEquals(implementation.getDefinitionClass(), StateOnDifferentThanFirstPositionAggregationFunction.class);
-        assertEquals(implementation.getInputParameterKinds(), ImmutableList.of(INPUT_CHANNEL, STATE));
+        assertThatThrownBy(() -> parseFunctionDefinitions(OutputParametersWrongOrder.class))
+                .hasMessage("Expected output function non-dependency parameters to be [NullableDoubleState, BlockBuilder]: " +
+                        "public static void io.trino.operator.TestAnnotationEngineForAggregates$OutputParametersWrongOrder.output(io.trino.spi.block.BlockBuilder,io.trino.operator.aggregation.state.NullableDoubleState)");
     }
 
     @AggregationFunction("no_aggregation_state_aggregate")

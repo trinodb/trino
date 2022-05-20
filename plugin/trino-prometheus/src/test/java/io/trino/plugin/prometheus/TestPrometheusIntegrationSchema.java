@@ -62,12 +62,9 @@ public class TestPrometheusIntegrationSchema
 
     @BeforeClass
     public void createQueryRunner()
-            throws Exception
     {
         this.server = new PrometheusServer();
         this.client = createPrometheusClient(server);
-
-        PrometheusServer.checkServerReady(this.client);
     }
 
     @AfterClass(alwaysRun = true)

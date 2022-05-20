@@ -545,11 +545,11 @@ public class Validator
         }
         catch (SQLException e) {
             Exception exception = e;
-            if (("Error executing query".equals(e.getMessage()) || "Error fetching results".equals(e.getMessage())) &&
+            if ((e.getMessage().startsWith("Error executing query") || "Error fetching results".equals(e.getMessage())) &&
                     (e.getCause() instanceof Exception)) {
                 exception = (Exception) e.getCause();
             }
-            State state = isPrestoQueryInvalid(e) ? State.INVALID : State.FAILED;
+            State state = isTrinoQueryInvalid(e) ? State.INVALID : State.FAILED;
             return new QueryResult(state, exception, nanosSince(start), queryCpuTime, queryId, ImmutableList.of(), ImmutableList.of());
         }
         catch (VerifierException e) {
@@ -578,7 +578,7 @@ public class Validator
         }
     }
 
-    private static boolean isPrestoQueryInvalid(SQLException e)
+    private static boolean isTrinoQueryInvalid(SQLException e)
     {
         for (Throwable t = e.getCause(); t != null; t = t.getCause()) {
             if (t.toString().contains(".SemanticException:")) {
@@ -716,7 +716,7 @@ public class Validator
             if (a.getClass() != b.getClass()) {
                 throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
             }
-            if ((a.getClass().isArray() && b.getClass().isArray())) {
+            if (a.getClass().isArray()) {
                 Object[] aArray = (Object[]) a;
                 Object[] bArray = (Object[]) b;
 

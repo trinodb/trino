@@ -15,6 +15,7 @@ package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -596,6 +597,54 @@ public class TestBigQueryConnectorTest
 
             assertUpdate("DROP TABLE test." + materializedView);
             assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + materializedView + "'");
+        }
+        finally {
+            onBigQuery("DROP MATERIALIZED VIEW IF EXISTS test." + materializedView);
+        }
+    }
+
+    @Test
+    public void testBigQuerySnapshotTable()
+    {
+        String snapshotTable = "test_snapshot" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE SNAPSHOT TABLE test." + snapshotTable + " CLONE tpch.region");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + snapshotTable + "'", "VALUES 'BASE TABLE'");
+
+            assertThat(query("DESCRIBE test." + snapshotTable)).matches("DESCRIBE tpch.region");
+            assertThat(query("SELECT * FROM test." + snapshotTable)).matches("SELECT * FROM tpch.region");
+
+            assertUpdate("DROP TABLE test." + snapshotTable);
+            assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + snapshotTable + "'");
+        }
+        finally {
+            onBigQuery("DROP SNAPSHOT TABLE IF EXISTS test." + snapshotTable);
+        }
+    }
+
+    @Test
+    public void testQueryCache()
+    {
+        Session queryResultsCacheSession = Session.builder(getSession())
+                .setCatalogSessionProperty("bigquery", "query_results_cache_enabled", "true")
+                .build();
+        Session createNeverDisposition = Session.builder(getSession())
+                .setCatalogSessionProperty("bigquery", "query_results_cache_enabled", "true")
+                .setCatalogSessionProperty("bigquery", "create_disposition_type", "create_never")
+                .build();
+
+        String materializedView = "test_materialized_view" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE MATERIALIZED VIEW test." + materializedView + " AS SELECT count(1) AS cnt FROM tpch.region");
+
+            // Verify query cache is empty
+            assertThatThrownBy(() -> query(createNeverDisposition, "SELECT * FROM test." + materializedView))
+                    .hasMessageContaining("Not found");
+            // Populate cache and verify it
+            assertQuery(queryResultsCacheSession, "SELECT * FROM test." + materializedView, "VALUES 5");
+            assertQuery(createNeverDisposition, "SELECT * FROM test." + materializedView, "VALUES 5");
+
+            assertUpdate("DROP TABLE test." + materializedView);
         }
         finally {
             onBigQuery("DROP MATERIALIZED VIEW IF EXISTS test." + materializedView);

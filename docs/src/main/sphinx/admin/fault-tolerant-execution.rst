@@ -99,7 +99,7 @@ query.
 The following cluster configuration changes are recommended to improve
 fault-tolerant execution with a ``TASK`` retry policy:
 
-* Set the ``query.low-memory-task-killer.policy``
+* Set the ``task.low-memory-killer.policy``
   :doc:`query management property </admin/properties-query-management>` to
   ``total-reservation-on-blocked-nodes``, or queries may
   need to be manually killed if the cluster runs out of memory.

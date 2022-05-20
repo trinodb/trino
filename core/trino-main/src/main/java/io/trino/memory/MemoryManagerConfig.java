@@ -16,7 +16,6 @@ package io.trino.memory;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -55,8 +54,7 @@ public class MemoryManagerConfig
         return lowMemoryQueryKillerPolicy;
     }
 
-    @LegacyConfig("query.low-memory-killer.policy")
-    @Config("query.low-memory-query-killer.policy")
+    @Config("query.low-memory-killer.policy")
     public MemoryManagerConfig setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy)
     {
         this.lowMemoryQueryKillerPolicy = lowMemoryQueryKillerPolicy;
@@ -68,7 +66,7 @@ public class MemoryManagerConfig
         return lowMemoryTaskKillerPolicy;
     }
 
-    @Config("query.low-memory-task-killer.policy")
+    @Config("task.low-memory-killer.policy")
     public MemoryManagerConfig setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy)
     {
         this.lowMemoryTaskKillerPolicy = lowMemoryTaskKillerPolicy;
@@ -203,7 +201,7 @@ public class MemoryManagerConfig
     {
         NONE,
         TOTAL_RESERVATION_ON_BLOCKED_NODES,
-        LEAST_WASTED,
+        LEAST_WASTE,
         /**/;
 
         public static LowMemoryTaskKillerPolicy fromString(String value)
@@ -213,8 +211,8 @@ public class MemoryManagerConfig
                     return NONE;
                 case "total-reservation-on-blocked-nodes":
                     return TOTAL_RESERVATION_ON_BLOCKED_NODES;
-                case "least-wasted":
-                    return LEAST_WASTED;
+                case "least-waste":
+                    return LEAST_WASTE;
             }
 
             throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));

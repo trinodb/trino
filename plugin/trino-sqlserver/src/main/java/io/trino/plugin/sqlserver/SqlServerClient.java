@@ -1016,13 +1016,6 @@ public class SqlServerClient
                 .get(() -> getTableDataCompression(handle, table));
     }
 
-    private enum SnapshotIsolationEnabledCacheKey
-    {
-        // The snapshot isolation can be enabled or disabled on database level. We connect to single
-        // database, so from our perspective, this is a global property.
-        INSTANCE
-    }
-
     private static class StatisticsDao
     {
         private final Handle handle;

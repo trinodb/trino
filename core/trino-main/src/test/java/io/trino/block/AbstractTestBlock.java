@@ -194,7 +194,7 @@ public abstract class AbstractTestBlock
     protected List<Block> splitBlock(Block block, int count)
     {
         double sizePerSplit = block.getPositionCount() * 1.0 / count;
-        ImmutableList.Builder<Block> result = ImmutableList.builder();
+        ImmutableList.Builder<Block> result = ImmutableList.builderWithExpectedSize(count);
         for (int i = 0; i < count; i++) {
             int startPosition = toIntExact(Math.round(sizePerSplit * i));
             int endPosition = toIntExact(Math.round(sizePerSplit * (i + 1)));

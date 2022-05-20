@@ -205,9 +205,10 @@ public class FilterStatsCalculator
          **/
         private List<PlanNodeStatsEstimate> estimateCorrelatedExpressions(List<Expression> terms, double filterConjunctionIndependenceFactor)
         {
-            ImmutableList.Builder<PlanNodeStatsEstimate> estimatesBuilder = ImmutableList.builder();
+            List<List<Expression>> extractedCorrelatedGroups = extractCorrelatedGroups(terms, filterConjunctionIndependenceFactor);
+            ImmutableList.Builder<PlanNodeStatsEstimate> estimatesBuilder = ImmutableList.builderWithExpectedSize(extractedCorrelatedGroups.size());
             boolean hasUnestimatedTerm = false;
-            for (List<Expression> correlatedExpressions : extractCorrelatedGroups(terms, filterConjunctionIndependenceFactor)) {
+            for (List<Expression> correlatedExpressions : extractedCorrelatedGroups) {
                 PlanNodeStatsEstimate combinedEstimate = PlanNodeStatsEstimate.unknown();
                 for (Expression expression : correlatedExpressions) {
                     PlanNodeStatsEstimate estimate;
