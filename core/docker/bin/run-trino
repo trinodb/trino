@@ -7,4 +7,34 @@ if ! grep -s -q 'node.id' /etc/trino/node.properties; then
     NODE_ID="-Dnode.id=${HOSTNAME}"
 fi
 
+base=/usr/lib/trino
+if [ -n "${TRINO_ENABLE_PLUGINS:-}" ] && [ -n "${TRINO_DISABLE_PLUGINS:-}" ]; then
+    echo >&2 "Cannot set both \$TRINO_DISABLE_PLUGINS and \$TRINO_ENABLE_PLUGINS"
+    exit 1
+elif [ -n "${TRINO_ENABLE_PLUGINS:-}" ]; then
+    if [ -n "${TRINO_DISABLE_PLUGINS:-}" ]; then
+        echo >&2 "Cannot set both \$TRINO_DISABLE_PLUGINS and \$TRINO_ENABLE_PLUGINS"
+        exit 1
+    fi
+    mv "$base/plugin" "$base/plugin.disabled"
+    mv "/etc/trino/catalog" "/etc/trino/catalog.disabled"
+    mkdir -p "$base/plugin" /etc/trino/catalog
+    IFS=, read -ra names <<< "$TRINO_ENABLE_PLUGINS"
+    for name in "${names[@]}"; do
+        mv "$base/plugin.disabled/$name" "$base/plugin/$name"
+        if [ -f "/etc/trino/catalog.disabled/$name.properties" ]; then
+            mv "/etc/trino/catalog.disabled/$name.properties" "/etc/trino/catalog/$name.properties"
+        fi
+    done
+elif [ -n "${TRINO_DISABLE_PLUGINS:-}" ]; then
+    mkdir -p "$base/plugin.disabled" /etc/trino/catalog.disabled
+    IFS=, read -ra names <<< "$TRINO_DISABLE_PLUGINS"
+    for name in "${names[@]}"; do
+        mv "$base/plugin/$name" "$base/plugin.disabled/$name"
+        if [ -f "/etc/trino/catalog/$name.properties" ]; then
+            mv "/etc/trino/catalog/$name.properties" "/etc/trino/catalog.disabled/$name.properties"
+        fi
+    done
+fi
+
 exec /usr/lib/trino/bin/launcher run --etc-dir /etc/trino "${NODE_ID}" "$@"

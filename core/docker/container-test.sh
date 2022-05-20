@@ -13,10 +13,8 @@ function test_trino_starts {
     CONTAINER_ID=
     trap cleanup EXIT
 
-    local CONTAINER_NAME=$1
-    local PLATFORM=$2
     # We aren't passing --rm here to make sure container is available for inspection in case of failures
-    CONTAINER_ID=$(docker run -d --platform "${PLATFORM}" "${CONTAINER_NAME}")
+    CONTAINER_ID=$(docker run -d "$@")
 
     set +e
     I=0
@@ -41,6 +39,15 @@ function test_trino_starts {
     [[ ${RESULT} == '"success"' ]]
 }
 
+function test_trino_fails {
+    if ! timeout 10 docker run --rm "$@"; then
+        if [ $? == 124 ]; then
+            echo >&2 "Command expected to fail but did not: docker run --rm $*"
+            exit 1
+        fi
+    fi
+}
+
 function test_javahome {
     local CONTAINER_NAME=$1
     local PLATFORM=$2
@@ -56,6 +63,8 @@ function test_container {
     local PLATFORM=$2
     echo "🐢 Validating ${CONTAINER_NAME} on platform ${PLATFORM}..."
     test_javahome "${CONTAINER_NAME}" "${PLATFORM}"
-    test_trino_starts "${CONTAINER_NAME}" "${PLATFORM}"
+    test_trino_starts -e TRINO_ENABLE_PLUGINS=jmx,memory --platform "${PLATFORM}" "${CONTAINER_NAME}"
+    test_trino_starts -e TRINO_DISABLE_PLUGINS=tpch,tpcds --platform "${PLATFORM}" "${CONTAINER_NAME}"
+    test_trino_fails -e TRINO_ENABLE_PLUGINS=jmx,memory -e TRINO_DISABLE_PLUGINS=tpch,tpcds "${CONTAINER_NAME}"
     echo "🎉 Validated ${CONTAINER_NAME} on platform ${PLATFORM}"
 }

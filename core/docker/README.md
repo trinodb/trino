@@ -19,7 +19,9 @@ To launch it, execute the following:
 docker run -p 8080:8080 --name trino trinodb/trino
 ```
 
-Wait for the following message log line:
+When Trino finishes starting up, the container will report its status as healthy.
+You can check it in the output of `docker ps`, or wait for the following message
+log line:
 ```
 INFO	main	io.trino.server.Server	======== SERVER STARTED ========
 ```
@@ -61,6 +63,15 @@ across all worker nodes if desired. Additionally this has the added benefit of
 The default configuration uses `/data/trino` as the default for
 `node.data-dir`. Thus if using the default configuration and a mounted volume
 is desired for the data directory it should be mounted to `/data/trino`.
+
+## Disabling plugins
+
+On startup, Trino loads all plugins found in `/usr/lib/trino/plugin`. To avoid
+loading unused plugins, set the `TRINO_DISABLE_PLUGINS` to a comma separated
+list of plugin names. Set the `TRINO_ENABLE_PLUGINS` to only enable selected plugins:
+```bash
+docker run -p 8080:8080 --name trino -e TRINO_ENABLE_PLUGINS=hive,jmx trinodb/trino
+```
 
 ## Building a custom Docker image
 
