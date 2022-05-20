@@ -1461,11 +1461,11 @@ public class Analysis
         public Set<FieldId> getAllFields()
         {
             return Streams.concat(
-                    cubes.stream().flatMap(Collection::stream),
-                    rollups.stream().flatMap(Collection::stream),
-                    ordinarySets.stream()
-                            .flatMap(Collection::stream)
-                            .flatMap(Collection::stream))
+                            cubes.stream().flatMap(Collection::stream),
+                            rollups.stream().flatMap(Collection::stream),
+                            ordinarySets.stream()
+                                    .flatMap(Collection::stream)
+                                    .flatMap(Collection::stream))
                     .collect(toImmutableSet());
         }
     }

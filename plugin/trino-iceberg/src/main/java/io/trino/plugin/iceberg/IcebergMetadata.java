@@ -647,7 +647,7 @@ public class IcebergMetadata
             if (fileSystem.exists(path) && fileSystem.listFiles(path, true).hasNext()) {
                 throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format(
                         "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
-                        "to use unique table locations for every table.", location));
+                                "to use unique table locations for every table.", location));
             }
             return new IcebergWritableTableHandle(
                     tableMetadata.getTable().getSchemaName(),
@@ -1666,8 +1666,8 @@ public class IcebergMetadata
         String referencedDataFile = positionDeletes.get(0).getReferencedDataFile().orElseThrow();
         long fileRecordCount = positionDeletes.get(0).getFileRecordCount().orElseThrow();
         checkArgument(positionDeletes.stream()
-                .allMatch(positionDelete -> positionDelete.getReferencedDataFile().orElseThrow().equals(referencedDataFile) &&
-                        positionDelete.getFileRecordCount().orElseThrow() == fileRecordCount),
+                        .allMatch(positionDelete -> positionDelete.getReferencedDataFile().orElseThrow().equals(referencedDataFile) &&
+                                positionDelete.getFileRecordCount().orElseThrow() == fileRecordCount),
                 "All position deletes must be for the same file and have the same fileRecordCount");
         long deletedRowCount = positionDeletes.stream()
                 .map(CommitTaskData::getDeletedRowCount)

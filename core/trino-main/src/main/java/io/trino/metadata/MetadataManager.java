@@ -1664,7 +1664,9 @@ public final class MetadataManager
                 .map(Variable::getName)
                 .filter(variableName -> !assignedVariables.contains(variableName))
                 .findAny()
-                .ifPresent(variableName -> { throw new IllegalStateException("Unbound variable: " + variableName); });
+                .ifPresent(variableName -> {
+                    throw new IllegalStateException("Unbound variable: " + variableName);
+                });
     }
 
     @Override
