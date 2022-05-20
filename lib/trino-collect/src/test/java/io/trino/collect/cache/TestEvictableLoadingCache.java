@@ -23,19 +23,23 @@ import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -220,6 +224,117 @@ public class TestEvictableLoadingCache
         assertEquals(entry.getKey(), second);
         assertNotSame(entry.getKey(), first);
         assertSame(entry.getKey(), second);
+    }
+
+    /**
+     * Test that the loader is invoked only once for concurrent invocations of {{@link LoadingCache#get(Object, Callable)} with equal keys.
+     * This is a behavior of Guava Cache as well. While this is necessarily desirable behavior (see
+     * <a href="https://github.com/trinodb/trino/issues/11067">https://github.com/trinodb/trino/issues/11067</a>),
+     * the test exists primarily to document current state and support discussion, should the current state change.
+     */
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testConcurrentGetWithCallableShareLoad()
+            throws Exception
+    {
+        AtomicInteger loads = new AtomicInteger();
+        AtomicInteger concurrentInvocations = new AtomicInteger();
+
+        LoadingCache<Integer, Integer> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10_000)
+                .build(CacheLoader.from(() -> {
+                    throw new UnsupportedOperationException();
+                }));
+
+        int threads = 2;
+        int invocationsPerThread = 100;
+        ExecutorService executor = newFixedThreadPool(threads);
+        try {
+            CyclicBarrier barrier = new CyclicBarrier(threads);
+            List<Future<?>> futures = new ArrayList<>();
+            for (int i = 0; i < threads; i++) {
+                futures.add(executor.submit(() -> {
+                    for (int invocation = 0; invocation < invocationsPerThread; invocation++) {
+                        int key = invocation;
+                        barrier.await(10, SECONDS);
+                        int value = cache.get(key, () -> {
+                            loads.incrementAndGet();
+                            int invocations = concurrentInvocations.incrementAndGet();
+                            checkState(invocations == 1, "There should be no concurrent invocations, cache should do load sharing when get() invoked for same key");
+                            Thread.sleep(1);
+                            concurrentInvocations.decrementAndGet();
+                            return -key;
+                        });
+                        assertEquals(value, -invocation);
+                    }
+                    return null;
+                }));
+            }
+
+            for (Future<?> future : futures) {
+                future.get(10, SECONDS);
+            }
+            assertThat(loads).as("loads")
+                    .hasValueBetween(invocationsPerThread, threads * invocationsPerThread - 1 /* inclusive */);
+        }
+        finally {
+            executor.shutdownNow();
+            executor.awaitTermination(10, SECONDS);
+        }
+    }
+
+    /**
+     * Test that the loader is invoked only once for concurrent invocations of {{@link LoadingCache#get(Object)} with equal keys.
+     */
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testConcurrentGetShareLoad()
+            throws Exception
+    {
+        AtomicInteger loads = new AtomicInteger();
+        AtomicInteger concurrentInvocations = new AtomicInteger();
+
+        LoadingCache<Integer, Integer> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10_000)
+                .build(new CacheLoader<Integer, Integer>()
+                {
+                    @Override
+                    public Integer load(Integer key)
+                            throws Exception
+                    {
+                        loads.incrementAndGet();
+                        int invocations = concurrentInvocations.incrementAndGet();
+                        checkState(invocations == 1, "There should be no concurrent invocations, cache should do load sharing when get() invoked for same key");
+                        Thread.sleep(1);
+                        concurrentInvocations.decrementAndGet();
+                        return -key;
+                    }
+                });
+
+        int threads = 2;
+        int invocationsPerThread = 100;
+        ExecutorService executor = newFixedThreadPool(threads);
+        try {
+            CyclicBarrier barrier = new CyclicBarrier(threads);
+            List<Future<?>> futures = new ArrayList<>();
+            for (int i = 0; i < threads; i++) {
+                futures.add(executor.submit(() -> {
+                    for (int invocation = 0; invocation < invocationsPerThread; invocation++) {
+                        barrier.await(10, SECONDS);
+                        assertEquals((int) cache.get(invocation), -invocation);
+                    }
+                    return null;
+                }));
+            }
+
+            for (Future<?> future : futures) {
+                future.get(10, SECONDS);
+            }
+            assertThat(loads).as("loads")
+                    .hasValueBetween(invocationsPerThread, threads * invocationsPerThread - 1 /* inclusive */);
+        }
+        finally {
+            executor.shutdownNow();
+            executor.awaitTermination(10, SECONDS);
+        }
     }
 
     /**
