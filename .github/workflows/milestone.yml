@@ -37,7 +37,7 @@ jobs:
             const { MILESTONE_NUMBER } = process.env
 
             // Find milestone
-            const response = await github.issues.listMilestones(context.repo)
+            const response = await github.issues.listMilestones({ owner: context.repo.owner, repo: context.repo.repo, per_page: 100, })
             let milestone = response.data.find(milestoneResponse => milestoneResponse.title === MILESTONE_NUMBER)
 
             // Create new milestone if it doesn't exist
