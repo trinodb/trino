@@ -180,7 +180,6 @@ public class SnowflakeClient
             case Types.VARCHAR:
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
             case Types.BINARY:
-            case Types.VARBINARY:
                 return Optional.of(varbinaryColumnMapping());
         }
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
