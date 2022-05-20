@@ -20,7 +20,6 @@ import java.io.Closeable;
 import java.net.URI;
 import java.time.Duration;
 
-import static io.trino.plugin.prometheus.PrometheusClient.METRICS_ENDPOINT;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class PrometheusServer
@@ -52,7 +51,7 @@ public class PrometheusServer
             this.dockerContainer
                     .withCommand("--config.file=/etc/prometheus/prometheus.yml", "--web.config.file=/etc/prometheus/web.yml")
                     .withCopyFileToContainer(forClasspathResource("web.yml"), "/etc/prometheus/web.yml")
-                    .waitingFor(Wait.forHttp(METRICS_ENDPOINT).forResponsePredicate(response -> response.contains("\"up\"")).withBasicCredentials(USER, PASSWORD))
+                    .waitingFor(Wait.forHttp(PROMETHEUS_QUERY_API).forResponsePredicate(response -> response.contains("\"values\"")).withBasicCredentials(USER, PASSWORD))
                     .withStartupTimeout(Duration.ofSeconds(360));
         }
         this.dockerContainer.start();
