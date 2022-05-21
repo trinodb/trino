@@ -30,15 +30,18 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.airlift.log.Logger;
 import io.trino.plugin.bigquery.BigQueryClient.RemoteDatabaseObject;
+import io.trino.plugin.bigquery.ptf.Query.QueryHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -49,9 +52,11 @@ import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -265,11 +270,13 @@ public class BigQueryMetadata
         for (BigQueryColumnHandle column : client.getColumns(handle)) {
             columnMetadata.add(column.getColumnMetadata());
         }
-        if (handle.asPlainTable().getPartitionType().isPresent() && handle.asPlainTable().getPartitionType().get() == INGESTION) {
-            columnMetadata.add(PARTITION_DATE.getColumnMetadata());
-            columnMetadata.add(PARTITION_TIME.getColumnMetadata());
+        if (handle.isNamedRelation()) {
+            if (handle.asPlainTable().getPartitionType().isPresent() && handle.asPlainTable().getPartitionType().get() == INGESTION) {
+                columnMetadata.add(PARTITION_DATE.getColumnMetadata());
+                columnMetadata.add(PARTITION_TIME.getColumnMetadata());
+            }
         }
-        return new ConnectorTableMetadata(handle.asPlainTable().getSchemaTableName(), columnMetadata.build(), ImmutableMap.of(), handle.asPlainTable().getComment());
+        return new ConnectorTableMetadata(getSchemaTableName(handle), columnMetadata.build(), ImmutableMap.of(), getTableComment(handle));
     }
 
     @Override
@@ -314,6 +321,13 @@ public class BigQueryMetadata
         log.debug("getColumnHandles(session=%s, tableHandle=%s)", session, tableHandle);
 
         BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
+        if (table.getProjectedColumns().isPresent()) {
+            return table.getProjectedColumns().get().stream()
+                    .collect(toImmutableMap(columnHandle -> ((BigQueryColumnHandle) columnHandle).getName(), identity()));
+        }
+
+        checkArgument(table.isNamedRelation(), "Cannot get columns for %s", tableHandle);
+
         ImmutableList.Builder<BigQueryColumnHandle> columns = ImmutableList.builder();
         columns.addAll(client.getColumns(table));
         if (table.asPlainTable().getPartitionType().isPresent() && table.asPlainTable().getPartitionType().get() == INGESTION) {
@@ -479,6 +493,24 @@ public class BigQueryMetadata
         return Optional.of(new ConstraintApplicationResult<>(updatedHandle, constraint.getSummary(), false));
     }
 
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (!(handle instanceof QueryHandle)) {
+            return Optional.empty();
+        }
+
+        ConnectorTableHandle tableHandle = ((QueryHandle) handle).getTableHandle();
+        ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
+        Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
+        List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
+                .map(ColumnSchema::getName)
+                .map(columnHandlesByName::get)
+                .collect(toImmutableList());
+
+        return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
+    }
+
     private static boolean containSameElements(Iterable<? extends ColumnHandle> first, Iterable<? extends ColumnHandle> second)
     {
         return ImmutableSet.copyOf(first).equals(ImmutableSet.copyOf(second));
@@ -495,6 +527,21 @@ public class BigQueryMetadata
         return new SchemaTableName(
                 table.getSchemaName(),
                 table.getTableName().substring(0, table.getTableName().length() - VIEW_DEFINITION_SYSTEM_TABLE_SUFFIX.length()));
+    }
+
+    private static SchemaTableName getSchemaTableName(BigQueryTableHandle handle)
+    {
+        return handle.isNamedRelation()
+                ? handle.getRequiredNamedRelation().getSchemaTableName()
+                // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
+                : new SchemaTableName("_generated", "_generated_query");
+    }
+
+    private static Optional<String> getTableComment(BigQueryTableHandle handle)
+    {
+        return handle.isNamedRelation()
+                ? handle.getRequiredNamedRelation().getComment()
+                : Optional.empty();
     }
 
     private static SystemTable createSystemTable(ConnectorTableMetadata metadata, Function<TupleDomain<Integer>, RecordCursor> cursor)

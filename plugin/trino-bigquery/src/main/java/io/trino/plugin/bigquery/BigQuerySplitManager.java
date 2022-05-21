@@ -97,10 +97,16 @@ public class BigQuerySplitManager
         log.debug("getSplits(transaction=%s, session=%s, table=%s)", transaction, session, table);
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) table;
 
-        TableId remoteTableId = bigQueryTableHandle.asPlainTable().getRemoteTableName().toTableId();
         int actualParallelism = parallelism.orElse(nodeManager.getRequiredWorkerNodes().size());
         TupleDomain<ColumnHandle> tableConstraint = bigQueryTableHandle.getConstraint();
         Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
+
+        if (!bigQueryTableHandle.isNamedRelation()) {
+            List<ColumnHandle> columns = bigQueryTableHandle.getProjectedColumns().orElse(ImmutableList.of());
+            return new FixedSplitSource(ImmutableList.of(BigQuerySplit.forViewStream(columns, filter)));
+        }
+
+        TableId remoteTableId = bigQueryTableHandle.asPlainTable().getRemoteTableName().toTableId();
         List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.getProjectedColumns()) ?
                 createEmptyProjection(session, remoteTableId, actualParallelism, filter) :
                 readFromBigQuery(session, TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType()), remoteTableId, bigQueryTableHandle.getProjectedColumns(), actualParallelism, filter);
