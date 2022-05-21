@@ -47,6 +47,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.bigquery.BigQueryClient.selectSql;
 import static io.trino.plugin.bigquery.BigQueryType.toTrinoTimestamp;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -97,7 +98,7 @@ public class BigQueryQueryPageSource
         this.columnTypes = ImmutableList.copyOf(columnTypes);
         this.pageBuilder = new PageBuilder(columnTypes);
         TableId tableId = TableId.of(client.getProjectId(), table.getRemoteTableName().getDatasetName(), table.getRemoteTableName().getTableName());
-        this.tableResult = client.query(tableId, ImmutableList.copyOf(columnNames), filter, useQueryResultsCache, createDisposition);
+        this.tableResult = client.query(selectSql(tableId, ImmutableList.copyOf(columnNames), filter), useQueryResultsCache, createDisposition);
     }
 
     @Override

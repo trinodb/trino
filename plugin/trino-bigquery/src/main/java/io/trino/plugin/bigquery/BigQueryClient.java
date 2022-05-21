@@ -211,21 +211,6 @@ public class BigQueryClient
 
     public TableResult query(String sql, boolean useQueryResultsCache, CreateDisposition createDisposition)
     {
-        try {
-            return bigQuery.query(QueryJobConfiguration.newBuilder(sql)
-                    .setUseQueryCache(useQueryResultsCache)
-                    .setCreateDisposition(createDisposition)
-                    .build());
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new BigQueryException(BaseHttpServiceException.UNKNOWN_CODE, format("Failed to run the query [%s]", sql), e);
-        }
-    }
-
-    public TableResult query(TableId table, List<String> requiredColumns, Optional<String> filter, boolean useQueryResultsCache, CreateDisposition createDisposition)
-    {
-        String sql = selectSql(table, requiredColumns, filter);
         log.debug("Execute query: %s", sql);
         try {
             return bigQuery.query(QueryJobConfiguration.newBuilder(sql)
@@ -239,13 +224,13 @@ public class BigQueryClient
         }
     }
 
-    private String selectSql(TableId table, List<String> requiredColumns, Optional<String> filter)
+    public static String selectSql(TableId table, List<String> requiredColumns, Optional<String> filter)
     {
         String columns = requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
         return selectSql(table, columns, filter);
     }
 
-    private String selectSql(TableId table, String formattedColumns, Optional<String> filter)
+    private static String selectSql(TableId table, String formattedColumns, Optional<String> filter)
     {
         String tableName = fullTableName(table);
         String query = format("SELECT %s FROM `%s`", formattedColumns, tableName);
@@ -270,7 +255,7 @@ public class BigQueryClient
         return format("SELECT %s FROM `%s`", formattedColumns, tableName);
     }
 
-    private String fullTableName(TableId remoteTableId)
+    private static String fullTableName(TableId remoteTableId)
     {
         String remoteSchemaName = remoteTableId.getDataset();
         String remoteTableName = remoteTableId.getTable();
