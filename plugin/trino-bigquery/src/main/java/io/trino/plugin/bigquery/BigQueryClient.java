@@ -265,13 +265,13 @@ public class BigQueryClient
 
     public List<BigQueryColumnHandle> getColumns(BigQueryTableHandle tableHandle)
     {
-        TableInfo tableInfo = getTable(tableHandle.getRemoteTableName().toTableId())
-                .orElseThrow(() -> new TableNotFoundException(tableHandle.getSchemaTableName()));
+        TableInfo tableInfo = getTable(tableHandle.asPlainTable().getRemoteTableName().toTableId())
+                .orElseThrow(() -> new TableNotFoundException(tableHandle.asPlainTable().getSchemaTableName()));
         Schema schema = tableInfo.getDefinition().getSchema();
         if (schema == null) {
             throw new TableNotFoundException(
-                    tableHandle.getSchemaTableName(),
-                    format("Table '%s' has no schema", tableHandle.getSchemaTableName()));
+                    tableHandle.asPlainTable().getSchemaTableName(),
+                    format("Table '%s' has no schema", tableHandle.asPlainTable().getSchemaTableName()));
         }
         return schema.getFields()
                 .stream()
