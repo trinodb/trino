@@ -97,7 +97,7 @@ public class BigQueryQueryPageSource
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnTypes = ImmutableList.copyOf(columnTypes);
         this.pageBuilder = new PageBuilder(columnTypes);
-        TableId tableId = TableId.of(client.getProjectId(), table.getRemoteTableName().getDatasetName(), table.getRemoteTableName().getTableName());
+        TableId tableId = TableId.of(client.getProjectId(), table.asPlainTable().getRemoteTableName().getDatasetName(), table.asPlainTable().getRemoteTableName().getTableName());
         this.tableResult = client.query(selectSql(tableId, ImmutableList.copyOf(columnNames), filter), useQueryResultsCache, createDisposition);
     }
 
