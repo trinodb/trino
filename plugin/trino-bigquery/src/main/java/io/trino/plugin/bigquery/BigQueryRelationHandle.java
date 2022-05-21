@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = BigQueryNamedRelationHandle.class, name = "named"),
+        @JsonSubTypes.Type(value = BigQueryQueryRelationHandle.class, name = "query"),
 })
 public abstract class BigQueryRelationHandle
 {

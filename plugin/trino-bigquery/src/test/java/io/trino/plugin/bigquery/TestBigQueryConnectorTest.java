@@ -41,6 +41,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
 
 public class TestBigQueryConnectorTest
         extends BaseConnectorTest
@@ -739,6 +740,97 @@ public class TestBigQueryConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageContaining("Invalid table ID");
+    }
+
+    // test polymorphic table function
+
+    @Test
+    public void testNativeQuerySimple()
+    {
+        assertQuery(
+                "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT 1'))",
+                "VALUES 1");
+    }
+
+    @Test
+    public void testNativeQuerySelectFromNation()
+    {
+        assertQuery(
+                "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT name FROM tpch.nation WHERE nationkey = 0'))",
+                "VALUES 'ALGERIA'");
+    }
+
+    @Test
+    public void testNativeQuerySelectFromTestTable()
+    {
+        String tableName = "test.test_select" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE TABLE " + tableName + "(col BIGINT)");
+            onBigQuery("INSERT INTO " + tableName + " VALUES (1), (2)");
+            assertQuery(
+                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM " + tableName + "'))",
+                    "VALUES 1, 2");
+        }
+        finally {
+            onBigQuery("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testNativeQuerySelectUnsupportedType()
+    {
+        String tableName = "test_unsupported" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE TABLE test." + tableName + "(one BIGINT, two BIGNUMERIC(40,2), three STRING)");
+            // Check that column 'two' is not supported.
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'test' AND table_name = '" + tableName + "'", "VALUES 'one', 'three'");
+            assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM test." + tableName + "'))"))
+                    .hasMessageContaining("Unsupported type");
+        }
+        finally {
+            onBigQuery("DROP TABLE IF EXISTS test." + tableName);
+        }
+    }
+
+    @Test
+    public void testNativeQueryCreateStatement()
+    {
+        String tableName = "test_create" + randomTableSuffix();
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'CREATE TABLE test." + tableName + "(n INTEGER)'))"))
+                .hasMessage("Unsupported statement type: CREATE_TABLE");
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        String tableName = "test_insert" + randomTableSuffix();
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'INSERT INTO test." + tableName + " VALUES (1)'))"))
+                .hasMessageContaining("Failed to get schema for query")
+                .hasStackTraceContaining("%s was not found", tableName);
+    }
+
+    @Test
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        String tableName = "test_insert" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE TABLE test." + tableName + "(col BIGINT)");
+            assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'INSERT INTO test." + tableName + " VALUES (3)'))"))
+                    .hasMessage("Unsupported statement type: INSERT");
+        }
+        finally {
+            onBigQuery("DROP TABLE IF EXISTS test." + tableName);
+        }
+    }
+
+    @Test
+    public void testNativeQueryIncorrectSyntax()
+    {
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessageContaining("Failed to get schema for query");
     }
 
     private void onBigQuery(@Language("SQL") String sql)

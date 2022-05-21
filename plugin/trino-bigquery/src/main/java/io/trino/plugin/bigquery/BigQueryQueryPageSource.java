@@ -97,8 +97,18 @@ public class BigQueryQueryPageSource
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnTypes = ImmutableList.copyOf(columnTypes);
         this.pageBuilder = new PageBuilder(columnTypes);
-        TableId tableId = TableId.of(client.getProjectId(), table.asPlainTable().getRemoteTableName().getDatasetName(), table.asPlainTable().getRemoteTableName().getTableName());
-        this.tableResult = client.query(selectSql(tableId, ImmutableList.copyOf(columnNames), filter), useQueryResultsCache, createDisposition);
+        String sql = buildSql(table, client.getProjectId(), ImmutableList.copyOf(columnNames), filter);
+        this.tableResult = client.query(sql, useQueryResultsCache, createDisposition);
+    }
+
+    private static String buildSql(BigQueryTableHandle table, String projectId, List<String> columnNames, Optional<String> filter)
+    {
+        // TODO: Use filter in query relation handle
+        if (table.getRelationHandle() instanceof BigQueryQueryRelationHandle) {
+            return ((BigQueryQueryRelationHandle) table.getRelationHandle()).getQuery();
+        }
+        TableId tableId = TableId.of(projectId, table.asPlainTable().getRemoteTableName().getDatasetName(), table.asPlainTable().getRemoteTableName().getTableName());
+        return selectSql(tableId, ImmutableList.copyOf(columnNames), filter);
     }
 
     @Override

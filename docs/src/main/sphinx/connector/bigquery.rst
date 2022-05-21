@@ -218,6 +218,39 @@ the following features:
 * :doc:`/sql/create-schema`
 * :doc:`/sql/drop-schema`
 
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access BigQuery.
+
+.. _bigquery-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying BigQuery directly. It
+requires syntax native to BigQuery, because the full query is pushed down and
+processed by BigQuery. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+For example, group and concatenate all employee IDs by manager ID::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        bigquery.system.query(
+          query => 'SELECT
+            manager_id, STRING_AGG(employee_id)
+          FROM
+            company.employees
+          GROUP BY
+            manager_id'
+        )
+      );
+
 FAQ
 ---
 
