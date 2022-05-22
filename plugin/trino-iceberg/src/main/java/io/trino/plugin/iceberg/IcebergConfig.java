@@ -15,6 +15,8 @@ package io.trino.plugin.iceberg;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 
@@ -24,6 +26,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -50,6 +53,11 @@ public class IcebergConfig
     private int formatVersion = FORMAT_VERSION_SUPPORT_MAX;
     private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
     private Duration removeOrphanFilesMinRetention = new Duration(7, DAYS);
+    private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
+    // This is meant to protect users who are misusing schema locations (by
+    // putting schemas in locations with extraneous files), so default to false
+    // to avoid deleting those files if Trino is unable to check.
+    private boolean deleteSchemaLocationsFallback;
 
     public CatalogType getCatalogType()
     {
@@ -233,6 +241,34 @@ public class IcebergConfig
     public IcebergConfig setRemoveOrphanFilesMinRetention(Duration removeOrphanFilesMinRetention)
     {
         this.removeOrphanFilesMinRetention = removeOrphanFilesMinRetention;
+        return this;
+    }
+
+    public DataSize getTargetMaxFileSize()
+    {
+        return targetMaxFileSize;
+    }
+
+    @LegacyConfig("hive.target-max-file-size")
+    @Config("iceberg.target-max-file-size")
+    @ConfigDescription("Target maximum size of written files; the actual size may be larger")
+    public IcebergConfig setTargetMaxFileSize(DataSize targetMaxFileSize)
+    {
+        this.targetMaxFileSize = targetMaxFileSize;
+        return this;
+    }
+
+    public boolean isDeleteSchemaLocationsFallback()
+    {
+        return this.deleteSchemaLocationsFallback;
+    }
+
+    @LegacyConfig("hive.delete-schema-locations-fallback")
+    @Config("iceberg.delete-schema-locations-fallback")
+    @ConfigDescription("Whether schema locations should be deleted when Trino can't determine whether they contain external files.")
+    public IcebergConfig setDeleteSchemaLocationsFallback(boolean deleteSchemaLocationsFallback)
+    {
+        this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         return this;
     }
 }

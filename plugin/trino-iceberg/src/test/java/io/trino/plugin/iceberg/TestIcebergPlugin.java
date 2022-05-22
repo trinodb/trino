@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
@@ -24,6 +25,7 @@ import java.nio.file.Files;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.hive.HiveConfig.HIVE_VIEWS_ENABLED;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -190,6 +192,23 @@ public class TestIcebergPlugin
                         .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();
+    }
+
+    @Test
+    public void testIcebergPluginFailsWhenIncorrectPropertyProvided()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                Map.of(
+                        "iceberg.catalog.type", "HIVE_METASTORE",
+                        HIVE_VIEWS_ENABLED, "true",
+                        "hive.metastore.uri", "thrift://foo:1234"),
+                new TestingConnectorContext())
+                .shutdown())
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Configuration property 'hive.hive-views.enabled' was not used");
     }
 
     private static ConnectorFactory getConnectorFactory()
