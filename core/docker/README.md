@@ -76,6 +76,25 @@ The Docker build process will print the ID of the image, which will also
 be tagged with `trino:xxx-SNAPSHOT`, where `xxx-SNAPSHOT` is the version
 number of the Trino Maven build.
 
+To build an image for a specific released version of Trino,
+specify the `-v` option, and the build script will download
+all the required artifacts:
+
+```bash
+./build.sh -r 381
+```
+
+To build a custom image without selected plugins, pass a comma-separated
+list of plugin names to the `-e` option and a custom tag prefix to `-t`:
+
+```bash
+./build.sh -r 381 -e elasticsearch,phoenix,redshift,memsql -t my-trino-image:381
+```
+
+If the list of excluded plugins is too long, consider only specifying
+included plugins using `-i`.
+
+
 ## Getting Help
 
 Join the Trino community [Slack](https://trino.io/slack.html).

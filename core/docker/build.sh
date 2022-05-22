@@ -2,27 +2,42 @@
 
 set -euo pipefail
 
+ARCHITECTURES=(amd64 arm64)
+TRINO_VERSION=
+TAG_PREFIX=
+INCLUDE_PLUGINS=
+EXCLUDE_PLUGINS=
+
 usage() {
     cat <<EOF 1>&2
 Usage: $0 [-h] [-a <ARCHITECTURES>] [-r <REVISION>]
 Builds the Trino Docker image
 
 -h       Display help
--a       Build the specified comma-separated architectures, defaults to amd64,arm64
+-a       Build the specified comma-separated architectures, defaults to: ${ARCHITECTURES[*]}
 -r       Build the specified Trino revision (version), downloads all required artifacts
+-t       Tag prefix for the result image, defaults to trino:\$TRINO_VERSION
+-i       Comma-separated list of plugins to incluude, defaults to all
+-e       Comma-separated list of plugins to exclude, defaults to none
 EOF
 }
 
-ARCHITECTURES=(amd64 arm64)
-TRINO_VERSION=
-
-while getopts ":a:h:r:" o; do
+while getopts ":a:h:r:t:i:e:" o; do
     case "${o}" in
         a)
             IFS=, read -ra ARCHITECTURES <<< "$OPTARG"
             ;;
         r)
             TRINO_VERSION=${OPTARG}
+            ;;
+        t)
+            TAG_PREFIX=${OPTARG}
+            ;;
+        i)
+            INCLUDE_PLUGINS=${OPTARG}
+            ;;
+        e)
+            EXCLUDE_PLUGINS=${OPTARG}
             ;;
         h)
             usage
@@ -35,6 +50,18 @@ while getopts ":a:h:r:" o; do
     esac
 done
 shift $((OPTIND - 1))
+
+if [ -n "$INCLUDE_PLUGINS" ] && [ -n "$EXCLUDE_PLUGINS" ]; then
+    echo >&2 "Can't specify both -i and -e"
+    exit 1
+fi
+
+if [ -n "$INCLUDE_PLUGINS" ] || [ -n "$EXCLUDE_PLUGINS" ]; then
+    if [ -z "$TAG_PREFIX" ]; then
+        echo >&2 "Tag prefix must be specified with the '-t' option when building a custom image with only a subset of plugins"
+        exit 1
+    fi
+fi
 
 SOURCE_DIR="../.."
 WORK_DIR="$(mktemp -d)"
@@ -66,7 +93,35 @@ rm "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
 cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
 cp -R default "${WORK_DIR}/"
 
-TAG_PREFIX="trino:${TRINO_VERSION}"
+base="${WORK_DIR}/trino-server-${TRINO_VERSION}"
+etc="${WORK_DIR}/default/etc"
+declare -A catalogs
+for file in "$etc"/catalog/*.properties; do
+    [ -f "$file" ] || continue
+    if line=$(grep '^connector.name=' "$file") && plugin=$(cut -d= -f2 <<<"$line"); then
+        catalogs[$plugin]=$file
+    fi
+done
+if [ -n "${INCLUDE_PLUGINS:-}" ]; then
+    mkdir -p "$base/plugin.enabled" "$etc/catalog.enabled"
+    IFS=, read -ra names <<< "$INCLUDE_PLUGINS"
+    for name in "${names[@]}"; do
+        mv "$base/plugin/$name" "$base/plugin.enabled/$name"
+        [ -z "${catalogs[$name]:-}" ] || mv "${catalogs[$name]}" "$etc/catalog.enabled/$name.properties"
+    done
+    rm -rf "$etc/catalog" "$base/plugin"
+    mv "$etc/catalog.enabled" "$etc/catalog"
+    mv "$base/plugin.enabled" "$base/plugin"
+elif [ -n "${EXCLUDE_PLUGINS:-}" ]; then
+    mkdir -p "$base/plugin.disabled" "$etc/catalog.disabled"
+    IFS=, read -ra names <<< "$EXCLUDE_PLUGINS"
+    for name in "${names[@]}"; do
+        rm -rf "$base/plugin/$name"
+        [ -z "${catalogs[$name]:-}" ] || rm -rf "${catalogs[$name]}"
+    done
+fi
+
+TAG_PREFIX="${TAG_PREFIX:-trino:$TRINO_VERSION}"
 
 for arch in "${ARCHITECTURES[@]}"; do
     docker build \
