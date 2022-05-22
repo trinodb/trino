@@ -23,6 +23,7 @@ import io.airlift.event.client.EventClient;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -138,5 +139,13 @@ public class HiveModule
         return newScheduledThreadPool(
                 hiveConfig.getHiveTransactionHeartbeatThreads(),
                 daemonThreadsNamed("hive-heartbeat-" + catalogName + "-%s"));
+    }
+
+    @TranslateHiveViews
+    @Singleton
+    @Provides
+    public boolean translateHiveViews(HiveConfig hiveConfig)
+    {
+        return hiveConfig.isTranslateHiveViews();
     }
 }

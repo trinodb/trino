@@ -19,7 +19,6 @@ import io.airlift.units.Duration;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveCompressionCodec;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -85,8 +84,7 @@ public final class IcebergSessionProperties
             OrcReaderConfig orcReaderConfig,
             OrcWriterConfig orcWriterConfig,
             ParquetReaderConfig parquetReaderConfig,
-            ParquetWriterConfig parquetWriterConfig,
-            HiveConfig hiveConfig)
+            ParquetWriterConfig parquetWriterConfig)
     {
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(enumProperty(
@@ -222,7 +220,7 @@ public final class IcebergSessionProperties
                 .add(dataSizeProperty(
                         TARGET_MAX_FILE_SIZE,
                         "Target maximum size of written files; the actual size may be larger",
-                        hiveConfig.getTargetMaxFileSize(),
+                        icebergConfig.getTargetMaxFileSize(),
                         false))
                 .add(stringProperty(
                         HIVE_CATALOG_NAME,
