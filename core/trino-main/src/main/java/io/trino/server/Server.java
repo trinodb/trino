@@ -54,6 +54,7 @@ import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.server.security.oauth2.OAuth2Client;
+import io.trino.transaction.TransactionManagerModule;
 import io.trino.version.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -107,6 +108,7 @@ public class Server
                 new EventListenerModule(),
                 new ExchangeManagerModule(),
                 new CoordinatorDiscoveryModule(),
+                new TransactionManagerModule(),
                 new ServerMainModule(trinoVersion),
                 new GracefulShutdownModule(),
                 new WarningCollectorModule());
