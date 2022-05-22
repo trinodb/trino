@@ -95,6 +95,7 @@ import io.trino.testing.TestingEventListenerManager;
 import io.trino.testing.TestingGroupProvider;
 import io.trino.testing.TestingWarningCollectorModule;
 import io.trino.transaction.TransactionManager;
+import io.trino.transaction.TransactionManagerModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -254,6 +255,7 @@ public class TestingTrinoServer
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerSecurityModule())
+                .add(new TransactionManagerModule())
                 .add(new ServerMainModule("testversion"))
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
