@@ -90,7 +90,7 @@ public class TestPushPredicateIntoTableScan
     private static final ConnectorPartitioningHandle PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
     private static final ColumnHandle MOCK_COLUMN_HANDLE = new MockConnectorColumnHandle("col", VARCHAR);
 
-    private PushPredicateIntoTableScan pushPredicateIntoTableScan;
+    private PushPredicateIntoTableScanWithoutProjection pushPredicateIntoTableScanWithoutProjection;
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
@@ -98,7 +98,7 @@ public class TestPushPredicateIntoTableScan
     @BeforeClass
     public void setUpBeforeClass()
     {
-        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), createTestingTypeAnalyzer(tester().getPlannerContext()));
+        pushPredicateIntoTableScanWithoutProjection = new PushPredicateIntoTableScanWithoutProjection(tester().getPlannerContext(), createTestingTypeAnalyzer(tester().getPlannerContext()));
 
         CatalogName catalogName = tester().getCurrentConnectorId();
         tester().getQueryRunner().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
@@ -119,7 +119,7 @@ public class TestPushPredicateIntoTableScan
     @Test
     public void doesNotFireIfNoTableScan()
     {
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .on(p -> p.values(p.symbol("a", BIGINT)))
                 .doesNotFire();
     }
@@ -127,7 +127,7 @@ public class TestPushPredicateIntoTableScan
     @Test
     public void eliminateTableScanWhenNoLayoutExist()
     {
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .on(p -> p.filter(expression("orderstatus = 'G'"),
                         p.tableScan(
                                 ordersTableHandle,
@@ -140,7 +140,7 @@ public class TestPushPredicateIntoTableScan
     public void replaceWithExistsWhenNoLayoutExist()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -155,7 +155,7 @@ public class TestPushPredicateIntoTableScan
     public void consumesDeterministicPredicateIfNewDomainIsSame()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -173,7 +173,7 @@ public class TestPushPredicateIntoTableScan
     public void consumesDeterministicPredicateIfNewDomainIsWider()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .on(p -> p.filter(expression("nationkey = BIGINT '44' OR nationkey = BIGINT '45'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -195,7 +195,7 @@ public class TestPushPredicateIntoTableScan
         Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
                 .put("orderstatus", singleValue(orderStatusType, utf8Slice("O")))
                 .buildOrThrow();
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .on(p -> p.filter(expression("orderstatus = 'O' OR orderstatus = 'F'"),
                         p.tableScan(
                                 ordersTableHandle,
@@ -211,7 +211,7 @@ public class TestPushPredicateIntoTableScan
     public void doesNotConsumeRemainingPredicateIfNewDomainIsWider()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .on(p -> p.filter(
                         new LogicalExpression(
                                 AND,
@@ -273,7 +273,7 @@ public class TestPushPredicateIntoTableScan
     public void doesNotFireOnNonDeterministicPredicate()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .on(p -> p.filter(
                         new ComparisonExpression(
                                 EQUAL,
@@ -292,7 +292,7 @@ public class TestPushPredicateIntoTableScan
     @Test
     public void doesNotFireIfRuleNotChangePlan()
     {
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .on(p -> p.filter(expression("nationkey % 17 =  BIGINT '44' AND nationkey % 15 =  BIGINT '43'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -308,7 +308,7 @@ public class TestPushPredicateIntoTableScan
         Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
                 .put("orderstatus", singleValue(createVarcharType(1), utf8Slice("F")))
                 .buildOrThrow();
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .on(p -> p.filter(expression("orderstatus = 'F'"),
                         p.tableScan(
                                 ordersTableHandle,
@@ -322,7 +322,7 @@ public class TestPushPredicateIntoTableScan
     public void nonDeterministicPredicate()
     {
         Type orderStatusType = createVarcharType(1);
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .on(p -> p.filter(
                         LogicalExpression.and(
                                 new ComparisonExpression(
@@ -359,7 +359,7 @@ public class TestPushPredicateIntoTableScan
         Session session = Session.builder(tester().getSession())
                 .setCatalog(MOCK_CATALOG)
                 .build();
-        assertThatThrownBy(() -> tester().assertThat(pushPredicateIntoTableScan)
+        assertThatThrownBy(() -> tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .withSession(session)
                 .on(p -> p.filter(expression("col = 'G'"),
                         p.tableScan(
@@ -370,7 +370,7 @@ public class TestPushPredicateIntoTableScan
                 .matches(anyTree()))
                 .hasMessage("Partitioning must not change after predicate is pushed down");
 
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .withSession(session)
                 .on(p -> p.filter(expression("col = 'G'"),
                         p.tableScan(

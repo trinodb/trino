@@ -45,7 +45,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
-import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
+import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScanWithoutProjection;
 import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -220,14 +220,14 @@ public class TestConnectorPushdownRulesWithHive
         String tableName = "predicate_test";
         tester().getQueryRunner().execute(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
 
-        PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
+        PushPredicateIntoTableScanWithoutProjection pushPredicateIntoTableScanWithoutProjection = new PushPredicateIntoTableScanWithoutProjection(tester().getPlannerContext(), tester().getTypeAnalyzer());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
         TableHandle table = new TableHandle(new CatalogName(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(false));
 
         HiveColumnHandle column = createBaseColumn("a", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
 
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertThat(pushPredicateIntoTableScanWithoutProjection)
                 .on(p ->
                         p.filter(
                                 PlanBuilder.expression("a = 5"),

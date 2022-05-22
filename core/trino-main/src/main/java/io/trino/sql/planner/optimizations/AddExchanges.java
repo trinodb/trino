@@ -177,6 +177,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitProject(ProjectNode node, PreferredProperties preferredProperties)
         {
+            // TODO: Support pushFilterIntoTableScan with projection?
             Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments());
             PreferredProperties translatedPreferred = preferredProperties.translate(symbol -> Optional.ofNullable(identities.get(symbol)));
 
@@ -567,6 +568,7 @@ public class AddExchanges
         {
             if (node.getSource() instanceof TableScanNode) {
                 Optional<PlanNode> plan = PushPredicateIntoTableScan.pushFilterIntoTableScan(
+                        Optional.empty(),
                         node,
                         (TableScanNode) node.getSource(),
                         true,

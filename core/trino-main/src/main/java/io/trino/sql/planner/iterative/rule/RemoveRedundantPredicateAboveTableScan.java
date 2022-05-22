@@ -46,7 +46,7 @@ import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static io.trino.sql.ExpressionUtils.filterNonDeterministicConjuncts;
-import static io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.createResultingPredicate;
+import static io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScanWithoutProjection.createResultingPredicate;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.tableScan;

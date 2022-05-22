@@ -24,6 +24,7 @@ import java.util.StringJoiner;
 import java.util.function.Predicate;
 
 import static io.trino.spi.expression.Constant.TRUE;
+import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 
 public class Constraint
@@ -33,6 +34,7 @@ public class Constraint
     private final Map<String, ColumnHandle> assignments;
     private final Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate;
     private final Optional<Set<ColumnHandle>> predicateColumns;
+    private final Set<ColumnHandle> predicateOnlyColumns;
 
     public static Constraint alwaysTrue()
     {
@@ -46,17 +48,22 @@ public class Constraint
 
     public Constraint(TupleDomain<ColumnHandle> summary)
     {
-        this(summary, TRUE, Map.of(), Optional.empty(), Optional.empty());
+        this(summary, TRUE, Map.of(), Optional.empty(), Optional.empty(), emptySet());
     }
 
     public Constraint(TupleDomain<ColumnHandle> summary, Predicate<Map<ColumnHandle, NullableValue>> predicate, Set<ColumnHandle> predicateColumns)
     {
-        this(summary, TRUE, Map.of(), Optional.of(predicate), Optional.of(predicateColumns));
+        this(summary, TRUE, Map.of(), Optional.of(predicate), Optional.of(predicateColumns), emptySet());
     }
 
     public Constraint(TupleDomain<ColumnHandle> summary, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
-        this(summary, expression, assignments, Optional.empty(), Optional.empty());
+        this(summary, expression, assignments, Optional.empty(), Optional.empty(), emptySet());
+    }
+
+    public Constraint(TupleDomain<ColumnHandle> summary, ConnectorExpression expression, Map<String, ColumnHandle> assignments, Set<ColumnHandle> predicateOnlyColumns)
+    {
+        this(summary, expression, assignments, Optional.empty(), Optional.empty(), predicateOnlyColumns);
     }
 
     public Constraint(
@@ -66,7 +73,18 @@ public class Constraint
             Predicate<Map<ColumnHandle, NullableValue>> predicate,
             Set<ColumnHandle> predicateColumns)
     {
-        this(summary, expression, assignments, Optional.of(predicate), Optional.of(predicateColumns));
+        this(summary, expression, assignments, Optional.of(predicate), Optional.of(predicateColumns), emptySet());
+    }
+
+    public Constraint(
+            TupleDomain<ColumnHandle> summary,
+            ConnectorExpression expression,
+            Map<String, ColumnHandle> assignments,
+            Predicate<Map<ColumnHandle, NullableValue>> predicate,
+            Set<ColumnHandle> predicateColumns,
+            Set<ColumnHandle> predicateOnlyColumns)
+    {
+        this(summary, expression, assignments, Optional.of(predicate), Optional.of(predicateColumns), predicateOnlyColumns);
     }
 
     private Constraint(
@@ -74,13 +92,15 @@ public class Constraint
             ConnectorExpression expression,
             Map<String, ColumnHandle> assignments,
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate,
-            Optional<Set<ColumnHandle>> predicateColumns)
+            Optional<Set<ColumnHandle>> predicateColumns,
+            Set<ColumnHandle> predicateOnlyColumns)
     {
         this.summary = requireNonNull(summary, "summary is null");
         this.expression = requireNonNull(expression, "expression is null");
         this.assignments = Map.copyOf(requireNonNull(assignments, "assignments is null"));
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null").map(Set::copyOf);
+        this.predicateOnlyColumns = requireNonNull(predicateOnlyColumns, "predicateOnlyColumns is null");
 
         if (predicateColumns.isPresent() && predicate.isEmpty()) {
             throw new IllegalArgumentException("predicateColumns cannot be present when predicate is not present");
@@ -136,6 +156,15 @@ public class Constraint
         return predicateColumns;
     }
 
+    /**
+     * Set of columns that are required to be projected only for filtering the predicates within this object
+     * ({see {@link #getSummary()}, {@link #predicate()} and {@link #getExpression()}), and are not needed for any other purpose.
+     */
+    public Set<ColumnHandle> getPredicateOnlyColumns()
+    {
+        return predicateOnlyColumns;
+    }
+
     @Override
     public String toString()
     {
@@ -144,6 +173,7 @@ public class Constraint
         stringJoiner.add("expression=" + expression);
         predicate.ifPresent(predicate -> stringJoiner.add("predicate=" + predicate));
         predicateColumns.ifPresent(predicateColumns -> stringJoiner.add("predicateColumns=" + predicateColumns));
+        stringJoiner.add("predicateOnlyColumns=" + predicateOnlyColumns);
         return stringJoiner.toString();
     }
 }

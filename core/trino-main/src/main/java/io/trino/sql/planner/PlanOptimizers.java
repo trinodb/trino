@@ -167,7 +167,8 @@ import io.trino.sql.planner.iterative.rule.PushLimitThroughUnion;
 import io.trino.sql.planner.iterative.rule.PushOffsetThroughProject;
 import io.trino.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import io.trino.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
-import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
+import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScanWithProjection;
+import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScanWithoutProjection;
 import io.trino.sql.planner.iterative.rule.PushPredicateThroughProjectIntoRowNumber;
 import io.trino.sql.planner.iterative.rule.PushPredicateThroughProjectIntoWindow;
 import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
@@ -350,6 +351,10 @@ public class PlanOptimizers
                 new PushLimitThroughOuterJoin(),
                 new PushLimitThroughSemiJoin(),
                 new PushLimitThroughUnion());
+
+        Set<Rule<?>> predicatePushdownIntoTableScanRules = ImmutableSet.of(
+                new PushPredicateIntoTableScanWithProjection(plannerContext, typeAnalyzer),
+                new PushPredicateIntoTableScanWithoutProjection(plannerContext, typeAnalyzer));
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 plannerContext,
@@ -581,9 +586,9 @@ public class PlanOptimizers
         // Perform redirection before CBO rules to ensure stats from destination connector are used
         // Perform redirection before agg, topN, limit, sample etc. push down into table scan as the destination connector may support a different set of push downs
         // Perform redirection before push down of dereferences into table scan via PushProjectionIntoTableScan
-        // Perform redirection after at least one PredicatePushDown and PushPredicateIntoTableScan to allow connector to use pushed down predicates in redirection decision
+        // Perform redirection after at least one PredicatePushDown and predicatePushdownIntoTableScanRules to allow connector to use pushed down predicates in redirection decision
         // Perform redirection after at least table scan pruning rules because redirected table might have fewer columns
-        // PushPredicateIntoTableScan needs to be run again after redirection to ensure predicate push down into destination table scan
+        // predicatePushdownIntoTableScanRules need to be run again after redirection to ensure predicate push down into destination table scan
         // Column pruning rules need to be run after redirection
         builder.add(
                 new IterativeOptimizer(
@@ -591,10 +596,11 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(
-                                new ApplyTableScanRedirection(plannerContext),
-                                new PruneTableScanColumns(metadata),
-                                new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))));
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(new ApplyTableScanRedirection(plannerContext))
+                                .add(new PruneTableScanColumns(metadata))
+                                .addAll(predicatePushdownIntoTableScanRules)
+                                .build()));
 
         Set<Rule<?>> pushIntoTableScanRulesExceptJoins = ImmutableSet.<Rule<?>>builder()
                 .addAll(columnPruningRules)
@@ -602,7 +608,7 @@ public class PlanOptimizers
                 .add(new PushProjectionIntoTableScan(plannerContext, typeAnalyzer, scalarStatsCalculator))
                 .add(new RemoveRedundantIdentityProjections())
                 .add(new PushLimitIntoTableScan(metadata))
-                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))
+                .addAll(predicatePushdownIntoTableScanRules)
                 .add(new PushSampleIntoTableScan(metadata))
                 .add(new PushAggregationIntoTableScan(plannerContext, typeAnalyzer))
                 .add(new PushDistinctLimitIntoTableScan(plannerContext, typeAnalyzer))
@@ -656,7 +662,7 @@ public class PlanOptimizers
                 simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 pushProjectionIntoTableScanOptimizer,
                 // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
-                // pushdown into the connectors. We invoke PredicatePushdown and PushPredicateIntoTableScan after this
+                // pushdown into the connectors. We invoke PredicatePushdown and predicatePushdownIntoTableScanRules after this
                 // to leverage predicate pushdown on projected columns.
                 new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, typeAnalyzer, true, false)),
                 new IterativeOptimizer(
@@ -666,7 +672,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))
+                                .addAll(predicatePushdownIntoTableScanRules)
                                 .build()),
                 new UnaliasSymbolReferences(metadata), // Run again because predicate pushdown and projection pushdown might add more projections
                 columnPruningOptimizer, // Make sure to run this before index join. Filtered projections may not have all the columns.
@@ -729,11 +735,11 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))
+                                .addAll(predicatePushdownIntoTableScanRules)
                                 .build()),
                 pushProjectionIntoTableScanOptimizer,
                 // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
-                // pushdown into the connectors. Invoke PredicatePushdown and PushPredicateIntoTableScan after this
+                // pushdown into the connectors. Invoke PredicatePushdown and predicatePushdownIntoTableScanRules after this
                 // to leverage predicate pushdown on projected columns.
                 new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, typeAnalyzer, true, false)),
                 new IterativeOptimizer(
@@ -743,7 +749,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))
+                                .addAll(predicatePushdownIntoTableScanRules)
                                 .build()),
                 columnPruningOptimizer,
                 new IterativeOptimizer(
@@ -889,7 +895,7 @@ public class PlanOptimizers
                         .addAll(new PushInequalityFilterExpressionBelowJoinRuleSet(metadata, typeAnalyzer).rules())
                         .build()));
         // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
-        // pushdown into the connectors. Invoke PredicatePushdown and PushPredicateIntoTableScan after this
+        // pushdown into the connectors. Invoke PredicatePushdown and predicatePushdownIntoTableScanRules after this
         // to leverage predicate pushdown on projected columns.
         builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, typeAnalyzer, true, true)));
         builder.add(new RemoveUnsupportedDynamicFilters(plannerContext)); // Remove unsupported dynamic filters introduced by PredicatePushdown
@@ -900,7 +906,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                        .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))
+                        .addAll(predicatePushdownIntoTableScanRules)
                         .add(new RemoveRedundantPredicateAboveTableScan(plannerContext, typeAnalyzer))
                         .build()));
         builder.add(inlineProjections);
