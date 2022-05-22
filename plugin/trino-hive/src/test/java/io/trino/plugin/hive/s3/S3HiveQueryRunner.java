@@ -156,8 +156,8 @@ public final class S3HiveQueryRunner
                                             Optional.empty(),
                                             hiveMetastoreEndpoint,
                                             metastoreTimeout),
-                                    new HiveConfig(),
                                     new MetastoreConfig(),
+                                    new HiveConfig().isTranslateHiveViews(),
                                     new ThriftMetastoreConfig(),
                                     new HdfsEnvironment(new HiveHdfsConfiguration(
                                             new HdfsConfigurationInitializer(

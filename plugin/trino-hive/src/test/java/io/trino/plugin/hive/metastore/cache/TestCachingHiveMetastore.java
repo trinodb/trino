@@ -154,7 +154,7 @@ public class TestCachingHiveMetastore
     private static ThriftHiveMetastore createThriftHiveMetastore(ThriftMetastoreClient client)
     {
         MetastoreLocator metastoreLocator = new MockMetastoreLocator(client);
-        return new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new MetastoreConfig(), new ThriftMetastoreConfig(), HDFS_ENVIRONMENT, false);
+        return new ThriftHiveMetastore(metastoreLocator, new MetastoreConfig(), new HiveConfig().isTranslateHiveViews(), new ThriftMetastoreConfig(), HDFS_ENVIRONMENT, false);
     }
 
     @Test

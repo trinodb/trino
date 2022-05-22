@@ -25,7 +25,6 @@ import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -197,16 +196,16 @@ public class ThriftHiveMetastore
     @Inject
     public ThriftHiveMetastore(
             MetastoreLocator metastoreLocator,
-            HiveConfig hiveConfig,
             MetastoreConfig metastoreConfig,
+            @TranslateHiveViews boolean translateHiveViews,
             ThriftMetastoreConfig thriftConfig,
             ThriftMetastoreAuthenticationConfig authenticationConfig,
             HdfsEnvironment hdfsEnvironment)
     {
         this(
                 metastoreLocator,
-                hiveConfig,
                 metastoreConfig,
+                translateHiveViews,
                 thriftConfig,
                 hdfsEnvironment,
                 authenticationConfig.getAuthenticationType() != ThriftMetastoreAuthenticationType.NONE);
@@ -214,8 +213,8 @@ public class ThriftHiveMetastore
 
     public ThriftHiveMetastore(
             MetastoreLocator metastoreLocator,
-            HiveConfig hiveConfig,
             MetastoreConfig metastoreConfig,
+            boolean translateHiveViews,
             ThriftMetastoreConfig thriftConfig,
             HdfsEnvironment hdfsEnvironment,
             boolean authenticationEnabled)
@@ -230,8 +229,7 @@ public class ThriftHiveMetastore
         this.maxRetries = thriftConfig.getMaxRetries();
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
         this.deleteFilesOnDrop = thriftConfig.isDeleteFilesOnDrop();
-        requireNonNull(hiveConfig, "hiveConfig is null");
-        this.translateHiveViews = hiveConfig.isTranslateHiveViews();
+        this.translateHiveViews = translateHiveViews;
         requireNonNull(metastoreConfig, "metastoreConfig is null");
         checkArgument(!metastoreConfig.isHideDeltaLakeTables(), "Hiding Delta Lake tables is not supported"); // TODO
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
