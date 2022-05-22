@@ -31,6 +31,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergPlugin
 {
+    private static final String HIVE_VIEWS_ENABLED = "hive.hive-views.enabled";
+
     @Test
     public void testCreateConnector()
     {
