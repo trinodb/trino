@@ -178,4 +178,25 @@ public class TestHttpRequestSessionContextFactory
                 .isInstanceOf(WebApplicationException.class)
                 .hasMessageMatching("Invalid " + protocolHeaders.requestPreparedStatement() + " header: line 1:1: mismatched input 'abcdefg'. Expecting: .*");
     }
+
+    @Test
+    public void testInlineEqual()
+    {
+        assertInlineEqual(TRINO_HEADERS);
+        assertInlineEqual(createProtocolHeaders("taco"));
+    }
+
+    private static void assertInlineEqual(ProtocolHeaders protocolHeaders)
+    {
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(protocolHeaders.requestUser(), "testUser")
+                .put(protocolHeaders.requestSession(), "some_session_property=some value with = inline")
+                .put(protocolHeaders.requestSession(), "job_attempt_url=https://some.domain.com:8443/executor?execid=16364327&job=test&attempt=0")
+                .build());
+
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headers, Optional.of(protocolHeaders.getProtocolName()), Optional.of("testRemote"), Optional.empty());
+        assertEquals(context.getSystemProperties(), ImmutableMap.of(
+                "some_session_property", "some value with = inline",
+                "job_attempt_url", "https://some.domain.com:8443/executor?execid=16364327&job=test&attempt=0"));
+    }
 }

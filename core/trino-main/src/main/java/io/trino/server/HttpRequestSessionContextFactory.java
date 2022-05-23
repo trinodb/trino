@@ -324,7 +324,7 @@ public class HttpRequestSessionContextFactory
     {
         Map<String, String> properties = new HashMap<>();
         for (String header : splitHttpHeader(headers, headerName)) {
-            List<String> nameValue = Splitter.on('=').trimResults().splitToList(header);
+            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
             assertRequest(nameValue.size() == 2, "Invalid %s header", headerName);
             try {
                 properties.put(nameValue.get(0), urlDecode(nameValue.get(1)));
