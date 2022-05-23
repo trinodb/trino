@@ -14,7 +14,6 @@
 package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CountingInputStream;
 import io.airlift.slice.Slice;
@@ -119,7 +118,7 @@ public class PrometheusRecordCursor
         int columnIndex = fieldToColumnIndex[field];
         switch (columnIndex) {
             case 0:
-                return fields.getLabels();
+                return getBlockFromMap(columnHandles.get(columnIndex).getColumnType(), fields.getLabels());
             case 1:
                 return fields.getTimestamp();
             case 2:
@@ -186,7 +185,7 @@ public class PrometheusRecordCursor
     {
         return results.stream().map(result ->
                 result.getTimeSeriesValues().getValues().stream().map(prometheusTimeSeriesValue -> new PrometheusStandardizedRow(
-                        getBlockFromMap(columnHandles.get(0).getColumnType(), ImmutableMap.copyOf(result.getMetricHeader())),
+                        result.getMetricHeader(),
                         prometheusTimeSeriesValue.getTimestamp(),
                         Double.parseDouble(prometheusTimeSeriesValue.getValue())))
                         .collect(Collectors.toList()))

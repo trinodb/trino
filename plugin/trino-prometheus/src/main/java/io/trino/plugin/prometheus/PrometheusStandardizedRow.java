@@ -13,26 +13,27 @@
  */
 package io.trino.plugin.prometheus;
 
-import io.trino.spi.block.Block;
+import com.google.common.collect.ImmutableMap;
 
 import java.time.Instant;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
 public class PrometheusStandardizedRow
 {
-    private final Block labels;
+    private final Map<String, String> labels;
     private final Instant timestamp;
     private final Double value;
 
-    public PrometheusStandardizedRow(Block labels, Instant timestamp, Double value)
+    public PrometheusStandardizedRow(Map<String, String> labels, Instant timestamp, Double value)
     {
-        this.labels = requireNonNull(labels, "labels is null");
+        this.labels = ImmutableMap.copyOf(requireNonNull(labels, "labels is null"));
         this.timestamp = requireNonNull(timestamp, "timestamp is null");
         this.value = requireNonNull(value, "value is null");
     }
 
-    public Block getLabels()
+    public Map<String, String> getLabels()
     {
         return labels;
     }
