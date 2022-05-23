@@ -110,6 +110,9 @@ is used.
   * - ``iceberg.max-partitions-per-writer``
     - Maximum number of partitions handled per writer.
     - 100
+  * - ``hive.orc.bloom-filters.enabled``
+    - Enable bloom filters for predicate pushdown.
+    - ``false``
 
 .. _iceberg-authorization:
 
@@ -503,6 +506,16 @@ Property Name                                      Description
 ``format_version``                                 Optionally specifies the format version of the Iceberg
                                                    specification to use for new tables; either ``1`` or ``2``.
                                                    Defaults to ``2``. Version ``2`` is required for row level deletes.
+
+``orc_bloom_filter_columns``                       Comma separated list of columns to use for ORC bloom filter.
+                                                   It improves the performance of queries using Equality and IN predicates
+                                                   when reading ORC file.
+                                                   Requires ORC format.
+                                                   Defaults to ``[]``.
+
+``orc_bloom_filter_fpp``                           The ORC bloom filters false positive probability.
+                                                   Requires ORC format.
+                                                   Defaults to ``0.05``.
 ================================================== ================================================================
 
 The table definition below specifies format Parquet, partitioning by columns ``c1`` and ``c2``,
@@ -516,6 +529,19 @@ and a file system location of ``/var/my_tables/test_table``::
         format = 'PARQUET',
         partitioning = ARRAY['c1', 'c2'],
         location = '/var/my_tables/test_table')
+
+The table definition below specifies format ORC, bloom filter index by columns ``c1`` and ``c2``,
+fpp is 0.05, and a file system location of ``/var/my_tables/test_table``::
+
+    CREATE TABLE test_table (
+        c1 integer,
+        c2 date,
+        c3 double)
+    WITH (
+        format = 'ORC',
+        location = '/var/my_tables/test_table',
+        orc_bloom_filter_columns = ARRAY['c1', 'c2'],
+        orc_bloom_filter_fpp = 0.05)
 
 .. _iceberg_metadata_columns:
 
