@@ -45,6 +45,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
@@ -349,6 +350,11 @@ public class HivePageSource
             return Optional.of(new MapCoercer(typeManager, fromHiveType, toHiveType));
         }
         if (isRowType(fromType) && isRowType(toType)) {
+            if (fromHiveType.getCategory() == ObjectInspector.Category.UNION || toHiveType.getCategory() == ObjectInspector.Category.UNION) {
+                HiveType fromHiveTypeStruct = HiveType.toHiveType(fromType);
+                HiveType toHiveTypeStruct = HiveType.toHiveType(toType);
+                return Optional.of(new StructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct));
+            }
             return Optional.of(new StructCoercer(typeManager, fromHiveType, toHiveType));
         }
 
