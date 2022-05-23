@@ -103,7 +103,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -111,6 +110,7 @@ import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.trino.plugin.exchange.filesystem.FileSystemExchangeFutures.translateFailures;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
 import static io.trino.plugin.exchange.filesystem.s3.S3FileSystemExchangeStorage.CompatibilityMode.GCP;
 import static io.trino.plugin.exchange.filesystem.s3.S3RequestUtil.configureEncryption;
@@ -235,7 +235,7 @@ public class S3FileSystemExchangeStorage
                 .key(keyFromUri(file))
                 .build();
 
-        return stats.getCreateEmptyFile().record(transformFuture(toListenableFuture(s3AsyncClient.putObject(request, AsyncRequestBody.empty()))));
+        return stats.getCreateEmptyFile().record(translateFailures(toListenableFuture(s3AsyncClient.putObject(request, AsyncRequestBody.empty()))));
     }
 
     @Override
@@ -282,7 +282,7 @@ public class S3FileSystemExchangeStorage
                                         .collect(toImmutableList())),
                         directExecutor()));
             }
-            return transformFuture(Futures.allAsList(deleteObjectsFutures.build()));
+            return translateFailures(Futures.allAsList(deleteObjectsFutures.build()));
         }
     }
 
@@ -451,19 +451,6 @@ public class S3FileSystemExchangeStorage
             key = key.substring(0, key.length() - PATH_SEPARATOR.length());
         }
         return key;
-    }
-
-    // Helper function that translates exception and transform future type to avoid abstraction leak
-    private static ListenableFuture<Void> transformFuture(ListenableFuture<?> listenableFuture)
-    {
-        return asVoid(Futures.catchingAsync(listenableFuture, Throwable.class, throwable -> {
-            if (throwable instanceof Error || throwable instanceof IOException) {
-                return immediateFailedFuture(throwable);
-            }
-            else {
-                return immediateFailedFuture(new IOException(throwable));
-            }
-        }, directExecutor()));
     }
 
     private static boolean isDirectory(URI uri)
@@ -750,7 +737,7 @@ public class S3FileSystemExchangeStorage
                         .key(key)
                         .storageClass(storageClass);
                 configureEncryption(secretKey, putObjectRequestBuilder);
-                directUploadFuture = transformFuture(toListenableFuture(s3AsyncClient.putObject(putObjectRequestBuilder.build(),
+                directUploadFuture = translateFailures(toListenableFuture(s3AsyncClient.putObject(putObjectRequestBuilder.build(),
                         ByteBufferAsyncRequestBody.fromByteBuffer(slice.toByteBuffer()))));
                 stats.getPutObject().record(directUploadFuture);
                 stats.getPutObjectDataSizeInBytes().add(slice.length());
@@ -765,7 +752,7 @@ public class S3FileSystemExchangeStorage
             ListenableFuture<CompletedPart> uploadFuture = Futures.transformAsync(multiPartUploadIdFuture, uploadId -> uploadPart(uploadId, slice, partNum), directExecutor());
             multiPartUploadFutures.add(uploadFuture);
 
-            return transformFuture(uploadFuture);
+            return translateFailures(uploadFuture);
         }
 
         @Override
@@ -779,7 +766,7 @@ public class S3FileSystemExchangeStorage
                 return requireNonNullElseGet(directUploadFuture, Futures::immediateVoidFuture);
             }
 
-            ListenableFuture<Void> finishFuture = transformFuture(Futures.transformAsync(
+            ListenableFuture<Void> finishFuture = translateFailures(Futures.transformAsync(
                     Futures.allAsList(multiPartUploadFutures),
                     completedParts -> completeMultipartUpload(getFutureValue(multiPartUploadIdFuture), completedParts),
                     directExecutor()));
@@ -816,7 +803,7 @@ public class S3FileSystemExchangeStorage
 
             verify(directUploadFuture == null);
             multiPartUploadFutures.forEach(future -> future.cancel(true));
-            return transformFuture(Futures.transformAsync(multiPartUploadIdFuture, this::abortMultipartUpload, directExecutor()));
+            return translateFailures(Futures.transformAsync(multiPartUploadIdFuture, this::abortMultipartUpload, directExecutor()));
         }
 
         @Override
