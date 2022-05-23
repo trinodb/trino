@@ -2749,7 +2749,7 @@ public abstract class BaseConnectorTest
                                 verifyConcurrentUpdateFailurePermissible(trinoException);
                             }
                             catch (Throwable verifyFailure) {
-                                if (trinoException != e && verifyFailure != e) {
+                                if (verifyFailure != e) {
                                     verifyFailure.addSuppressed(e);
                                 }
                                 throw verifyFailure;
@@ -2808,7 +2808,7 @@ public abstract class BaseConnectorTest
                                 verifyConcurrentInsertFailurePermissible(trinoException);
                             }
                             catch (Throwable verifyFailure) {
-                                if (trinoException != e && verifyFailure != e) {
+                                if (verifyFailure != e) {
                                     verifyFailure.addSuppressed(e);
                                 }
                                 throw verifyFailure;
