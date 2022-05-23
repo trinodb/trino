@@ -216,25 +216,25 @@ The procedure affects all snapshots that are older than the time period configur
 
   ALTER TABLE test_table EXECUTE expire_snapshots(retention_threshold => '7d')
 
-The value for ``retention_threshold`` must be higher than ``iceberg.expire_snapshots.min-retention`` in the catalog
+The value for ``retention_threshold`` must be higher than or equal to ``iceberg.expire_snapshots.min-retention`` in the catalog
 otherwise the procedure will fail with similar message:
 ``Retention specified (1.00d) is shorter than the minimum retention configured in the system (7.00d)``.
 The default value for this property is ``7d``.
 
-delete_orphan_files
+remove_orphan_files
 ~~~~~~~~~~~~~~~~~~~
 
-The ``delete_orphan_files`` command removes all files from table's data directory which are
+The ``remove_orphan_files`` command removes all files from table's data directory which are
 not linked from metadata files and that are older than the value of ``retention_threshold`` parameter.
 Deleting orphan files from time to time is recommended to keep size of table's data directory under control.
 
-``delete_orphan_files`` can be run as follows:
+``remove_orphan_files`` can be run as follows:
 
 .. code-block:: sql
 
-  ALTER TABLE test_table EXECUTE delete_orphan_files(retention_threshold => '7d')
+  ALTER TABLE test_table EXECUTE remove_orphan_files(retention_threshold => '7d')
 
-The value for ``retention_threshold`` must be higher than ``iceberg.delete_orphan_files.min-retention`` in the catalog
+The value for ``retention_threshold`` must be higher than or equal to ``iceberg.remove_orphan_files.min-retention`` in the catalog
 otherwise the procedure will fail with similar message:
 ``Retention specified (1.00d) is shorter than the minimum retention configured in the system (7.00d)``.
 The default value for this property is ``7d``.

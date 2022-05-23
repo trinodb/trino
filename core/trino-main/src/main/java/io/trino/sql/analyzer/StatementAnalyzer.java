@@ -1586,11 +1586,11 @@ class StatementAnalyzer
                 for (TableFunctionArgument argument : arguments) {
                     String argumentName = argument.getName().get().getCanonicalValue();
                     if (!uniqueArgumentNames.add(argumentName)) {
-                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: ", argumentName);
+                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: " + argumentName);
                     }
                     ArgumentSpecification argumentSpecification = argumentSpecificationsByName.remove(argumentName);
                     if (argumentSpecification == null) {
-                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected argument name: ", argumentName);
+                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected argument name: " + argumentName);
                     }
                     passedArguments.put(argumentSpecification.getName(), analyzeArgument(argumentSpecification, argument));
                 }
@@ -1629,7 +1629,7 @@ class StatementAnalyzer
                 actualType = "expression";
             }
             else {
-                throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected table function argument type: ", argument.getClass().getSimpleName());
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected table function argument type: " + argument.getClass().getSimpleName());
             }
 
             if (argumentSpecification instanceof TableArgumentSpecification) {
