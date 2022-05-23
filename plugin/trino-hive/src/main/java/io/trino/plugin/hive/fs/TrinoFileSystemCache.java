@@ -69,6 +69,11 @@ public class TrinoFileSystemCache
 
     private TrinoFileSystemCache() {}
 
+    public synchronized long getSize()
+    {
+        return map.size();
+    }
+
     @Override
     public FileSystem get(URI uri, Configuration conf)
             throws IOException
