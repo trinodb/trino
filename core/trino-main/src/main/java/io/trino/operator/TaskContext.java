@@ -375,6 +375,11 @@ public class TaskContext
         return dynamicFiltersCollector.acknowledgeAndGetNewDomains(callersCurrentVersion);
     }
 
+    public VersionedDynamicFilterDomains getCurrentDynamicFilterDomains()
+    {
+        return dynamicFiltersCollector.getCurrentDynamicFilterDomains();
+    }
+
     public TaskStats getTaskStats()
     {
         // check for end state to avoid callback ordering problems
