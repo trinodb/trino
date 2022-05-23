@@ -45,7 +45,7 @@ public class TestOrcWithBloomFilters
                 format(
                         "CREATE TABLE %s WITH (%s) AS SELECT orderstatus, totalprice FROM tpch.tiny.orders",
                         tableName,
-                        getTableProperties("totalprice", "orderstatus", "totalprice")),
+                        getTableProperties("totalprice", "orderstatus")),
                 15000);
 
         // `totalprice 51890 is chosen to lie between min/max values of row group
@@ -61,7 +61,7 @@ public class TestOrcWithBloomFilters
                 format(
                         "CREATE TABLE %s (totalprice DOUBLE, orderstatus VARCHAR) WITH (%s)",
                         tableName,
-                        getTableProperties("totalprice", "orderstatus", "totalprice")));
+                        getTableProperties("totalprice", "orderstatus")));
         assertUpdate(format("INSERT INTO %s SELECT totalprice, orderstatus FROM tpch.tiny.orders", tableName), 15000);
 
         // `totalprice 51890 is chosen to lie between min/max values of row group
@@ -69,13 +69,12 @@ public class TestOrcWithBloomFilters
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    private String getTableProperties(String bloomFilterColumnName, String bucketingColumnName, String sortByColumnName)
+    private String getTableProperties(String bloomFilterColumnName, String bucketingColumnName)
     {
         return format(
-                "orc_bloom_filter_columns = ARRAY['%s'], bucketed_by = array['%s'], bucket_count = 1, sorted_by = ARRAY['%s']",
+                "orc_bloom_filter_columns = ARRAY['%s'], bucketed_by = array['%s'], bucket_count = 1",
                 bloomFilterColumnName,
-                bucketingColumnName,
-                sortByColumnName);
+                bucketingColumnName);
     }
 
     private void assertBloomFilterBasedRowGroupPruning(@Language("SQL") String sql)
