@@ -37,6 +37,7 @@ import org.apache.iceberg.io.LocationProvider;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -74,7 +75,8 @@ public class IcebergPositionDeletePageSink
             HdfsContext hdfsContext,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
-            IcebergFileFormat fileFormat)
+            IcebergFileFormat fileFormat,
+            Map<String, String> storageProperties)
     {
         this.dataFilePath = requireNonNull(dataFilePath, "dataFilePath is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
@@ -88,7 +90,7 @@ public class IcebergPositionDeletePageSink
                 .map(partitionData -> locationProvider.newDataLocation(partitionSpec, partitionData, fileName))
                 .orElseGet(() -> locationProvider.newDataLocation(fileName));
         JobConf jobConf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, new Path(outputPath)));
-        this.writer = fileWriterFactory.createPositionDeleteWriter(new Path(outputPath), jobConf, session, hdfsContext, fileFormat);
+        this.writer = fileWriterFactory.createPositionDeleteWriter(new Path(outputPath), jobConf, session, hdfsContext, fileFormat, storageProperties);
     }
 
     @Override

@@ -289,7 +289,8 @@ public class IcebergPageSourceProvider
                 hdfsContext,
                 jsonCodec,
                 session,
-                split.getFileFormat());
+                split.getFileFormat(),
+                table.getStorageProperties());
 
         return new IcebergPageSource(
                 icebergColumns,
