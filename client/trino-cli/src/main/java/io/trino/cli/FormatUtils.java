@@ -25,7 +25,7 @@ import static com.google.common.base.Strings.repeat;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class FormatUtils
@@ -163,18 +163,17 @@ public final class FormatUtils
         int minutes = totalSeconds / 60;
         int seconds = totalSeconds % 60;
 
-        return format("%s:%02d", minutes, seconds);
+        return format("%02d:%02d", minutes, seconds);
     }
 
     public static String formatFinalTime(Duration duration)
     {
-        long totalMillis = duration.toMillis();
+        int totalMillis = Ints.saturatedCast(duration.roundTo(MILLISECONDS));
+        int minutes = totalMillis / 60_000;
+        int seconds = (totalMillis % 60_000) / 1000;
+        int hundredsOfSecond = ceil(totalMillis % 1000, 10);
 
-        if (totalMillis >= MINUTES.toMillis(1)) {
-            return formatTime(duration);
-        }
-
-        return format("%.2f", (totalMillis / 1000.0));
+        return format("%02d:%02d.%02d", minutes, seconds, hundredsOfSecond);
     }
 
     /**
