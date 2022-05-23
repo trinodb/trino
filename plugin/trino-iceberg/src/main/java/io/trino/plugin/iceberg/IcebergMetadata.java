@@ -166,6 +166,8 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabl
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS;
+import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
@@ -211,6 +213,9 @@ public class IcebergMetadata
     private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 2;
     private static final String RETENTION_THRESHOLD = "retention_threshold";
     public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.of(FILE_FORMAT_PROPERTY, FORMAT_VERSION_PROPERTY, PARTITIONING_PROPERTY);
+
+    public static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
+    public static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
@@ -1285,6 +1290,16 @@ public class IcebergMetadata
 
         int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
         properties.put(FORMAT_VERSION_PROPERTY, formatVersion);
+
+        // iceberg ORC format bloom filter properties
+        String orcBloomFilterColumns = icebergTable.properties().get(ORC_BLOOM_FILTER_COLUMNS_KEY);
+        if (orcBloomFilterColumns != null) {
+            properties.put(ORC_BLOOM_FILTER_COLUMNS, Splitter.on(',').trimResults().omitEmptyStrings().splitToList(orcBloomFilterColumns));
+        }
+        String orcBloomFilterFpp = icebergTable.properties().get(ORC_BLOOM_FILTER_FPP_KEY);
+        if (orcBloomFilterFpp != null) {
+            properties.put(ORC_BLOOM_FILTER_FPP, Double.parseDouble(orcBloomFilterFpp));
+        }
 
         return new ConnectorTableMetadata(table, columns.build(), properties.buildOrThrow(), getTableComment(icebergTable));
     }
