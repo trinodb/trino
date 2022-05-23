@@ -80,6 +80,7 @@ import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.trino.plugin.exchange.filesystem.FileSystemExchangeFutures.translateFailures;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -153,7 +154,7 @@ public class AzureBlobFileSystemExchangeStorage
     {
         String containerName = getContainerName(file);
         String blobName = getPath(file);
-        return asVoid(toListenableFuture(blobServiceAsyncClient
+        return translateFailures(toListenableFuture(blobServiceAsyncClient
                 .getBlobContainerAsyncClient(containerName)
                 .getBlobAsyncClient(blobName)
                 .upload(BinaryData.fromString(""))
@@ -188,7 +189,7 @@ public class AzureBlobFileSystemExchangeStorage
                     directExecutor()));
         }
 
-        return asVoid(Futures.allAsList(deleteObjectsFutures.build()));
+        return translateFailures(Futures.allAsList(deleteObjectsFutures.build()));
     }
 
     @Override
@@ -521,7 +522,7 @@ public class AzureBlobFileSystemExchangeStorage
 
             // Skip multipart upload if there would only be one part
             if (slice.length() < blockSize && multiPartUploadFutures.isEmpty()) {
-                directUploadFuture = asVoid(toListenableFuture(blockBlobAsyncClient.upload(Flux.just(slice.toByteBuffer()), slice.length()).toFuture()));
+                directUploadFuture = translateFailures(toListenableFuture(blockBlobAsyncClient.upload(Flux.just(slice.toByteBuffer()), slice.length()).toFuture()));
                 return directUploadFuture;
             }
 
@@ -529,7 +530,7 @@ public class AzureBlobFileSystemExchangeStorage
             ListenableFuture<Void> uploadFuture = toListenableFuture(blockBlobAsyncClient.stageBlock(blockId, Flux.just(slice.toByteBuffer()), slice.length()).toFuture());
             multiPartUploadFutures.add(uploadFuture);
             blockIds.add(blockId);
-            return uploadFuture;
+            return translateFailures(uploadFuture);
         }
 
         @Override
@@ -543,10 +544,10 @@ public class AzureBlobFileSystemExchangeStorage
                 return requireNonNullElseGet(directUploadFuture, Futures::immediateVoidFuture);
             }
 
-            ListenableFuture<Void> finishFuture = Futures.transformAsync(
+            ListenableFuture<Void> finishFuture = translateFailures(Futures.transformAsync(
                     Futures.allAsList(multiPartUploadFutures),
-                    ignored -> asVoid(toListenableFuture(blockBlobAsyncClient.commitBlockList(blockIds).toFuture())),
-                    directExecutor());
+                    ignored -> toListenableFuture(blockBlobAsyncClient.commitBlockList(blockIds).toFuture()),
+                    directExecutor()));
             Futures.addCallback(finishFuture, new FutureCallback<>() {
                 @Override
                 public void onSuccess(Void result)
