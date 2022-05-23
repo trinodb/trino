@@ -57,6 +57,13 @@ public class TestPrometheusIntegration
     }
 
     @Test
+    public void testAggregation()
+    {
+        assertQuerySucceeds("SELECT count(*) FROM default.up"); // Don't check value since the row number isn't deterministic
+        assertQuery("SELECT avg(value) FROM default.up", "VALUES ('1.0')");
+    }
+
+    @Test
     public void testPushDown()
     {
         // default interval on the `up` metric that Prometheus records on itself is about 15 seconds, so this should only yield one or two row
