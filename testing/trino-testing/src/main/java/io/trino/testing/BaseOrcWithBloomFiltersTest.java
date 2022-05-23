@@ -11,12 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.orc;
+package io.trino.testing;
 
 import io.trino.Session;
-import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -24,18 +21,10 @@ import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestOrcWithBloomFilters
+public abstract class BaseOrcWithBloomFiltersTest
         extends AbstractTestQueryFramework
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return HiveQueryRunner.builder()
-                .addHiveProperty("hive.orc.bloom-filters.enabled", "true")
-                .addHiveProperty("hive.orc.default-bloom-filter-fpp", "0.001")
-                .build();
-    }
+    protected abstract String getTableProperties(String bloomFilterColumnName, String bucketingColumnName);
 
     @Test
     public void testOrcBloomFilterIsWrittenDuringCreate()
@@ -67,14 +56,6 @@ public class TestOrcWithBloomFilters
         // `totalprice 51890 is chosen to lie between min/max values of row group
         assertBloomFilterBasedRowGroupPruning(format("SELECT * FROM %s WHERE totalprice = 51890", tableName));
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    private String getTableProperties(String bloomFilterColumnName, String bucketingColumnName)
-    {
-        return format(
-                "orc_bloom_filter_columns = ARRAY['%s'], bucketed_by = array['%s'], bucket_count = 1",
-                bloomFilterColumnName,
-                bucketingColumnName);
     }
 
     private void assertBloomFilterBasedRowGroupPruning(@Language("SQL") String sql)
