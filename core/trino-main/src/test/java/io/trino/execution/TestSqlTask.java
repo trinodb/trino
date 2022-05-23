@@ -50,6 +50,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
+import static io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import static io.trino.execution.SqlTask.createSqlTask;
 import static io.trino.execution.TaskStatus.STARTING_VERSION;
 import static io.trino.execution.TaskTestUtils.EMPTY_SPLIT_ASSIGNMENTS;
@@ -337,6 +338,42 @@ public class TestSqlTask
         assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION + 1);
         assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION + 1);
         future.get();
+    }
+
+    @Test(timeOut = 30_000)
+    public void testDynamicFilterFetchAfterTaskDone()
+            throws Exception
+    {
+        SqlTask sqlTask = createInitialTask();
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds();
+        sqlTask.updateTask(TEST_SESSION,
+                Optional.of(PLAN_FRAGMENT),
+                ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), false)),
+                outputBuffers,
+                ImmutableMap.of());
+
+        assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION);
+
+        // Collect dynamic filter in task context
+        TaskContext taskContext = sqlTask.getQueryContext().getTaskContextByTaskId(sqlTask.getTaskId());
+        taskContext.updateDomains(ImmutableMap.of(new DynamicFilterId("filter"), Domain.singleValue(BIGINT, 1L)));
+
+        // close the sources (no splits will ever be added)
+        updateTask(sqlTask, ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)), outputBuffers);
+
+        // complete the task by calling destroy on it
+        TaskInfo info = sqlTask.destroyTaskResults(OUT);
+        assertEquals(info.getOutputBuffers().getState(), BufferState.FINISHED);
+
+        TaskStatus taskStatus = sqlTask.getTaskStatus(info.getTaskStatus().getVersion()).get();
+        assertEquals(taskStatus.getState(), TaskState.FINISHED);
+
+        assertEquals(taskStatus.getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION + 1);
+        VersionedDynamicFilterDomains versionedDynamicFilters = sqlTask.acknowledgeAndGetNewDynamicFilterDomains(INITIAL_DYNAMIC_FILTERS_VERSION);
+        assertEquals(versionedDynamicFilters.getVersion(), INITIAL_DYNAMIC_FILTERS_VERSION + 1);
+        assertEquals(
+                versionedDynamicFilters.getDynamicFilterDomains(),
+                ImmutableMap.of(new DynamicFilterId("filter"), Domain.singleValue(BIGINT, 1L)));
     }
 
     private SqlTask createInitialTask()

@@ -59,6 +59,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -173,7 +174,10 @@ public class SqlTask
                     return;
                 }
 
-                if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
+                if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(
+                        createTaskInfo(taskHolder),
+                        taskHolder.getIoStats(),
+                        taskHolder.getDynamicFilterDomains()))) {
                     break;
                 }
             }
@@ -251,18 +255,7 @@ public class SqlTask
 
     public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersDynamicFiltersVersion)
     {
-        TaskHolder taskHolder = taskHolderReference.get();
-        if (taskHolder.getTaskExecution() == null) {
-            // Dynamic filters are only available during task execution.
-            // Dynamic filters are collected by same tasks that run corresponding
-            // join operators. When task (and implicitly join operator) is done it
-            // means that all potential consumers (that belong to probe side of join)
-            // of dynamic filters are either finished or cancelled. Therefore dynamic
-            // filters are no longer required.
-            return INITIAL_DYNAMIC_FILTER_DOMAINS;
-        }
-
-        return taskHolder.getTaskExecution().getTaskContext().acknowledgeAndGetNewDynamicFilterDomains(callersDynamicFiltersVersion);
+        return taskHolderReference.get().acknowledgeAndGetNewDynamicFilterDomains(callersDynamicFiltersVersion);
     }
 
     private synchronized void notifyStatusChanged()
@@ -308,6 +301,7 @@ public class SqlTask
             revocableMemoryReservation = taskStats.getRevocableMemoryReservation();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTime = taskStats.getFullGcTime();
+            dynamicFiltersVersion = taskHolder.getDynamicFiltersVersion();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -529,12 +523,14 @@ public class SqlTask
         private final SqlTaskExecution taskExecution;
         private final TaskInfo finalTaskInfo;
         private final SqlTaskIoStats finalIoStats;
+        private final VersionedDynamicFilterDomains finalDynamicFilterDomains;
 
         private TaskHolder()
         {
             this.taskExecution = null;
             this.finalTaskInfo = null;
             this.finalIoStats = null;
+            this.finalDynamicFilterDomains = null;
         }
 
         private TaskHolder(SqlTaskExecution taskExecution)
@@ -542,13 +538,15 @@ public class SqlTask
             this.taskExecution = requireNonNull(taskExecution, "taskExecution is null");
             this.finalTaskInfo = null;
             this.finalIoStats = null;
+            this.finalDynamicFilterDomains = null;
         }
 
-        private TaskHolder(TaskInfo finalTaskInfo, SqlTaskIoStats finalIoStats)
+        private TaskHolder(TaskInfo finalTaskInfo, SqlTaskIoStats finalIoStats, VersionedDynamicFilterDomains finalDynamicFilterDomains)
         {
             this.taskExecution = null;
             this.finalTaskInfo = requireNonNull(finalTaskInfo, "finalTaskInfo is null");
             this.finalIoStats = requireNonNull(finalIoStats, "finalIoStats is null");
+            this.finalDynamicFilterDomains = requireNonNull(finalDynamicFilterDomains, "finalDynamicFilterDomains is null");
         }
 
         public boolean isFinished()
@@ -581,6 +579,42 @@ public class SqlTask
             // get IoStats from the current task execution
             TaskContext taskContext = taskExecution.getTaskContext();
             return new SqlTaskIoStats(taskContext.getProcessedInputDataSize(), taskContext.getInputPositions(), taskContext.getOutputDataSize(), taskContext.getOutputPositions());
+        }
+
+        public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersSummaryVersion)
+        {
+            // if we are finished, return the final VersionedDynamicFilterDomains
+            if (finalDynamicFilterDomains != null) {
+                return finalDynamicFilterDomains;
+            }
+            // if we haven't started yet, return an empty VersionedDynamicFilterDomains
+            if (taskExecution == null) {
+                return INITIAL_DYNAMIC_FILTER_DOMAINS;
+            }
+            // get VersionedDynamicFilterDomains from the current task execution
+            TaskContext taskContext = taskExecution.getTaskContext();
+            return taskContext.acknowledgeAndGetNewDynamicFilterDomains(callersSummaryVersion);
+        }
+
+        public long getDynamicFiltersVersion()
+        {
+            // if we are finished, return the version of the final VersionedDynamicFilterDomains
+            if (finalDynamicFilterDomains != null) {
+                return finalDynamicFilterDomains.getVersion();
+            }
+            requireNonNull(taskExecution, "taskExecution is null");
+            return taskExecution.getTaskContext().getDynamicFiltersVersion();
+        }
+
+        public VersionedDynamicFilterDomains getDynamicFilterDomains()
+        {
+            verify(finalDynamicFilterDomains == null, "finalDynamicFilterDomains has already been set");
+            // Task was aborted or failed before taskExecution was created, return an empty VersionedDynamicFilterDomains
+            if (taskExecution == null) {
+                return INITIAL_DYNAMIC_FILTER_DOMAINS;
+            }
+            // get VersionedDynamicFilterDomains from the current task execution
+            return taskExecution.getTaskContext().getCurrentDynamicFilterDomains();
         }
     }
 
