@@ -37,7 +37,6 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Set;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
@@ -94,9 +93,11 @@ public class EnvSinglenodeDeltaLakeOss
             container.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion);
         });
 
-        builder.configureContainer(COORDINATOR, container -> container
-                .withCopyFileToContainer(forHostPath(configDir.getPath("hive.properties")), CONTAINER_PRESTO_ETC + "/catalog/hive.properties")
-                .withCopyFileToContainer(forHostPath(configDir.getPath("delta.properties")), CONTAINER_PRESTO_ETC + "/catalog/delta.properties"));
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
+        builder.addConnector(
+                "delta-lake",
+                forHostPath(configDir.getPath("delta.properties")),
+                CONTAINER_PRESTO_ETC + "/catalog/delta.properties");
 
         builder.configureContainer(TESTS, dockerContainer -> {
             dockerContainer.withEnv("S3_BUCKET", s3Bucket)

@@ -58,9 +58,12 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
                 .withEnv("HIVE_METASTORE_URI", hiveMetastoreUri)
                 .withEnv("DATABRICKS_TEST_JDBC_URL", databricksTestJdbcUrl)
                 .withEnv("DATABRICKS_TEST_LOGIN", databricksTestLogin)
-                .withEnv("DATABRICKS_TEST_TOKEN", databricksTestToken)
-                .withCopyFileToContainer(forHostPath(configDir.getPath("hive.properties")), CONTAINER_PRESTO_ETC + "/catalog/hive.properties")
-                .withCopyFileToContainer(forHostPath(configDir.getPath("delta.properties")), CONTAINER_PRESTO_ETC + "/catalog/delta.properties"));
+                .withEnv("DATABRICKS_TEST_TOKEN", databricksTestToken));
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
+        builder.addConnector(
+                "delta-lake",
+                forHostPath(configDir.getPath("delta.properties")),
+                CONTAINER_PRESTO_ETC + "/catalog/delta.properties");
 
         builder.configureContainer(TESTS, container -> exportAWSCredentials(container)
                 .withEnv("S3_BUCKET", s3Bucket)
