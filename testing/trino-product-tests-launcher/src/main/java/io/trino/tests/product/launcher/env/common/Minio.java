@@ -43,6 +43,7 @@ public class Minio
     private static final String MINIO_RELEASE = "RELEASE.2021-07-15T22-27-34Z";
 
     private static final int MINIO_PORT = 9080; // minio uses 9000 by default, which conflicts with hadoop
+    private static final int MINIO_CONSOLE_PORT = 9001;
 
     private final PortBinder portBinder;
 
@@ -74,12 +75,13 @@ public class Minio
                         .put("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY)
                         .put("MINIO_SECRET_KEY", MINIO_SECRET_KEY)
                         .buildOrThrow())
-                .withCommand("server", "--address", format("0.0.0.0:%d", MINIO_PORT), "/data")
+                .withCommand("server", "--address", format("0.0.0.0:%d", MINIO_PORT), "--console-address", format("0.0.0.0:%d", MINIO_CONSOLE_PORT), "/data")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(MINIO_PORT))
                 .withStartupTimeout(Duration.ofMinutes(1));
 
         portBinder.exposePort(container, MINIO_PORT);
+        portBinder.exposePort(container, MINIO_CONSOLE_PORT);
 
         return container;
     }
