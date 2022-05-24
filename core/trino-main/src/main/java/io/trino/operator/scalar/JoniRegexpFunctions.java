@@ -370,7 +370,7 @@ public final class JoniRegexpFunctions
         int nextStart = SliceUtf8.offsetOfCodePoint(source, (int) start - 1);
         while (true) {
             int offset = getSearchingOffset(matcher, nextStart, source.length());
-            // Check whether offset is negative, offset is -1 if no pattern was found or -2 if process was interrupted
+            // Check whether offset is negative, offset is -1 if no pattern was found
             if (offset < 0) {
                 return -1;
             }

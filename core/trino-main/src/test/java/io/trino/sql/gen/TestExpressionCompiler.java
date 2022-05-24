@@ -43,7 +43,6 @@ import io.trino.operator.scalar.timestamp.ExtractSecond;
 import io.trino.operator.scalar.timestamp.ExtractWeekOfYear;
 import io.trino.operator.scalar.timestamp.ExtractYear;
 import io.trino.operator.scalar.timestamp.ExtractYearOfWeek;
-import io.trino.spi.ErrorType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlDecimal;
@@ -87,6 +86,7 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.operator.scalar.JoniRegexpFunctions.regexpReplace;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -1501,8 +1501,7 @@ public class TestExpressionCompiler
 
         // wait for child thread to get in to terminated state
         searchChildThread.join();
-        assertEquals(regularExpressionRunnable.exceptionClause.getErrorCode().getType(), ErrorType.USER_ERROR);
-        assertEquals(regularExpressionRunnable.exceptionClause.getErrorCode().getName(), "GENERIC_USER_ERROR");
+        assertEquals(regularExpressionRunnable.exceptionClause.getErrorCode(), GENERIC_USER_ERROR.toErrorCode());
     }
 
     @Test

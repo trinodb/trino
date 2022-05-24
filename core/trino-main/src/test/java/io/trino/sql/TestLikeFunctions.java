@@ -17,7 +17,6 @@ import com.google.common.io.Resources;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.operator.scalar.AbstractTestFunctions;
-import io.trino.spi.ErrorType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.expression.StandardFunctions;
 import io.trino.type.JoniRegexp;
@@ -31,6 +30,7 @@ import java.util.Optional;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.likeChar;
@@ -280,8 +280,7 @@ public class TestLikeFunctions
 
         // wait for child thread to get in to terminated state
         searchChildThread.join();
-        assertEquals(likeVarCharRunnable.exceptionClause.getErrorCode().getType(), ErrorType.USER_ERROR);
-        assertEquals(likeVarCharRunnable.exceptionClause.getErrorCode().getName(), "GENERIC_USER_ERROR");
+        assertEquals(likeVarCharRunnable.exceptionClause.getErrorCode(), GENERIC_USER_ERROR.toErrorCode());
     }
 
     private static class LikeVarCharRunnable
