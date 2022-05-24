@@ -56,7 +56,8 @@ public class TestSpiBackwardCompatibility
             .put("382", ImmutableSet.of(
                     "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.rowSemantics(boolean)",
                     "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.pruneWhenEmpty(boolean)",
-                    "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.passThroughColumns(boolean)"))
+                    "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.passThroughColumns(boolean)",
+                    "Constructor: public io.trino.spi.eventlistener.QueryMetadata(java.lang.String,java.util.Optional<java.lang.String>,java.lang.String,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.lang.String,java.util.List<io.trino.spi.eventlistener.TableInfo>,java.util.List<io.trino.spi.eventlistener.RoutineInfo>,java.net.URI,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>)"))
             .buildOrThrow();
 
     @Test

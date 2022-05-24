@@ -1138,6 +1138,86 @@ public class TestEventListenerBasic
         }
     }
 
+    @Test
+    public void testAnonymizedPlan()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("SELECT nationkey FROM customer LIMIT 10", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        String anonymizedPlan = "{\n" +
+                "  \"0\" : {\n" +
+                "    \"@type\" : \"default\",\n" +
+                "    \"id\" : \"6\",\n" +
+                "    \"name\" : \"OutputNode\",\n" +
+                "    \"outputLayout\" : [ {\n" +
+                "      \"symbol\" : \"symbol_-1014417992\",\n" +
+                "      \"type\" : \"bigint\"\n" +
+                "    } ],\n" +
+                "    \"sources\" : [ {\n" +
+                "      \"@type\" : \"default\",\n" +
+                "      \"id\" : \"98\",\n" +
+                "      \"name\" : \"LimitNode\",\n" +
+                "      \"outputLayout\" : [ {\n" +
+                "        \"symbol\" : \"symbol_-1014417992\",\n" +
+                "        \"type\" : \"bigint\"\n" +
+                "      } ],\n" +
+                "      \"sources\" : [ {\n" +
+                "        \"@type\" : \"exchange\",\n" +
+                "        \"id\" : \"171\",\n" +
+                "        \"outputLayout\" : [ {\n" +
+                "          \"symbol\" : \"symbol_-1014417992\",\n" +
+                "          \"type\" : \"bigint\"\n" +
+                "        } ],\n" +
+                "        \"sources\" : [ {\n" +
+                "          \"@type\" : \"remoteSource\",\n" +
+                "          \"id\" : \"138\",\n" +
+                "          \"outputLayout\" : [ {\n" +
+                "            \"symbol\" : \"symbol_-1014417992\",\n" +
+                "            \"type\" : \"bigint\"\n" +
+                "          } ],\n" +
+                "          \"sourceFragmentIds\" : [ \"1\" ],\n" +
+                "          \"exchangeType\" : \"GATHER\",\n" +
+                "          \"sources\" : [ ]\n" +
+                "        } ],\n" +
+                "        \"type\" : \"GATHER\",\n" +
+                "        \"scope\" : \"LOCAL\",\n" +
+                "        \"partitionArguments\" : [ ],\n" +
+                "        \"replicateNullsAndAny\" : false\n" +
+                "      } ]\n" +
+                "    } ]\n" +
+                "  },\n" +
+                "  \"1\" : {\n" +
+                "    \"@type\" : \"default\",\n" +
+                "    \"id\" : \"137\",\n" +
+                "    \"name\" : \"LimitNode\",\n" +
+                "    \"outputLayout\" : [ {\n" +
+                "      \"symbol\" : \"symbol_-1014417992\",\n" +
+                "      \"type\" : \"bigint\"\n" +
+                "    } ],\n" +
+                "    \"sources\" : [ {\n" +
+                "      \"@type\" : \"tableScan\",\n" +
+                "      \"id\" : \"0\",\n" +
+                "      \"outputLayout\" : [ {\n" +
+                "        \"symbol\" : \"symbol_-1014417992\",\n" +
+                "        \"type\" : \"bigint\"\n" +
+                "      } ],\n" +
+                "      \"connector\" : \"tpch\",\n" +
+                "      \"catalog\" : \"catalog_3566561\",\n" +
+                "      \"schema\" : \"schema_3560192\",\n" +
+                "      \"table\" : \"table_606175198\",\n" +
+                "      \"assignments\" : {\n" +
+                "        \"symbol_-1014417992\" : \"column_-1014417961\"\n" +
+                "      },\n" +
+                "      \"enforcedConstraint\" : { },\n" +
+                "      \"predicate\" : { },\n" +
+                "      \"sources\" : [ ]\n" +
+                "    } ]\n" +
+                "  }\n" +
+                "}";
+        assertThat(event.getMetadata().getAnonymizedPlan())
+                .isEqualTo(Optional.of(anonymizedPlan));
+    }
+
     private static String getQualifiedName(TableInfo tableInfo)
     {
         return tableInfo.getCatalog() + '.' + tableInfo.getSchema() + '.' + tableInfo.getTable();

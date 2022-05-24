@@ -42,6 +42,7 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ExpressionUtils;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -112,11 +113,7 @@ import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SkipTo.Position;
 import io.trino.sql.tree.SymbolReference;
@@ -141,12 +138,13 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.execution.StageInfo.getAllStages;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ExpressionUtils.combineConjunctsWithDuplicates;
+import static io.trino.sql.ExpressionUtils.unResolveFunctions;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.trino.sql.planner.TypeProvider.getTypeProvider;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatDouble;
@@ -397,14 +395,6 @@ public class PlanPrinter
         return builder.toString();
     }
 
-    public static TypeProvider getTypeProvider(List<PlanFragment> fragments)
-    {
-        return TypeProvider.copyOf(fragments.stream()
-                .flatMap(f -> f.getSymbols().entrySet().stream())
-                .distinct()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
-    }
-
     public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types)
     {
         // TODO: This should move to something like GraphvizRenderer
@@ -454,10 +444,10 @@ public class PlanPrinter
         {
             List<Expression> joinExpressions = new ArrayList<>();
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(unresolveFunctions(clause.toExpression()));
+                joinExpressions.add(unResolveFunctions(clause.toExpression()));
             }
             node.getFilter()
-                    .map(PlanPrinter::unresolveFunctions)
+                    .map(ExpressionUtils::unResolveFunctions)
                     .ifPresent(joinExpressions::add);
 
             NodeRepresentation nodeOutput;
@@ -749,7 +739,7 @@ public class PlanPrinter
             }
 
             for (Map.Entry<Symbol, Measure> entry : node.getMeasures().entrySet()) {
-                nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), unresolveFunctions(entry.getValue().getExpressionAndValuePointers().getExpression()));
+                nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), unResolveFunctions(entry.getValue().getExpressionAndValuePointers().getExpression()));
                 appendValuePointers(nodeOutput, entry.getValue().getExpressionAndValuePointers());
             }
             if (node.getRowsPerMatch() != WINDOW) {
@@ -765,7 +755,7 @@ public class PlanPrinter
                                     .collect(Collectors.joining(", ", "{", "}")))
                     .collect(joining(", "))));
             for (Map.Entry<IrLabel, ExpressionAndValuePointers> entry : node.getVariableDefinitions().entrySet()) {
-                nodeOutput.appendDetailsLine("%s := %s", entry.getKey().getName(), unresolveFunctions(entry.getValue().getExpression()));
+                nodeOutput.appendDetailsLine("%s := %s", entry.getKey().getName(), unResolveFunctions(entry.getValue().getExpression()));
                 appendValuePointers(nodeOutput, entry.getValue());
             }
 
@@ -943,11 +933,11 @@ public class PlanPrinter
                     .map(row -> {
                         if (row instanceof Row) {
                             return ((Row) row).getItems().stream()
-                                    .map(PlanPrinter::unresolveFunctions)
+                                    .map(ExpressionUtils::unResolveFunctions)
                                     .map(Expression::toString)
                                     .collect(joining(", ", "(", ")"));
                         }
-                        return unresolveFunctions(row).toString();
+                        return unResolveFunctions(row).toString();
                     })
                     .collect(toImmutableList());
             for (String row : rows) {
@@ -1017,7 +1007,7 @@ public class PlanPrinter
                 formatString += "filterPredicate = %s, ";
                 Expression predicate = filterNode.get().getPredicate();
                 DynamicFilters.ExtractResult extractResult = extractDynamicFilters(predicate);
-                arguments.add(unresolveFunctions(combineConjunctsWithDuplicates(extractResult.getStaticConjuncts())));
+                arguments.add(unResolveFunctions(combineConjunctsWithDuplicates(extractResult.getStaticConjuncts())));
                 if (!extractResult.getDynamicConjuncts().isEmpty()) {
                     formatString += "dynamicFilters = %s, ";
                     dynamicFilters = extractResult.getDynamicConjuncts();
@@ -1486,7 +1476,7 @@ public class PlanPrinter
                     // skip identity assignments
                     continue;
                 }
-                nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), unresolveFunctions(entry.getValue()));
+                nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), unResolveFunctions(entry.getValue()));
             }
         }
 
@@ -1671,28 +1661,5 @@ public class PlanPrinter
 
         aggregation.getMask().ifPresent(symbol -> builder.append(" (mask = ").append(symbol).append(")"));
         return builder.toString();
-    }
-
-    public static Expression unresolveFunctions(Expression expression)
-    {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
-        {
-            @Override
-            public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
-
-                return new FunctionCall(
-                        rewritten.getLocation(),
-                        QualifiedName.of(extractFunctionName(node.getName())),
-                        rewritten.getWindow(),
-                        rewritten.getFilter(),
-                        rewritten.getOrderBy(),
-                        rewritten.isDistinct(),
-                        rewritten.getNullTreatment(),
-                        rewritten.getProcessingMode(),
-                        rewritten.getArguments());
-            }
-        }, expression);
     }
 }

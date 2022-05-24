@@ -42,6 +42,8 @@ public class QueryMetadata
 
     private final Optional<String> plan;
 
+    private final Optional<String> anonymizedPlan;
+
     private final Optional<String> payload;
 
     @JsonCreator
@@ -56,6 +58,7 @@ public class QueryMetadata
             List<RoutineInfo> routines,
             URI uri,
             Optional<String> plan,
+            Optional<String> anonymizedPlan,
             Optional<String> payload)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -68,6 +71,7 @@ public class QueryMetadata
         this.routines = requireNonNull(routines, "routines is null");
         this.uri = requireNonNull(uri, "uri is null");
         this.plan = requireNonNull(plan, "plan is null");
+        this.anonymizedPlan = requireNonNull(anonymizedPlan, "anonymizedPlan is null");
         this.payload = requireNonNull(payload, "payload is null");
     }
 
@@ -129,6 +133,12 @@ public class QueryMetadata
     public Optional<String> getPlan()
     {
         return plan;
+    }
+
+    @JsonProperty
+    public Optional<String> getAnonymizedPlan()
+    {
+        return anonymizedPlan;
     }
 
     @JsonProperty

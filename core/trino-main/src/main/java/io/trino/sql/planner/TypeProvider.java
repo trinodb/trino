@@ -17,9 +17,11 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.Type;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class TypeProvider
@@ -39,6 +41,14 @@ public class TypeProvider
     public static TypeProvider empty()
     {
         return new TypeProvider(ImmutableMap.of());
+    }
+
+    public static TypeProvider getTypeProvider(List<PlanFragment> fragments)
+    {
+        return TypeProvider.copyOf(fragments.stream()
+                .flatMap(f -> f.getSymbols().entrySet().stream())
+                .distinct()
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 
     private TypeProvider(Map<Symbol, Type> types)

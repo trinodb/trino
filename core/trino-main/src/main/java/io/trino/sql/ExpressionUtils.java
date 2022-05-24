@@ -60,6 +60,7 @@ import java.util.function.Predicate;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
+import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.metadata.ResolvedFunction.isResolved;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -378,6 +379,29 @@ public final class ExpressionUtils
             {
                 // do not rewrite identifiers in field names
                 return node;
+            }
+        }, expression);
+    }
+
+    public static Expression unResolveFunctions(Expression expression)
+    {
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
+        {
+            @Override
+            public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
+
+                return new FunctionCall(
+                        rewritten.getLocation(),
+                        QualifiedName.of(extractFunctionName(node.getName())),
+                        rewritten.getWindow(),
+                        rewritten.getFilter(),
+                        rewritten.getOrderBy(),
+                        rewritten.isDistinct(),
+                        rewritten.getNullTreatment(),
+                        rewritten.getProcessingMode(),
+                        rewritten.getArguments());
             }
         }, expression);
     }

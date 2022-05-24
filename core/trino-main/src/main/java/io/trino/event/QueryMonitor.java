@@ -83,6 +83,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
+import static io.trino.sql.planner.planprinter.anonymize.AnonymizePlanPrinter.anonymizedDistributedJsonPlan;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.time.Duration.ofMillis;
@@ -151,6 +152,7 @@ public class QueryMonitor
                                 ImmutableList.of(),
                                 queryInfo.getSelf(),
                                 Optional.empty(),
+                                Optional.empty(),
                                 Optional.empty())));
     }
 
@@ -167,6 +169,7 @@ public class QueryMonitor
                         ImmutableList.of(),
                         ImmutableList.of(),
                         queryInfo.getSelf(),
+                        Optional.empty(),
                         Optional.empty(),
                         Optional.empty()),
                 new QueryStatistics(
@@ -249,6 +252,7 @@ public class QueryMonitor
                 queryInfo.getRoutines(),
                 queryInfo.getSelf(),
                 createTextQueryPlan(queryInfo),
+                createAnonymizedPlan(queryInfo),
                 queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)));
     }
 
@@ -343,6 +347,19 @@ public class QueryMonitor
             // Sometimes it is expected to fail. For example if generated plan is too long.
             // Don't fail to create event if the plan cannot be created.
             log.warn(e, "Error creating explain plan for query %s", queryInfo.getQueryId());
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> createAnonymizedPlan(QueryInfo queryInfo)
+    {
+        try {
+            if (queryInfo.getOutputStage().isPresent()) {
+                return Optional.of(anonymizedDistributedJsonPlan(queryInfo.getOutputStage()));
+            }
+        }
+        catch (Exception e) {
+            log.warn(e, "Error anonymizing plan for query %s", queryInfo.getQueryId());
         }
         return Optional.empty();
     }
