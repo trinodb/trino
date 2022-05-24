@@ -33,26 +33,26 @@ public class SuiteDeltaLake
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeMinioDataLake.class)
-                        .withGroups("delta-lake-minio")
+                        .withGroups("configured_features", "delta-lake-minio")
                         .build(),
 
                 testOnEnvironment(EnvSinglenodeDeltaLakeKerberizedHdfs.class)
-                        .withGroups("delta-lake-hdfs")
+                        .withGroups("configured_features", "delta-lake-hdfs")
                         .build(),
                 //TODO enable the product tests against Databricks testing environment
 //                testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks.class)
-//                        .withGroups("delta-lake-databricks")
+//                        .withGroups("configured_features", "delta-lake-databricks")
 //                        .withExcludedGroups("delta-lake-exclude-73")
 //                        .build(),
 //
 //                testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks91.class)
-//                        .withGroups("delta-lake-databricks")
+//                        .withGroups("configured_features", "delta-lake-databricks")
 //                        .build(),
 
                 testOnEnvironment(EnvSinglenodeDeltaLakeOss.class)
                         // TODO: make the list of tests run here as close to those run on SinglenodeDeltaLakeDatabricks
                         //  e.g. replace `delta-lake-oss` group with `delta-lake-databricks` + any exclusions, of needed
-                        .withGroups("delta-lake-oss")
+                        .withGroups("configured_features", "delta-lake-oss")
                         .build());
     }
 }
