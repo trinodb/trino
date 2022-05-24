@@ -82,7 +82,7 @@ public class CachingJdbcClient
 
     private final Cache<IdentityCacheKey, Set<String>> schemaNamesCache;
     private final Cache<TableNamesCacheKey, List<SchemaTableName>> tableNamesCache;
-    private final Cache<TableHandleCacheKey, Optional<JdbcTableHandle>> tableHandleCache;
+    private final Cache<TableHandlesByNameCacheKey, Optional<JdbcTableHandle>> tableHandlesByNameCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
     private final Cache<TableStatisticsCacheKey, TableStatistics> statisticsCache;
 
@@ -126,7 +126,7 @@ public class CachingJdbcClient
 
         schemaNamesCache = cacheBuilder.build();
         tableNamesCache = cacheBuilder.build();
-        tableHandleCache = cacheBuilder.build();
+        tableHandlesByNameCache = cacheBuilder.build();
         columnsCache = cacheBuilder.build();
         statisticsCache = cacheBuilder.build();
     }
@@ -277,16 +277,16 @@ public class CachingJdbcClient
     @Override
     public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        TableHandleCacheKey key = new TableHandleCacheKey(getIdentityKey(session), schemaTableName);
-        Optional<JdbcTableHandle> cachedTableHandle = tableHandleCache.getIfPresent(key);
+        TableHandlesByNameCacheKey key = new TableHandlesByNameCacheKey(getIdentityKey(session), schemaTableName);
+        Optional<JdbcTableHandle> cachedTableHandle = tableHandlesByNameCache.getIfPresent(key);
         //noinspection OptionalAssignedToNull
         if (cachedTableHandle != null) {
             if (cacheMissing || cachedTableHandle.isPresent()) {
                 return cachedTableHandle;
             }
-            tableHandleCache.invalidate(key);
+            tableHandlesByNameCache.invalidate(key);
         }
-        return get(tableHandleCache, key, () -> delegate.getTableHandle(session, schemaTableName));
+        return get(tableHandlesByNameCache, key, () -> delegate.getTableHandle(session, schemaTableName));
     }
 
     @Override
@@ -520,7 +520,7 @@ public class CachingJdbcClient
     {
         schemaNamesCache.invalidateAll();
         tableNamesCache.invalidateAll();
-        tableHandleCache.invalidateAll();
+        tableHandlesByNameCache.invalidateAll();
         columnsCache.invalidateAll();
         statisticsCache.invalidateAll();
     }
@@ -549,9 +549,9 @@ public class CachingJdbcClient
 
     private void invalidateTableCaches(SchemaTableName schemaTableName)
     {
-        // TODO https://github.com/trinodb/trino/issues/12526: invalidate tableHandleCache for handles derived from opaque queries
+        // TODO https://github.com/trinodb/trino/issues/12526: invalidate tableHandlesByNameCache for handles derived from opaque queries
         invalidateColumnsCache(schemaTableName);
-        invalidateCache(tableHandleCache, key -> key.tableName.equals(schemaTableName));
+        invalidateCache(tableHandlesByNameCache, key -> key.tableName.equals(schemaTableName));
         invalidateCache(tableNamesCache, key -> key.schemaName.equals(Optional.of(schemaTableName.getSchemaName())));
         invalidateCache(statisticsCache, key -> key.tableHandle.references(schemaTableName));
     }
@@ -638,12 +638,12 @@ public class CachingJdbcClient
         }
     }
 
-    private static final class TableHandleCacheKey
+    private static final class TableHandlesByNameCacheKey
     {
         private final IdentityCacheKey identity;
         private final SchemaTableName tableName;
 
-        private TableHandleCacheKey(IdentityCacheKey identity, SchemaTableName tableName)
+        private TableHandlesByNameCacheKey(IdentityCacheKey identity, SchemaTableName tableName)
         {
             this.identity = requireNonNull(identity, "identity is null");
             this.tableName = requireNonNull(tableName, "tableName is null");
@@ -658,7 +658,7 @@ public class CachingJdbcClient
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            TableHandleCacheKey that = (TableHandleCacheKey) o;
+            TableHandlesByNameCacheKey that = (TableHandlesByNameCacheKey) o;
             return Objects.equals(identity, that.identity) &&
                     Objects.equals(tableName, that.tableName);
         }
@@ -775,9 +775,9 @@ public class CachingJdbcClient
 
     @Managed
     @Nested
-    public CacheStatsMBean getTableHandleCache()
+    public CacheStatsMBean getTableHandlesByNameCache()
     {
-        return new CacheStatsMBean(tableHandleCache);
+        return new CacheStatsMBean(tableHandlesByNameCache);
     }
 
     @Managed
