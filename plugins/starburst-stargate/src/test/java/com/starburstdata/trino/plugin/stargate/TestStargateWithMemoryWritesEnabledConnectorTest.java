@@ -7,7 +7,6 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-
 package com.starburstdata.trino.plugin.stargate;
 
 import io.trino.testing.QueryRunner;
@@ -103,6 +102,16 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     {
         // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message
         assertThatThrownBy(super::testAddColumnWithComment)
+                .hasMessageContaining("This connector does not support adding columns");
+        throw new SkipException("not supported");
+    }
+
+    @Override
+    public void testAddColumnConcurrently()
+    {
+        // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message
+        assertThatThrownBy(super::testAddColumnConcurrently)
+                .getCause()
                 .hasMessageContaining("This connector does not support adding columns");
         throw new SkipException("not supported");
     }
