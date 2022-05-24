@@ -37,6 +37,8 @@ public class ExchangeS3Config
 {
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
+    private Optional<String> s3IamRole = Optional.empty();
+    private Optional<String> s3ExternalId = Optional.empty();
     private Optional<Region> s3Region = Optional.empty();
     private Optional<String> s3Endpoint = Optional.empty();
     private int s3MaxErrorRetries = 10;
@@ -71,6 +73,32 @@ public class ExchangeS3Config
     public ExchangeS3Config setS3AwsSecretKey(String s3AwsSecretKey)
     {
         this.s3AwsSecretKey = s3AwsSecretKey;
+        return this;
+    }
+
+    public Optional<String> getS3IamRole()
+    {
+        return s3IamRole;
+    }
+
+    @Config("exchange.s3.iam-role")
+    @ConfigDescription("ARN of an IAM role to assume when connecting to S3")
+    public ExchangeS3Config setS3IamRole(String s3IamRole)
+    {
+        this.s3IamRole = Optional.ofNullable(s3IamRole);
+        return this;
+    }
+
+    public Optional<String> getS3ExternalId()
+    {
+        return s3ExternalId;
+    }
+
+    @Config("exchange.s3.external-id")
+    @ConfigDescription("External ID for the IAM role trust policy when connecting to S3")
+    public ExchangeS3Config setS3ExternalId(String s3ExternalId)
+    {
+        this.s3ExternalId = Optional.ofNullable(s3ExternalId);
         return this;
     }
 
