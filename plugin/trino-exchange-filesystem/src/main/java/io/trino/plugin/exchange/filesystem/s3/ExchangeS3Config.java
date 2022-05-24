@@ -39,7 +39,6 @@ public class ExchangeS3Config
     private String s3AwsSecretKey;
     private Optional<Region> s3Region = Optional.empty();
     private Optional<String> s3Endpoint = Optional.empty();
-    private boolean s3UseWebIdentityTokenCredentials;
     private int s3MaxErrorRetries = 10;
     // Default to S3 multi-part upload minimum size to avoid excessive memory consumption from buffering
     private DataSize s3UploadPartSize = DataSize.of(5, MEGABYTE);
@@ -99,18 +98,6 @@ public class ExchangeS3Config
     public ExchangeS3Config setS3Endpoint(String s3Endpoint)
     {
         this.s3Endpoint = Optional.ofNullable(s3Endpoint);
-        return this;
-    }
-
-    public boolean isS3UseWebIdentityTokenCredentials()
-    {
-        return s3UseWebIdentityTokenCredentials;
-    }
-
-    @Config("exchange.s3.use-web-identity-token-credentials")
-    public ExchangeS3Config setS3UseWebIdentityTokenCredentials(boolean s3UseWebIdentityTokenCredentials)
-    {
-        this.s3UseWebIdentityTokenCredentials = s3UseWebIdentityTokenCredentials;
         return this;
     }
 
