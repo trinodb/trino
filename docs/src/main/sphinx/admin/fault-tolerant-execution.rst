@@ -373,6 +373,14 @@ the property may be configured for:
        be ignored for other S3 storage systems.
      -
      - AWS S3, GCS
+   * - ``exchange.s3.iam-role``
+     - IAM role to assume.
+     -
+     - AWS S3, GCS
+   * - ``exchange.s3.external-id``
+     - External ID for the IAM role trust policy.
+     -
+     - AWS S3, GCS
    * - ``exchange.s3.region``
      - Region of the S3 bucket.
      -

@@ -75,6 +75,10 @@ import software.amazon.awssdk.services.s3.model.StorageClass;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher;
+import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.StsClientBuilder;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -451,8 +455,46 @@ public class S3FileSystemExchangeStorage
 
     private static AwsCredentialsProvider createAwsCredentialsProvider(ExchangeS3Config config)
     {
-        if (config.getS3AwsAccessKey() != null && config.getS3AwsSecretKey() != null) {
-            return StaticCredentialsProvider.create(AwsBasicCredentials.create(config.getS3AwsAccessKey(), config.getS3AwsSecretKey()));
+        String accessKey = config.getS3AwsAccessKey();
+        String secretKey = config.getS3AwsSecretKey();
+
+        if (accessKey == null && secretKey != null) {
+            throw new IllegalArgumentException("AWS access key set but secret is not set; make sure you set exchange.s3.aws-secret-key config property");
+        }
+
+        if (accessKey != null && secretKey == null) {
+            throw new IllegalArgumentException("AWS secret key set but access is not set; make sure you set exchange.s3.aws-access-key config property");
+        }
+
+        if (accessKey != null) {
+            checkArgument(
+                    config.getS3IamRole().isEmpty(),
+                    "IAM role is not compatible with access key based authentication; make sure you set only one of exchange.s3.aws-access-key, exchange.s3.iam-role config properties");
+            checkArgument(
+                    config.getS3ExternalId().isEmpty(),
+                    "External ID is not compatible with access key based authentication; make sure you set only one of exchange.s3.aws-access-key, exchange.s3.external-id config properties");
+
+            return StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey));
+        }
+
+        if (config.getS3ExternalId().isPresent() && config.getS3IamRole().isEmpty()) {
+            throw new IllegalArgumentException("External ID can only be used with IAM role based authentication; make sure you set exchange.s3.iam-role config property");
+        }
+
+        if (config.getS3IamRole().isPresent()) {
+            AssumeRoleRequest.Builder assumeRoleRequest = AssumeRoleRequest.builder()
+                    .roleArn(config.getS3IamRole().get())
+                    .roleSessionName("trino-exchange");
+            config.getS3ExternalId().ifPresent(assumeRoleRequest::externalId);
+
+            StsClientBuilder stsClientBuilder = StsClient.builder();
+            config.getS3Region().ifPresent(stsClientBuilder::region);
+
+            return StsAssumeRoleCredentialsProvider.builder()
+                    .stsClient(stsClientBuilder.build())
+                    .refreshRequest(assumeRoleRequest.build())
+                    .asyncCredentialUpdateEnabled(true)
+                    .build();
         }
 
         return DefaultCredentialsProvider.create();
