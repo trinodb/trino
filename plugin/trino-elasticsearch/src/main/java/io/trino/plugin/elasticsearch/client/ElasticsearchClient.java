@@ -202,7 +202,9 @@ public class ElasticsearchClient
             TimeStat backpressureStats)
     {
         RestClientBuilder builder = RestClient.builder(
-                new HttpHost(config.getHost(), config.getPort(), config.isTlsEnabled() ? "https" : "http"))
+                config.getHosts().stream()
+                        .map(httpHost -> new HttpHost(httpHost, config.getPort(), config.isTlsEnabled() ? "https" : "http"))
+                        .toArray(HttpHost[]::new))
                 .setMaxRetryTimeoutMillis(toIntExact(config.getMaxRetryTime().toMillis()));
 
         builder.setHttpClientConfigCallback(ignored -> {
