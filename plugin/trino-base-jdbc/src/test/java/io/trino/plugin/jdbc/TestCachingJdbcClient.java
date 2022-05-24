@@ -57,6 +57,7 @@ import static io.trino.testing.TestingConnectorSession.builder;
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Math.abs;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -164,6 +165,22 @@ public class TestCachingJdbcClient
 
         assertThat(jdbcClient.getTableHandle(SESSION, phantomTable)).isEmpty();
         assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable)).isEqualTo(cachedTable);
+    }
+
+    @Test
+    public void testTableHandleOfQueryCached()
+    {
+        SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
+
+        createTable(phantomTable);
+        PreparedQuery query = new PreparedQuery(format("SELECT * FROM %s.phantom_table", schema), ImmutableList.of());
+        JdbcTableHandle cachedTable = cachingJdbcClient.getTableHandle(SESSION, query);
+        dropTable(phantomTable);
+
+        assertThatThrownBy(() -> jdbcClient.getTableHandle(SESSION, query))
+                .hasMessageContaining("Failed to get table handle for prepared query");
+        assertThat(cachingJdbcClient.getTableHandle(SESSION, query))
+                .isEqualTo(cachedTable);
     }
 
     @Test
