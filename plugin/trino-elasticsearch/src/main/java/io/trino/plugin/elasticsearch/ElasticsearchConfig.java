@@ -25,6 +25,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -54,7 +55,7 @@ public class ElasticsearchConfig
         PASSWORD,
     }
 
-    private String host;
+    private List<String> hosts;
     private int port = 9200;
     private String defaultSchema = "default";
     private int scrollSize = 1_000;
@@ -79,15 +80,15 @@ public class ElasticsearchConfig
     private Security security;
 
     @NotNull
-    public String getHost()
+    public List<String> getHosts()
     {
-        return host;
+        return hosts;
     }
 
     @Config("elasticsearch.host")
-    public ElasticsearchConfig setHost(String host)
+    public ElasticsearchConfig setHosts(List<String> hosts)
     {
-        this.host = host;
+        this.hosts = hosts;
         return this;
     }
 
