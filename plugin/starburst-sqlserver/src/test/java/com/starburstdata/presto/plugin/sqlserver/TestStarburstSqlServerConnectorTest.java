@@ -17,6 +17,7 @@ import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.QueryRunner;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStarburstSqlServerConnectorTest
         extends TestSqlServerConnectorTest
@@ -29,6 +30,13 @@ public class TestStarburstSqlServerConnectorTest
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
         return createStarburstSqlServerQueryRunner(sqlServer, false, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
+
+    @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessageContaining("was deadlocked on lock resources");
     }
 
     @Override
