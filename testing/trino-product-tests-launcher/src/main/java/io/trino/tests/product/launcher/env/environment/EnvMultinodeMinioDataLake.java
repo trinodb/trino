@@ -14,7 +14,6 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import io.trino.tests.product.launcher.docker.DockerFiles;
-import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
@@ -24,10 +23,6 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
-import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -39,35 +34,24 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class EnvMultinodeMinioDataLake
         extends EnvironmentProvider
 {
-    private final DockerFiles dockerFiles;
+    private final DockerFiles.ResourceProvider configDir;
 
     @Inject
     public EnvMultinodeMinioDataLake(StandardMultinode standardMultinode, Hadoop hadoop, Minio minio, DockerFiles dockerFiles)
     {
         super(standardMultinode, hadoop, minio);
-        this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-minio-data-lake");
     }
 
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(COORDINATOR, this::configureTrinoContainer);
-        builder.configureContainer(WORKER, this::configureTrinoContainer);
-    }
-
-    private void configureTrinoContainer(DockerContainer container)
-    {
-        container.withCopyFileToContainer(
-                forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-minio-data-lake/hive.properties")),
-                CONTAINER_PRESTO_HIVE_PROPERTIES);
-        container.withCopyFileToContainer(
-                forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-minio-data-lake/delta.properties")),
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
+        builder.addConnector(
+                "delta-lake",
+                forHostPath(configDir.getPath("delta.properties")),
                 CONTAINER_PRESTO_ETC + "/catalog/delta.properties");
-        container.withCopyFileToContainer(
-                forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-minio-data-lake/iceberg.properties")),
-                CONTAINER_PRESTO_ICEBERG_PROPERTIES);
-        container.withCopyFileToContainer(
-                forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-minio-data-lake/memory.properties")),
-                CONTAINER_PRESTO_ETC + "/catalog/memory.properties");
+        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg.properties")));
+        builder.addConnector("memory", forHostPath(configDir.getPath("memory.properties")));
     }
 }
