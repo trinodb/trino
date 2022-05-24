@@ -56,7 +56,13 @@ public class TestSpiBackwardCompatibility
             .put("382", ImmutableSet.of(
                     "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.rowSemantics(boolean)",
                     "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.pruneWhenEmpty(boolean)",
-                    "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.passThroughColumns(boolean)"))
+                    "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.passThroughColumns(boolean)",
+                    "Class: public abstract class io.trino.spi.ptf.ConnectorTableFunction",
+                    "Constructor: public io.trino.spi.ptf.ConnectorTableFunction(java.lang.String,java.lang.String,java.util.List<io.trino.spi.ptf.ArgumentSpecification>,io.trino.spi.ptf.ReturnTypeSpecification)",
+                    "Method: public java.util.List<io.trino.spi.ptf.ArgumentSpecification> io.trino.spi.ptf.ConnectorTableFunction.getArguments()",
+                    "Method: public io.trino.spi.ptf.ReturnTypeSpecification io.trino.spi.ptf.ConnectorTableFunction.getReturnTypeSpecification()",
+                    "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getName()",
+                    "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getSchema()"))
             .buildOrThrow();
 
     @Test

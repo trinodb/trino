@@ -16,15 +16,20 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.spi.ptf.ArgumentSpecification;
 import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.ptf.TableArgumentSpecification;
 import io.trino.sql.tree.QualifiedName;
 
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metadata.FunctionResolver.toPath;
 import static java.util.Locale.ENGLISH;
@@ -40,6 +45,9 @@ public class TableFunctionRegistry
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(functions, "functions is null");
+
+        functions.stream()
+                .forEach(TableFunctionRegistry::validateTableFunction);
 
         ImmutableMap.Builder<SchemaFunctionName, TableFunctionMetadata> builder = ImmutableMap.builder();
         for (ConnectorTableFunction function : functions) {
@@ -77,5 +85,30 @@ public class TableFunctionRegistry
         }
 
         return null;
+    }
+
+    private static void validateTableFunction(ConnectorTableFunction tableFunction)
+    {
+        requireNonNull(tableFunction, "tableFunction is null");
+        requireNonNull(tableFunction.getName(), "table function name is null");
+        requireNonNull(tableFunction.getSchema(), "table function schema name is null");
+        requireNonNull(tableFunction.getArguments(), "table function arguments is null");
+        requireNonNull(tableFunction.getReturnTypeSpecification(), "table function returnTypeSpecification is null");
+
+        checkArgument(!tableFunction.getName().isEmpty(), "table function name is empty");
+        checkArgument(!tableFunction.getSchema().isEmpty(), "table function schema name is empty");
+
+        Set<String> argumentNames = new HashSet<>();
+        for (ArgumentSpecification specification : tableFunction.getArguments()) {
+            if (!argumentNames.add(specification.getName())) {
+                throw new IllegalArgumentException("duplicate argument name: " + specification.getName());
+            }
+        }
+        long tableArgumentsWithRowSemantics = tableFunction.getArguments().stream()
+                .filter(specification -> specification instanceof TableArgumentSpecification)
+                .map(TableArgumentSpecification.class::cast)
+                .filter(TableArgumentSpecification::isRowSemantics)
+                .count();
+        checkArgument(tableArgumentsWithRowSemantics <= 1, "more than one table argument with row semantics");
     }
 }
