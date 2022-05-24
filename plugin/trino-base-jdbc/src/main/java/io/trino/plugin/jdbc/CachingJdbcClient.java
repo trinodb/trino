@@ -76,6 +76,7 @@ public class CachingJdbcClient
 
     private final JdbcClient delegate;
     private final List<PropertyMetadata<?>> sessionProperties;
+    // specifies whether missing values should be cached
     private final boolean cacheMissing;
     private final IdentityCacheMapping identityMapping;
 
