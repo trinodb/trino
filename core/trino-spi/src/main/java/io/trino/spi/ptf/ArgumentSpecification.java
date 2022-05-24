@@ -15,8 +15,8 @@ package io.trino.spi.ptf;
 
 import javax.annotation.Nullable;
 
-import static io.trino.spi.ptf.ConnectorTableFunction.checkArgument;
-import static io.trino.spi.ptf.ConnectorTableFunction.checkNotNullOrEmpty;
+import static io.trino.spi.ptf.Preconditions.checkArgument;
+import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
 
 /**
  * Abstract class to capture the three supported argument types for a table function:
