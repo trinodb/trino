@@ -21,7 +21,7 @@ import io.trino.spi.type.RowType;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.spi.ptf.ConnectorTableFunction.checkNotNullOrEmpty;
+import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
 /**

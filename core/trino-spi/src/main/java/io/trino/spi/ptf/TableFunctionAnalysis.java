@@ -15,8 +15,8 @@ package io.trino.spi.ptf;
 
 import java.util.Optional;
 
-import static io.trino.spi.ptf.ConnectorTableFunction.checkArgument;
 import static io.trino.spi.ptf.DescriptorMapping.EMPTY_MAPPING;
+import static io.trino.spi.ptf.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
