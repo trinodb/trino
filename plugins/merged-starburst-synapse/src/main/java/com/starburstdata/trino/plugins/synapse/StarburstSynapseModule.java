@@ -14,7 +14,6 @@ import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import com.google.inject.name.Names;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -33,7 +32,12 @@ import io.trino.plugin.sqlserver.SqlServerConnectionFactory;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
-import javax.inject.Named;
+import javax.inject.Qualifier;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -75,13 +79,13 @@ public class StarburstSynapseModule
 
         newOptionalBinder(binder, Key.get(ConnectionFactory.class, ForBaseJdbc.class))
                 .setDefault()
-                .to(Key.get(ConnectionFactory.class, Names.named("default synapse connection factory")))
+                .to(Key.get(ConnectionFactory.class, DefaultSynapseBinding.class))
                 .in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
-    @Named("default synapse connection factory")
+    @DefaultSynapseBinding
     public static ConnectionFactory getConnectionFactory(
             BaseJdbcConfig config,
             SqlServerConfig sqlServerConfig,
@@ -91,4 +95,9 @@ public class StarburstSynapseModule
                 new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider),
                 sqlServerConfig.isSnapshotIsolationDisabled());
     }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+    @Qualifier
+    public @interface DefaultSynapseBinding {}
 }
