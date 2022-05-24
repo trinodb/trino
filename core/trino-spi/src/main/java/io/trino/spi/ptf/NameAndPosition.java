@@ -15,6 +15,9 @@ package io.trino.spi.ptf;
 
 import java.util.Objects;
 
+import static io.trino.spi.ptf.Preconditions.checkArgument;
+import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
+
 /**
  * This class represents a descriptor field reference.
  * `name` is the descriptor argument name, `position` is the zero-based field index.
@@ -31,8 +34,8 @@ public class NameAndPosition
 
     public NameAndPosition(String name, int position)
     {
-        this.name = ConnectorTableFunction.checkNotNullOrEmpty(name, "name");
-        ConnectorTableFunction.checkArgument(position >= 0, "position in descriptor must not be negative");
+        this.name = checkNotNullOrEmpty(name, "name");
+        checkArgument(position >= 0, "position in descriptor must not be negative");
         this.position = position;
     }
 

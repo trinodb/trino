@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static io.trino.spi.ptf.Preconditions.checkArgument;
+import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
 public abstract class ConnectorTableFunction
@@ -88,18 +90,4 @@ public abstract class ConnectorTableFunction
      * @param arguments actual invocation arguments, mapped by argument names
      */
     public abstract TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments);
-
-    static String checkNotNullOrEmpty(String value, String name)
-    {
-        requireNonNull(value, name + " is null");
-        checkArgument(!value.isEmpty(), name + " is empty");
-        return value;
-    }
-
-    static void checkArgument(boolean assertion, String message)
-    {
-        if (!assertion) {
-            throw new IllegalArgumentException(message);
-        }
-    }
 }
