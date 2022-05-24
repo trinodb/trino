@@ -83,6 +83,7 @@ public class CachingJdbcClient
     private final Cache<IdentityCacheKey, Set<String>> schemaNamesCache;
     private final Cache<TableNamesCacheKey, List<SchemaTableName>> tableNamesCache;
     private final Cache<TableHandlesByNameCacheKey, Optional<JdbcTableHandle>> tableHandlesByNameCache;
+    private final Cache<TableHandlesByQueryCacheKey, JdbcTableHandle> tableHandlesByQueryCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
     private final Cache<TableStatisticsCacheKey, TableStatistics> statisticsCache;
 
@@ -127,6 +128,7 @@ public class CachingJdbcClient
         schemaNamesCache = cacheBuilder.build();
         tableNamesCache = cacheBuilder.build();
         tableHandlesByNameCache = cacheBuilder.build();
+        tableHandlesByQueryCache = cacheBuilder.build();
         columnsCache = cacheBuilder.build();
         statisticsCache = cacheBuilder.build();
     }
@@ -292,7 +294,8 @@ public class CachingJdbcClient
     @Override
     public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
     {
-        return delegate.getTableHandle(session, preparedQuery); // TODO add caching?
+        TableHandlesByQueryCacheKey key = new TableHandlesByQueryCacheKey(getIdentityKey(session), preparedQuery);
+        return get(tableHandlesByQueryCache, key, () -> delegate.getTableHandle(session, preparedQuery));
     }
 
     @Override
@@ -521,6 +524,7 @@ public class CachingJdbcClient
         schemaNamesCache.invalidateAll();
         tableNamesCache.invalidateAll();
         tableHandlesByNameCache.invalidateAll();
+        tableHandlesByQueryCache.invalidateAll();
         columnsCache.invalidateAll();
         statisticsCache.invalidateAll();
     }
@@ -552,6 +556,7 @@ public class CachingJdbcClient
         // TODO https://github.com/trinodb/trino/issues/12526: invalidate tableHandlesByNameCache for handles derived from opaque queries
         invalidateColumnsCache(schemaTableName);
         invalidateCache(tableHandlesByNameCache, key -> key.tableName.equals(schemaTableName));
+        tableHandlesByQueryCache.invalidateAll();
         invalidateCache(tableNamesCache, key -> key.schemaName.equals(Optional.of(schemaTableName.getSchemaName())));
         invalidateCache(statisticsCache, key -> key.tableHandle.references(schemaTableName));
     }
@@ -670,6 +675,38 @@ public class CachingJdbcClient
         }
     }
 
+    private static final class TableHandlesByQueryCacheKey
+    {
+        private final IdentityCacheKey identity;
+        private final PreparedQuery preparedQuery;
+
+        private TableHandlesByQueryCacheKey(IdentityCacheKey identity, PreparedQuery preparedQuery)
+        {
+            this.identity = requireNonNull(identity, "identity is null");
+            this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TableHandlesByQueryCacheKey that = (TableHandlesByQueryCacheKey) o;
+            return Objects.equals(identity, that.identity) &&
+                    Objects.equals(preparedQuery, that.preparedQuery);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(identity, preparedQuery);
+        }
+    }
+
     private static final class TableNamesCacheKey
     {
         private final IdentityCacheKey identity;
@@ -778,6 +815,13 @@ public class CachingJdbcClient
     public CacheStatsMBean getTableHandlesByNameCache()
     {
         return new CacheStatsMBean(tableHandlesByNameCache);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getTableHandlesByQueryCache()
+    {
+        return new CacheStatsMBean(tableHandlesByQueryCache);
     }
 
     @Managed
