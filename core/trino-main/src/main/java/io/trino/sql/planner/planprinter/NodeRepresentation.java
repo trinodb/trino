@@ -16,7 +16,6 @@ package io.trino.sql.planner.planprinter;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
-import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -145,27 +144,5 @@ public class NodeRepresentation
     public Optional<PlanNodeStatsAndCostSummary> getReorderJoinStatsAndCost()
     {
         return reorderJoinStatsAndCost;
-    }
-
-    public static class TypedSymbol
-    {
-        private final Symbol symbol;
-        private final String type;
-
-        public TypedSymbol(Symbol symbol, String type)
-        {
-            this.symbol = symbol;
-            this.type = type;
-        }
-
-        public Symbol getSymbol()
-        {
-            return symbol;
-        }
-
-        public String getType()
-        {
-            return type;
-        }
     }
 }

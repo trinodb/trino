@@ -104,7 +104,6 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 import io.trino.sql.planner.rowpattern.AggregationValuePointer;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
@@ -398,7 +397,7 @@ public class PlanPrinter
         return builder.toString();
     }
 
-    private static TypeProvider getTypeProvider(List<PlanFragment> fragments)
+    public static TypeProvider getTypeProvider(List<PlanFragment> fragments)
     {
         return TypeProvider.copyOf(fragments.stream()
                 .flatMap(f -> f.getSymbols().entrySet().stream())
@@ -1674,7 +1673,7 @@ public class PlanPrinter
         return builder.toString();
     }
 
-    private static Expression unresolveFunctions(Expression expression)
+    public static Expression unresolveFunctions(Expression expression)
     {
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
         {

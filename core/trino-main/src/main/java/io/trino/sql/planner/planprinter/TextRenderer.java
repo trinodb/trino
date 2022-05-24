@@ -21,7 +21,6 @@ import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 
 import java.util.Iterator;
 import java.util.List;
