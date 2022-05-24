@@ -44,6 +44,7 @@ public final class JdbcClientStats
     private final JdbcApiStats getSchemaNames = new JdbcApiStats();
     private final JdbcApiStats getSplits = new JdbcApiStats();
     private final JdbcApiStats getTableHandle = new JdbcApiStats();
+    private final JdbcApiStats getTableHandleForQuery = new JdbcApiStats();
     private final JdbcApiStats getTableNames = new JdbcApiStats();
     private final JdbcApiStats getTableStatistics = new JdbcApiStats();
     private final JdbcApiStats renameColumn = new JdbcApiStats();
@@ -240,6 +241,13 @@ public final class JdbcClientStats
     public JdbcApiStats getGetTableHandle()
     {
         return getTableHandle;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getGetTableHandleForQuery()
+    {
+        return getTableHandleForQuery;
     }
 
     @Managed
