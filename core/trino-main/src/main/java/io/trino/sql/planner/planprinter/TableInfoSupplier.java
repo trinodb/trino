@@ -15,11 +15,13 @@ package io.trino.sql.planner.planprinter;
 
 import io.trino.Session;
 import io.trino.execution.TableInfo;
+import io.trino.metadata.Catalog;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableProperties;
 import io.trino.metadata.TableSchema;
 import io.trino.sql.planner.plan.TableScanNode;
 
+import java.util.Optional;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
@@ -41,6 +43,11 @@ public class TableInfoSupplier
     {
         TableSchema tableSchema = metadata.getTableSchema(session, node.getTable());
         TableProperties tableProperties = metadata.getTableProperties(session, node.getTable());
-        return new TableInfo(tableSchema.getQualifiedName(), tableProperties.getPredicate());
+        Catalog catalog = metadata.getCatalogs(session).get(tableSchema.getCatalogName().getCatalogName());
+        Optional<String> connectorName = Optional.empty();
+        if (catalog != null) {
+            connectorName = Optional.of(catalog.getConnectorName());
+        }
+        return new TableInfo(connectorName, tableSchema.getQualifiedName(), tableProperties.getPredicate());
     }
 }

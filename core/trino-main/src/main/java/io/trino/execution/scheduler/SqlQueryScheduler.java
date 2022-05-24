@@ -52,6 +52,7 @@ import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionSchedule;
 import io.trino.execution.scheduler.policy.StagesScheduleResult;
 import io.trino.failuredetector.FailureDetector;
+import io.trino.metadata.Catalog;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableProperties;
@@ -618,7 +619,12 @@ public class SqlQueryScheduler
         {
             TableSchema tableSchema = metadata.getTableSchema(session, node.getTable());
             TableProperties tableProperties = metadata.getTableProperties(session, node.getTable());
-            return new TableInfo(tableSchema.getQualifiedName(), tableProperties.getPredicate());
+            Catalog catalog = metadata.getCatalogs(session).get(tableSchema.getCatalogName().getCatalogName());
+            Optional<String> connectorName = Optional.empty();
+            if (catalog != null) {
+                connectorName = Optional.of(catalog.getConnectorName());
+            }
+            return new TableInfo(connectorName, tableSchema.getQualifiedName(), tableProperties.getPredicate());
         }
 
         private static StageId getStageId(QueryId queryId, PlanFragmentId fragmentId)

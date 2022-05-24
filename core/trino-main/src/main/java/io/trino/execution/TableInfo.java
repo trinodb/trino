@@ -21,21 +21,32 @@ import io.trino.spi.predicate.TupleDomain;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class TableInfo
 {
+    private final Optional<String> connectorName;
     private final QualifiedObjectName tableName;
     private final TupleDomain<ColumnHandle> predicate;
 
     @JsonCreator
     public TableInfo(
+            @JsonProperty("connectorName") Optional<String> connectorName,
             @JsonProperty("tableName") QualifiedObjectName tableName,
             @JsonProperty("predicate") TupleDomain<ColumnHandle> predicate)
     {
+        this.connectorName = requireNonNull(connectorName, "connectorName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.predicate = requireNonNull(predicate, "predicate is null");
+    }
+
+    @JsonProperty
+    public Optional<String> getConnectorName()
+    {
+        return connectorName;
     }
 
     @JsonProperty
