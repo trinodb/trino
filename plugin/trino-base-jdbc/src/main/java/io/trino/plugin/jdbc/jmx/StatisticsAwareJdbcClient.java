@@ -107,7 +107,7 @@ public final class StatisticsAwareJdbcClient
     @Override
     public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
     {
-        return delegate().getTableHandle(session, preparedQuery); // TODO add stats?
+        return stats.getGetTableHandleForQuery().wrap(() -> delegate().getTableHandle(session, preparedQuery));
     }
 
     @Override
