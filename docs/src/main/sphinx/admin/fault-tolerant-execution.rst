@@ -466,7 +466,7 @@ access/secret keys to use the GCS HMAC keys. If you deploy Trino on GCP, you
 must either create a service account with access to your spooling bucket or
 configure the key path to your GCS credential file.
 
-For more information on GCS's S3 compatibility, refer to the Google Cloud `
+For more information on GCS's S3 compatibility, refer to the `Google Cloud
 documentation on S3 migration
 <https://cloud.google.com/storage/docs/aws-simple-migration>`_.
 
