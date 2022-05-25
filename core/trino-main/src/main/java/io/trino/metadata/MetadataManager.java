@@ -2382,22 +2382,6 @@ public final class MetadataManager
     }
 
     @Override
-    public boolean isValidTableVersion(Session session, QualifiedObjectName tableName, TableVersion version)
-    {
-        requireNonNull(version, "Version must not be null for table " + tableName);
-
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
-        if (!catalog.isPresent()) {
-            return false;
-        }
-
-        CatalogMetadata catalogMetadata = catalog.get();
-        CatalogName connectorId = catalogMetadata.getConnectorId(session, tableName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, connectorId);
-        return metadata.isSupportedVersionType(session.toConnectorSession(), tableName.asSchemaTableName(), version.getPointerType(), version.getObjectType());
-    }
-
-    @Override
     public boolean supportsReportingWrittenBytes(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
     {
         CatalogName catalogName = new CatalogName(tableName.getCatalogName());

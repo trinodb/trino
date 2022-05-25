@@ -696,11 +696,6 @@ public interface Metadata
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
 
     /**
-     * Verifies that a version is valid for a given table
-     */
-    boolean isValidTableVersion(Session session, QualifiedObjectName tableName, TableVersion version);
-
-    /**
      * Returns true if the connector reports number of written bytes for an existing table. Otherwise, it returns false.
      */
     boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle);

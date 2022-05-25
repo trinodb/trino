@@ -166,6 +166,17 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Override
+    protected void verifyVersionedQueryFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessageMatching("Version pointer type is not supported: .*|" +
+                        "Unsupported type for temporal table version: .*|" +
+                        "Unsupported type for table version: .*|" +
+                        "No version history table tpch.nation at or before .*|" +
+                        "Iceberg snapshot ID does not exists: .*");
+    }
+
+    @Override
     protected void verifyConcurrentUpdateFailurePermissible(Exception e)
     {
         assertThat(e).hasMessageContaining("Failed to commit Iceberg update to table");
