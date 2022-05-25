@@ -1481,7 +1481,7 @@ class StatementAnalyzer
             CatalogName catalogName = tableFunctionMetadata.getCatalogName();
 
             QualifiedObjectName functionName = new QualifiedObjectName(catalogName.getCatalogName(), function.getSchema(), function.getName());
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), functionName);
+            accessControl.checkCanExecuteFunction(SecurityContext.of(session), FunctionKind.TABLE, functionName);
 
             Map<String, Argument> passedArguments = analyzeArguments(node, function.getArguments(), node.getArguments());
 
