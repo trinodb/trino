@@ -436,6 +436,30 @@ public class TestDeltaLakeMetadata
                 .isEmpty();
     }
 
+    @Test
+    public void testGetInputInfoForPartitionedTable()
+    {
+        DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(SESSION.getIdentity());
+        ConnectorTableMetadata tableMetadata = newTableMetadata(
+                ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
+                ImmutableList.of(BIGINT_COLUMN_1));
+        deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
+        DeltaLakeTableHandle tableHandle = deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
+        assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(true)));
+    }
+
+    @Test
+    public void testGetInputInfoForUnPartitionedTable()
+    {
+        DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(SESSION.getIdentity());
+        ConnectorTableMetadata tableMetadata = newTableMetadata(
+                ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
+                ImmutableList.of());
+        deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
+        DeltaLakeTableHandle tableHandle = deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
+        assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(false)));
+    }
+
     private static DeltaLakeTableHandle createDeltaLakeTableHandle(Set<ColumnHandle> projectedColumns, Set<DeltaLakeColumnHandle> constrainedColumns)
     {
         return new DeltaLakeTableHandle(

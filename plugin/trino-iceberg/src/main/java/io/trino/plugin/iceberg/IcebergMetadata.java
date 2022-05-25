@@ -1157,8 +1157,15 @@ public class IcebergMetadata
     @Override
     public Optional<Object> getInfo(ConnectorTableHandle tableHandle)
     {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        return Optional.of(new IcebergInputInfo(table.getSnapshotId()));
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(
+                SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson()),
+                icebergTableHandle.getPartitionSpecJson());
+
+        return Optional.of(new IcebergInputInfo(
+                icebergTableHandle.getSnapshotId(),
+                partitionSpec.isPartitioned(),
+                getFileFormat(icebergTableHandle.getStorageProperties()).name()));
     }
 
     @Override
