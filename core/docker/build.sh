@@ -43,6 +43,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "${SCRIPT_DIR}" || exit 2
 
 if [ -n "$TRINO_VERSION" ]; then
+    echo "🎣 Downloading server and client artifacts for release version ${TRINO_VERSION}"
     for artifactId in io.trino:trino-server:"${TRINO_VERSION}":tar.gz io.trino:trino-cli:"${TRINO_VERSION}":jar:executable; do
         "${SOURCE_DIR}/mvnw" -C dependency:get -Dtransitive=false -Dartifact="$artifactId"
     done
@@ -52,10 +53,12 @@ if [ -n "$TRINO_VERSION" ]; then
     chmod +x "$trino_client"
 else
     TRINO_VERSION=$("${SOURCE_DIR}/mvnw" -f "${SOURCE_DIR}/pom.xml" --quiet help:evaluate -Dexpression=project.version -DforceStdout)
+    echo "🎯 Using currently built artifacts from the core/trino-server and client/trino-cli modules and version ${TRINO_VERSION}"
     trino_server="${SOURCE_DIR}/core/trino-server/target/trino-server-${TRINO_VERSION}.tar.gz"
     trino_client="${SOURCE_DIR}/client/trino-cli/target/trino-cli-${TRINO_VERSION}-executable.jar"
 fi
 
+echo "🧱 Preparing the image build context directory"
 WORK_DIR="$(mktemp -d)"
 cp "$trino_server" "${WORK_DIR}/"
 cp "$trino_client" "${WORK_DIR}/"
@@ -67,6 +70,7 @@ cp -R default "${WORK_DIR}/"
 TAG_PREFIX="trino:${TRINO_VERSION}"
 
 for arch in "${ARCHITECTURES[@]}"; do
+    echo "🫙  Building the image for $arch"
     docker build \
         "${WORK_DIR}" \
         --pull \
@@ -76,8 +80,10 @@ for arch in "${ARCHITECTURES[@]}"; do
         --build-arg "TRINO_VERSION=${TRINO_VERSION}"
 done
 
+echo "🧹 Cleaning up the build context directory"
 rm -r "${WORK_DIR}"
 
+echo "🏃 Testing built images"
 source container-test.sh
 
 for arch in "${ARCHITECTURES[@]}"; do
