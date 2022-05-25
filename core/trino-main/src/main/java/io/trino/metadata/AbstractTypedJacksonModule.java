@@ -38,8 +38,12 @@ import com.google.common.cache.CacheBuilder;
 import io.trino.collect.cache.NonEvictableCache;
 
 import java.io.IOException;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -56,15 +60,26 @@ public abstract class AbstractTypedJacksonModule<T>
             Function<Object, String> nameResolver,
             Function<String, Class<?>> classResolver)
     {
+        this(baseClass, nameResolver, classResolver, Optional.empty());
+    }
+
+    protected AbstractTypedJacksonModule(
+            Class<T> baseClass,
+            Function<Object, String> nameResolver,
+            Function<String, Class<?>> classResolver,
+            Optional<BiConsumer<Class<T>, InternalTypeDeserializer<T>>> register)
+    {
         super(baseClass.getSimpleName() + "Module", Version.unknownVersion());
 
         TypeIdResolver typeResolver = new InternalTypeResolver(nameResolver, classResolver);
 
         addSerializer(baseClass, new InternalTypeSerializer<>(baseClass, typeResolver));
-        addDeserializer(baseClass, new InternalTypeDeserializer<>(baseClass, typeResolver));
+        InternalTypeDeserializer<T> deserializer = new InternalTypeDeserializer<>(baseClass, typeResolver);
+        addDeserializer(baseClass, deserializer);
+        register.ifPresent(classInternalTypeDeserializerBiConsumer -> classInternalTypeDeserializerBiConsumer.accept(baseClass, deserializer));
     }
 
-    private static class InternalTypeDeserializer<T>
+    protected static class InternalTypeDeserializer<T>
             extends StdDeserializer<T>
     {
         private final TypeDeserializer typeDeserializer;
@@ -72,7 +87,7 @@ public abstract class AbstractTypedJacksonModule<T>
         public InternalTypeDeserializer(Class<T> baseClass, TypeIdResolver typeIdResolver)
         {
             super(baseClass);
-            this.typeDeserializer = new AsPropertyTypeDeserializer(
+            this.typeDeserializer = new UninstallableInternalAsPropertyTypeDeserializer(
                     TypeFactory.defaultInstance().constructType(baseClass),
                     typeIdResolver,
                     TYPE_PROPERTY,
@@ -86,6 +101,11 @@ public abstract class AbstractTypedJacksonModule<T>
                 throws IOException
         {
             return (T) typeDeserializer.deserializeTypedFromAny(jsonParser, deserializationContext);
+        }
+
+        public TypeDeserializer getTypeDeserializer()
+        {
+            return typeDeserializer;
         }
     }
 
@@ -130,6 +150,23 @@ public abstract class AbstractTypedJacksonModule<T>
         {
             JavaType javaType = provider.constructType(type);
             return (JsonSerializer<T>) BeanSerializerFactory.instance.createSerializer(provider, javaType);
+        }
+    }
+
+    public static class UninstallableInternalAsPropertyTypeDeserializer
+            extends AsPropertyTypeDeserializer
+    {
+        public UninstallableInternalAsPropertyTypeDeserializer(JavaType bt, TypeIdResolver idRes, String typePropertyName, boolean typeIdVisible, JavaType defaultImpl)
+        {
+            super(bt, idRes, typePropertyName, typeIdVisible, defaultImpl);
+        }
+
+        public void removeDeserializer(String classLoaderId)
+        {
+            Set<String> typeIdSet = _deserializers.keySet().stream().filter(typeId -> typeId.startsWith(classLoaderId)).collect(Collectors.toSet());
+            for (String typeId : typeIdSet) {
+                _deserializers.remove(typeId);
+            }
         }
     }
 

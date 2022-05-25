@@ -13,12 +13,15 @@
  */
 package io.trino.metadata;
 
+import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
 import io.trino.server.PluginClassLoader;
 import oshi.annotation.concurrent.ThreadSafe;
 
 import javax.inject.Inject;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -28,6 +31,7 @@ import static com.google.common.base.Preconditions.checkState;
 public final class HandleResolver
 {
     private final Map<String, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+    private final Map<Class<?>, Set<AbstractTypedJacksonModule.InternalTypeDeserializer<?>>> deserializers = new ConcurrentHashMap<>();
 
     @Inject
     public HandleResolver()
@@ -43,8 +47,28 @@ public final class HandleResolver
 
     public void unregisterClassLoader(PluginClassLoader classLoader)
     {
+        unregisterDeserializer(classLoader.getId());
         boolean result = classLoaders.remove(classLoader.getId(), classLoader);
         checkState(result, "Class loader not registered: %s", classLoader.getId());
+    }
+
+    public <T> void registerDeserializer(Class<T> clazz, AbstractTypedJacksonModule.InternalTypeDeserializer<T> deserializer)
+    {
+        Set<AbstractTypedJacksonModule.InternalTypeDeserializer<?>> deserializerSet = deserializers.computeIfAbsent(clazz, k -> new HashSet<>());
+        deserializerSet.add(deserializer);
+    }
+
+    public void unregisterDeserializer(String classLoaderId)
+    {
+        for (Set<AbstractTypedJacksonModule.InternalTypeDeserializer<?>> deserializerSet : deserializers.values()) {
+            for (AbstractTypedJacksonModule.InternalTypeDeserializer<?> deserializer : deserializerSet) {
+                TypeDeserializer typeDeserializer = deserializer.getTypeDeserializer();
+                if (typeDeserializer instanceof AbstractTypedJacksonModule.UninstallableInternalAsPropertyTypeDeserializer) {
+                    AbstractTypedJacksonModule.UninstallableInternalAsPropertyTypeDeserializer uninstallableTypeDeserializer = (AbstractTypedJacksonModule.UninstallableInternalAsPropertyTypeDeserializer) typeDeserializer;
+                    uninstallableTypeDeserializer.removeDeserializer(classLoaderId);
+                }
+            }
+        }
     }
 
     @SuppressWarnings("MethodMayBeStatic")
