@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
@@ -31,11 +32,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.spi.function.FunctionKind.TABLE;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static java.lang.String.format;
@@ -389,8 +392,11 @@ public class LegacyAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
+    public void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
     {
+        if (functionKind == TABLE) {
+            denyExecuteFunction(function.toString());
+        }
     }
 
     @Override
