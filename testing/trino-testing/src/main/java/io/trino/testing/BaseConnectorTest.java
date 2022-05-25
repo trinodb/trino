@@ -518,6 +518,62 @@ public abstract class BaseConnectorTest
         });
     }
 
+    @Test
+    public void testSelectVersionOfNonExistentTable()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        String tableName = "foo_" + randomTableSuffix();
+        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'"))
+                .hasMessage(format("line 1:15: Table '%s.%s.%s' does not exist", catalog, schema, tableName));
+        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'version1'"))
+                .hasMessage(format("line 1:15: Table '%s.%s.%s' does not exist", catalog, schema, tableName));
+    }
+
+    /**
+     * A connector can support FOR TIMESTAMP, FOR VERSION, both or none. With FOR TIMESTAMP/VERSION is can support some types but not the others.
+     * Because of version support being multidimensional, {@link TestingConnectorBehavior} is not defined. The test verifies that query doesn't fail in
+     * some weird way, serving as a smoke test for versioning. The purpose of the test is to validate the connector does proper validation.
+     */
+    @Test
+    public void testTrySelectTableVersion()
+    {
+        testTrySelectTableVersion("SELECT * FROM nation FOR TIMESTAMP AS OF DATE '2005-09-10'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR TIMESTAMP AS OF TIMESTAMP '2005-09-10 13:00:00'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR TIMESTAMP AS OF TIMESTAMP '2005-09-10 13:00:00 Europe/Warsaw'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF TINYINT '123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF SMALLINT '123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF 123");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF BIGINT '123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF REAL '123.123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF DOUBLE '123.123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF DECIMAL '123.123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF CHAR 'abc'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF '123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF CAST('abc' AS varchar(5))");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF CAST('abc' AS varchar)");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF DATE '2005-09-10'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF TIME '13:00:00'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF TIMESTAMP '2005-09-10 13:00:00'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF TIMESTAMP '2005-09-10 13:00:00 Europe/Warsaw'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF JSON '{}'");
+    }
+
+    private void testTrySelectTableVersion(@Language("SQL") String query)
+    {
+        try {
+            computeActual(query);
+        }
+        catch (Exception somewhatExpected) {
+            verifyVersionedQueryFailurePermissible(getTrinoExceptionCause(somewhatExpected));
+        }
+    }
+
+    protected void verifyVersionedQueryFailurePermissible(Exception e)
+    {
+        assertThat(e).hasMessageContaining("This connector does not support versioned tables");
+    }
+
     /**
      * Test interactions between optimizer (including CBO), scheduling and connector metadata APIs.
      */

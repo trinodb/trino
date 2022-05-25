@@ -63,7 +63,6 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
-import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
@@ -80,7 +79,6 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.LongTimestampWithTimeZone;
-import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.FileSystem;
@@ -328,18 +326,6 @@ public class IcebergMetadata
                 ImmutableList.of(),
                 false,
                 Optional.empty());
-    }
-
-    @Override
-    public boolean isSupportedVersionType(ConnectorSession session, SchemaTableName tableName, PointerType pointerType, io.trino.spi.type.Type versioning)
-    {
-        switch (pointerType) {
-            case TEMPORAL:
-                return versioning instanceof TimestampWithTimeZoneType || versioning instanceof TimestampType;
-            case TARGET_ID:
-                return versioning == BIGINT;
-        }
-        return false;
     }
 
     private long getSnapshotIdFromVersion(Table table, ConnectorTableVersion version)

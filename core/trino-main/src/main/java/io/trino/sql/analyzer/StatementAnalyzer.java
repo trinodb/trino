@@ -4541,8 +4541,8 @@ class StatementAnalyzer
         private RedirectionAwareTableHandle getTableHandle(Table table, QualifiedObjectName name, Optional<Scope> scope)
         {
             if (table.getQueryPeriod().isPresent()) {
-                Optional<TableVersion> startVersion = extractTableVersion(table, name, table.getQueryPeriod().get().getStart(), scope);
-                Optional<TableVersion> endVersion = extractTableVersion(table, name, table.getQueryPeriod().get().getEnd(), scope);
+                Optional<TableVersion> startVersion = extractTableVersion(table, table.getQueryPeriod().get().getStart(), scope);
+                Optional<TableVersion> endVersion = extractTableVersion(table, table.getQueryPeriod().get().getEnd(), scope);
                 return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion);
             }
             return metadata.getRedirectionAwareTableHandle(session, name);
@@ -4551,7 +4551,7 @@ class StatementAnalyzer
         /**
          * Analyzes the version pointer in a query period and extracts an evaluated version value
          */
-        private Optional<TableVersion> extractTableVersion(Table table, QualifiedObjectName tableName, Optional<Expression> version, Optional<Scope> scope)
+        private Optional<TableVersion> extractTableVersion(Table table, Optional<Expression> version, Optional<Scope> scope)
         {
             Optional<TableVersion> tableVersion = Optional.empty();
             if (version.isEmpty()) {
@@ -4568,11 +4568,11 @@ class StatementAnalyzer
             }
             Object evaluatedVersion = evaluateConstantExpression(version.get(), versionType, plannerContext, session, accessControl, ImmutableMap.of());
             TableVersion extractedVersion = new TableVersion(pointerType, versionType, evaluatedVersion);
-            validateVersionPointer(tableName, table.getQueryPeriod().get(), extractedVersion);
+            validateVersionPointer(table.getQueryPeriod().get(), extractedVersion);
             return Optional.of(extractedVersion);
         }
 
-        private void validateVersionPointer(QualifiedObjectName tableName, QueryPeriod queryPeriod, TableVersion extractedVersion)
+        private void validateVersionPointer(QueryPeriod queryPeriod, TableVersion extractedVersion)
         {
             Type type = extractedVersion.getObjectType();
             Object pointer = extractedVersion.getPointer();
@@ -4601,10 +4601,6 @@ class StatementAnalyzer
                 if (pointer == null) {
                     throw semanticException(INVALID_ARGUMENTS, queryPeriod, "Pointer value cannot be NULL");
                 }
-            }
-
-            if (!metadata.isValidTableVersion(session, tableName, extractedVersion)) {
-                throw semanticException(TYPE_MISMATCH, queryPeriod, format("Type %s not supported by this connector.", type.getDisplayName()));
             }
         }
 
