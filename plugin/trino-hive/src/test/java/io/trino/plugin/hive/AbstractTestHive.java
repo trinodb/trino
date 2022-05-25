@@ -3241,6 +3241,56 @@ public abstract class AbstractTestHive
         }
     }
 
+    @Test
+    public void testInputInfoWhenTableIsPartitioned()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_input_info_with_partitioned_table");
+        try {
+            createDummyPartitionedTable(tableName, STATISTICS_PARTITIONED_TABLE_COLUMNS);
+            assertInputInfo(tableName, new HiveInputInfo(ImmutableList.of(), true, Optional.of("ORC")));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInputInfoWhenTableIsNotPartitioned()
+    {
+        SchemaTableName tableName = temporaryTable("test_input_info_without_partitioned_table");
+        try {
+            createDummyTable(tableName);
+            assertInputInfo(tableName, new HiveInputInfo(ImmutableList.of(), false, Optional.of("TEXTFILE")));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInputInfoWithParquetTableFormat()
+    {
+        SchemaTableName tableName = temporaryTable("test_input_info_with_parquet_table_format");
+        try {
+            createDummyTable(tableName, PARQUET);
+            assertInputInfo(tableName, new HiveInputInfo(ImmutableList.of(), false, Optional.of("PARQUET")));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    private void assertInputInfo(SchemaTableName tableName, HiveInputInfo expectedInputInfo)
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            HiveTableHandle tableHandle = (HiveTableHandle) metadata.getTableHandle(session, tableName);
+            assertThat(metadata.getInfo(tableHandle)).isEqualTo(Optional.of(expectedInputInfo));
+        }
+    }
+
     /**
      * During table scan, the illegal storage format for some specific table should not fail the whole table scan
      */
@@ -3297,12 +3347,17 @@ public abstract class AbstractTestHive
 
     private void createDummyTable(SchemaTableName tableName)
     {
+        createDummyTable(tableName, TEXTFILE);
+    }
+
+    private void createDummyTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
+    {
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             ConnectorMetadata metadata = transaction.getMetadata();
 
             List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", createUnboundedVarcharType()));
-            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(TEXTFILE));
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(storageFormat));
             ConnectorOutputTableHandle handle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
             metadata.finishCreateTable(session, handle, ImmutableList.of(), ImmutableList.of());
 

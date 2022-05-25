@@ -687,13 +687,24 @@ public class HiveMetadata
     }
 
     @Override
-    public Optional<Object> getInfo(ConnectorTableHandle table)
+    public Optional<Object> getInfo(ConnectorTableHandle tableHandle)
     {
-        return ((HiveTableHandle) table).getPartitions()
-                .map(partitions -> new HiveInputInfo(
-                        partitions.stream()
-                                .map(HivePartition::getPartitionId)
-                                .collect(toImmutableList())));
+        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+        List<String> partitionIds = hiveTableHandle.getPartitions()
+                .map(partitions -> partitions.stream()
+                        .map(HivePartition::getPartitionId)
+                        .collect(toImmutableList()))
+                .orElse(ImmutableList.of());
+
+        Table table = metastore.getTable(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(hiveTableHandle.getSchemaTableName()));
+        Optional<String> tableDefaultFileFormat = HiveStorageFormat
+                .getHiveStorageFormat(table.getStorage().getStorageFormat())
+                .map(HiveStorageFormat::name);
+        return Optional.of(new HiveInputInfo(
+                partitionIds,
+                !hiveTableHandle.getPartitionColumns().isEmpty(),
+                tableDefaultFileFormat));
     }
 
     @Override

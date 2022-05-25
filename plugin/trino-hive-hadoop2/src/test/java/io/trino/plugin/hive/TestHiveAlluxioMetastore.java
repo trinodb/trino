@@ -349,6 +349,24 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testInputInfoWhenTableIsPartitioned()
+    {
+        // Alluxio metastore does not support create/delete operations
+    }
+
+    @Override
+    public void testInputInfoWhenTableIsNotPartitioned()
+    {
+        // Alluxio metastore does not support create/delete operations
+    }
+
+    @Override
+    public void testInputInfoWithParquetTableFormat()
+    {
+        // Alluxio metastore does not support create/delete operations
+    }
+
+    @Override
     public void testUpdateTableColumnStatistics()
     {
         // Alluxio metastore does not support create operations

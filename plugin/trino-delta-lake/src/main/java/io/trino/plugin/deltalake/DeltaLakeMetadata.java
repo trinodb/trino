@@ -1619,6 +1619,13 @@ public class DeltaLakeMetadata
     }
 
     @Override
+    public Optional<Object> getInfo(ConnectorTableHandle table)
+    {
+        boolean isPartitioned = !((DeltaLakeTableHandle) table).getMetadataEntry().getCanonicalPartitionColumns().isEmpty();
+        return Optional.of(new DeltaLakeInputInfo(isPartitioned));
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
