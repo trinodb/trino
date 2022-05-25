@@ -56,12 +56,14 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
+import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
@@ -77,6 +79,9 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
@@ -177,6 +182,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
+import static io.trino.plugin.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.newCreateTableTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.toIcebergSchema;
@@ -189,8 +195,12 @@ import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DEPENDS_ON_TA
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_SNAPSHOTS;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.OPTIMIZE;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.REMOVE_ORPHAN_FILES;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -263,6 +273,20 @@ public class IcebergMetadata
     @Override
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
+        return getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public IcebergTableHandle getTableHandle(
+            ConnectorSession session,
+            SchemaTableName tableName,
+            Optional<ConnectorTableVersion> startVersion,
+            Optional<ConnectorTableVersion> endVersion)
+    {
+        if (startVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "Read table with start version is not supported");
+        }
+
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
         if (name.getTableType() != DATA) {
             // Pretend the table does not exist to produce better error message in case of table redirects to Hive
@@ -276,7 +300,13 @@ public class IcebergMetadata
         catch (TableNotFoundException e) {
             return null;
         }
-        Optional<Long> snapshotId = getSnapshotId(table, name.getSnapshotId());
+
+        if (name.getSnapshotId().isPresent() && endVersion.isPresent()) {
+            throw new TrinoException(GENERIC_USER_ERROR, "Cannot specify end version both in table name and FOR clause");
+        }
+
+        Optional<Long> snapshotId = endVersion.map(version -> getSnapshotIdFromVersion(table, version))
+                .or(() -> getSnapshotId(table, name.getSnapshotId()));
 
         Map<String, String> tableProperties = table.properties();
         String nameMappingJson = tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING);
@@ -296,6 +326,47 @@ public class IcebergMetadata
                 table.properties(),
                 NO_RETRIES,
                 ImmutableList.of());
+    }
+
+    @Override
+    public boolean isSupportedVersionType(ConnectorSession session, SchemaTableName tableName, PointerType pointerType, io.trino.spi.type.Type versioning)
+    {
+        switch (pointerType) {
+            case TEMPORAL:
+                return versioning instanceof TimestampWithTimeZoneType || versioning instanceof TimestampType;
+            case TARGET_ID:
+                return versioning == BIGINT;
+        }
+        return false;
+    }
+
+    private long getSnapshotIdFromVersion(Table table, ConnectorTableVersion version)
+    {
+        io.trino.spi.type.Type versionType = version.getVersionType();
+        switch (version.getPointerType()) {
+            case TEMPORAL:
+                long epochMillis;
+                if (versionType instanceof TimestampWithTimeZoneType) {
+                    epochMillis = ((TimestampWithTimeZoneType) versionType).isShort()
+                            ? unpackMillisUtc((long) version.getVersion())
+                            : ((LongTimestampWithTimeZone) version.getVersion()).getEpochMillis();
+                }
+                else {
+                    throw new TrinoException(NOT_SUPPORTED, "Unsupported type for temporal table version: " + versionType.getDisplayName());
+                }
+                return getSnapshotIdAsOfTime(table, epochMillis);
+
+            case TARGET_ID:
+                if (versionType != BIGINT) {
+                    throw new TrinoException(NOT_SUPPORTED, "Unsupported type for table version: " + versionType.getDisplayName());
+                }
+                long snapshotId = (long) version.getVersion();
+                if (table.snapshot(snapshotId) == null) {
+                    throw new TrinoException(INVALID_ARGUMENTS, "Iceberg snapshot ID does not exists: " + snapshotId);
+                }
+                return snapshotId;
+        }
+        throw new TrinoException(NOT_SUPPORTED, "Version pointer type is not supported: " + version.getPointerType());
     }
 
     @Override
