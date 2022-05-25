@@ -265,21 +265,12 @@ public final class MetadataManager
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
-            // GetTableHandle with the optional version handle field will throw an error if it is not implemented, so only try calling it when we have a version
-            if (startVersion.isPresent() || endVersion.isPresent()) {
-                ConnectorTableHandle versionedTableHandle = metadata.getTableHandle(
-                        connectorSession,
-                        table.asSchemaTableName(),
-                        toConnectorVersion(startVersion),
-                        toConnectorVersion(endVersion));
-                return Optional.ofNullable(versionedTableHandle)
-                        .map(connectorTableHandle -> new TableHandle(
-                                catalogName,
-                                connectorTableHandle,
-                                catalogMetadata.getTransactionHandleFor(catalogName)));
-            }
-
-            return Optional.ofNullable(metadata.getTableHandle(connectorSession, table.asSchemaTableName()))
+            ConnectorTableHandle tableHandle = metadata.getTableHandle(
+                    connectorSession,
+                    table.asSchemaTableName(),
+                    toConnectorVersion(startVersion),
+                    toConnectorVersion(endVersion));
+            return Optional.ofNullable(tableHandle)
                     .map(connectorTableHandle -> new TableHandle(
                             catalogName,
                             connectorTableHandle,

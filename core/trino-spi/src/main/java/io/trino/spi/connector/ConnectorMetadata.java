@@ -82,7 +82,13 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Returns a table handle representing a versioned table. A versioned table differs by having an additional specifier for version.
+     * Returns a table handle for the specified table name and version, or {@code null} if {@code tableName} relation does not exist
+     * or is not a table (e.g. is a view, or a materialized view).
+     *
+     * @throws TrinoException implementation can throw this exception when {@code tableName} refers to a table that
+     * cannot be queried.
+     * @see #getView(ConnectorSession, SchemaTableName)
+     * @see #getMaterializedView(ConnectorSession, SchemaTableName)
      */
     @Nullable
     default ConnectorTableHandle getTableHandle(
@@ -91,9 +97,13 @@ public interface ConnectorMetadata
             Optional<ConnectorTableVersion> startVersion,
             Optional<ConnectorTableVersion> endVersion)
     {
-        if (getTableHandle(session, tableName) == null) {
+        ConnectorTableHandle tableHandle = getTableHandle(session, tableName);
+        if (tableHandle == null) {
             // Not found
             return null;
+        }
+        if (startVersion.isEmpty() && endVersion.isEmpty()) {
+            return tableHandle;
         }
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
     }
