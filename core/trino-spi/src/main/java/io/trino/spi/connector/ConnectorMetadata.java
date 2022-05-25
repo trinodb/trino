@@ -83,6 +83,18 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Returns a table handle representing a versioned table. A versioned table differs by having an additional specifier for version.
+     */
+    default ConnectorTableHandle getTableHandle(
+            ConnectorSession session,
+            SchemaTableName tableName,
+            Optional<ConnectorTableVersion> startVersion,
+            Optional<ConnectorTableVersion> endVersion)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+    }
+
+    /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
      * The returned table handle can contain information in analyzeProperties.
      *
@@ -1313,14 +1325,6 @@ public interface ConnectorMetadata
     default Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
     {
         return Optional.empty();
-    }
-
-    /**
-     * Returns a table handle representing a versioned table. A versioned table differs by having an additional specifier for version.
-     */
-    default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
     }
 
     /**
