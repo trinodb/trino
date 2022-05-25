@@ -68,7 +68,7 @@ public class TestRenameViewTask
     public void testRenameViewOnMaterializedView()
     {
         QualifiedName viewName = qualifiedName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someMaterializedView(), false, false, ImmutableList.of());
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameView(viewName, qualifiedName("existing_materialized_view_new"))))
                 .hasErrorCode(TABLE_NOT_FOUND)

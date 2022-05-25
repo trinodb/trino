@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresPropertyManager;
@@ -46,6 +47,7 @@ public class StatementAnalyzerFactory
     private final TablePropertyManager tablePropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TableProceduresPropertyManager tableProceduresPropertyManager;
+    private final MaterializedViewPropertyManager materializedViewPropertyManager;
 
     @Inject
     public StatementAnalyzerFactory(
@@ -59,7 +61,8 @@ public class StatementAnalyzerFactory
             SessionPropertyManager sessionPropertyManager,
             TablePropertyManager tablePropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
-            TableProceduresPropertyManager tableProceduresPropertyManager)
+            TableProceduresPropertyManager tableProceduresPropertyManager,
+            MaterializedViewPropertyManager materializedViewPropertyManager)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -72,6 +75,7 @@ public class StatementAnalyzerFactory
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.tableProceduresPropertyManager = requireNonNull(tableProceduresPropertyManager, "tableProceduresPropertyManager is null");
+        this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
     }
 
     public StatementAnalyzerFactory withSpecializedAccessControl(AccessControl accessControl)
@@ -87,7 +91,8 @@ public class StatementAnalyzerFactory
                 sessionPropertyManager,
                 tablePropertyManager,
                 analyzePropertyManager,
-                tableProceduresPropertyManager);
+                tableProceduresPropertyManager,
+                materializedViewPropertyManager);
     }
 
     public StatementAnalyzer createStatementAnalyzer(
@@ -111,6 +116,7 @@ public class StatementAnalyzerFactory
                 tablePropertyManager,
                 analyzePropertyManager,
                 tableProceduresPropertyManager,
+                materializedViewPropertyManager,
                 warningCollector,
                 correlationSupport);
     }
@@ -120,6 +126,16 @@ public class StatementAnalyzerFactory
             AccessControl accessControl,
             TablePropertyManager tablePropertyManager,
             AnalyzePropertyManager analyzePropertyManager)
+    {
+        return createTestingStatementAnalyzerFactory(plannerContext, accessControl, tablePropertyManager, analyzePropertyManager, new MaterializedViewPropertyManager());
+    }
+
+    public static StatementAnalyzerFactory createTestingStatementAnalyzerFactory(
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            TablePropertyManager tablePropertyManager,
+            AnalyzePropertyManager analyzePropertyManager,
+            MaterializedViewPropertyManager materializedViewPropertyManager)
     {
         return new StatementAnalyzerFactory(
                 plannerContext,
@@ -132,6 +148,7 @@ public class StatementAnalyzerFactory
                 new SessionPropertyManager(),
                 tablePropertyManager,
                 analyzePropertyManager,
-                new TableProceduresPropertyManager());
+                new TableProceduresPropertyManager(),
+                materializedViewPropertyManager);
     }
 }

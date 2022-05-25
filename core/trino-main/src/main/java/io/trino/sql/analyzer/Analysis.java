@@ -24,6 +24,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
 import io.trino.connector.CatalogName;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
@@ -209,6 +210,7 @@ public class Analysis
     private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
+    private Optional<CreateMaterializedViewAnalysis> createMaterializedView = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<QualifiedObjectName> delegatedRefreshMaterializedView = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
@@ -762,6 +764,16 @@ public class Analysis
         return updatedColumns;
     }
 
+    public void setCreateMaterializedView(CreateMaterializedViewAnalysis createMaterializedView)
+    {
+        this.createMaterializedView = Optional.of(createMaterializedView);
+    }
+
+    public Optional<CreateMaterializedViewAnalysis> getCreateMaterializedView()
+    {
+        return createMaterializedView;
+    }
+
     public void setRefreshMaterializedView(RefreshMaterializedViewAnalysis refreshMaterializedView)
     {
         this.refreshMaterializedView = Optional.of(refreshMaterializedView);
@@ -1294,6 +1306,71 @@ public class Analysis
         public Optional<TableLayout> getNewTableLayout()
         {
             return newTableLayout;
+        }
+    }
+
+    @Immutable
+    public static final class CreateMaterializedViewAnalysis
+    {
+        private final QualifiedObjectName viewName;
+        private final MaterializedViewDefinition definition;
+        private final Query query;
+        private final boolean replace;
+        private final boolean ignoreExisting;
+        private final boolean withData;
+        private final List<TableHandle> sourceTableHandles;
+
+        public CreateMaterializedViewAnalysis(
+                QualifiedObjectName viewName,
+                MaterializedViewDefinition definition,
+                Query query,
+                boolean replace,
+                boolean ignoreExisting,
+                boolean withData,
+                List<TableHandle> sourceTableHandles)
+        {
+            this.viewName = requireNonNull(viewName, "viewName is null");
+            this.definition = requireNonNull(definition, "definition is null");
+            this.query = requireNonNull(query, "query is null");
+            this.replace = replace;
+            this.ignoreExisting = ignoreExisting;
+            this.withData = withData;
+            this.sourceTableHandles = requireNonNull(sourceTableHandles, "sourceTableHandles is null");
+        }
+
+        public QualifiedObjectName getViewName()
+        {
+            return viewName;
+        }
+
+        public MaterializedViewDefinition getDefinition()
+        {
+            return definition;
+        }
+
+        public Query getQuery()
+        {
+            return query;
+        }
+
+        public boolean isReplace()
+        {
+            return replace;
+        }
+
+        public boolean isIgnoreExisting()
+        {
+            return ignoreExisting;
+        }
+
+        public boolean isWithData()
+        {
+            return withData;
+        }
+
+        public List<TableHandle> getSourceTableHandles()
+        {
+            return sourceTableHandles;
         }
     }
 

@@ -800,7 +800,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting, List<TableHandle> sourceTables)
     {
         throw new UnsupportedOperationException();
     }

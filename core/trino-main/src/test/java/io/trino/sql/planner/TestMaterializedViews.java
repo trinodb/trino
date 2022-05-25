@@ -127,7 +127,8 @@ public class TestMaterializedViews
                     freshMaterializedView,
                     materializedViewDefinition,
                     false,
-                    false);
+                    false,
+                    ImmutableList.of());
             return null;
         });
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedView.asSchemaTableName());
@@ -139,7 +140,8 @@ public class TestMaterializedViews
                     notFreshMaterializedView,
                     materializedViewDefinition,
                     false,
-                    false);
+                    false,
+                    ImmutableList.of());
             return null;
         });
 
@@ -159,7 +161,8 @@ public class TestMaterializedViews
                     materializedViewWithCasts,
                     materializedViewDefinitionWithCasts,
                     false,
-                    false);
+                    false,
+                    ImmutableList.of());
             return null;
         });
         testingConnectorMetadata.markMaterializedViewIsFresh(materializedViewWithCasts.asSchemaTableName());

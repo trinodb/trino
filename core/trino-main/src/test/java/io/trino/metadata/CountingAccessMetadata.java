@@ -777,9 +777,9 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting, List<TableHandle> sourceTables)
     {
-        delegate.createMaterializedView(session, viewName, definition, replace, ignoreExisting);
+        delegate.createMaterializedView(session, viewName, definition, replace, ignoreExisting, sourceTables);
     }
 
     @Override

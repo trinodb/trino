@@ -116,7 +116,7 @@ public class TestCreateViewTask
     public void testCreateViewOnMaterializedView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, viewName, someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, viewName, someMaterializedView(), false, false, ImmutableList.of());
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(viewName), false)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)

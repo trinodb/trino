@@ -19,7 +19,6 @@ import io.trino.execution.AddColumnTask;
 import io.trino.execution.CallTask;
 import io.trino.execution.CommentTask;
 import io.trino.execution.CommitTask;
-import io.trino.execution.CreateMaterializedViewTask;
 import io.trino.execution.CreateRoleTask;
 import io.trino.execution.CreateSchemaTask;
 import io.trino.execution.CreateTableTask;
@@ -172,6 +171,7 @@ public final class StatementUtils
             .add(basicStatement(TableExecute.class, ALTER_TABLE_EXECUTE))
             // DML
             .add(basicStatement(CreateTableAsSelect.class, INSERT))
+            .add(basicStatement(CreateMaterializedView.class, INSERT))
             .add(basicStatement(RefreshMaterializedView.class, INSERT))
             .add(basicStatement(Insert.class, INSERT))
             .add(basicStatement(Update.class, UPDATE))
@@ -182,7 +182,6 @@ public final class StatementUtils
             .add(dataDefinitionStatement(Call.class, CallTask.class))
             .add(dataDefinitionStatement(Comment.class, CommentTask.class))
             .add(dataDefinitionStatement(Commit.class, CommitTask.class))
-            .add(dataDefinitionStatement(CreateMaterializedView.class, CreateMaterializedViewTask.class))
             .add(dataDefinitionStatement(CreateRole.class, CreateRoleTask.class))
             .add(dataDefinitionStatement(CreateSchema.class, CreateSchemaTask.class))
             .add(dataDefinitionStatement(CreateTable.class, CreateTableTask.class))

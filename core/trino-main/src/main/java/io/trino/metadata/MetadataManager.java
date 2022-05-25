@@ -1236,11 +1236,29 @@ public final class MetadataManager
     }
 
     @Override
-    public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(
+            Session session,
+            QualifiedObjectName viewName,
+            MaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            List<TableHandle> sourceTableHandles)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        List<ConnectorMetadata> sourceConnectorHandles = sourceTableHandles.stream()
+                .map(tableHandle -> getMetadata(session, tableHandle.getCatalogName()))
+                .collect(Collectors.toList());
+        sourceConnectorHandles.add(metadata);
+
+        if (sourceConnectorHandles.stream()
+                .map(Object::getClass)
+                .distinct()
+                .count() > 1) {
+            throw new TrinoException(NOT_SUPPORTED, "Cross connector materialized views are not supported");
+        }
 
         metadata.createMaterializedView(
                 session.toConnectorSession(catalogName),

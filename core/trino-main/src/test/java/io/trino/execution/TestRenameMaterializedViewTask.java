@@ -37,7 +37,7 @@ public class TestRenameMaterializedViewTask
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
         QualifiedObjectName newMaterializedViewName = qualifiedObjectName("existing_materialized_view_new");
-        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false, ImmutableList.of());
 
         getFutureValue(executeRenameMaterializedView(asQualifiedName(materializedViewName), asQualifiedName(newMaterializedViewName)));
         assertThat(metadata.isMaterializedView(testSession, materializedViewName)).isFalse();
@@ -89,7 +89,7 @@ public class TestRenameMaterializedViewTask
     public void testRenameMaterializedViewTargetTableExists()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false, ImmutableList.of());
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
 
@@ -124,7 +124,7 @@ public class TestRenameMaterializedViewTask
     public void testRenameMaterializedViewTargetViewExists()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false, ImmutableList.of());
         QualifiedName viewName = qualifiedName("existing_view");
         metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), false);
 

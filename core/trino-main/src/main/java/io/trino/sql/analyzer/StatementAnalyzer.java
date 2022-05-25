@@ -31,6 +31,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.MaterializedViewDefinition;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
@@ -311,6 +312,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
+import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
@@ -363,6 +365,7 @@ class StatementAnalyzer
     private final TablePropertyManager tablePropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TableProceduresPropertyManager tableProceduresPropertyManager;
+    private final MaterializedViewPropertyManager materializedViewPropertyManager;
 
     private final WarningCollector warningCollector;
     private final CorrelationSupport correlationSupport;
@@ -382,6 +385,7 @@ class StatementAnalyzer
             TablePropertyManager tablePropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TableProceduresPropertyManager tableProceduresPropertyManager,
+            MaterializedViewPropertyManager materializedViewPropertyManager,
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
@@ -401,6 +405,7 @@ class StatementAnalyzer
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.tableProceduresPropertyManager = tableProceduresPropertyManager;
+        this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
     }
@@ -1272,20 +1277,65 @@ class StatementAnalyzer
             // analyze the query that creates the view
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
-            Scope queryScope = analyzer.analyze(node.getQuery(), scope);
+            Query query = node.getQuery();
+            Scope queryScope = analyzer.analyze(query, scope);
 
             validateColumns(node, queryScope.getRelationType());
 
-            analysis.setUpdateType("CREATE MATERIALIZED VIEW");
-            analysis.setUpdateTarget(
-                    viewName,
-                    Optional.empty(),
-                    Optional.of(
-                            queryScope.getRelationType().getVisibleFields().stream()
-                                    .map(this::createOutputColumn)
-                                    .collect(toImmutableList())));
+            CatalogName viewCatalogName = getRequiredCatalogHandle(metadata, session, node, viewName.getCatalogName());
+            List<ViewColumn> viewColumns = queryScope.getRelationType().getVisibleFields().stream()
+                    .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId()))
+                    .collect(toImmutableList());
+            Map<String, Object> properties = materializedViewPropertyManager.getProperties(
+                    viewCatalogName,
+                    node.getProperties(),
+                    session,
+                    plannerContext,
+                    accessControl,
+                    analysis.getParameters(),
+                    true);
+            accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), viewName, properties);
 
-            return createAndAssignScope(node, scope);
+            MaterializedViewDefinition definition = new MaterializedViewDefinition(
+                    getFormattedSql(node.getQuery(), sqlParser),
+                    session.getCatalog(),
+                    session.getSchema(),
+                    viewColumns,
+                    node.getComment(),
+                    session.getIdentity(),
+                    Optional.empty(),
+                    properties);
+            Analysis.CreateMaterializedViewAnalysis createMV = new Analysis.CreateMaterializedViewAnalysis(
+                    viewName,
+                    definition,
+                    query,
+                    node.isReplace(),
+                    node.isNotExists(),
+                    node.isWithData(),
+                    new ArrayList<>(analysis.getTables()));
+            analysis.setCreateMaterializedView(createMV);
+
+            analysis.setUpdateType("CREATE MATERIALIZED VIEW");
+
+            if (metadata.delegateMaterializedViewRefreshToConnector(session, viewName)) {
+                analysis.setDelegatedRefreshMaterializedView(viewName);
+                analysis.setUpdateTarget(
+                        viewName,
+                        Optional.empty(),
+                        Optional.empty());
+                return createAndAssignScope(node, scope);
+            }
+            else {
+                analysis.setUpdateTarget(
+                        viewName,
+                        Optional.empty(),
+                        Optional.of(
+                                queryScope.getRelationType().getVisibleFields().stream()
+                                        .map(this::createOutputColumn)
+                                        .collect(toImmutableList())));
+
+                return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+            }
         }
 
         @Override

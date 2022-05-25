@@ -322,7 +322,7 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+        public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting, List<TableHandle> sourceTableHandles)
         {
             checkArgument(ignoreExisting || !materializedViews.containsKey(viewName.asSchemaTableName()));
             materializedViews.put(viewName.asSchemaTableName(), definition);

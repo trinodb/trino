@@ -139,7 +139,7 @@ public class TestCreateMaterializedViewTask
         metadata = new MockMetadata(new CatalogName(CATALOG_NAME));
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         parser = queryRunner.getSqlParser();
-        analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(plannerContext, new AllowAllAccessControl(), new TablePropertyManager(), new AnalyzePropertyManager()), new StatementRewrite(ImmutableSet.of()));
+        analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(plannerContext, new AllowAllAccessControl(), new TablePropertyManager(), new AnalyzePropertyManager(), materializedViewPropertyManager), new StatementRewrite(ImmutableSet.of()));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl());
     }
 
@@ -257,7 +257,8 @@ public class TestCreateMaterializedViewTask
                 plannerContext,
                 accessControl,
                 new TablePropertyManager(),
-                new AnalyzePropertyManager());
+                new AnalyzePropertyManager(),
+                materializedViewPropertyManager);
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, new StatementRewrite(ImmutableSet.of()));
         assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, accessControl, parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
@@ -295,12 +296,18 @@ public class TestCreateMaterializedViewTask
         }
 
         @Override
-        public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+        public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting, List<TableHandle> sourceTableHandles)
         {
             materializedViews.put(viewName.asSchemaTableName(), definition);
             if (!ignoreExisting) {
                 throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists");
             }
+        }
+
+        @Override
+        public boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName)
+        {
+            return false;
         }
 
         @Override

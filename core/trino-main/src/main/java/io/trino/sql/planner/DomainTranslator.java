@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.AnalyzePropertyManager;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SessionPropertyManager;
@@ -319,7 +320,8 @@ public final class DomainTranslator
                         new SessionPropertyManager(),
                         new TablePropertyManager(),
                         new AnalyzePropertyManager(),
-                        new TableProceduresPropertyManager()));
+                        new TableProceduresPropertyManager(),
+                        new MaterializedViewPropertyManager()));
         return new Visitor(plannerContext, session, types, typeAnalyzer).process(predicate, false);
     }
 

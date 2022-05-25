@@ -87,7 +87,7 @@ public class TestDropViewTask
     public void testDropViewOnMaterializedView()
     {
         QualifiedName viewName = qualifiedName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someMaterializedView(), false, false, ImmutableList.of());
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropView(viewName, false)))
                 .hasErrorCode(GENERIC_USER_ERROR)
@@ -98,7 +98,7 @@ public class TestDropViewTask
     public void testDropViewOnMaterializedViewIfExists()
     {
         QualifiedName viewName = qualifiedName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someMaterializedView(), false, false, ImmutableList.of());
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropView(viewName, true)))
                 .hasErrorCode(GENERIC_USER_ERROR)

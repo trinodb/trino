@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
@@ -118,7 +119,7 @@ public class CreateMaterializedViewTask
                 properties);
 
         accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, properties);
-        plannerContext.getMetadata().createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
+        plannerContext.getMetadata().createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists(), ImmutableList.of());
 
         stateMachine.setOutput(analysis.getTarget());
         stateMachine.setReferencedTables(analysis.getReferencedTables());

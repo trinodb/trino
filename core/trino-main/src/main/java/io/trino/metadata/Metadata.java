@@ -636,7 +636,13 @@ public interface Metadata
     /**
      * Creates the specified materialized view with the specified view definition.
      */
-    void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
+    void createMaterializedView(
+            Session session,
+            QualifiedObjectName viewName,
+            MaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            List<TableHandle> sourceTableHandles);
 
     /**
      * Drops the specified materialized view.

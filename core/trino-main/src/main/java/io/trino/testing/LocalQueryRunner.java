@@ -390,7 +390,8 @@ public class LocalQueryRunner
                 sessionPropertyManager,
                 tablePropertyManager,
                 analyzePropertyManager,
-                tableProceduresPropertyManager);
+                tableProceduresPropertyManager,
+                materializedViewPropertyManager);
         TypeAnalyzer typeAnalyzer = new TypeAnalyzer(plannerContext, statementAnalyzerFactory);
         this.statsCalculator = createNewStatsCalculator(plannerContext, typeAnalyzer);
         this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, typeAnalyzer);
