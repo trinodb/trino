@@ -64,7 +64,9 @@ public class TestSpiBackwardCompatibility
                     "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getName()",
                     "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getSchema()"))
             .put("383", ImmutableSet.of(
-                    "Method: public abstract java.lang.String io.trino.spi.function.AggregationState.value()"))
+                    "Method: public abstract java.lang.String io.trino.spi.function.AggregationState.value()",
+                    "Method: public default void io.trino.spi.security.SystemAccessControl.checkCanExecuteFunction(io.trino.spi.security.SystemSecurityContext,io.trino.spi.connector.CatalogSchemaRoutineName)",
+                    "Method: public default void io.trino.spi.connector.ConnectorAccessControl.checkCanExecuteFunction(io.trino.spi.connector.ConnectorSecurityContext,io.trino.spi.connector.SchemaRoutineName)"))
             .buildOrThrow();
 
     @Test
