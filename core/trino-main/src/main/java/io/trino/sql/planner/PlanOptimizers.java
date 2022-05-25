@@ -84,6 +84,7 @@ import io.trino.sql.planner.iterative.rule.MergeUnion;
 import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import io.trino.sql.planner.iterative.rule.OptimizeDuplicateInsensitiveJoins;
 import io.trino.sql.planner.iterative.rule.OptimizeRowPattern;
+import io.trino.sql.planner.iterative.rule.PreAggregateCaseAggregations;
 import io.trino.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.trino.sql.planner.iterative.rule.PruneAggregationSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneApplyColumns;
@@ -453,7 +454,8 @@ public class PlanOptimizers
                                         new PruneCountAggregationOverScalar(metadata),
                                         new PruneOrderByInAggregation(metadata),
                                         new RewriteSpatialPartitioningAggregation(plannerContext),
-                                        new SimplifyCountOverConstant(plannerContext)))
+                                        new SimplifyCountOverConstant(plannerContext),
+                                        new PreAggregateCaseAggregations(plannerContext, typeAnalyzer)))
                                 .build()),
                 new IterativeOptimizer(
                         plannerContext,
