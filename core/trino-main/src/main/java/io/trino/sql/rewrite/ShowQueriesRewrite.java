@@ -25,7 +25,6 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.FunctionKind;
-import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -173,7 +172,6 @@ public final class ShowQueriesRewrite
     @Inject
     public ShowQueriesRewrite(
             Metadata metadata,
-            FunctionManager functionManager,
             SqlParser parser,
             AccessControl accessControl,
             SessionPropertyManager sessionPropertyManager,
