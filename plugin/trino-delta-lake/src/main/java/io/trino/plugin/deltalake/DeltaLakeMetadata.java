@@ -48,6 +48,7 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFacto
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HivePrincipal;
@@ -862,6 +863,12 @@ public class DeltaLakeMetadata
                 .setParameters(deltaTableProperties(session, location, handle.isExternal()));
         setDeltaStorageFormat(tableBuilder, location, getExternalPath(new HdfsContext(session), location));
         Table table = tableBuilder.build();
+        // Ensure the table has queryId set. This is relied on for exception handling
+        String queryId = session.getQueryId();
+        verify(
+                getQueryId(table).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
+                "Table does not have correct query id set",
+                table);
 
         try {
             // For CTAS there is no risk of multiple writers racing. Using writer without transaction isolation so we are not limiting support for CTAS to
@@ -882,7 +889,19 @@ public class DeltaLakeMetadata
             appendAddFileEntries(transactionLogWriter, dataFileInfos, handle.getPartitionedBy(), true);
             transactionLogWriter.flush();
             PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
-            metastore.createTable(session, table, principalPrivileges);
+
+            try {
+                metastore.createTable(session, table, principalPrivileges);
+            }
+            catch (TableAlreadyExistsException e) {
+                // Ignore TableAlreadyExistsException when table looks like created by us.
+                // This may happen when an actually successful metastore create call is retried
+                // e.g. because of a timeout on our side.
+                Optional<Table> existingTable = metastore.getTable(schemaName, tableName);
+                if (existingTable.isEmpty() || !isCreatedBy(existingTable.get(), queryId)) {
+                    throw e;
+                }
+            }
         }
         catch (Exception e) {
             // Remove the transaction log entry if the table creation fails
@@ -899,6 +918,12 @@ public class DeltaLakeMetadata
         }
 
         return Optional.empty();
+    }
+
+    private static boolean isCreatedBy(Table table, String queryId)
+    {
+        Optional<String> tableQueryId = getQueryId(table);
+        return tableQueryId.isPresent() && tableQueryId.get().equals(queryId);
     }
 
     @Override
@@ -2246,5 +2271,10 @@ public class DeltaLakeMetadata
     {
         boolean isPartitionKey = partitionColumns.stream().anyMatch(partition -> partition.equalsIgnoreCase(column.getName()));
         return new DeltaLakeColumnHandle(column.getName(), column.getType(), isPartitionKey ? PARTITION_KEY : REGULAR);
+    }
+
+    private static Optional<String> getQueryId(Table table)
+    {
+        return Optional.ofNullable(table.getParameters().get(PRESTO_QUERY_ID_NAME));
     }
 }
