@@ -1123,7 +1123,6 @@ public class LocalQueryRunner
                         new DescribeOutputRewrite(sqlParser),
                         new ShowQueriesRewrite(
                                 plannerContext.getMetadata(),
-                                plannerContext.getFunctionManager(),
                                 sqlParser,
                                 accessControl,
                                 sessionPropertyManager,
