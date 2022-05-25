@@ -77,6 +77,8 @@ public final class IcebergSessionProperties
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "expire_snapshots_min_retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "remove_orphan_files_min_retention";
 
+    public static final String EXPERIMENTAL_SPLIT_BUNDLING = "experimental_split_bundling";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -241,6 +243,11 @@ public final class IcebergSessionProperties
                         "Minimal retention period for remove_orphan_files procedure",
                         icebergConfig.getRemoveOrphanFilesMinRetention(),
                         false))
+                .add(booleanProperty(
+                        EXPERIMENTAL_SPLIT_BUNDLING,
+                        "experimental split bundling",
+                        true,
+                        false))
                 .build();
     }
 
@@ -395,5 +402,10 @@ public final class IcebergSessionProperties
     public static Duration getRemoveOrphanFilesMinRetention(ConnectorSession session)
     {
         return session.getProperty(REMOVE_ORPHAN_FILES_MIN_RETENTION, Duration.class);
+    }
+
+    public static boolean getExperimentalSplitBundling(ConnectorSession session)
+    {
+        return session.getProperty(EXPERIMENTAL_SPLIT_BUNDLING, Boolean.class);
     }
 }

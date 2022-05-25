@@ -186,6 +186,7 @@ public class TestIcebergSplitSource
                 new Duration(2, SECONDS),
                 alwaysTrue(),
                 new TestingTypeManager(),
+                false,
                 false);
 
         ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();

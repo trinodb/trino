@@ -99,6 +99,7 @@ public class IcebergSplitSource
     private final Stopwatch dynamicFilterWaitStopwatch;
     private final Constraint constraint;
     private final TypeManager typeManager;
+    private final boolean bundleSplits;
 
     private CloseableIterator<ConnectorSplit> splitIterator;
     private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
@@ -114,7 +115,8 @@ public class IcebergSplitSource
             Duration dynamicFilteringWaitTimeout,
             Constraint constraint,
             TypeManager typeManager,
-            boolean recordScannedFiles)
+            boolean recordScannedFiles,
+            boolean bundleSplits)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
@@ -126,6 +128,7 @@ public class IcebergSplitSource
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.recordScannedFiles = recordScannedFiles;
+        this.bundleSplits = bundleSplits;
     }
 
     @Override
@@ -159,7 +162,7 @@ public class IcebergSplitSource
             }
 
             Expression filterExpression = toIcebergExpression(effectivePredicate);
-            if (tableHandle.isUpdateOrDelete()) {
+            if (!bundleSplits || tableHandle.isUpdateOrDelete()) {
                 this.splitIterator = new IndividualSplitIterator(filterExpression);
             }
             else {
@@ -228,7 +231,7 @@ public class IcebergSplitSource
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .collect(toImmutableList());
-            SplitWeight splitWeight = SplitWeight.fromProportion(Math.min((double) splits.stream().mapToLong(IcebergSplit::getLength).sum() / tableScan.targetSplitSize(), 1.0));
+            SplitWeight splitWeight = SplitWeight.fromProportion((double) splits.stream().mapToLong(IcebergSplit::getLength).sum() / tableScan.targetSplitSize());
             return new CombinedIcebergSplit(splits, splitWeight);
         }
     }
@@ -491,7 +494,7 @@ public class IcebergSplitSource
                 task.deletes().stream()
                         .map(TrinoDeleteFile::copyOf)
                         .collect(toImmutableList()),
-                SplitWeight.fromProportion(Math.min((double) task.length() / tableScan.targetSplitSize(), 1.0)));
+                SplitWeight.fromProportion((double) task.length() / tableScan.targetSplitSize()));
     }
 
     private static String hadoopPath(String path)
