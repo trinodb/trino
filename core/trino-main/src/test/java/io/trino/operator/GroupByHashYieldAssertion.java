@@ -127,7 +127,10 @@ public final class GroupByHashYieldAssertion
                 // free the pool for the next iteration
                 memoryPool.free(anotherTaskId, "test", reservedMemoryInBytes);
                 // this required in case input is blocked
-                operator.getOutput();
+                output = operator.getOutput();
+                if (output != null) {
+                    result.add(output);
+                }
                 continue;
             }
 
@@ -140,7 +143,7 @@ public final class GroupByHashYieldAssertion
                 assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
 
                 // assert the hash capacity is not changed; otherwise, we should have yielded
-                assertTrue(oldCapacity == getHashCapacity.apply(operator));
+                assertEquals((int) getHashCapacity.apply(operator), oldCapacity);
 
                 // We are not going to rehash; therefore, assert the memory increase only comes from the aggregator
                 assertLessThan(actualIncreasedMemory, additionalMemoryInBytes);
