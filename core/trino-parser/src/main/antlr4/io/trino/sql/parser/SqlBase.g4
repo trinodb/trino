@@ -81,7 +81,8 @@ statement
     | CREATE (OR REPLACE)? MATERIALIZED VIEW
         (IF NOT EXISTS)? qualifiedName
         (COMMENT string)?
-        (WITH properties)? AS query                                    #createMaterializedView
+        (WITH properties)? AS (query | '('query')')
+        (WITH (NO)? DATA)?                                             #createMaterializedView
     | CREATE (OR REPLACE)? VIEW qualifiedName
         (COMMENT string)?
         (SECURITY (DEFINER | INVOKER))? AS query                       #createView

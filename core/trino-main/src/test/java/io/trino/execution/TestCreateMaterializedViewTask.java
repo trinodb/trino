@@ -161,7 +161,8 @@ public class TestCreateMaterializedViewTask
                 false,
                 true,
                 ImmutableList.of(),
-                Optional.empty());
+                Optional.empty(),
+                false);
 
         getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP));
@@ -178,7 +179,8 @@ public class TestCreateMaterializedViewTask
                 false,
                 false,
                 ImmutableList.of(),
-                Optional.empty());
+                Optional.empty(),
+                false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
@@ -198,7 +200,8 @@ public class TestCreateMaterializedViewTask
                 false,
                 true,
                 ImmutableList.of(new Property(new Identifier("baz"), new StringLiteral("abc"))),
-                Optional.empty());
+                Optional.empty(),
+                false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
@@ -221,7 +224,8 @@ public class TestCreateMaterializedViewTask
                 ImmutableList.of(
                         new Property(new Identifier("foo")),    // set foo to DEFAULT
                         new Property(new Identifier("bar"))),   // set bar to DEFAULT
-                Optional.empty());
+                Optional.empty(),
+                false);
         getFutureValue(
                 new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
                         .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP));
@@ -243,7 +247,8 @@ public class TestCreateMaterializedViewTask
                 false,
                 true,
                 ImmutableList.of(),
-                Optional.empty());
+                Optional.empty(),
+                false);
         TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, emptyEventListenerManager());
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControl.deny(privilege("test_mv", CREATE_MATERIALIZED_VIEW));

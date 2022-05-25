@@ -974,6 +974,10 @@ public final class SqlFormatter
 
             process(node.getQuery(), indent);
 
+            if (!node.isWithData()) {
+                builder.append(" WITH NO DATA");
+            }
+
             return null;
         }
 

@@ -603,7 +603,7 @@ public final class ShowQueriesRewrite
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
 
                 String sql = formatSql(new CreateMaterializedView(Optional.empty(), QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
-                        query, false, false, propertyNodes, viewDefinition.get().getComment())).trim();
+                        query, false, false, propertyNodes, viewDefinition.get().getComment(), true)).trim();
                 return singleValueQuery("Create Materialized View", sql);
             }
 

@@ -31,6 +31,7 @@ public class CreateMaterializedView
     private final boolean notExists;
     private final List<Property> properties;
     private final Optional<String> comment;
+    private final boolean withData;
 
     public CreateMaterializedView(Optional<NodeLocation> location,
             QualifiedName name,
@@ -38,7 +39,8 @@ public class CreateMaterializedView
             boolean replace,
             boolean notExists,
             List<Property> properties,
-            Optional<String> comment)
+            Optional<String> comment,
+            boolean withData)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -47,6 +49,7 @@ public class CreateMaterializedView
         this.notExists = notExists;
         this.properties = properties;
         this.comment = comment;
+        this.withData = withData;
     }
 
     public QualifiedName getName()
@@ -79,6 +82,11 @@ public class CreateMaterializedView
         return comment;
     }
 
+    public boolean isWithData()
+    {
+        return withData;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -94,7 +102,7 @@ public class CreateMaterializedView
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, replace, notExists, properties, comment);
+        return Objects.hash(name, query, replace, notExists, properties, comment, withData);
     }
 
     @Override
@@ -112,7 +120,8 @@ public class CreateMaterializedView
                 && Objects.equals(replace, o.replace)
                 && Objects.equals(notExists, o.notExists)
                 && Objects.equals(properties, o.properties)
-                && Objects.equals(comment, o.comment);
+                && Objects.equals(comment, o.comment)
+                && Objects.equals(withData, o.withData);
     }
 
     @Override
@@ -125,6 +134,7 @@ public class CreateMaterializedView
                 .add("notExists", notExists)
                 .add("properties", properties)
                 .add("comment", comment)
+                .add("withData", withData)
                 .toString();
     }
 }

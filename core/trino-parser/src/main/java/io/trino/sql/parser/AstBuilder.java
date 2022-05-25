@@ -450,7 +450,8 @@ class AstBuilder
                 context.REPLACE() != null,
                 context.EXISTS() != null,
                 properties,
-                comment);
+                comment,
+                context.NO() == null);
     }
 
     @Override

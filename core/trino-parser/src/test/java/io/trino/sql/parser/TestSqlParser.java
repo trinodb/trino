@@ -3278,18 +3278,24 @@ public class TestSqlParser
         Optional<NodeLocation> location = Optional.empty();
 
         assertStatement("CREATE MATERIALIZED VIEW a AS SELECT * FROM t", new CreateMaterializedView(location,
-                QualifiedName.of("a"), query, false, false, new ArrayList<>(), Optional.empty()));
+                QualifiedName.of("a"), query, false, false, new ArrayList<>(), Optional.empty(), true));
+
+        assertStatement("CREATE MATERIALIZED VIEW a AS SELECT * FROM t WITH DATA", new CreateMaterializedView(location,
+                QualifiedName.of("a"), query, false, false, new ArrayList<>(), Optional.empty(), true));
+
+        assertStatement("CREATE MATERIALIZED VIEW a AS SELECT * FROM t WITH NO DATA", new CreateMaterializedView(location,
+                QualifiedName.of("a"), query, false, false, new ArrayList<>(), Optional.empty(), false));
 
         Query query2 = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("catalog2", "schema2", "tab")));
         assertStatement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
                         " AS SELECT * FROM catalog2.schema2.tab",
                 new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
-                        true, false, new ArrayList<>(), Optional.of("A simple materialized view")));
+                        true, false, new ArrayList<>(), Optional.of("A simple materialized view"), true));
 
         assertStatement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
                         " AS SELECT * FROM catalog2.schema2.tab",
                 new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
-                        true, false, new ArrayList<>(), Optional.of("A simple materialized view")));
+                        true, false, new ArrayList<>(), Optional.of("A simple materialized view"), true));
 
         List<Property> properties = ImmutableList.of(new Property(new Identifier("partitioned_by"),
                 new ArrayConstructor(ImmutableList.of(new StringLiteral("dateint")))));
@@ -3298,7 +3304,19 @@ public class TestSqlParser
                         "WITH (partitioned_by = ARRAY ['dateint'])" +
                         " AS SELECT * FROM catalog2.schema2.tab",
                 new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
-                        true, false, properties, Optional.of("A simple materialized view")));
+                        true, false, properties, Optional.of("A simple materialized view"), true));
+
+        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
+                        "WITH (partitioned_by = ARRAY ['dateint'])" +
+                        " AS SELECT * FROM catalog2.schema2.tab WITH DATA",
+                new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
+                        true, false, properties, Optional.of("A simple materialized view"), true));
+
+        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
+                        "WITH (partitioned_by = ARRAY ['dateint'])" +
+                        " AS SELECT * FROM catalog2.schema2.tab WITH NO DATA",
+                new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
+                        true, false, properties, Optional.of("A simple materialized view"), false));
 
         Query query3 = new Query(Optional.of(new With(false, ImmutableList.of(
                 new WithQuery(identifier("a"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.of(ImmutableList.of(identifier("t"), identifier("u")))),
@@ -3312,7 +3330,7 @@ public class TestSqlParser
                         "WITH (partitioned_by = ARRAY ['dateint'])" +
                         " AS WITH a (t, u) AS (SELECT * FROM x), b AS (SELECT * FROM a) TABLE b",
                 new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query3,
-                        true, false, properties, Optional.of("A partitioned materialized view")));
+                        true, false, properties, Optional.of("A partitioned materialized view"), true));
     }
 
     @Test
