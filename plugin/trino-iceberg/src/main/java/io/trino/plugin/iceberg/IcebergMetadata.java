@@ -271,7 +271,7 @@ public class IcebergMetadata
     @Override
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+        throw new UnsupportedOperationException("This method is not supported because getTableHandle with versions is implemented instead");
     }
 
     @Override
@@ -2080,7 +2080,7 @@ public class IcebergMetadata
             String schema = strings.get(0);
             String name = strings.get(1);
             SchemaTableName schemaTableName = new SchemaTableName(schema, name);
-            IcebergTableHandle tableHandle = getTableHandle(session, schemaTableName);
+            IcebergTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
 
             if (tableHandle == null) {
                 throw new MaterializedViewNotFoundException(materializedViewName);
