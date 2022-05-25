@@ -1,0 +1,7 @@
+[
+    {
+        "sessionProperties":{
+            "allow_pushdown_into_connectors":true
+        }
+    }
+]

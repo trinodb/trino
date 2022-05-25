@@ -165,6 +165,7 @@ import io.trino.sql.planner.iterative.rule.PushLimitThroughProject;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughUnion;
 import io.trino.sql.planner.iterative.rule.PushOffsetThroughProject;
+import io.trino.sql.planner.iterative.rule.PushPartialAggregationIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import io.trino.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
@@ -969,6 +970,17 @@ public class PlanOptimizers
 
         // Precomputed hashes - this assumes that partitioning will not change
         builder.add(new HashGenerationOptimizer(metadata));
+        Set<Rule<?>> pushIntoTableScanRulesExceptJoinsss = ImmutableSet.<Rule<?>>builder()
+                .add(new PushPartialAggregationIntoTableScan(plannerContext, typeAnalyzer))
+                .build();
+        IterativeOptimizer pushIntoTableScanOptimizersss = new IterativeOptimizer(
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                pushIntoTableScanRulesExceptJoinsss);
+
+        builder.add(pushIntoTableScanOptimizersss);
 
         builder.add(new BeginTableWrite(metadata, plannerContext.getFunctionManager())); // HACK! see comments in BeginTableWrite
 
