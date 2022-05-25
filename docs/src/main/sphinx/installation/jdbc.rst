@@ -99,7 +99,7 @@ examples are equivalent:
 
 .. code-block:: java
 
-    // URL parameters
+    // properties
     String url = "jdbc:trino://example.net:8080/hive/sales";
     Properties properties = new Properties();
     properties.setProperty("user", "test");
@@ -107,7 +107,7 @@ examples are equivalent:
     properties.setProperty("SSL", "true");
     Connection connection = DriverManager.getConnection(url, properties);
 
-    // properties
+    // URL parameters
     String url = "jdbc:trino://example.net:8443/hive/sales?user=test&password=secret&SSL=true";
     Connection connection = DriverManager.getConnection(url);
 
