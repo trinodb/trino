@@ -820,6 +820,8 @@ public final class ShowQueriesRewrite
                     return "window";
                 case SCALAR:
                     return "scalar";
+                case TABLE:
+                    throw new IllegalArgumentException("Unexpected function kind: " + kind); // TODO https://github.com/trinodb/trino/issues/12550
             }
             throw new IllegalArgumentException("Unsupported function kind: " + kind);
         }
