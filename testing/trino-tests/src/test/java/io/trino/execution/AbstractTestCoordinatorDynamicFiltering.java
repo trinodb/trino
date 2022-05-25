@@ -43,8 +43,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingPageSinkProvider;
 import io.trino.testing.TestingTransactionHandle;
@@ -62,10 +60,6 @@ import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION;
-import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
-import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
 import static io.trino.spi.predicate.Domain.multipleValues;
@@ -76,8 +70,6 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
-import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingSplit.createRemoteSplit;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -85,8 +77,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
-public class TestCoordinatorDynamicFiltering
+public abstract class AbstractTestCoordinatorDynamicFiltering
         extends AbstractTestQueryFramework
 {
     private static final TestingMetadata.TestingColumnHandle ORDERKEY_HANDLE = new TestingMetadata.TestingColumnHandle("orderkey", 0, BIGINT);
@@ -113,29 +104,6 @@ public class TestCoordinatorDynamicFiltering
         computeActual("CREATE TABLE lineitem AS SELECT * FROM tpch.tiny.lineitem");
         computeActual("CREATE TABLE customer AS SELECT * FROM tpch.tiny.customer");
         computeActual("CREATE TABLE store_sales AS SELECT * FROM tpcds.tiny.store_sales");
-    }
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        Session session = testSessionBuilder()
-                .setCatalog("test")
-                .setSchema("default")
-                .setSystemProperty(TASK_CONCURRENCY, "2")
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
-                // disable semi join to inner join rewrite to test semi join operators explicitly
-                .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
-                .build();
-        return DistributedQueryRunner.builder(session)
-                .setExtraProperties(ImmutableMap.of(
-                        // keep limits lower to test edge cases
-                        "dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "10",
-                        // disable semi join to inner join rewrite to test semi join operators explicitly
-                        "optimizer.rewrite-filtering-semi-join-to-inner-join", "false",
-                        "dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "10"))
-                .build();
     }
 
     @Test(timeOut = 30_000, dataProvider = "testJoinDistributionType")
