@@ -843,12 +843,6 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public boolean isValidTableVersion(Session session, QualifiedObjectName tableName, TableVersion version)
-    {
-        return delegate.isValidTableVersion(session, tableName, version);
-    }
-
-    @Override
     public boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle)
     {
         return false;

@@ -860,12 +860,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public boolean isValidTableVersion(Session session, QualifiedObjectName tableName, TableVersion version)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();

@@ -822,6 +822,10 @@ public class TestAnalyzer
                 .hasErrorCode(SCHEMA_NOT_FOUND);
         assertFails("SELECT * FROM foo")
                 .hasErrorCode(TABLE_NOT_FOUND);
+        assertFails("SELECT * FROM foo FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'")
+                .hasErrorCode(TABLE_NOT_FOUND);
+        assertFails("SELECT * FROM foo FOR VERSION AS OF 'version1'")
+                .hasErrorCode(TABLE_NOT_FOUND);
     }
 
     @Test
