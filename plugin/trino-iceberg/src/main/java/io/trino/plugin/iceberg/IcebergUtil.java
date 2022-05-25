@@ -234,7 +234,12 @@ public final class IcebergUtil
 
     public static IcebergFileFormat getFileFormat(Table table)
     {
-        return IcebergFileFormat.fromIceberg(FileFormat.valueOf(table.properties()
+        return getFileFormat(table.properties());
+    }
+
+    public static IcebergFileFormat getFileFormat(Map<String, String> storageProperties)
+    {
+        return IcebergFileFormat.fromIceberg(FileFormat.valueOf(storageProperties
                 .getOrDefault(DEFAULT_FILE_FORMAT, DEFAULT_FILE_FORMAT_DEFAULT)
                 .toUpperCase(Locale.ENGLISH)));
     }
