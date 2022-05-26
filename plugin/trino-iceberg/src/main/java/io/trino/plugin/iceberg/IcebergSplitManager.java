@@ -32,6 +32,8 @@ import javax.inject.Inject;
 
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExperimentalSplitBundling;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getSplitWeightMax;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getSplitWeightMin;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -81,7 +83,9 @@ public class IcebergSplitManager
                 constraint,
                 typeManager,
                 table.isRecordScannedFiles(),
-                getExperimentalSplitBundling(session));
+                getExperimentalSplitBundling(session),
+                getSplitWeightMax(session),
+                getSplitWeightMin(session));
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
     }

@@ -100,6 +100,8 @@ public class IcebergSplitSource
     private final Constraint constraint;
     private final TypeManager typeManager;
     private final boolean bundleSplits;
+    private final double splitWeightMax;
+    private final double splitWeightMin;
 
     private CloseableIterator<ConnectorSplit> splitIterator;
     private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
@@ -116,7 +118,9 @@ public class IcebergSplitSource
             Constraint constraint,
             TypeManager typeManager,
             boolean recordScannedFiles,
-            boolean bundleSplits)
+            boolean bundleSplits,
+            double splitWeightMax,
+            double splitWeightMin)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
@@ -129,6 +133,8 @@ public class IcebergSplitSource
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.recordScannedFiles = recordScannedFiles;
         this.bundleSplits = bundleSplits;
+        this.splitWeightMax = splitWeightMax;
+        this.splitWeightMin = splitWeightMin;
     }
 
     @Override
@@ -481,6 +487,9 @@ public class IcebergSplitSource
 
     private IcebergSplit toIcebergSplit(FileScanTask task)
     {
+        double weight = (double) task.length() / tableScan.targetSplitSize();
+        weight = Math.max(weight, splitWeightMin);
+        weight = Math.min(weight, splitWeightMax);
         return new IcebergSplit(
                 hadoopPath(task.file().path().toString()),
                 task.start(),
@@ -494,7 +503,7 @@ public class IcebergSplitSource
                 task.deletes().stream()
                         .map(TrinoDeleteFile::copyOf)
                         .collect(toImmutableList()),
-                SplitWeight.fromProportion((double) task.length() / tableScan.targetSplitSize()));
+                SplitWeight.fromProportion(weight));
     }
 
     private static String hadoopPath(String path)

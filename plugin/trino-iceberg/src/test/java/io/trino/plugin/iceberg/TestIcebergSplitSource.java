@@ -187,7 +187,9 @@ public class TestIcebergSplitSource
                 alwaysTrue(),
                 new TestingTypeManager(),
                 false,
-                false);
+                false,
+                Double.MAX_VALUE,
+                0.0);
 
         ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {

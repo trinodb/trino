@@ -78,6 +78,8 @@ public final class IcebergSessionProperties
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "remove_orphan_files_min_retention";
 
     public static final String EXPERIMENTAL_SPLIT_BUNDLING = "experimental_split_bundling";
+    public static final String SPLIT_WEIGHT_MIN = "split_weight_min";
+    public static final String SPLIT_WEIGHT_MAX = "split_weight_max";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -248,6 +250,16 @@ public final class IcebergSessionProperties
                         "experimental split bundling",
                         true,
                         false))
+                .add(doubleProperty(
+                        SPLIT_WEIGHT_MAX,
+                        "split weight max",
+                        Double.MAX_VALUE,
+                        false))
+                .add(doubleProperty(
+                        SPLIT_WEIGHT_MIN,
+                        "split weight min",
+                        0.0,
+                        false))
                 .build();
     }
 
@@ -407,5 +419,15 @@ public final class IcebergSessionProperties
     public static boolean getExperimentalSplitBundling(ConnectorSession session)
     {
         return session.getProperty(EXPERIMENTAL_SPLIT_BUNDLING, Boolean.class);
+    }
+
+    public static double getSplitWeightMax(ConnectorSession session)
+    {
+        return session.getProperty(SPLIT_WEIGHT_MAX, Double.class);
+    }
+
+    public static double getSplitWeightMin(ConnectorSession session)
+    {
+        return session.getProperty(SPLIT_WEIGHT_MIN, Double.class);
     }
 }
