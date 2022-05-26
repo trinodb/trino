@@ -20,7 +20,6 @@ import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.spi.NodeManager;
@@ -69,8 +68,7 @@ public class DeltaLakeMetadataFactory
             NodeManager nodeManager,
             CheckpointWriterManager checkpointWriterManager,
             DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider,
-            CachingExtendedStatisticsAccess statisticsAccess,
-            HiveConfig hiveConfig)
+            CachingExtendedStatisticsAccess statisticsAccess)
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -89,8 +87,8 @@ public class DeltaLakeMetadataFactory
         this.unsafeWritesEnabled = deltaLakeConfig.getUnsafeWritesEnabled();
         this.checkpointWritingInterval = deltaLakeConfig.getDefaultCheckpointWritingInterval();
         this.ignoreCheckpointWriteFailures = deltaLakeConfig.isIgnoreCheckpointWriteFailures();
-        this.perTransactionMetastoreCacheMaximumSize = hiveConfig.getPerTransactionMetastoreCacheMaximumSize();
-        this.deleteSchemaLocationsFallback = hiveConfig.isDeleteSchemaLocationsFallback();
+        this.perTransactionMetastoreCacheMaximumSize = deltaLakeConfig.getPerTransactionMetastoreCacheMaximumSize();
+        this.deleteSchemaLocationsFallback = deltaLakeConfig.isDeleteSchemaLocationsFallback();
     }
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
