@@ -16,14 +16,17 @@ package io.trino.plugin.deltalake;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
+import org.joda.time.DateTimeZone;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -58,6 +61,9 @@ public class DeltaLakeConfig
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
     private HiveCompressionCodec compressionCodec = HiveCompressionCodec.SNAPPY;
+    private long perTransactionMetastoreCacheMaximumSize = 1000;
+    private boolean deleteSchemaLocationsFallback;
+    private String parquetTimeZone = TimeZone.getDefault().getID();
 
     public Duration getMetadataCacheTtl()
     {
@@ -309,6 +315,54 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    @Min(1)
+    public long getPerTransactionMetastoreCacheMaximumSize()
+    {
+        return perTransactionMetastoreCacheMaximumSize;
+    }
+
+    @LegacyConfig("hive.per-transaction-metastore-cache-maximum-size")
+    @Config("delta.per-transaction-metastore-cache-maximum-size")
+    public DeltaLakeConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
+    {
+        this.perTransactionMetastoreCacheMaximumSize = perTransactionMetastoreCacheMaximumSize;
+        return this;
+    }
+
+    public boolean isDeleteSchemaLocationsFallback()
+    {
+        return this.deleteSchemaLocationsFallback;
+    }
+
+    @LegacyConfig("hive.per-transaction-metastore-cache-maximum-size")
+    @Config("delta.delete-schema-locations-fallback")
+    @ConfigDescription("Whether schema locations should be deleted when Trino can't determine whether they contain external files.")
+    public DeltaLakeConfig setDeleteSchemaLocationsFallback(boolean deleteSchemaLocationsFallback)
+    {
+        this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
+        return this;
+    }
+
+    public DateTimeZone getParquetDateTimeZone()
+    {
+        return DateTimeZone.forID(parquetTimeZone);
+    }
+
+    @NotNull
+    public String getParquetTimeZone()
+    {
+        return parquetTimeZone;
+    }
+
+    @LegacyConfig("hive.parquet.time-zone")
+    @Config("delta.parquet.time-zone")
+    @ConfigDescription("Time zone for Parquet read and write")
+    public DeltaLakeConfig setParquetTimeZone(String parquetTimeZone)
+    {
+        this.parquetTimeZone = parquetTimeZone;
         return this;
     }
 }

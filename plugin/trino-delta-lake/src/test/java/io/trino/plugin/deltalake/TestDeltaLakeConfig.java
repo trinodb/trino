@@ -20,11 +20,13 @@ import io.trino.plugin.hive.HiveCompressionCodec;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -54,7 +56,10 @@ public class TestDeltaLakeConfig
                 .setDynamicFilteringWaitTimeout(new Duration(0, SECONDS))
                 .setTableStatisticsEnabled(true)
                 .setExtendedStatisticsEnabled(true)
-                .setCompressionCodec(HiveCompressionCodec.SNAPPY));
+                .setCompressionCodec(HiveCompressionCodec.SNAPPY)
+                .setDeleteSchemaLocationsFallback(false)
+                .setParquetTimeZone(TimeZone.getDefault().getID())
+                .setPerTransactionMetastoreCacheMaximumSize(1000));
     }
 
     @Test
@@ -80,6 +85,9 @@ public class TestDeltaLakeConfig
                 .put("delta.table-statistics-enabled", "false")
                 .put("delta.extended-statistics.enabled", "false")
                 .put("delta.compression-codec", "GZIP")
+                .put("delta.per-transaction-metastore-cache-maximum-size", "500")
+                .put("delta.delete-schema-locations-fallback", "true")
+                .put("delta.parquet.time-zone", nonDefaultTimeZone().getID())
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -101,7 +109,10 @@ public class TestDeltaLakeConfig
                 .setDynamicFilteringWaitTimeout(new Duration(30, MINUTES))
                 .setTableStatisticsEnabled(false)
                 .setExtendedStatisticsEnabled(false)
-                .setCompressionCodec(HiveCompressionCodec.GZIP);
+                .setCompressionCodec(HiveCompressionCodec.GZIP)
+                .setDeleteSchemaLocationsFallback(true)
+                .setParquetTimeZone(nonDefaultTimeZone().getID())
+                .setPerTransactionMetastoreCacheMaximumSize(500);
 
         assertFullMapping(properties, expected);
     }
