@@ -270,7 +270,6 @@ public class TrinoHiveCatalog
         // Use the Iceberg routine for dropping the table data because the data files
         // of the Iceberg table may be located in different locations
         dropTableData(table.io(), metadata);
-        deleteTableDirectory(session, schemaTableName, hdfsEnvironment, new Path(metastoreTable.getStorage().getLocation()));
     }
 
     @Override

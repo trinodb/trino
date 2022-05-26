@@ -310,7 +310,6 @@ public class TrinoGlueCatalog
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         dropTableData(table.io(), table.operations().current());
-        deleteTableDirectory(session, schemaTableName, hdfsEnvironment, new Path(table.location()));
     }
 
     @Override

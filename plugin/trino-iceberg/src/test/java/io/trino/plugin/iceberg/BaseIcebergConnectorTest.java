@@ -3489,6 +3489,50 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testRenameTableBackToOriginalName()
+    {
+        String tableName = "test_rename_table_" + randomTableSuffix();
+        String tmpName = "test_rename_table_tmp_" + randomTableSuffix();
+        String backupName = "test_rename_table_backup_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tmpName + " AS SELECT 1 as a", 1);
+            assertUpdate("ALTER TABLE " + tmpName + " RENAME TO " + tableName);
+            assertUpdate("CREATE TABLE " + tmpName + " AS SELECT 1 as a", 1);
+            assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + backupName);
+            assertUpdate("ALTER TABLE " + tmpName + " RENAME TO " + tableName);
+            assertUpdate("DROP TABLE IF EXISTS " + backupName);
+            // errors on Failed to open input stream for file: /tmp/TrinoTest16473875710927576859/iceberg_data/tpch/test_rename_table_tmp_1v8injgko4/metadata/00000-745e9fc4-da2a-4097-af6a-b83f78ba5511.metadata.json
+            assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + backupName);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            assertUpdate("DROP TABLE IF EXISTS " + backupName);
+            assertUpdate("DROP TABLE IF EXISTS " + tmpName);
+        }
+    }
+
+    @Test
+    public void testQueryOfRenamedTable()
+    {
+        String tableName = "test_rename_table_" + randomTableSuffix();
+        String tmpName = "test_rename_table_tmp_" + randomTableSuffix();
+        String backupName = "test_rename_table_backup_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 as a", 1);
+            assertUpdate("CREATE TABLE " + tmpName + " AS SELECT 1 as a", 1);
+            assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + backupName);
+            assertUpdate("ALTER TABLE " + tmpName + " RENAME TO " + tableName);
+            assertUpdate("DROP TABLE IF EXISTS " + backupName);
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 1");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            assertUpdate("DROP TABLE IF EXISTS " + backupName);
+            assertUpdate("DROP TABLE IF EXISTS " + tmpName);
+        }
+    }
+
     private Session prepareCleanUpSession()
     {
         return Session.builder(getSession())
