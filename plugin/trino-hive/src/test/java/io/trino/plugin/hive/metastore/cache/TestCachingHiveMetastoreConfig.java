@@ -41,10 +41,10 @@ public class TestCachingHiveMetastoreConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.metastore-cache-ttl", "2h")
-                .put("hive.metastore-refresh-interval", "30m")
-                .put("hive.metastore-cache-maximum-size", "5000")
-                .put("hive.metastore-refresh-max-threads", "2500")
+                .put("hive.metastore-cache.cache-ttl", "2h")
+                .put("hive.metastore-cache.refresh-interval", "30m")
+                .put("hive.metastore-cache.cache-maximum-size", "5000")
+                .put("hive.metastore-cache.refresh-max-threads", "2500")
                 .put("hive.metastore-cache.cache-partitions", "false")
                 .buildOrThrow();
 

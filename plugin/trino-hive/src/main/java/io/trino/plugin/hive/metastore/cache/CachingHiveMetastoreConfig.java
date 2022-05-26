@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.cache;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -37,7 +38,8 @@ public class CachingHiveMetastoreConfig
         return metastoreCacheTtl;
     }
 
-    @Config("hive.metastore-cache-ttl")
+    @Config("hive.metastore-cache.cache-ttl")
+    @LegacyConfig("hive.metastore-cache-ttl")
     public CachingHiveMetastoreConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
     {
         this.metastoreCacheTtl = metastoreCacheTtl;
@@ -50,7 +52,8 @@ public class CachingHiveMetastoreConfig
         return metastoreRefreshInterval;
     }
 
-    @Config("hive.metastore-refresh-interval")
+    @Config("hive.metastore-cache.refresh-interval")
+    @LegacyConfig("hive.metastore-refresh-interval")
     public CachingHiveMetastoreConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
     {
         this.metastoreRefreshInterval = Optional.ofNullable(metastoreRefreshInterval);
@@ -63,7 +66,8 @@ public class CachingHiveMetastoreConfig
         return metastoreCacheMaximumSize;
     }
 
-    @Config("hive.metastore-cache-maximum-size")
+    @Config("hive.metastore-cache.cache-maximum-size")
+    @LegacyConfig("hive.metastore-cache-maximum-size")
     public CachingHiveMetastoreConfig setMetastoreCacheMaximumSize(long metastoreCacheMaximumSize)
     {
         this.metastoreCacheMaximumSize = metastoreCacheMaximumSize;
@@ -76,7 +80,8 @@ public class CachingHiveMetastoreConfig
         return maxMetastoreRefreshThreads;
     }
 
-    @Config("hive.metastore-refresh-max-threads")
+    @Config("hive.metastore-cache.refresh-max-threads")
+    @LegacyConfig("hive.metastore-refresh-max-threads")
     public CachingHiveMetastoreConfig setMaxMetastoreRefreshThreads(int maxMetastoreRefreshThreads)
     {
         this.maxMetastoreRefreshThreads = maxMetastoreRefreshThreads;
