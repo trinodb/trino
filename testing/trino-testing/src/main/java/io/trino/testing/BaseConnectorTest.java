@@ -774,9 +774,9 @@ public abstract class BaseConnectorTest
                 getSession().getSchema().orElseThrow(),
                 "test_materialized_view_with_comment_" + randomTableSuffix());
 
-        createTestingMaterializedView(view, Optional.empty());
-        createTestingMaterializedView(otherView, Optional.of("sarcastic comment"));
-        createTestingMaterializedView(viewWithComment, Optional.of("mv_comment"));
+        createTestingMaterializedView(view, Optional.empty(), false);
+        createTestingMaterializedView(otherView, Optional.of("sarcastic comment"), true);
+        createTestingMaterializedView(viewWithComment, Optional.of("mv_comment"), true);
 
         // verify comment
         MaterializedResult materializedRows = computeActual("SHOW CREATE MATERIALIZED VIEW " + viewWithComment);
@@ -1120,7 +1120,7 @@ public abstract class BaseConnectorTest
                 session.getSchema().orElseThrow(),
                 "test_materialized_view_rename_" + randomTableSuffix());
 
-        createTestingMaterializedView(originalMaterializedView, Optional.empty());
+        createTestingMaterializedView(originalMaterializedView, Optional.empty(), true);
 
         String renamedMaterializedView = "test_materialized_view_rename_new_" + randomTableSuffix();
         if (!hasBehavior(SUPPORTS_RENAME_MATERIALIZED_VIEW)) {
@@ -1180,13 +1180,13 @@ public abstract class BaseConnectorTest
                 .matches("SELECT * FROM nation");
     }
 
-    private void createTestingMaterializedView(QualifiedObjectName view, Optional<String> comment)
+    private void createTestingMaterializedView(QualifiedObjectName view, Optional<String> comment, boolean withData)
     {
         assertUpdate(format("CREATE SCHEMA IF NOT EXISTS %s", view.getSchemaName()));
         assertUpdate(format(
-                "CREATE MATERIALIZED VIEW %s %s AS SELECT * FROM nation",
+                "CREATE MATERIALIZED VIEW %s %s AS SELECT * FROM nation " + (withData ? "WITH DATA" : " WITH NO DATA"),
                 view,
-                comment.map(c -> format("COMMENT '%s'", c)).orElse("")));
+                comment.map(c -> format("COMMENT '%s'", c)).orElse("")), withData ? 25 : 0);
     }
 
     private String getTestingMaterializedViewsResultRow(QualifiedObjectName materializedView, String comment)

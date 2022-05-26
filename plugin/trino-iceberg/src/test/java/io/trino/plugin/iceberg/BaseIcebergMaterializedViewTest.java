@@ -69,7 +69,7 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testShowTables()
     {
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_show_tables_test AS SELECT * FROM base_table1");
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_show_tables_test AS SELECT * FROM base_table1", 6);
         SchemaTableName storageTableName = getStorageTable("iceberg", "materialized_view_show_tables_test");
 
         Set<String> expectedTables = ImmutableSet.of("base_table1", "base_table2", "materialized_view_show_tables_test", storageTableName.getTableName());
@@ -87,10 +87,12 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
-        String materializedViewName = format("test_materialized_view_%s", randomTableSuffix());
+        String materializedViewNameWithNoData = format("test_materialized_view_with_no_data_%s", randomTableSuffix());
+        String materializedViewNameWithData = format("test_materialized_view_with_data_%s", randomTableSuffix());
 
         computeActual("CREATE TABLE small_region AS SELECT * FROM tpch.tiny.region LIMIT 1");
-        computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM small_region LIMIT 1", materializedViewName));
+        computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM small_region LIMIT 1 WITH NO DATA", materializedViewNameWithNoData));
+        computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM small_region LIMIT 1 WITH DATA", materializedViewNameWithData));
 
         // test storage table name
         assertQuery(
@@ -99,28 +101,43 @@ public abstract class BaseIcebergMaterializedViewTest
                                 "FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'",
                         // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
                         schemaName,
-                        materializedViewName),
+                        materializedViewNameWithNoData),
                 format(
                         "VALUES ('%s', '%s', '%s')",
                         catalogName,
                         schemaName,
-                        getStorageTable(catalogName, materializedViewName)));
+                        getStorageTable(catalogName, materializedViewNameWithNoData)));
+        assertQuery(
+                format(
+                        "SELECT storage_catalog, storage_schema, CONCAT(storage_schema, '.', storage_table)" +
+                                "FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'",
+                        // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
+                        schemaName,
+                        materializedViewNameWithData),
+                format(
+                        "VALUES ('%s', '%s', '%s')",
+                        catalogName,
+                        schemaName,
+                        getStorageTable(catalogName, materializedViewNameWithData)));
 
         // test freshness update
         assertQuery(
                 // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
-                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
+                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewNameWithNoData),
                 "VALUES false");
+        assertQuery(
+                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewNameWithData),
+                "VALUES true");
 
-        computeActual(format("REFRESH MATERIALIZED VIEW %s", materializedViewName));
+        computeActual(format("REFRESH MATERIALIZED VIEW %s", materializedViewNameWithNoData));
 
         assertQuery(
                 // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
-                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
+                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewNameWithNoData),
                 "VALUES true");
 
         assertUpdate("DROP TABLE small_region");
-        assertUpdate(format("DROP MATERIALIZED VIEW %s", materializedViewName));
+        assertUpdate(format("DROP MATERIALIZED VIEW %s", materializedViewNameWithNoData));
     }
 
     @Test
@@ -139,7 +156,7 @@ public abstract class BaseIcebergMaterializedViewTest
                 "CREATE MATERIALIZED VIEW materialized_view_with_duplicate_source AS " +
                 "SELECT _bigint, _date FROM base_table1 " +
                 "UNION ALL " +
-                "SELECT _bigint, _date FROM base_table1 ");
+                "SELECT _bigint, _date FROM base_table1 WITH NO DATA", 0);
 
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_with_duplicate_source", 12);
 
@@ -152,7 +169,7 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_with_property " +
                 "WITH (partitioning = ARRAY['_date']) AS " +
-                "SELECT _bigint, _date FROM base_table1");
+                "SELECT _bigint, _date FROM base_table1", 6);
         assertQuery("SELECT COUNT(*) FROM materialized_view_with_property", "VALUES 6");
         assertThat(computeActual("SHOW CREATE MATERIALIZED VIEW materialized_view_with_property").getOnlyValue())
                 .isEqualTo(
@@ -184,15 +201,13 @@ public abstract class BaseIcebergMaterializedViewTest
                 .setSchema("tiny")
                 .build();
         String qualifiedMaterializedViewName = "iceberg." + getSchemaName() + ".materialized_view_session_test";
-        assertUpdate(session, "CREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + " AS SELECT * FROM nation");
-        assertQuery(session, "SELECT COUNT(*) FROM " + qualifiedMaterializedViewName, "VALUES 25");
-        assertUpdate(session, "DROP MATERIALIZED VIEW " + qualifiedMaterializedViewName);
+        assertQueryFails(session, "CREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + " AS SELECT * FROM nation", "Cross connector materialized views are not supported");
 
         session = Session.builder(getSession())
                 .setCatalog(Optional.empty())
                 .setSchema(Optional.empty())
                 .build();
-        assertUpdate(session, "CREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + " AS SELECT * FROM iceberg." + getSchemaName() + ".base_table1");
+        assertUpdate(session, "CREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + " AS SELECT * FROM iceberg." + getSchemaName() + ".base_table1", 6);
         assertQuery(session, "SELECT COUNT(*) FROM " + qualifiedMaterializedViewName, "VALUES 6");
         assertUpdate(session, "DROP MATERIALIZED VIEW " + qualifiedMaterializedViewName);
     }
@@ -209,7 +224,7 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testDropDenyPermission()
     {
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_drop_deny AS SELECT * FROM base_table1");
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_drop_deny AS SELECT * FROM base_table1", 6);
         assertAccessDenied(
                 "DROP MATERIALIZED VIEW materialized_view_drop_deny",
                 "Cannot drop materialized view .*.materialized_view_drop_deny.*",
@@ -220,7 +235,7 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testRenameDenyPermission()
     {
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_rename_deny AS SELECT * FROM base_table1");
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_rename_deny AS SELECT * FROM base_table1", 6);
         assertAccessDenied(
                 "ALTER MATERIALIZED VIEW materialized_view_rename_deny RENAME TO materialized_view_rename_deny_new",
                 "Cannot rename materialized view .*.materialized_view_rename_deny.*",
@@ -231,7 +246,7 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testRefreshDenyPermission()
     {
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_refresh_deny AS SELECT * FROM base_table1");
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_refresh_deny AS SELECT * FROM base_table1", 6);
         assertAccessDenied(
                 "REFRESH MATERIALIZED VIEW materialized_view_refresh_deny",
                 "Cannot refresh materialized view .*.materialized_view_refresh_deny.*",
@@ -243,7 +258,7 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testRefreshAllowedWithRestrictedStorageTable()
     {
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_refresh AS SELECT * FROM base_table1");
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_refresh AS SELECT * FROM base_table1", 6);
         SchemaTableName storageTable = getStorageTable("iceberg", "materialized_view_refresh");
 
         assertAccessAllowed(
@@ -262,17 +277,17 @@ public abstract class BaseIcebergMaterializedViewTest
         Session session = getSession();
 
         // A very simple non-partitioned materialized view
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_no_part as select * from base_table1");
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_no_part as select * from base_table1 WITH NO DATA", 0);
         // A non-partitioned materialized view with grouping and aggregation
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_agg as select _date, count(_date) as num_dates from base_table1 group by 1");
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_agg as select _date, count(_date) as num_dates from base_table1 group by 1 WITH NO DATA", 0);
         // A partitioned materialized view with grouping and aggregation
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_part WITH (partitioning = ARRAY['_date']) as select _date, count(_date) as num_dates from base_table1 group by 1");
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_part WITH (partitioning = ARRAY['_date']) as select _date, count(_date) as num_dates from base_table1 group by 1 WITH NO DATA", 0);
         // A non-partitioned join materialized view
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_join as " +
-                "select t2._bigint, _varchar, t1._date from base_table1 t1, base_table2 t2 where t1._date = t2._date");
+                "select t2._bigint, _varchar, t1._date from base_table1 t1, base_table2 t2 where t1._date = t2._date WITH NO DATA", 0);
         // A partitioned join materialized view
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_join_part WITH (partitioning = ARRAY['_date', '_bigint']) as " +
-                "select t1._bigint, _varchar, t2._date, sum(1) as my_sum from base_table1 t1, base_table2 t2 where t1._date = t2._date group by 1, 2, 3 order by 1, 2");
+                "select t1._bigint, _varchar, t2._date, sum(1) as my_sum from base_table1 t1, base_table2 t2 where t1._date = t2._date group by 1, 2, 3 order by 1, 2 WITH NO DATA", 0);
 
         // The tests here follow the pattern:
         // 1. Select the data from unrefreshed materialized view, verify the number of rows in the result
@@ -353,18 +368,18 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("INSERT INTO base_table4 VALUES ('a', 0, DATE '2019-09-08'), ('a', 1, DATE '2019-09-08'), ('a', 0, DATE '2019-09-09')", 3);
 
         // A partitioned materialized view with grouping and aggregation
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_part_stale WITH (partitioning = ARRAY['_date']) as select _date, count(_date) as num_dates from base_table3 group by 1");
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_part_stale WITH (partitioning = ARRAY['_date']) as select _date, count(_date) as num_dates from base_table3 group by 1", 2);
         // A non-partitioned join materialized view
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_join_stale as " +
-                "select t2._bigint, _varchar, t1._date from base_table3 t1, base_table4 t2 where t1._date = t2._date");
+                "select t2._bigint, _varchar, t1._date from base_table3 t1, base_table4 t2 where t1._date = t2._date", 4);
         // A partitioned join materialized view
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_join_part_stale WITH (partitioning = ARRAY['_date', '_bigint']) as " +
-                "select t1._bigint, _varchar, t2._date, sum(1) as my_sum from base_table3 t1, base_table4 t2 where t1._date = t2._date group by 1, 2, 3 order by 1, 2");
+                "select t1._bigint, _varchar, t2._date, sum(1) as my_sum from base_table3 t1, base_table4 t2 where t1._date = t2._date group by 1, 2, 3 order by 1, 2", 3);
 
         // Ensure that when data is inserted into base table, materialized view is rendered stale. Note that, currently updates and deletes to/from iceberg tables is not supported.
-        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_part_stale", 2);
-        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_join_stale", 4);
-        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_join_part_stale", 3);
+        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_part_stale", 0);
+        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_join_stale", 0);
+        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_join_part_stale", 0);
 
         assertUpdate("INSERT INTO base_table3 VALUES (3, DATE '2019-09-09'), (4, DATE '2019-09-10'), (5, DATE '2019-09-10')", 3);
         String plan = getExplainPlan("SELECT * from materialized_view_part_stale", ExplainType.Type.IO);
@@ -403,15 +418,12 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         // Materialized views to test SQL features
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_window WITH (partitioning = ARRAY['_date']) as select _date, " +
-                "sum(_bigint) OVER (partition by _date order by _date) as sum_ints from base_table1");
-        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_window", 6);
+                "sum(_bigint) OVER (partition by _date order by _date) as sum_ints from base_table1", 6);
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_union WITH (partitioning = ARRAY['_date']) as " +
                 "select _date, count(_date) as num_dates from base_table1 group by 1 union " +
-                "select _date, count(_date) as num_dates from base_table2 group by 1");
-        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_union", 5);
+                "select _date, count(_date) as num_dates from base_table2 group by 1", 5);
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_subquery WITH (partitioning = ARRAY['_date']) as " +
-                "select _date, count(_date) as num_dates from base_table1 where _date = (select max(_date) from base_table2) group by 1");
-        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_subquery", 1);
+                "select _date, count(_date) as num_dates from base_table1 where _date = (select max(_date) from base_table2) group by 1", 1);
 
         // This set of tests intend to test various SQL features in the context of materialized views. It also tests commands pertaining to materialized views.
         String plan = getExplainPlan("SELECT * from materialized_view_window", ExplainType.Type.IO);
@@ -460,10 +472,10 @@ public abstract class BaseIcebergMaterializedViewTest
     public void testReplace()
     {
         // Materialized view to test 'replace' feature
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_replace WITH (partitioning = ARRAY['_date']) as select _date, count(_date) as num_dates from base_table1 group by 1");
-        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_replace", 3);
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_replace WITH (partitioning = ARRAY['_date']) as select _date, count(_date) as num_dates from base_table1 group by 1", 3);
+        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_replace", 0);
 
-        assertUpdate("CREATE OR REPLACE MATERIALIZED VIEW materialized_view_replace as select sum(1) as num_rows from base_table2");
+        assertUpdate("CREATE OR REPLACE MATERIALIZED VIEW materialized_view_replace as select sum(1) as num_rows from base_table2 WITH NO DATA", 0);
         String plan = getExplainPlan("SELECT * from materialized_view_replace", ExplainType.Type.IO);
         assertThat(plan).contains("base_table2");
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_replace", 1);
@@ -508,8 +520,8 @@ public abstract class BaseIcebergMaterializedViewTest
         // Base table and materialized views for nested materialized view testing
         assertUpdate("CREATE TABLE base_table5(_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
         assertUpdate("INSERT INTO base_table5 VALUES (0, DATE '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')", 3);
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_level1 WITH (partitioning = ARRAY['_date']) as select _date, count(_date) as num_dates from base_table5 group by 1");
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_level2 WITH (partitioning = ARRAY['_date']) as select _date, num_dates from materialized_view_level1");
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_level1 WITH (partitioning = ARRAY['_date']) as select _date, count(_date) as num_dates from base_table5 group by 1 WITH NO DATA", 0);
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_level2 WITH (partitioning = ARRAY['_date']) as select _date, num_dates from materialized_view_level1 WITH NO DATA", 0);
 
         // Unrefreshed 2nd level materialized view .. resolves to base table
         String plan = getExplainPlan("select * from materialized_view_level2", ExplainType.Type.IO);
@@ -534,6 +546,37 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("DROP TABLE IF EXISTS base_table5");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_level1");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_level2");
+    }
+
+    @Test
+    public void testCreateWithNoData()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_with_no_data AS SELECT * FROM base_table1 WITH NO DATA", 0);
+
+        String plan = getExplainPlan("SELECT * FROM materialized_view_with_no_data", ExplainType.Type.IO);
+        assertThat(plan).contains("base_table1");
+        assertQuery("SELECT count(*) FROM materialized_view_with_no_data", "VALUES 6");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_with_no_data", 6);
+
+        plan = getExplainPlan("SELECT * FROM materialized_view_with_no_data", ExplainType.Type.IO);
+        assertThat(plan).doesNotContain("base_table1");
+        assertQuery("SELECT count(*) FROM materialized_view_with_no_data", "VALUES 6");
+
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_with_no_data");
+    }
+
+    @Test
+    public void testCreateWithData()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_with_data AS SELECT * FROM base_table1 WITH DATA", 6);
+
+        String plan = getExplainPlan("SELECT * FROM materialized_view_with_data", ExplainType.Type.IO);
+        assertThat(plan).doesNotContain("base_table1");
+        assertQuery("SELECT count(*) FROM materialized_view_with_data", "VALUES 6");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_with_data", 0);
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_with_data");
     }
 
     private SchemaTableName getStorageTable(String catalogName, String objectName)

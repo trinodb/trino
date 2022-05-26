@@ -127,7 +127,7 @@ public class TestMockConnector
     @Test
     public void testCreateMaterializedView()
     {
-        assertUpdate("CREATE MATERIALIZED VIEW mock.default.materialized_view WITH (refresh_interval = '1h') AS SELECT * FROM tpch.tiny.nation");
+        assertUpdate("CREATE MATERIALIZED VIEW mock.default.materialized_view WITH (refresh_interval = '1h') AS SELECT * FROM mock.default.nation WITH NO DATA", 0);
     }
 
     @Test

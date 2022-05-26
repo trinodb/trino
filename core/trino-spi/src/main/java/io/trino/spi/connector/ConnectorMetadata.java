@@ -539,7 +539,7 @@ public interface ConnectorMetadata
      */
     default boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
+        return false;
     }
 
     /**

@@ -437,7 +437,7 @@ public abstract class BaseConnectorSmokeTest
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
         String viewName = "test_materialized_view_" + randomTableSuffix();
-        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation", 25);
 
         // reading
         assertThat(query("SELECT * FROM " + viewName))

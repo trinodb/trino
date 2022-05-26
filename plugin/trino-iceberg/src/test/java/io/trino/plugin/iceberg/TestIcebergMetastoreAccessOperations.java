@@ -166,7 +166,7 @@ public class TestIcebergMetastoreAccessOperations
     public void testSelectFromMaterializedView()
     {
         assertUpdate("CREATE TABLE test_select_mview_table (id VARCHAR, age INT)");
-        assertUpdate("CREATE MATERIALIZED VIEW test_select_mview_view AS SELECT id, age FROM test_select_mview_table");
+        assertUpdate("CREATE MATERIALIZED VIEW test_select_mview_view AS SELECT id, age FROM test_select_mview_table", 0);
 
         assertMetastoreInvocations("SELECT * FROM test_select_mview_view",
                 ImmutableMultiset.builder()
@@ -178,7 +178,7 @@ public class TestIcebergMetastoreAccessOperations
     public void testSelectFromMaterializedViewWithFilter()
     {
         assertUpdate("CREATE TABLE test_select_mview_where_table AS SELECT 2 as age", 1);
-        assertUpdate("CREATE MATERIALIZED VIEW test_select_mview_where_view AS SELECT age FROM test_select_mview_where_table");
+        assertUpdate("CREATE MATERIALIZED VIEW test_select_mview_where_view AS SELECT age FROM test_select_mview_where_table", 1);
 
         assertMetastoreInvocations("SELECT * FROM test_select_mview_where_view WHERE age = 2",
                 ImmutableMultiset.builder()
@@ -190,7 +190,7 @@ public class TestIcebergMetastoreAccessOperations
     public void testRefreshMaterializedView()
     {
         assertUpdate("CREATE TABLE test_refresh_mview_table (id VARCHAR, age INT)");
-        assertUpdate("CREATE MATERIALIZED VIEW test_refresh_mview_view AS SELECT id, age FROM test_refresh_mview_table");
+        assertUpdate("CREATE MATERIALIZED VIEW test_refresh_mview_view AS SELECT id, age FROM test_refresh_mview_table WITH NO DATA", 0);
 
         assertMetastoreInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
                 ImmutableMultiset.builder()

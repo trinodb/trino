@@ -108,6 +108,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LABEL;
 import static io.trino.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_NAVIGATION_NESTING;
 import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
@@ -165,6 +166,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -178,6 +180,8 @@ import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestAnalyzer
@@ -200,6 +204,8 @@ public class TestAnalyzer
             .build();
 
     private static final SqlParser SQL_PARSER = new SqlParser();
+    private static final String DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE = "foo_default";
+    private static final Integer DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE = 123;
 
     private final Closer closer = Closer.create();
     private TransactionManager transactionManager;
@@ -207,6 +213,7 @@ public class TestAnalyzer
     private PlannerContext plannerContext;
     private TablePropertyManager tablePropertyManager;
     private AnalyzePropertyManager analyzePropertyManager;
+    private MaterializedViewPropertyManager materializedViewPropertyManager;
 
     @Test
     public void testTooManyArguments()
@@ -3773,8 +3780,59 @@ public class TestAnalyzer
     @Test
     public void testCreateOrReplaceMaterializedView()
     {
-        assertFails("CREATE OR REPLACE MATERIALIZED VIEW IF NOT EXISTS mv1 AS SELECT * FROM tab1")
+        Analysis analysis = analyze("CREATE OR REPLACE MATERIALIZED VIEW mv1 AS SELECT * FROM t1");
+        assertTrue(analysis.getCreateMaterializedView().isPresent());
+        assertTrue(analysis.getCreateMaterializedView().get().isReplace());
+
+        analysis = analyze("CREATE MATERIALIZED VIEW IF NOT EXISTS mv1 AS SELECT * FROM t1");
+        assertTrue(analysis.getCreateMaterializedView().isPresent());
+        assertTrue(analysis.getCreateMaterializedView().get().isIgnoreExisting());
+
+        assertFails("CREATE OR REPLACE MATERIALIZED VIEW IF NOT EXISTS mv1 AS SELECT * FROM t1")
                 .hasErrorCode(NOT_SUPPORTED);
+    }
+
+    @Test
+    public void testCreateMaterializedViewWithData()
+    {
+        Analysis analysis = analyze("CREATE MATERIALIZED VIEW mv1 AS SELECT * FROM t1");
+        assertTrue(analysis.getCreateMaterializedView().isPresent());
+        assertTrue(analysis.getCreateMaterializedView().get().isWithData());
+
+        analysis = analyze("CREATE MATERIALIZED VIEW mv1 AS SELECT * FROM t1 WITH DATA");
+        assertTrue(analysis.getCreateMaterializedView().isPresent());
+        assertTrue(analysis.getCreateMaterializedView().get().isWithData());
+
+        analysis = analyze("CREATE MATERIALIZED VIEW mv1 AS SELECT * FROM t1 WITH NO DATA");
+        assertTrue(analysis.getCreateMaterializedView().isPresent());
+        assertFalse(analysis.getCreateMaterializedView().get().isWithData());
+    }
+
+    @Test
+    public void testCreateMaterializedViewProperty()
+    {
+        assertFails("CREATE MATERIALIZED VIEW mv1 WITH (invalid_property = 'aaa') AS SELECT * FROM t1")
+                .hasErrorCode(INVALID_MATERIALIZED_VIEW_PROPERTY);
+
+        Analysis analysis = analyze("CREATE MATERIALIZED VIEW mv1 WITH (foo = 'value1', bar = 111) AS SELECT * FROM t1");
+        assertTrue(analysis.getCreateMaterializedView().isPresent());
+        assertTrue(analysis.getCreateMaterializedView().get().getDefinition().getProperties().get("foo").equals("value1"));
+        assertTrue(analysis.getCreateMaterializedView().get().getDefinition().getProperties().get("bar").equals(111));
+
+        analysis = analyze("CREATE MATERIALIZED VIEW mv1 AS SELECT * FROM t1");
+        assertTrue(analysis.getCreateMaterializedView().isPresent());
+        assertTrue(analysis.getCreateMaterializedView().get().getDefinition().getProperties().get("foo").equals(DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE));
+        assertTrue(analysis.getCreateMaterializedView().get().getDefinition().getProperties().get("bar").equals(DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE));
+    }
+
+    @Test
+    public void testDenyCreateMaterializedView()
+    {
+        TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, emptyEventListenerManager());
+        accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+        accessControl.deny(privilege("mv1", CREATE_MATERIALIZED_VIEW));
+        assertFails(CLIENT_SESSION, "CREATE MATERIALIZED VIEW mv1 AS SELECT * FROM t1", accessControl)
+                .hasErrorCode(PERMISSION_DENIED);
     }
 
     @Test
@@ -5321,6 +5379,7 @@ public class TestAnalyzer
 
         tablePropertyManager = queryRunner.getTablePropertyManager();
         analyzePropertyManager = queryRunner.getAnalyzePropertyManager();
+        materializedViewPropertyManager = queryRunner.getMaterializedViewPropertyManager();
 
         queryRunner.createCatalog(SECOND_CATALOG, MockConnectorFactory.create("second"), ImmutableMap.of());
         queryRunner.createCatalog(THIRD_CATALOG, MockConnectorFactory.create("third"), ImmutableMap.of());
@@ -5659,8 +5718,8 @@ public class TestAnalyzer
                 new SchemaPropertyManager(),
                 new ColumnPropertyManager(),
                 tablePropertyManager,
-                new MaterializedViewPropertyManager())));
-        StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(plannerContext, accessControl, tablePropertyManager, analyzePropertyManager);
+                materializedViewPropertyManager)));
+        StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(plannerContext, accessControl, tablePropertyManager, analyzePropertyManager, materializedViewPropertyManager);
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, statementRewrite);
         return analyzerFactory.createAnalyzer(
                 session,
@@ -5735,6 +5794,14 @@ public class TestAnalyzer
             return ImmutableList.of(
                     stringProperty("p1", "test string property", "", false),
                     integerProperty("p2", "test integer property", 0, false));
+        }
+
+        @Override
+        public List<PropertyMetadata<?>> getMaterializedViewProperties()
+        {
+            return ImmutableList.of(
+                    stringProperty("foo", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE, false),
+                    integerProperty("bar", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE, false));
         }
     }
 }

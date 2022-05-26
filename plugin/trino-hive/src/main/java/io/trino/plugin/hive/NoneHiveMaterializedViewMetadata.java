@@ -71,7 +71,7 @@ public class NoneHiveMaterializedViewMetadata
     @Override
     public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
+        return false;
     }
 
     @Override
