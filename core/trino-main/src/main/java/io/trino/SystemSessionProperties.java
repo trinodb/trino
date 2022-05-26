@@ -173,6 +173,10 @@ public final class SystemSessionProperties
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
+    public static final String REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED = "remote_task_adaptive_update_request_size_enabled";
+    public static final String REMOTE_TASK_MAX_REQUEST_SIZE = "remote_task_max_request_size";
+    public static final String REMOTE_TASK_REQUEST_SIZE_HEADROOM = "remote_task_request_size_headroom";
+    public static final String REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST = "remote_task_guaranteed_splits_per_request";
     public static final String JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT = "join_partitioned_build_min_row_count";
     public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
@@ -859,6 +863,26 @@ public final class SystemSessionProperties
                         ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD,
                         "Ratio between aggregation output and input rows above which partial aggregation might be adaptively turned off",
                         optimizerConfig.getAdaptivePartialAggregationUniqueRowsRatioThreshold(),
+                        false),
+                booleanProperty(
+                        REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED,
+                        "Experimental: Enable adaptive adjustment for size of remote task update request",
+                        queryManagerConfig.isEnabledAdaptiveTaskRequestSize(),
+                        false),
+                dataSizeProperty(
+                        REMOTE_TASK_MAX_REQUEST_SIZE,
+                        "Experimental: Max size of remote task update request",
+                        queryManagerConfig.getMaxRemoteTaskRequestSize(),
+                        false),
+                dataSizeProperty(
+                        REMOTE_TASK_REQUEST_SIZE_HEADROOM,
+                        "Experimental: Headroom for size of remote task update request",
+                        queryManagerConfig.getRemoteTaskRequestSizeHeadroom(),
+                        false),
+                integerProperty(
+                        REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST,
+                        "Guaranteed splits per remote task request",
+                        queryManagerConfig.getRemoteTaskGuaranteedSplitPerTask(),
                         false),
                 longProperty(
                         JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT,
@@ -1552,6 +1576,26 @@ public final class SystemSessionProperties
     public static double getAdaptivePartialAggregationUniqueRowsRatioThreshold(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD, Double.class);
+    }
+
+    public static boolean isRemoteTaskAdaptiveUpdateRequestSizeEnabled(Session session)
+    {
+        return session.getSystemProperty(REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getMaxRemoteTaskRequestSize(Session session)
+    {
+        return session.getSystemProperty(REMOTE_TASK_MAX_REQUEST_SIZE, DataSize.class);
+    }
+
+    public static DataSize getRemoteTaskRequestSizeHeadroom(Session session)
+    {
+        return session.getSystemProperty(REMOTE_TASK_REQUEST_SIZE_HEADROOM, DataSize.class);
+    }
+
+    public static int getRemoteTaskGuaranteedSplitsPerRequest(Session session)
+    {
+        return session.getSystemProperty(REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST, Integer.class);
     }
 
     public static long getJoinPartitionedBuildMinRowCount(Session session)
