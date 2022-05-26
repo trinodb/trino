@@ -150,7 +150,7 @@ public final class OrcWriter
         recordValidation(validation -> validation.setTimeZone(ZoneId.of("UTC")));
 
         requireNonNull(options, "options is null");
-        checkArgument(options.getStripeMaxSize().compareTo(options.getStripeMinSize()) >= 0, "stripeMaxSize must be greater than stripeMinSize");
+        checkArgument(options.getStripeMaxSize().compareTo(options.getStripeMinSize()) >= 0, "stripeMaxSize must be greater than or equal to stripeMinSize");
         int stripeMinBytes = toIntExact(requireNonNull(options.getStripeMinSize(), "stripeMinSize is null").toBytes());
         this.stripeMaxBytes = toIntExact(requireNonNull(options.getStripeMaxSize(), "stripeMaxSize is null").toBytes());
         this.chunkMaxLogicalBytes = Math.max(1, stripeMaxBytes / 2);
