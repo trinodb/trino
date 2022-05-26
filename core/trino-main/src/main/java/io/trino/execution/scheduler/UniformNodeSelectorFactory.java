@@ -40,6 +40,8 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SystemSessionProperties.getMaxPendingSplitsPerTask;
+import static io.trino.SystemSessionProperties.getMaxSplitsPerNode;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
@@ -60,8 +62,6 @@ public class UniformNodeSelectorFactory
     private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
-    private final long maxSplitsWeightPerNode;
-    private final long maxPendingSplitsWeightPerTask;
     private final SplitsBalancingPolicy splitsBalancingPolicy;
     private final boolean optimizedLocalScheduling;
     private final NodeTaskMap nodeTaskMap;
@@ -93,11 +93,6 @@ public class UniformNodeSelectorFactory
         this.splitsBalancingPolicy = config.getSplitsBalancingPolicy();
         this.optimizedLocalScheduling = config.getOptimizedLocalScheduling();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        int maxSplitsPerNode = config.getMaxSplitsPerNode();
-        int maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
-        checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
-        this.maxSplitsWeightPerNode = SplitWeight.rawValueForStandardSplitCount(maxSplitsPerNode);
-        this.maxPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxPendingSplitsPerTask);
         this.nodeMapMemoizationDuration = nodeMapMemoizationDuration;
     }
 
@@ -117,6 +112,12 @@ public class UniformNodeSelectorFactory
         else {
             nodeMap = () -> createNodeMap(catalogName);
         }
+
+        int maxSplitsPerNode = getMaxSplitsPerNode(session);
+        int maxPendingSplitsPerTask = getMaxPendingSplitsPerTask(session);
+        checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
+        long maxSplitsWeightPerNode = SplitWeight.rawValueForStandardSplitCount(maxSplitsPerNode);
+        long maxPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxPendingSplitsPerTask);
 
         return new UniformNodeSelector(
                 nodeManager,

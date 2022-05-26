@@ -43,6 +43,8 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SystemSessionProperties.getMaxPendingSplitsPerTask;
+import static io.trino.SystemSessionProperties.getMaxSplitsPerNode;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
@@ -62,8 +64,6 @@ public class TopologyAwareNodeSelectorFactory
     private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
-    private final long maxSplitsWeightPerNode;
-    private final long maxPendingSplitsWeightPerTask;
     private final NodeTaskMap nodeTaskMap;
 
     private final List<CounterStat> placementCounters;
@@ -88,11 +88,6 @@ public class TopologyAwareNodeSelectorFactory
         this.minCandidates = schedulerConfig.getMinCandidates();
         this.includeCoordinator = schedulerConfig.isIncludeCoordinator();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        int maxSplitsPerNode = schedulerConfig.getMaxSplitsPerNode();
-        int maxPendingSplitsPerTask = schedulerConfig.getMaxPendingSplitsPerTask();
-        checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
-        this.maxSplitsWeightPerNode = SplitWeight.rawValueForStandardSplitCount(maxSplitsPerNode);
-        this.maxPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxPendingSplitsPerTask);
 
         Builder<CounterStat> placementCounters = ImmutableList.builder();
         ImmutableMap.Builder<String, CounterStat> placementCountersByName = ImmutableMap.builder();
@@ -127,6 +122,12 @@ public class TopologyAwareNodeSelectorFactory
         Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(
                 () -> createNodeMap(catalogName),
                 5, TimeUnit.SECONDS);
+
+        int maxSplitsPerNode = getMaxSplitsPerNode(session);
+        int maxPendingSplitsPerTask = getMaxPendingSplitsPerTask(session);
+        checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
+        long maxSplitsWeightPerNode = SplitWeight.rawValueForStandardSplitCount(maxSplitsPerNode);
+        long maxPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxPendingSplitsPerTask);
 
         return new TopologyAwareNodeSelector(
                 nodeManager,
