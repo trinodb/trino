@@ -44,6 +44,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +64,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.SystemSessionProperties.getInitialSplitsPerNode;
@@ -76,7 +76,6 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toList;
 
 public class SqlTaskExecution
 {
@@ -97,7 +96,7 @@ public class SqlTaskExecution
     private final Map<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithRemoteSource;
 
     @GuardedBy("this")
-    private long maxAcknowledgedSplit = Long.MIN_VALUE;
+    private final Map<PlanNodeId, Long> maxAcknowledgedSplitByPlanNode = new HashMap<>();
 
     @GuardedBy("this")
     private final List<PlanNodeId> sourceStartOrder;
@@ -234,40 +233,48 @@ public class SqlTaskExecution
     private synchronized Set<PlanNodeId> updateSplitAssignments(List<SplitAssignment> splitAssignments)
     {
         ImmutableSet.Builder<PlanNodeId> updatedUnpartitionedSources = ImmutableSet.builder();
+        List<SplitAssignment> unacknowledgedSplitAssignment = new ArrayList<>(splitAssignments.size());
 
         // first remove any split that was already acknowledged
-        long currentMaxAcknowledgedSplit = this.maxAcknowledgedSplit;
-        splitAssignments = splitAssignments.stream()
-                .map(assignment -> new SplitAssignment(
-                        assignment.getPlanNodeId(),
-                        assignment.getSplits().stream()
-                                .filter(scheduledSplit -> scheduledSplit.getSequenceId() > currentMaxAcknowledgedSplit)
-                                .collect(toImmutableSet()),
-                        assignment.isNoMoreSplits()))
-                // drop assignments containing no unacknowledged splits
-                // the noMoreSplits signal acknowledgement is not tracked but it is okay to deliver it more than once
-                .filter(assignment -> !assignment.getSplits().isEmpty() || assignment.isNoMoreSplits())
-                .collect(toList());
+        for (SplitAssignment splitAssignment : splitAssignments) {
+            // drop assignments containing no unacknowledged splits
+            // the noMoreSplits signal acknowledgement is not tracked but it is okay to deliver it more than once
+            if (!splitAssignment.getSplits().isEmpty() || splitAssignment.isNoMoreSplits()) {
+                PlanNodeId planNodeId = splitAssignment.getPlanNodeId();
+                long currentMaxAcknowledgedSplit = maxAcknowledgedSplitByPlanNode.getOrDefault(planNodeId, Long.MIN_VALUE);
+                long maxAcknowledgedSplit = currentMaxAcknowledgedSplit;
+                ImmutableSet.Builder builder = ImmutableSet.builder();
+                for (ScheduledSplit split : splitAssignment.getSplits()) {
+                    long sequenceId = split.getSequenceId();
+                    // previously acknowledged splits can be included in source
+                    if (sequenceId > currentMaxAcknowledgedSplit) {
+                        builder.add(split);
+                    }
+                    if (sequenceId > maxAcknowledgedSplit) {
+                        maxAcknowledgedSplit = sequenceId;
+                    }
+                }
+                if (maxAcknowledgedSplit > currentMaxAcknowledgedSplit) {
+                    maxAcknowledgedSplitByPlanNode.put(planNodeId, maxAcknowledgedSplit);
+                }
 
-        // update task with new assignments
-        for (SplitAssignment assignment : splitAssignments) {
-            if (driverRunnerFactoriesWithSplitLifeCycle.containsKey(assignment.getPlanNodeId())) {
-                schedulePartitionedSource(assignment);
-            }
-            else {
-                // tell existing drivers about the new splits
-                DriverSplitRunnerFactory factory = driverRunnerFactoriesWithRemoteSource.get(assignment.getPlanNodeId());
-                factory.enqueueSplits(assignment.getSplits(), assignment.isNoMoreSplits());
-                updatedUnpartitionedSources.add(assignment.getPlanNodeId());
+                unacknowledgedSplitAssignment.add(new SplitAssignment(splitAssignment.getPlanNodeId(), builder.build(), splitAssignment.isNoMoreSplits()));
             }
         }
 
-        // update maxAcknowledgedSplit
-        maxAcknowledgedSplit = splitAssignments.stream()
-                .flatMap(source -> source.getSplits().stream())
-                .mapToLong(ScheduledSplit::getSequenceId)
-                .max()
-                .orElse(maxAcknowledgedSplit);
+        // update task with new sources
+        for (SplitAssignment splitAssignment : unacknowledgedSplitAssignment) {
+            if (driverRunnerFactoriesWithSplitLifeCycle.containsKey(splitAssignment.getPlanNodeId())) {
+                schedulePartitionedSource(splitAssignment);
+            }
+            else {
+                // tell existing drivers about the new splits
+                DriverSplitRunnerFactory factory = driverRunnerFactoriesWithRemoteSource.get(splitAssignment.getPlanNodeId());
+                factory.enqueueSplits(splitAssignment.getSplits(), splitAssignment.isNoMoreSplits());
+                updatedUnpartitionedSources.add(splitAssignment.getPlanNodeId());
+            }
+        }
+
         return updatedUnpartitionedSources.build();
     }
 

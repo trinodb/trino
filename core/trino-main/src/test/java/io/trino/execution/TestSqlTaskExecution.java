@@ -149,9 +149,23 @@ public class TestSqlTaskExecution
             assertEquals(taskStateMachine.getState(), RUNNING);
 
             // add assignment for pipeline
+            try {
+                // add a splitAssignments with a larger split sequence ID and a different plan node ID
+                PlanNodeId tableScanNodeId = new PlanNodeId("tableScan1");
+                sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
+                        tableScanNodeId,
+                        ImmutableSet.of(newScheduledSplit(3, tableScanNodeId, 400000, 400)),
+                        false)));
+            }
+            catch (NullPointerException e) {
+                // this is expected since there is no pipeline for this
+                // the purpose of this splitAssignment is setting maxAcknowledgedSplitByPlanNode in SqlTaskExecution with the larger split sequence ID
+            }
+            // the split below shouldn't be skipped even though its sequence ID is smaller than the sequence ID of the previous split because they have different plan node IDs
             sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                     TABLE_SCAN_NODE_ID,
-                    ImmutableSet.of(newScheduledSplit(0, TABLE_SCAN_NODE_ID, 100000, 123)),
+                    ImmutableSet.of(
+                            newScheduledSplit(0, TABLE_SCAN_NODE_ID, 100000, 123)),
                     false)));
             // assert that partial task result is produced
             outputBufferConsumer.consume(123, ASSERT_WAIT_TIMEOUT);
