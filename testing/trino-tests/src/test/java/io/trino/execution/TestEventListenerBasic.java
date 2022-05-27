@@ -25,6 +25,7 @@ import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -65,6 +66,7 @@ import static com.google.common.io.Resources.getResource;
 import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
 import static io.trino.execution.TestQueues.createResourceGroupId;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -137,11 +139,13 @@ public class TestEventListenerBasic
                         })
                         .withGetMaterializedViews((connectorSession, prefix) -> {
                             ConnectorMaterializedViewDefinition definition = new ConnectorMaterializedViewDefinition(
-                                    "SELECT nationkey AS test_column FROM tpch.tiny.nation",
+                                    "SELECT test_varchar, test_bigint FROM mock.default.tests_table",
+                                    Optional.of(new CatalogSchemaTableName("mock", "default", "test_materialized_view_storage_table")),
                                     Optional.empty(),
                                     Optional.empty(),
-                                    Optional.empty(),
-                                    ImmutableList.of(new Column("test_column", BIGINT.getTypeId())),
+                                    ImmutableList.of(
+                                            new Column("test_varchar", VARCHAR.getTypeId()),
+                                            new Column("test_bigint", BIGINT.getTypeId())),
                                     Optional.empty(),
                                     Optional.of("alice"),
                                     ImmutableMap.of());
@@ -376,24 +380,20 @@ public class TestEventListenerBasic
     public void testReferencedTablesWithMaterializedViews()
             throws Exception
     {
-        runQueryAndWaitForEvents("SELECT test_column FROM mock.default.test_materialized_view", 2);
+        runQueryAndWaitForEvents("SELECT test_bigint FROM mock.default.test_materialized_view", 2);
 
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
 
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(2);
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
+        assertThat(table.getCatalog()).isEqualTo("mock");
+        assertThat(table.getSchema()).isEqualTo("default");
+        assertThat(table.getTable()).isEqualTo("tests_table");
         assertThat(table.getAuthorization()).isEqualTo("alice");
         assertThat(table.isDirectlyReferenced()).isFalse();
         assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
-
-        ColumnInfo column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("nationkey");
-        assertThat(column.getMasks()).isEmpty();
+        assertThat(table.getColumns()).hasSize(2);
 
         table = tables.get(1);
         assertThat(table.getCatalog()).isEqualTo("mock");
@@ -404,8 +404,8 @@ public class TestEventListenerBasic
         assertThat(table.getFilters()).isEmpty();
         assertThat(table.getColumns()).hasSize(1);
 
-        column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("test_column");
+        ColumnInfo column = table.getColumns().get(0);
+        assertThat(column.getColumn()).isEqualTo("test_bigint");
         assertThat(column.getMasks()).isEmpty();
     }
 
@@ -444,31 +444,29 @@ public class TestEventListenerBasic
     public void testReferencedTablesInCreateMaterializedView()
             throws Exception
     {
-        runQueryAndWaitForEvents("CREATE MATERIALIZED VIEW mock.default.test_view AS SELECT * FROM nation", 2);
+        runQueryAndWaitForEvents("CREATE MATERIALIZED VIEW mock.default.test_materialized_view AS SELECT test_varchar, test_bigint FROM mock.default.test_tables", 2);
 
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
 
         assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
-        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_view");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_materialized_view");
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new OutputColumnMetadata("nationkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
-                        new OutputColumnMetadata("name", "varchar(25)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
-                        new OutputColumnMetadata("regionkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "regionkey"))),
-                        new OutputColumnMetadata("comment", "varchar(152)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
+                        new OutputColumnMetadata("test_varchar", "varchar(15)", ImmutableSet.of(new ColumnDetail("mock", "default", "test_tables", "test_varchar"))),
+                        new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "test_tables", "test_bigint"))));
 
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(1);
 
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
+        assertThat(table.getCatalog()).isEqualTo("mock");
+        assertThat(table.getSchema()).isEqualTo("default");
+        assertThat(table.getTable()).isEqualTo("test_tables");
         assertThat(table.getAuthorization()).isEqualTo("user");
         assertThat(table.isDirectlyReferenced()).isTrue();
         assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(4);
+        assertThat(table.getColumns()).hasSize(2);
     }
 
     @Test
@@ -758,7 +756,8 @@ public class TestEventListenerBasic
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new OutputColumnMetadata("test_column", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "test_materialized_view", "test_column"))));
+                        new OutputColumnMetadata("test_varchar", "varchar(15)", ImmutableSet.of(new ColumnDetail("mock", "default", "test_materialized_view", "test_varchar"))),
+                        new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "test_materialized_view", "test_bigint"))));
     }
 
     @Test
