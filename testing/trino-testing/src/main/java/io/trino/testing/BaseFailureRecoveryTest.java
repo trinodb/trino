@@ -314,7 +314,7 @@ public abstract class BaseFailureRecoveryTest
     public void testRefreshMaterializedView()
     {
         testTableModification(
-                Optional.of("CREATE MATERIALIZED VIEW <table> AS SELECT * FROM orders"),
+                Optional.of("CREATE MATERIALIZED VIEW <table> AS SELECT * FROM orders WITH NO DATA"),
                 "REFRESH MATERIALIZED VIEW <table>",
                 Optional.of("DROP MATERIALIZED VIEW <table>"));
     }

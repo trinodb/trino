@@ -927,15 +927,7 @@ public final class MetadataManager
                 .collect(Collectors.toList());
         sourceConnectorHandles.add(tableHandle.getConnectorHandle());
 
-        if (sourceConnectorHandles.stream()
-                .map(Object::getClass)
-                .distinct()
-                .count() > 1) {
-            throw new TrinoException(NOT_SUPPORTED, "Cross connector materialized views are not supported");
-        }
-
         ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), sourceConnectorHandles, getRetryPolicy(session).getRetryMode());
-
         return new InsertTableHandle(tableHandle.getCatalogName(), transactionHandle, handle);
     }
 
@@ -1248,16 +1240,18 @@ public final class MetadataManager
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
-        List<ConnectorMetadata> sourceConnectorHandles = sourceTableHandles.stream()
-                .map(tableHandle -> getMetadata(session, tableHandle.getCatalogName()))
-                .collect(Collectors.toList());
-        sourceConnectorHandles.add(metadata);
+        if (!delegateMaterializedViewRefreshToConnector(session, viewName)) {
+            List<ConnectorMetadata> sourceConnectorHandles = sourceTableHandles.stream()
+                    .map(tableHandle -> getMetadata(session, tableHandle.getCatalogName()))
+                    .collect(Collectors.toList());
+            sourceConnectorHandles.add(metadata);
 
-        if (sourceConnectorHandles.stream()
-                .map(Object::getClass)
-                .distinct()
-                .count() > 1) {
-            throw new TrinoException(NOT_SUPPORTED, "Cross connector materialized views are not supported");
+            if (sourceConnectorHandles.stream()
+                    .map(Object::getClass)
+                    .distinct()
+                    .count() > 1) {
+                throw new TrinoException(NOT_SUPPORTED, "Cross connector materialized views are not supported");
+            }
         }
 
         metadata.createMaterializedView(

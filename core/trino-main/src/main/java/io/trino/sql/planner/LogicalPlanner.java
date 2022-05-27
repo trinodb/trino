@@ -591,7 +591,12 @@ public class LogicalPlanner
                 .map(columnMetadata -> columnHandles.get(columnMetadata.getName()))
                 .collect(toImmutableList());
 
-        return createRefreshMaterializedViewPlanInternal(analysis, Optional.empty(), tableHandle, create.getQuery(), columns);
+        if (analysis.getDelegatedRefreshMaterializedView().isPresent()) {
+            return createDelegatedRefreshMaterializedViewPlan(analysis);
+        }
+        else {
+            return createRefreshMaterializedViewPlanInternal(analysis, Optional.empty(), tableHandle, create.getQuery(), columns);
+        }
     }
 
     private void createMaterializedView(Analysis.CreateMaterializedViewAnalysis create)
@@ -605,22 +610,27 @@ public class LogicalPlanner
 
     private RelationPlan createRefreshMaterializedViewPlan(Analysis analysis)
     {
-        checkState(analysis.getRefreshMaterializedView().isPresent(), "RefreshMaterializedViewAnalysis handle is missing");
+        if (analysis.getDelegatedRefreshMaterializedView().isPresent()) {
+            return createDelegatedRefreshMaterializedViewPlan(analysis);
+        }
+
         Analysis.RefreshMaterializedViewAnalysis viewAnalysis = analysis.getRefreshMaterializedView().get();
         return createRefreshMaterializedViewPlanInternal(analysis, Optional.of(viewAnalysis.getTable()), viewAnalysis.getTarget(), viewAnalysis.getQuery(), viewAnalysis.getColumns());
     }
 
+    private RelationPlan createDelegatedRefreshMaterializedViewPlan(Analysis analysis)
+    {
+        checkState(analysis.getDelegatedRefreshMaterializedView().isPresent(), "DelegatedRefreshMaterializedView is missing");
+        Optional<QualifiedObjectName> delegatedRefreshMaterializedView = analysis.getDelegatedRefreshMaterializedView();
+        return new RelationPlan(
+                new RefreshMaterializedViewNode(idAllocator.getNextId(), delegatedRefreshMaterializedView.get()),
+                analysis.getRootScope(),
+                ImmutableList.of(),
+                Optional.empty());
+    }
+
     private RelationPlan createRefreshMaterializedViewPlanInternal(Analysis analysis, Optional<Table> table, TableHandle tableHandle, Query query, List<ColumnHandle> columns)
     {
-        Optional<QualifiedObjectName> delegatedRefreshMaterializedView = analysis.getDelegatedRefreshMaterializedView();
-        if (delegatedRefreshMaterializedView.isPresent()) {
-            return new RelationPlan(
-                    new RefreshMaterializedViewNode(idAllocator.getNextId(), delegatedRefreshMaterializedView.get()),
-                    analysis.getRootScope(),
-                    ImmutableList.of(),
-                    Optional.empty());
-        }
-
         Optional<TableLayout> newTableLayout = metadata.getInsertLayout(session, tableHandle);
         TableWriterNode.RefreshMaterializedViewReference writerTarget = new TableWriterNode.RefreshMaterializedViewReference(
                 tableHandle,
