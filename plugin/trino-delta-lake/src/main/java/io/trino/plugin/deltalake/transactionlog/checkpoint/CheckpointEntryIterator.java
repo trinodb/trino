@@ -532,16 +532,19 @@ public class CheckpointEntryIterator
 
     private long getLong(Block block, int position)
     {
+        checkArgument(!block.isNull(position));
         return block.getLong(position, 0);
     }
 
     private int getInt(Block block, int position)
     {
+        checkArgument(!block.isNull(position));
         return block.getInt(position, 0);
     }
 
     private byte getByte(Block block, int position)
     {
+        checkArgument(!block.isNull(position));
         return block.getByte(position, 0);
     }
 
