@@ -40,10 +40,10 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -165,13 +165,13 @@ public class FileHiveMetastore
         return new FileHiveMetastore(
                 new NodeVersion("testversion"),
                 hdfsEnvironment,
-                new MetastoreConfig(),
+                new HiveMetastoreConfig(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(catalogDirectory.toURI().toString())
                         .setMetastoreUser("test"));
     }
 
-    public FileHiveMetastore(NodeVersion nodeVersion, HdfsEnvironment hdfsEnvironment, MetastoreConfig metastoreConfig, FileHiveMetastoreConfig config)
+    public FileHiveMetastore(NodeVersion nodeVersion, HdfsEnvironment hdfsEnvironment, HiveMetastoreConfig hiveMetastoreConfig, FileHiveMetastoreConfig config)
     {
         this.currentVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         requireNonNull(config, "config is null");
@@ -179,7 +179,7 @@ public class FileHiveMetastore
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.catalogDirectory = new Path(requireNonNull(config.getCatalogDirectory(), "catalogDirectory is null"));
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
-        this.hideDeltaLakeTables = requireNonNull(metastoreConfig, "metastoreConfig is null").isHideDeltaLakeTables();
+        this.hideDeltaLakeTables = requireNonNull(hiveMetastoreConfig, "hiveMetastoreConfig is null").isHideDeltaLakeTables();
         try {
             metadataFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, this.catalogDirectory);
         }

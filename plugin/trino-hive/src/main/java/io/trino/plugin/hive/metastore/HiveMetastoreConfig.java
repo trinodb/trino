@@ -16,7 +16,7 @@ package io.trino.plugin.hive.metastore;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
-public class MetastoreConfig
+public class HiveMetastoreConfig
 {
     private boolean hideDeltaLakeTables;
 
@@ -27,7 +27,7 @@ public class MetastoreConfig
 
     @Config("hive.hide-delta-lake-tables")
     @ConfigDescription("Hide Delta Lake tables in table listings")
-    public MetastoreConfig setHideDeltaLakeTables(boolean hideDeltaLakeTables)
+    public HiveMetastoreConfig setHideDeltaLakeTables(boolean hideDeltaLakeTables)
     {
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         return this;

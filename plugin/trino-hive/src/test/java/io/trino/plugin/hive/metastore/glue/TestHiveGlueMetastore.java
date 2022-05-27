@@ -38,7 +38,7 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter;
@@ -224,7 +224,7 @@ public class TestHiveGlueMetastore
                 new DefaultGlueColumnStatisticsProviderFactory(executor, executor),
                 Optional.empty(),
                 new DefaultGlueMetastoreTableFilterProvider(
-                        new MetastoreConfig()
+                        new HiveMetastoreConfig()
                                 .setHideDeltaLakeTables(true)).get());
     }
 

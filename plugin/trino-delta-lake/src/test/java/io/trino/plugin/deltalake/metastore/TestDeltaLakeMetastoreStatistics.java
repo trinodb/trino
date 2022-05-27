@@ -41,7 +41,7 @@ import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
@@ -123,7 +123,7 @@ public class TestDeltaLakeMetastoreStatistics
         hiveMetastore = new FileHiveMetastore(
                 new NodeVersion("test_version"),
                 hdfsEnvironment,
-                new MetastoreConfig(),
+                new HiveMetastoreConfig(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(metastoreDir.toURI().toString())
                         .setMetastoreUser("test"));

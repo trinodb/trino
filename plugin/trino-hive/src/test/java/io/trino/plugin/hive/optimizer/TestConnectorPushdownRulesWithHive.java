@@ -35,7 +35,7 @@ import io.trino.plugin.hive.TestingHiveConnectorFactory;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.predicate.Domain;
@@ -111,7 +111,7 @@ public class TestConnectorPushdownRulesWithHive
         metastore = new FileHiveMetastore(
                 new NodeVersion("test_version"),
                 environment,
-                new MetastoreConfig(),
+                new HiveMetastoreConfig(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
