@@ -86,6 +86,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
@@ -637,7 +638,7 @@ public class TrinoGlueCatalog
                 viewName.getTableName(),
                 encodeMaterializedViewData(fromConnectorMaterializedViewDefinition(definition)),
                 session.getUser(),
-                createMaterializedViewProperties(session, storageTable.getTableName()));
+                createMaterializedViewProperties(session, storageTable));
 
         if (existing.isPresent()) {
             try {
@@ -682,11 +683,13 @@ public class TrinoGlueCatalog
     {
         String storageTableName = view.getParameters().get(STORAGE_TABLE);
         if (storageTableName != null) {
+            String storageSchema = Optional.ofNullable(view.getParameters().get(STORAGE_SCHEMA))
+                    .orElse(view.getDatabaseName());
             try {
-                dropTable(session, new SchemaTableName(view.getDatabaseName(), storageTableName));
+                dropTable(session, new SchemaTableName(storageSchema, storageTableName));
             }
             catch (TrinoException e) {
-                LOG.warn(e, "Failed to drop storage table '%s' for materialized view '%s'", storageTableName, view.getName());
+                LOG.warn(e, "Failed to drop storage table '%s.%s' for materialized view '%s'", storageSchema, storageTableName, view.getName());
             }
         }
     }
@@ -700,17 +703,20 @@ public class TrinoGlueCatalog
         }
 
         com.amazonaws.services.glue.model.Table table = maybeTable.get();
-        Map<String, String> tableParameters = table.getParameters();
-        if (!isTrinoMaterializedView(table.getTableType(), tableParameters)) {
+        if (!isTrinoMaterializedView(table.getTableType(), table.getParameters())) {
             return Optional.empty();
         }
 
-        String storageTableName = table.getParameters().get(STORAGE_TABLE);
-        checkState(storageTableName != null, "Storage table missing in definition of materialized view " + viewName);
+        Map<String, String> materializedViewParameters = table.getParameters();
+        String storageTable = materializedViewParameters.get(STORAGE_TABLE);
+        checkState(storageTable != null, "Storage table missing in definition of materialized view " + viewName);
+        String storageSchema = Optional.ofNullable(materializedViewParameters.get(STORAGE_SCHEMA))
+                .orElse(viewName.getSchemaName());
+        SchemaTableName storageTableName = new SchemaTableName(storageSchema, storageTable);
 
         Table icebergTable;
         try {
-            icebergTable = loadTable(session, new SchemaTableName(viewName.getSchemaName(), storageTableName));
+            icebergTable = loadTable(session, storageTableName);
         }
         catch (RuntimeException e) {
             // The materialized view could be removed concurrently. This may manifest in a number of ways, e.g.
@@ -726,7 +732,6 @@ public class TrinoGlueCatalog
             throw new TrinoException(ICEBERG_BAD_DATA, "Materialized view did not have original text " + viewName);
         }
         return Optional.of(getMaterializedViewDefinition(
-                viewName,
                 icebergTable,
                 Optional.ofNullable(table.getOwner()),
                 viewOriginalText,
