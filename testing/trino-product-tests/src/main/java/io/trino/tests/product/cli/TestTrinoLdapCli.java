@@ -229,7 +229,7 @@ public class TestTrinoLdapCli
         ldapUserName = "";
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains("Malformed credentials: user is empty"));
+                assertThat(line).contains("Both username and password must be specified"));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -252,7 +252,7 @@ public class TestTrinoLdapCli
         ldapServerAddress = format("http://%s:8443", serverHost);
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains("Authentication using username/password requires HTTPS to be enabled"));
+                assertThat(line).contains("TLS/SSL required for authentication with username and password"));
         skipAfterMethodWithContext();
     }
 

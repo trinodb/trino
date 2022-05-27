@@ -56,7 +56,7 @@ the coordinator in the Trino cluster:
 
 .. code-block:: text
 
-    ./trino --server http://trino.example.com:8080
+    ./trino http://trino.example.com:8080
 
 If successful, you will get a prompt to execute commands. Use the ``help``
 command to see a list of supported commands. Use the ``clear`` command to clear
@@ -102,7 +102,7 @@ allows you to query tables directly without specifying catalog and schema.
 
 .. code-block:: text
 
-  ./trino --server http://trino.example.com:8080 --catalog tpch --schema tiny
+  ./trino http://trino.example.com:8080/tpch/tiny
 
   trino:tiny> SHOW TABLES;
 
@@ -187,6 +187,7 @@ mode:
     - The HTTP/HTTPS address and port of the Trino coordinator. The port must be
       set to the port the Trino coordinator is listening for connections on.
       Trino server location defaults to ``http://localhost:8080``.
+      Can only be set if URL is not specified.
   * - ``--session``
     - Sets one or more :ref:`session properties
       <session-properties-definition>`. Property can be used multiple times with
@@ -206,6 +207,16 @@ mode:
       operating system username. You can override the default username,
       if your cluster uses a different username or authentication mechanism.
 
+Most of the options can also be set as parameters in the URL. This means
+a JDBC URL can be used in the CLI after removing the ``jdbc:`` prefix.
+However, the same parameter may not be specified using both methods.
+See :doc:`the JDBC driver parameter reference </client/jdbc>`
+to find out URL parameter names. For example:
+
+.. code-block:: text
+
+  ./trino 'https://trino.example.com?SSL=true&SSLVerification=FULL&clientInfo=extra'
+
 .. _cli-tls:
 
 TLS/HTTPS
@@ -220,7 +231,7 @@ Use the HTTPS URL to connect to the server:
 
 .. code-block:: text
 
-    ./trino --server https://trino.example.com
+    ./trino https://trino.example.com
 
 The recommended TLS implementation is to use a globally trusted certificate. In
 this case, no other options are necessary, since the JVM running the CLI
@@ -285,7 +296,7 @@ and prompts the CLI for your password:
 
 .. code-block:: text
 
-  ./trino --server https://trino.example.com --user=exampleusername --password
+  ./trino https://trino.example.com --user=exampleusername --password
 
 Alternatively, set the password as the value of the ``TRINO_PASSWORD``
 environment variable. Typically use single quotes to avoid problems with
@@ -300,7 +311,7 @@ to provide a password to connect with the CLI.
 
 .. code-block:: text
 
-  ./trino --server https://trino.example.com --user=exampleusername --password
+  ./trino https://trino.example.com --user=exampleusername --password
 
 .. _cli-external-sso-auth:
 
@@ -490,8 +501,8 @@ adding it before the ``trino`` command:
 
 .. code-block:: text
 
-    TRINO_CONFIG=kerberos-cli.properties trino --server https://first-cluster.example.com:8443
-    TRINO_CONFIG=ldap-cli.properties trino --server https://second-cluster.example.com:8443
+    TRINO_CONFIG=kerberos-cli.properties trino https://first-cluster.example.com:8443
+    TRINO_CONFIG=ldap-cli.properties trino https://second-cluster.example.com:8443
 
 In the preceding example, the default configuration files are not used.
 

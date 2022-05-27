@@ -21,15 +21,15 @@ import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.cli.Trino.VersionProvider;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
+import io.trino.client.uri.TrinoUri;
 import io.trino.sql.parser.StatementSplitter;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.History;
-import org.jline.reader.LineReader;
-import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.UserInterruptException;
 import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.InfoCmp;
+import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
@@ -40,15 +40,16 @@ import java.io.PrintStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.CharMatcher.whitespace;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
@@ -85,6 +86,9 @@ public class Console
     private static final String PROMPT_NAME = "trino";
     private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
 
+    @CommandLine.Spec
+    CommandLine.Model.CommandSpec spec;
+
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
 
@@ -102,7 +106,9 @@ public class Console
 
     public boolean run()
     {
-        ClientSession session = clientOptions.toClientSession();
+        // options set explicitly by the user cannot override URL params, and must not be set in the URL
+        TrinoUri uri = clientOptions.getTrinoUri(getProvidedOptions(spec));
+        ClientSession session = clientOptions.toClientSession(uri);
         boolean hasQuery = clientOptions.execute != null;
         boolean isFromFile = !isNullOrEmpty(clientOptions.file);
 
@@ -154,32 +160,10 @@ public class Console
         }));
 
         try (QueryRunner queryRunner = new QueryRunner(
+                uri,
                 session,
                 clientOptions.debug,
-                clientOptions.networkLogging,
-                clientOptions.socksProxy,
-                clientOptions.httpProxy,
-                clientOptions.keystorePath,
-                clientOptions.keystorePassword,
-                clientOptions.keystoreType,
-                clientOptions.truststorePath,
-                clientOptions.truststorePassword,
-                clientOptions.truststoreType,
-                clientOptions.useSystemTruststore,
-                clientOptions.insecure,
-                clientOptions.accessToken,
-                clientOptions.user,
-                clientOptions.password ? Optional.of(getPassword()) : Optional.empty(),
-                clientOptions.krb5Principal,
-                clientOptions.krb5ServicePrincipalPattern,
-                clientOptions.krb5RemoteServiceName,
-                clientOptions.krb5ConfigPath,
-                clientOptions.krb5KeytabPath,
-                clientOptions.krb5CredentialCachePath,
-                !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
-                false,
-                clientOptions.externalAuthentication,
-                clientOptions.externalAuthenticationRedirectHandler)) {
+                clientOptions.networkLogging)) {
             if (hasQuery) {
                 return executeCommand(
                         queryRunner,
@@ -208,25 +192,14 @@ public class Console
         }
     }
 
-    private String getPassword()
+    private static List<String> getProvidedOptions(CommandLine.Model.CommandSpec spec)
     {
-        checkState(clientOptions.user.isPresent(), "Both username and password must be specified");
-        String defaultPassword = System.getenv("TRINO_PASSWORD");
-        if (defaultPassword != null) {
-            return defaultPassword;
-        }
-
-        java.io.Console console = System.console();
-        if (console != null) {
-            char[] password = console.readPassword("Password: ");
-            if (password != null) {
-                return new String(password);
-            }
-            return "";
-        }
-
-        LineReader reader = LineReaderBuilder.builder().terminal(getTerminal()).build();
-        return reader.readLine("Password: ", (char) 0);
+        CommandLine.ParseResult pr = spec.commandLine().getParseResult();
+        List<CommandLine.Model.OptionSpec> options = spec.options();
+        return options.stream()
+                .filter(pr::hasMatchedOption)
+                .map(CommandLine.Model.OptionSpec::longestName)
+                .collect(Collectors.toList());
     }
 
     private static void runConsole(
