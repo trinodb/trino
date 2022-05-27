@@ -138,7 +138,8 @@ public class TestSingleStoreConnectorTest
             return Optional.empty();
         }
 
-        if (typeName.equals("timestamp(3) with time zone")) {
+        if (typeName.equals("timestamp(3) with time zone") ||
+                typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 

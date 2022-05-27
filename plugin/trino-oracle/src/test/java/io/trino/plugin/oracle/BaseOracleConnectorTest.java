@@ -105,8 +105,11 @@ public abstract class BaseOracleConnectorTest
                 return Optional.empty();
             }
         }
-        if (typeName.equals("time")) {
-            return Optional.empty();
+        if (typeName.equals("time") ||
+                typeName.equals("time(6)") ||
+                typeName.equals("timestamp(6)") ||
+                typeName.equals("timestamp(6) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
         }
         if (typeName.equals("boolean")) {
             // Oracle does not have native support for boolean however usually it is represented as number(1)

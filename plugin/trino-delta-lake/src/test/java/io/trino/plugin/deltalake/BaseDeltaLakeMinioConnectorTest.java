@@ -176,7 +176,12 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("time") || typeName.equals("timestamp") || typeName.equals("char(3)")) {
+        if (typeName.equals("time") ||
+                typeName.equals("time(6)") ||
+                typeName.equals("timestamp") ||
+                typeName.equals("timestamp(6)") ||
+                typeName.equals("timestamp(6) with time zone") ||
+                typeName.equals("char(3)")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
         return Optional.of(dataMappingTestSetup);

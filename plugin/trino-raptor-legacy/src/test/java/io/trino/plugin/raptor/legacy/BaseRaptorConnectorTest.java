@@ -135,7 +135,10 @@ public abstract class BaseRaptorConnectorTest
                 || typeName.equals("real")
                 || typeName.startsWith("decimal(")
                 || typeName.equals("time")
+                || typeName.equals("time(6)")
+                || typeName.equals("timestamp(6)")
                 || typeName.equals("timestamp(3) with time zone")
+                || typeName.equals("timestamp(6) with time zone")
                 || typeName.startsWith("char(")) {
             //TODO this should either work or fail cleanly
             return Optional.empty();
