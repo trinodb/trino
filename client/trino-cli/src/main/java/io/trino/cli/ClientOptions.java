@@ -22,11 +22,16 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
+import io.trino.client.uri.PropertyName;
+import io.trino.client.uri.RestrictedPropertyException;
+import io.trino.client.uri.TrinoUri;
 import okhttp3.logging.HttpLoggingInterceptor;
 import org.jline.reader.LineReader;
+import org.jline.reader.LineReaderBuilder;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,22 +40,70 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
+import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Option;
+import static picocli.CommandLine.Parameters;
 
 public class ClientOptions
 {
     private static final Splitter NAME_VALUE_SPLITTER = Splitter.on('=').limit(2);
     private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E); // spaces are not allowed
     private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
+    private static final String SERVER_DEFAULT = "localhost:8080";
+    private static final String SOURCE_DEFAULT = "trino-cli";
 
-    @Option(names = "--server", paramLabel = "<server>", defaultValue = "localhost:8080", description = "Trino server location " + DEFAULT_VALUE)
-    public String server;
+    // some entries have different semantics, but this mapping is only used to disallow setting both as a CLI option and URL parameter
+    static final Map<String, PropertyName> optionsToProperties = ImmutableMap.<String, PropertyName>builder()
+            .put("--krb5-service-principal-pattern", PropertyName.KERBEROS_SERVICE_PRINCIPAL_PATTERN)
+            .put("--krb5-config-path", PropertyName.KERBEROS_CONFIG_PATH)
+            .put("--krb5-keytab-path", PropertyName.KERBEROS_KEYTAB_PATH)
+            .put("--krb5-credential-cache-path", PropertyName.KERBEROS_CREDENTIAL_CACHE_PATH)
+            .put("--krb5-principal", PropertyName.KERBEROS_PRINCIPAL)
+            .put("--krb5-disable-remote-service-hostname-canonicalization", PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME)
+            .put("--keystore-path", PropertyName.SSL_KEY_STORE_PATH)
+            .put("--keystore-password", PropertyName.SSL_KEY_STORE_PASSWORD)
+            .put("--keystore-type", PropertyName.SSL_KEY_STORE_TYPE)
+            .put("--truststore-path", PropertyName.SSL_TRUST_STORE_PATH)
+            .put("--truststore-password", PropertyName.SSL_TRUST_STORE_PASSWORD)
+            .put("--truststore-type", PropertyName.SSL_TRUST_STORE_TYPE)
+            .put("--use-system-truststore", PropertyName.SSL_USE_SYSTEM_TRUST_STORE)
+            .put("--insecure", PropertyName.SSL_VERIFICATION)
+            .put("--access-token", PropertyName.ACCESS_TOKEN)
+            .put("--user", PropertyName.USER)
+            // password should never be allowed in the URL
+            .put("--external-authentication", PropertyName.EXTERNAL_AUTHENTICATION)
+            .put("--external-authentication-redirect-handler", PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
+            .put("--source", PropertyName.SOURCE)
+            .put("--client-info", PropertyName.CLIENT_INFO)
+            .put("--client-tags", PropertyName.CLIENT_TAGS)
+            .put("--trace-token", PropertyName.TRACE_TOKEN)
+            .put("--session-user", PropertyName.SESSION_USER)
+            .put("--session", PropertyName.SESSION_PROPERTIES)
+            .put("--extra-credential", PropertyName.EXTRA_CREDENTIALS)
+            .put("--socks-proxy", PropertyName.SOCKS_PROXY)
+            .put("--http-proxy", PropertyName.HTTP_PROXY)
+            .put("--disable-compression", PropertyName.DISABLE_COMPRESSION)
+            // these are not properties, but defining them here will help to map the property from an exception back to an option
+            .put("--catalog", PropertyName.CATALOG)
+            .put("--schema", PropertyName.SCHEMA)
+            .buildOrThrow();
+
+    @Parameters(paramLabel = "URL", description = "Trino server URL", arity = "0..1")
+    public Optional<String> url;
+
+    @Option(names = "--server", paramLabel = "<server>", description = "Trino server location (default: " + SERVER_DEFAULT + ")")
+    public Optional<String> server;
 
     @Option(names = "--krb5-service-principal-pattern", paramLabel = "<pattern>", defaultValue = "$${SERVICE}@$${HOST}", description = "Remote kerberos service principal pattern " + DEFAULT_VALUE)
     public Optional<String> krb5ServicePrincipalPattern;
@@ -112,17 +165,17 @@ public class ClientOptions
     @Option(names = "--external-authentication-redirect-handler", paramLabel = "<externalAuthenticationRedirectHandler>", description = "External authentication redirect handlers: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "ALL")
     public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = new ArrayList<>();
 
-    @Option(names = "--source", paramLabel = "<source>", defaultValue = "trino-cli", description = "Name of source making query " + DEFAULT_VALUE)
-    public String source;
+    @Option(names = "--source", paramLabel = "<source>", description = "Name of source making query (default: " + SOURCE_DEFAULT + ")")
+    public Optional<String> source;
 
     @Option(names = "--client-info", paramLabel = "<info>", description = "Extra information about client making query")
-    public String clientInfo;
+    public Optional<String> clientInfo;
 
     @Option(names = "--client-tags", paramLabel = "<tags>", description = "Client tags")
-    public String clientTags;
+    public Optional<String> clientTags;
 
     @Option(names = "--trace-token", paramLabel = "<token>", description = "Trace token")
-    public String traceToken;
+    public Optional<String> traceToken;
 
     @Option(names = "--catalog", paramLabel = "<catalog>", description = "Default catalog")
     public Optional<String> catalog;
@@ -226,18 +279,18 @@ public class ClientOptions
         }
     }
 
-    public ClientSession toClientSession()
+    public ClientSession toClientSession(TrinoUri uri)
     {
         return ClientSession.builder()
-                .server(parseServer(server))
+                .server(uri.getHttpUri())
                 .principal(user)
                 .user(sessionUser)
-                .source(source)
-                .traceToken(Optional.ofNullable(traceToken))
-                .clientTags(parseClientTags(nullToEmpty(clientTags)))
-                .clientInfo(clientInfo)
-                .catalog(catalog.orElse(null))
-                .schema(schema.orElse(null))
+                .source(source.orElse("trino-cli"))
+                .traceToken(traceToken)
+                .clientTags(parseClientTags(clientTags.orElse("")))
+                .clientInfo(clientInfo.orElse(null))
+                .catalog(uri.getCatalog().orElse(catalog.orElse(null)))
+                .schema(uri.getSchema().orElse(schema.orElse(null)))
                 .timeZone(timeZone)
                 .locale(Locale.getDefault())
                 .resourceEstimates(toResourceEstimates(resourceEstimates))
@@ -249,10 +302,127 @@ public class ClientOptions
                 .build();
     }
 
+    public TrinoUri getTrinoUri()
+    {
+        return getTrinoUri(emptyList());
+    }
+
+    public TrinoUri getTrinoUri(List<String> providedOptions)
+    {
+        URI uri;
+        if (url.isPresent()) {
+            if (server.isPresent()) {
+                throw new IllegalArgumentException("Using both the URL parameter and the --server option is not allowed");
+            }
+            uri = parseServer(url.get());
+        }
+        else {
+            uri = parseServer(server.orElse(SERVER_DEFAULT));
+        }
+        List<PropertyName> restrictedProperties = Stream.concat(
+                        providedOptions.stream().map(optionsToProperties::get),
+                        Stream.of(PropertyName.PASSWORD))
+                .collect(Collectors.toList());
+        TrinoUri.Builder builder = TrinoUri.builder()
+                .setUri(uri)
+                .setRestrictedProperties(restrictedProperties);
+        catalog.ifPresent(builder::setCatalog);
+        schema.ifPresent(builder::setSchema);
+        user.ifPresent(builder::setUser);
+        sessionUser.ifPresent(builder::setSessionUser);
+        if (password) {
+            builder.setPassword(getPassword());
+        }
+        krb5RemoteServiceName.ifPresent(builder::setKerberosRemoveServiceName);
+        krb5ServicePrincipalPattern.ifPresent(builder::setKerberosServicePrincipalPattern);
+        if (krb5RemoteServiceName.isPresent()) {
+            krb5ConfigPath.ifPresent(builder::setKerberosConfigPath);
+            krb5KeytabPath.ifPresent(builder::setKerberosKeytabPath);
+        }
+        krb5CredentialCachePath.ifPresent(builder::setKerberosCredentialCachePath);
+        krb5Principal.ifPresent(builder::setKerberosPrincipal);
+        if (krb5DisableRemoteServiceHostnameCanonicalization) {
+            builder.setKerberosUseCanonicalHostname(false);
+        }
+        boolean useSecureConnection = uri.getScheme().equals("https") || (uri.getScheme().equals("trino") && uri.getPort() == 443);
+        if (useSecureConnection) {
+            builder.setSsl(true);
+        }
+        if (insecure) {
+            builder.setSslVerificationNone();
+        }
+        keystorePath.ifPresent(builder::setSslKeyStorePath);
+        keystorePassword.ifPresent(builder::setSslKeyStorePassword);
+        keystoreType.ifPresent(builder::setSslKeyStoreType);
+        truststorePath.ifPresent(builder::setSslTrustStorePath);
+        truststorePassword.ifPresent(builder::setSslTrustStorePassword);
+        truststoreType.ifPresent(builder::setSslTrustStoreType);
+        if (useSystemTruststore) {
+            builder.setSslUseSystemTrustStore(true);
+        }
+        accessToken.ifPresent(builder::setAccessToken);
+        if (!extraCredentials.isEmpty()) {
+            builder.setExtraCredentials(toExtraCredentials(extraCredentials));
+        }
+        if (!sessionProperties.isEmpty()) {
+            builder.setSessionProperties(toProperties(sessionProperties));
+        }
+        builder.setExternalAuthentication(externalAuthentication);
+        builder.setExternalRedirectStrategies(externalAuthenticationRedirectHandler);
+        source.ifPresent(builder::setSource);
+        clientInfo.ifPresent(builder::setClientInfo);
+        clientTags.ifPresent(builder::setClientTags);
+        traceToken.ifPresent(builder::setTraceToken);
+        socksProxy.ifPresent(builder::setSocksProxy);
+        httpProxy.ifPresent(builder::setHttpProxy);
+        builder.setDisableCompression(disableCompression);
+        TrinoUri trinoUri;
+        try {
+            trinoUri = builder.build();
+        }
+        catch (RestrictedPropertyException e) {
+            if (e.getPropertyName() == PropertyName.PASSWORD) {
+                throw new IllegalArgumentException("Setting the password in the URL parameter is not allowed, use the `--password` option or the `TRINO_PASSWORD` environment variable");
+            }
+            Map<PropertyName, String> propertiesToOptions = optionsToProperties.entrySet()
+                    .stream()
+                    .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+            throw new IllegalArgumentException(format(
+                    "Connection property '%s' cannot be set in the URL when option '%s' is set",
+                    e.getPropertyName(),
+                    propertiesToOptions.get(e.getPropertyName())), e);
+        }
+        catch (SQLException e) {
+            throw new IllegalArgumentException(e);
+        }
+        return trinoUri;
+    }
+
+    private String getPassword()
+    {
+        checkState(user.isPresent() && !user.get().isEmpty(), "Both username and password must be specified");
+        String defaultPassword = System.getenv("TRINO_PASSWORD");
+        if (defaultPassword != null) {
+            return defaultPassword;
+        }
+
+        java.io.Console console = System.console();
+        if (console != null) {
+            char[] password = console.readPassword("Password: ");
+            if (password != null) {
+                return new String(password);
+            }
+            return "";
+        }
+
+        LineReader reader = LineReaderBuilder.builder().terminal(getTerminal()).build();
+        return reader.readLine("Password: ", (char) 0);
+    }
+
     public static URI parseServer(String server)
     {
-        server = server.toLowerCase(ENGLISH);
-        if (server.startsWith("http://") || server.startsWith("https://")) {
+        String lowerServer = server.toLowerCase(ENGLISH);
+        if (lowerServer.startsWith("http://") || lowerServer.startsWith("https://") || lowerServer.startsWith("trino://")) {
             return URI.create(server);
         }
 
