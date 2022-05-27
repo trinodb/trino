@@ -146,6 +146,12 @@ is used.
   * - ``iceberg.hive-catalog-name``
     - Catalog to redirect to when a Hive table is referenced.
     -
+  * - ``iceberg.materialized-views.storage-schema``
+    - Schema for creating materialized views storage tables. When this property
+      is not configured, storage tables are created in the same schema as the
+      materialized view definition. When the ``storage_schema`` materialized
+      view property is specified, it takes precedence over this catalog property.
+    - Empty
 
 ORC format configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -944,6 +950,11 @@ for the data files and partition the storage per day using the column
 ``_date``::
 
     WITH ( format = 'ORC', partitioning = ARRAY['event_date'] )
+
+By default, the storage table is created in the same schema as the materialized
+view definition. The ``iceberg.materialized-views.storage-schema`` catalog
+configuration property or ``storage_schema`` materialized view property can be
+used to specify the schema where the storage table will be created.
 
 Updating the data in the materialized view with
 :doc:`/sql/refresh-materialized-view` deletes the data from the storage table,

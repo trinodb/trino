@@ -62,6 +62,7 @@ public class IcebergConfig
     private boolean deleteSchemaLocationsFallback;
     private double minimumAssignedSplitWeight = 0.05;
     private boolean allowLegacySnapshotSyntax;
+    private Optional<String> materializedViewsStorageSchema = Optional.empty();
 
     public CatalogType getCatalogType()
     {
@@ -303,5 +304,19 @@ public class IcebergConfig
     public boolean isAllowLegacySnapshotSyntax()
     {
         return allowLegacySnapshotSyntax;
+    }
+
+    @NotNull
+    public Optional<String> getMaterializedViewsStorageSchema()
+    {
+        return materializedViewsStorageSchema;
+    }
+
+    @Config("iceberg.materialized-views.storage-schema")
+    @ConfigDescription("Schema for creating materialized views storage tables")
+    public IcebergConfig setMaterializedViewsStorageSchema(String materializedViewsStorageSchema)
+    {
+        this.materializedViewsStorageSchema = Optional.ofNullable(materializedViewsStorageSchema);
+        return this;
     }
 }
