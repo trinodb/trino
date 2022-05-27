@@ -217,6 +217,13 @@ public final class MetadataUtil
         }
     }
 
+    public static void checkCatalogExists(Metadata metadata, Session session, Node node, String catalogName)
+    {
+        if (metadata.getCatalogHandle(session, catalogName).isEmpty()) {
+            throw semanticException(CATALOG_NOT_FOUND, node, "Catalog '%s' does not exist", catalogName);
+        }
+    }
+
     public static Optional<String> processRoleCommandCatalog(Metadata metadata, Session session, Node node, Optional<String> catalog)
     {
         boolean legacyCatalogRoles = isLegacyCatalogRoles(session);
