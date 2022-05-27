@@ -80,10 +80,16 @@ public class TestIcebergGlueCatalogMaterializedViewTest
     @AfterClass(alwaysRun = true)
     public void cleanup()
     {
+        cleanUpSchema(schemaName);
+        cleanUpSchema(storageSchemaName);
+    }
+
+    private static void cleanUpSchema(String schema)
+    {
         AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
         Set<String> tableNames = getPaginatedResults(
                 glueClient::getTables,
-                new GetTablesRequest().withDatabaseName(schemaName),
+                new GetTablesRequest().withDatabaseName(schema),
                 GetTablesRequest::setNextToken,
                 GetTablesResult::getNextToken,
                 new GlueMetastoreApiStats())
@@ -92,9 +98,9 @@ public class TestIcebergGlueCatalogMaterializedViewTest
                 .map(Table::getName)
                 .collect(toImmutableSet());
         glueClient.batchDeleteTable(new BatchDeleteTableRequest()
-                .withDatabaseName(schemaName)
+                .withDatabaseName(schema)
                 .withTablesToDelete(tableNames));
         glueClient.deleteDatabase(new DeleteDatabaseRequest()
-                .withName(schemaName));
+                .withName(schema));
     }
 }
