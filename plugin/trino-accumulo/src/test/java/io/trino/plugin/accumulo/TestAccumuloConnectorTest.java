@@ -321,7 +321,10 @@ public class TestAccumuloConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.startsWith("decimal(")
+                || typeName.equals("time(6)")
+                || typeName.equals("timestamp(6)")
                 || typeName.equals("timestamp(3) with time zone")
+                || typeName.equals("timestamp(6) with time zone")
                 || typeName.startsWith("char(")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }

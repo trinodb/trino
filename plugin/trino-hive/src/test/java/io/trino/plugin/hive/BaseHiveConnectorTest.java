@@ -8634,8 +8634,14 @@ public abstract class BaseHiveConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("time")
-                || typeName.equals("timestamp(3) with time zone")) {
+                || typeName.equals("time(6)")
+                || typeName.equals("timestamp(3) with time zone")
+                || typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+        if (typeName.equals("timestamp(6)")) {
+            // It's supported depending on hive timestamp precision configuration, so the exception message doesn't match the expected for asUnsupported().
+            return Optional.empty();
         }
 
         return Optional.of(dataMappingTestSetup);
