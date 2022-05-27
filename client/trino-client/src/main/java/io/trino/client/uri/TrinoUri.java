@@ -269,10 +269,15 @@ public class TrinoUri
         this.source = SOURCE.getValueOrDefault(urlProperties, source);
 
         properties = buildProperties();
-        validateConnectionProperties(properties);
 
         // enable SSL by default for the trino schema and the standard port
         useSecureConnection = SSL.getValue(properties).orElse(uri.getScheme().equals("https") || (uri.getScheme().equals("trino") && uri.getPort() == 443));
+        if (!password.orElse("").isEmpty()) {
+            if (!useSecureConnection) {
+                throw new SQLException("TLS/SSL required for authentication with username and password");
+            }
+        }
+        validateConnectionProperties(properties);
 
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort() == -1 ? (useSecureConnection ? 443 : 80) : uri.getPort());
         initCatalogAndSchema();
