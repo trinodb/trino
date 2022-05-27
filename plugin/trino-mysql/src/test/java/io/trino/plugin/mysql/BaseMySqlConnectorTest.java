@@ -146,7 +146,7 @@ public abstract class BaseMySqlConnectorTest
         }
 
         if (typeName.equals("boolean")) {
-            // MySql does not have built-in support for boolean type. MySQL provides BOOLEAN as the synonym of TINYINT(1)
+            // MySQL does not have built-in support for boolean type. MySQL provides BOOLEAN as the synonym of TINYINT(1)
             // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
             return Optional.empty();
         }
