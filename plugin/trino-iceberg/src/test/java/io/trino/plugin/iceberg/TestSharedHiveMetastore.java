@@ -25,7 +25,7 @@ import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -89,7 +89,7 @@ public class TestSharedHiveMetastore
         HiveMetastore metastore = new FileHiveMetastore(
                 new NodeVersion("testversion"),
                 hdfsEnvironment,
-                new MetastoreConfig(),
+                new HiveMetastoreConfig(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(dataDirectory.toFile().toURI().toString())
                         .setMetastoreUser("test"));

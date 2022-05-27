@@ -22,12 +22,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestMetastoreConfig
+public class TestHiveMetastoreConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(MetastoreConfig.class)
+        assertRecordedDefaults(recordDefaults(HiveMetastoreConfig.class)
                 .setHideDeltaLakeTables(false));
     }
 
@@ -38,7 +38,7 @@ public class TestMetastoreConfig
                 .put("hive.hide-delta-lake-tables", "true")
                 .buildOrThrow();
 
-        MetastoreConfig expected = new MetastoreConfig()
+        HiveMetastoreConfig expected = new HiveMetastoreConfig()
                 .setHideDeltaLakeTables(true);
 
         assertFullMapping(properties, expected);

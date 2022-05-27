@@ -15,8 +15,8 @@ package io.trino.plugin.hive.metastore.alluxio;
 
 import alluxio.client.table.TableMasterClient;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.spi.security.ConnectorIdentity;
 
 import javax.inject.Inject;
@@ -29,10 +29,10 @@ public class AlluxioHiveMetastoreFactory
     private final AlluxioHiveMetastore metastore;
 
     @Inject
-    public AlluxioHiveMetastoreFactory(TableMasterClient client, MetastoreConfig metastoreConfig)
+    public AlluxioHiveMetastoreFactory(TableMasterClient client, HiveMetastoreConfig hiveMetastoreConfig)
     {
         // Alluxio metastore does not support impersonation, so just create a single shared instance
-        metastore = new AlluxioHiveMetastore(client, metastoreConfig);
+        metastore = new AlluxioHiveMetastore(client, hiveMetastoreConfig);
     }
 
     @Override
