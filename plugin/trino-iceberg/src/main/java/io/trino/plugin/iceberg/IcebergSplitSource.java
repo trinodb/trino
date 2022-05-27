@@ -18,7 +18,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Streams;
+import com.google.common.io.Closer;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.iceberg.delete.TrinoDeleteFile;
@@ -36,7 +36,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.Path;
-import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpecParser;
@@ -44,7 +43,9 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.util.TableScanUtil;
 
 import javax.annotation.Nullable;
 
@@ -53,8 +54,6 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.ByteBuffer;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -100,9 +99,10 @@ public class IcebergSplitSource
     private final Stopwatch dynamicFilterWaitStopwatch;
     private final Constraint constraint;
     private final TypeManager typeManager;
+    private final Closer closer = Closer.create();
 
-    private CloseableIterable<CombinedScanTask> combinedScanIterable;
-    private Iterator<FileScanTask> fileScanIterator;
+    private CloseableIterable<FileScanTask> fileScanTaskIterable;
+    private CloseableIterator<FileScanTask> fileScanTaskIterator;
     private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
 
     private final boolean recordScannedFiles;
@@ -140,7 +140,7 @@ public class IcebergSplitSource
                     .completeOnTimeout(EMPTY_BATCH, timeLeft, MILLISECONDS);
         }
 
-        if (combinedScanIterable == null) {
+        if (fileScanTaskIterable == null) {
             // Used to avoid duplicating work if the Dynamic Filter was already pushed down to the Iceberg API
             this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast);
             TupleDomain<IcebergColumnHandle> fullPredicate = tableHandle.getUnenforcedPredicate()
@@ -161,14 +161,14 @@ public class IcebergSplitSource
             }
 
             Expression filterExpression = toIcebergExpression(effectivePredicate);
-            this.combinedScanIterable = tableScan
-                    .filter(filterExpression)
-                    .includeColumnStats()
-                    .planTasks();
-            this.fileScanIterator = Streams.stream(combinedScanIterable)
-                    .map(CombinedScanTask::files)
-                    .flatMap(Collection::stream)
-                    .iterator();
+            this.fileScanTaskIterable = TableScanUtil.splitFiles(
+                    tableScan.filter(filterExpression)
+                            .includeColumnStats()
+                            .planFiles(),
+                    tableScan.targetSplitSize());
+            closer.register(fileScanTaskIterable);
+            this.fileScanTaskIterator = fileScanTaskIterable.iterator();
+            closer.register(fileScanTaskIterator);
         }
 
         TupleDomain<IcebergColumnHandle> dynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
@@ -178,7 +178,7 @@ public class IcebergSplitSource
             return completedFuture(NO_MORE_SPLITS_BATCH);
         }
 
-        Iterator<FileScanTask> fileScanTasks = Iterators.limit(fileScanIterator, maxSize);
+        Iterator<FileScanTask> fileScanTasks = Iterators.limit(fileScanTaskIterator, maxSize);
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (fileScanTasks.hasNext()) {
             FileScanTask scanTask = fileScanTasks.next();
@@ -238,14 +238,14 @@ public class IcebergSplitSource
     private void finish()
     {
         close();
-        this.combinedScanIterable = CloseableIterable.empty();
-        this.fileScanIterator = Collections.emptyIterator();
+        this.fileScanTaskIterable = CloseableIterable.empty();
+        this.fileScanTaskIterator = CloseableIterator.empty();
     }
 
     @Override
     public boolean isFinished()
     {
-        return fileScanIterator != null && !fileScanIterator.hasNext();
+        return fileScanTaskIterator != null && !fileScanTaskIterator.hasNext();
     }
 
     @Override
@@ -261,13 +261,11 @@ public class IcebergSplitSource
     @Override
     public void close()
     {
-        if (combinedScanIterable != null) {
-            try {
-                combinedScanIterable.close();
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+        try {
+            closer.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
