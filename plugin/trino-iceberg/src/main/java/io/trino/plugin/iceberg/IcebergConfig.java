@@ -20,6 +20,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -58,6 +60,7 @@ public class IcebergConfig
     // putting schemas in locations with extraneous files), so default to false
     // to avoid deleting those files if Trino is unable to check.
     private boolean deleteSchemaLocationsFallback;
+    private double minimumAssignedSplitWeight = 0.05;
 
     public CatalogType getCatalogType()
     {
@@ -270,5 +273,20 @@ public class IcebergConfig
     {
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         return this;
+    }
+
+    @Config("iceberg.minimum-assigned-split-weight")
+    @ConfigDescription("Minimum weight that a split can be assigned")
+    public IcebergConfig setMinimumAssignedSplitWeight(double minimumAssignedSplitWeight)
+    {
+        this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
+        return this;
+    }
+
+    @DecimalMax("1")
+    @DecimalMin(value = "0", inclusive = false)
+    public double getMinimumAssignedSplitWeight()
+    {
+        return minimumAssignedSplitWeight;
     }
 }
