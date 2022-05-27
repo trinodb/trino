@@ -496,8 +496,11 @@ public abstract class BaseClickHouseConnectorTest
                 return Optional.empty();
 
             case "time":
+            case "time(6)":
             case "timestamp":
+            case "timestamp(6)":
             case "timestamp(3) with time zone":
+            case "timestamp(6) with time zone":
                 return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
