@@ -74,9 +74,9 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.metadata.FunctionId.toFunctionId;
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 

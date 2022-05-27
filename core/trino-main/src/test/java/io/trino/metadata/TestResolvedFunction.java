@@ -27,7 +27,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Integer.parseInt;
 import static org.testng.Assert.assertEquals;
