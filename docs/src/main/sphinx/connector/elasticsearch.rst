@@ -30,8 +30,6 @@ replacing the properties as appropriate:
 Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-The following configuration properties are available:
-
 .. list-table:: Elasticsearch configuration properties
     :widths: 35, 55, 10
     :header-rows: 1
@@ -44,51 +42,46 @@ The following configuration properties are available:
         required.
       -
     * - ``elasticsearch.port``
-      - Specifies the port of the Elasticsearch node to connect to.
-        This property is optional.
+      - Port of the Elasticsearch node to connect to.
       - ``9200``
     * - ``elasticsearch.default-schema-name``
-      - Defines the schema that contains all tables defined without
-        a qualifying schema name. This property is optional.
+      - The schema that contains all tables defined without a qualifying schema
+        name.
       - ``default``
     * - ``elasticsearch.scroll-size``
-      - This property defines the maximum number of hits that can be returned
-        with each Elasticsearch scroll request.
+      - Sets the maximum number of hits that can be returned with each
+        Elasticsearch scroll request.
       - ``1000``
     * - ``elasticsearch.scroll-timeout``
-      - This property defines the amount of time (ms) Elasticsearch keeps the
-        `search context alive <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-scroll.html#scroll-search-context>`_
-        for scroll requests. This property is optional.
+      - Amount of time Elasticsearch keeps the
+        `search context <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-scroll.html#scroll-search-context>`_
+        alive for scroll requests.
       - ``1m``
     * - ``elasticsearch.request-timeout``
-      - This property defines the timeout value for all Elasticsearch requests.
-        This property is optional.
+      - Timeout value for all Elasticsearch requests.
       - ``10s``
     * - ``elasticsearch.connect-timeout``
-      - This property defines the timeout value for all Elasticsearch connection
-        attempts. This property is optional.
+      - Timeout value for all Elasticsearch connection attempts.
       - ``1s``
     * - ``elasticsearch.backoff-init-delay``
-      - This property defines the minimum duration between backpressure retry
-        attempts for a single request to Elasticsearch. Setting it too low might
-        overwhelm an already struggling ES cluster. This property is optional.
+      - The minimum duration between backpressure retry attempts for a single
+        request to Elasticsearch. Setting it too low might overwhelm an already
+        struggling ES cluster.
       - ``500ms``
     * - ``elasticsearch.backoff-max-delay``
-      - This property defines the maximum duration between backpressure retry
-        attempts for a single request to Elasticsearch. This property is
-        optional.
+      - The maximum duration between backpressure retry attempts for a single
+        request to Elasticsearch.
       - ``20s``
     * - ``elasticsearch.max-retry-time``
-      - This property defines the maximum duration across all retry attempts for
-        a single request to Elasticsearch. This property is optional.
+      - The maximum duration across all retry attempts for a single request to
+        Elasticsearch.
       - ``20s``
     * - ``elasticsearch.node-refresh-interval``
-      - This property controls how often the list of available Elasticsearch
-        nodes is refreshed. This property is optional.
+      - How often the list of available Elasticsearch nodes is refreshed.
       - ``1m``
     * - ``elasticsearch.ignore-publish-address``
-      - Enable or disable using the address published by Elasticsearch to
-        connect for queries.
+      - Disables using the address published by Elasticsearch to connect for
+        queries.
       -
 
 TLS security
@@ -108,16 +101,16 @@ The connector supports key stores and trust stores in PEM or Java Key Store
       - Description
     * - ``elasticsearch.tls.keystore-path``
       - The path to the PEM or JKS key store. This file must be readable by the
-        operating system user running Trino. This property is optional.
+        operating system user running Trino.
     * - ``elasticsearch.tls.truststore-path``
       - The path to PEM or JKS trust store. This file must be readable by the
-        operating system user running Trino. This property is optional.
+        operating system user running Trino.
     * - ``elasticsearch.tls.keystore-password``
       - The key password for the key store specified by
-        ``elasticsearch.tls.keystore-path``. This property is optional.
+        ``elasticsearch.tls.keystore-path``.
     * - ``elasticsearch.tls.truststore-password``
       - The key password for the trust store specified by
-        ``elasticsearch.tls.truststore-path``. This property is optional.
+        ``elasticsearch.tls.truststore-path``.
 
 Data types
 ----------
