@@ -208,6 +208,52 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
     }
 
     @Test
+    public void rewritesOnSubqueryWithDecorrelatableDistinct()
+    {
+        // distinct aggregation can be decorrelated in the subquery by PlanNodeDecorrelator
+        // because the correlated predicate is equality comparison
+        tester().assertThat(new TransformCorrelatedGlobalAggregationWithoutProjection(tester().getPlannerContext()))
+                .on(p -> p.correlatedJoin(
+                        ImmutableList.of(p.symbol("corr")),
+                        p.values(p.symbol("corr")),
+                        p.aggregation(outerBuilder -> outerBuilder
+                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("count"), PlanBuilder.expression("count()"), ImmutableList.of())
+                                .globalGrouping()
+                                .source(p.aggregation(innerBuilder -> innerBuilder
+                                        .singleGroupingSet(p.symbol("a"))
+                                        .source(p.filter(
+                                                PlanBuilder.expression("b = corr"),
+                                                p.values(p.symbol("a"), p.symbol("b")))))))))
+                .matches(
+                        project(ImmutableMap.of("corr", expression("corr"), "sum_agg", expression("sum_agg"), "count_agg", expression("count_agg")),
+                                aggregation(
+                                        singleGroupingSet("corr", "unique"),
+                                        ImmutableMap.of(Optional.of("sum_agg"), functionCall("sum", ImmutableList.of("a")), Optional.of("count_agg"), functionCall("count", ImmutableList.of())),
+                                        ImmutableList.of(),
+                                        ImmutableList.of("non_null"),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        join(
+                                                LEFT,
+                                                ImmutableList.of(),
+                                                Optional.of("b = corr"),
+                                                assignUniqueId(
+                                                        "unique",
+                                                        values("corr")),
+                                                project(
+                                                        ImmutableMap.of("non_null", expression("true")),
+                                                        aggregation(
+                                                                singleGroupingSet("a", "b"),
+                                                                ImmutableMap.of(),
+                                                                Optional.empty(),
+                                                                SINGLE,
+                                                                filter(
+                                                                        "true",
+                                                                        values("a", "b"))))))));
+    }
+
+    @Test
     public void testWithPreexistingMask()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithoutProjection(tester().getPlannerContext()))

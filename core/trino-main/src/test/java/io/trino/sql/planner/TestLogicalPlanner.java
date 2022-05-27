@@ -966,6 +966,36 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testCorrelatedDistinctAggregationRewriteToLeftOuterJoin()
+    {
+        assertPlan(
+                "SELECT (SELECT count(DISTINCT o.orderkey) FROM orders o WHERE c.custkey = o.custkey), c.custkey FROM customer c",
+                output(
+                        project(join(
+                                INNER,
+                                ImmutableList.of(),
+                                join(
+                                        LEFT,
+                                        ImmutableList.of(equiJoinClause("c_custkey", "o_custkey")),
+                                        anyTree(tableScan("customer", ImmutableMap.of("c_custkey", "custkey"))),
+                                        anyTree(aggregation(
+                                                singleGroupingSet("o_custkey"),
+                                                ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("o_orderkey"))),
+                                                ImmutableList.of(),
+                                                ImmutableList.of("non_null"),
+                                                Optional.empty(),
+                                                SINGLE,
+                                                project(ImmutableMap.of("non_null", expression("true")),
+                                                        aggregation(
+                                                                singleGroupingSet("o_orderkey", "o_custkey"),
+                                                                ImmutableMap.of(),
+                                                                Optional.empty(),
+                                                                FINAL,
+                                                                anyTree(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey")))))))),
+                                anyTree(node(ValuesNode.class))))));
+    }
+
+    @Test
     public void testRemovesTrivialFilters()
     {
         assertPlan(
