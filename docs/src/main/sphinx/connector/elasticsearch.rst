@@ -90,8 +90,11 @@ TLS security
 The Elasticsearch connector provides additional security options to support
 Elasticsearch clusters that have been configured to use TLS.
 
-The connector supports key stores and trust stores in PEM or Java Key Store
-(JKS) format. The allowed configuration values are:
+If your cluster has globally-trusted certificates, you should only need to
+enable TLS. If you require custom configuration for certificates, the connector
+supports key stores and trust stores in PEM or Java Key Store (JKS) format.
+
+The allowed configuration values are:
 
 .. list-table:: TLS Security Properties
     :widths: 40, 60
@@ -99,6 +102,8 @@ The connector supports key stores and trust stores in PEM or Java Key Store
 
     * - Property name
       - Description
+    * - ``elasticsearch.tls.enabled``
+      - Enables TLS security.
     * - ``elasticsearch.tls.keystore-path``
       - The path to the PEM or JKS key store. This file must be readable by the
         operating system user running Trino.
