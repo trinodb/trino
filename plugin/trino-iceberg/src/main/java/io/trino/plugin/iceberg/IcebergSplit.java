@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.iceberg.delete.TrinoDeleteFile;
 import io.trino.spi.HostAddress;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -43,6 +44,7 @@ public class IcebergSplit
     private final String partitionSpecJson;
     private final String partitionDataJson;
     private final List<TrinoDeleteFile> deletes;
+    private final SplitWeight splitWeight;
 
     @JsonCreator
     public IcebergSplit(
@@ -55,7 +57,8 @@ public class IcebergSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("partitionSpecJson") String partitionSpecJson,
             @JsonProperty("partitionDataJson") String partitionDataJson,
-            @JsonProperty("deletes") List<TrinoDeleteFile> deletes)
+            @JsonProperty("deletes") List<TrinoDeleteFile> deletes,
+            @JsonProperty("splitWeight") SplitWeight splitWeight)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
@@ -67,6 +70,7 @@ public class IcebergSplit
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
+        this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
     }
 
     @Override
@@ -136,6 +140,13 @@ public class IcebergSplit
         return deletes;
     }
 
+    @JsonProperty
+    @Override
+    public SplitWeight getSplitWeight()
+    {
+        return splitWeight;
+    }
+
     @Override
     public Object getInfo()
     {
@@ -154,7 +165,8 @@ public class IcebergSplit
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
-                + estimatedSizeOf(deletes, TrinoDeleteFile::getRetainedSizeInBytes);
+                + estimatedSizeOf(deletes, TrinoDeleteFile::getRetainedSizeInBytes)
+                + splitWeight.getRetainedSizeInBytes();
     }
 
     @Override
