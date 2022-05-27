@@ -54,7 +54,7 @@ import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -93,7 +93,7 @@ public class DeltaLakeModule
 
         configBinder(binder).bindConfig(DeltaLakeConfig.class);
         configBinder(binder).bindConfig(HiveConfig.class);
-        binder.bind(MetastoreConfig.class).toInstance(new MetastoreConfig()); // currently not configurable
+        binder.bind(HiveMetastoreConfig.class).toInstance(new HiveMetastoreConfig()); // currently not configurable
         binder.bind(Key.get(boolean.class, TranslateHiveViews.class)).toInstance(false);
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);

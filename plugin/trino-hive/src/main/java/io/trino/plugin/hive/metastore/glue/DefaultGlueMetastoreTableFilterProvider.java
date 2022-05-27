@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.services.glue.model.Table;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -34,10 +34,10 @@ public class DefaultGlueMetastoreTableFilterProvider
     private final boolean hideDeltaLakeTables;
 
     @Inject
-    public DefaultGlueMetastoreTableFilterProvider(MetastoreConfig metastoreConfig)
+    public DefaultGlueMetastoreTableFilterProvider(HiveMetastoreConfig hiveMetastoreConfig)
     {
-        requireNonNull(metastoreConfig, "metastoreConfig is null");
-        this.hideDeltaLakeTables = metastoreConfig.isHideDeltaLakeTables();
+        requireNonNull(hiveMetastoreConfig, "hiveMetastoreConfig is null");
+        this.hideDeltaLakeTables = hiveMetastoreConfig.isHideDeltaLakeTables();
     }
 
     @Override

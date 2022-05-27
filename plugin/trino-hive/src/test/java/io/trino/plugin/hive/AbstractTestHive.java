@@ -38,11 +38,11 @@ import io.trino.plugin.hive.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -791,7 +791,7 @@ public abstract class AbstractTestHive
         HiveMetastore metastore = cachingHiveMetastore(
                 new BridgingHiveMetastore(new ThriftHiveMetastore(
                         metastoreLocator,
-                        new MetastoreConfig(),
+                        new HiveMetastoreConfig(),
                         new HiveConfig().isTranslateHiveViews(),
                         new ThriftMetastoreConfig(),
                         hdfsEnvironment,

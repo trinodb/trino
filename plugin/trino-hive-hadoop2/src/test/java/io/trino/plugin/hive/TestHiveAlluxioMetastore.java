@@ -16,7 +16,7 @@ package io.trino.plugin.hive;
 import alluxio.client.table.TableMasterClient;
 import alluxio.conf.PropertyKey;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.alluxio.AlluxioHiveMetastore;
 import io.trino.plugin.hive.metastore.alluxio.AlluxioHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.alluxio.AlluxioMetastoreModule;
@@ -61,7 +61,7 @@ public class TestHiveAlluxioMetastore
         alluxioConfig.setMasterAddress(this.alluxioAddress);
         TableMasterClient client = AlluxioMetastoreModule.createCatalogMasterClient(alluxioConfig);
         hdfsEnvironment = new HdfsEnvironment(createTestHdfsConfiguration(), new HdfsConfig(), new NoHdfsAuthentication());
-        setup(SCHEMA, hiveConfig, new AlluxioHiveMetastore(client, new MetastoreConfig()), hdfsEnvironment);
+        setup(SCHEMA, hiveConfig, new AlluxioHiveMetastore(client, new HiveMetastoreConfig()), hdfsEnvironment);
     }
 
     private int getHiveVersionMajor()
