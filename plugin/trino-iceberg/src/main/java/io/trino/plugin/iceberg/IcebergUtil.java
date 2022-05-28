@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -77,12 +78,18 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_FPP_KEY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS;
+import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP;
+import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getOrcBloomFilterFpp;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
+import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
@@ -160,6 +167,34 @@ public final class IcebergUtil
                 Optional.empty());
         operations.initializeFromMetadata(tableMetadata);
         return new BaseTable(operations, quotedTableName(table));
+    }
+
+    public static Map<String, Object> getIcebergTableProperties(Table icebergTable)
+    {
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
+        if (!icebergTable.spec().fields().isEmpty()) {
+            properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
+        }
+
+        if (!icebergTable.location().isEmpty()) {
+            properties.put(LOCATION_PROPERTY, icebergTable.location());
+        }
+
+        int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
+        properties.put(FORMAT_VERSION_PROPERTY, formatVersion);
+
+        // iceberg ORC format bloom filter properties
+        String orcBloomFilterColumns = icebergTable.properties().get(ORC_BLOOM_FILTER_COLUMNS_KEY);
+        if (orcBloomFilterColumns != null) {
+            properties.put(ORC_BLOOM_FILTER_COLUMNS, Splitter.on(',').trimResults().omitEmptyStrings().splitToList(orcBloomFilterColumns));
+        }
+        String orcBloomFilterFpp = icebergTable.properties().get(ORC_BLOOM_FILTER_FPP_KEY);
+        if (orcBloomFilterFpp != null) {
+            properties.put(ORC_BLOOM_FILTER_FPP, Double.parseDouble(orcBloomFilterFpp));
+        }
+
+        return properties.buildOrThrow();
     }
 
     public static long resolveSnapshotId(Table table, long snapshotId)
