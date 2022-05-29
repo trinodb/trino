@@ -14,6 +14,7 @@
 package io.trino.parquet.reader;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
@@ -31,10 +32,12 @@ import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.predicate.Predicate;
 import io.trino.parquet.reader.FilteredOffsetIndex.OffsetRange;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.metrics.Metric;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -84,6 +87,7 @@ public class ParquetReader
     private static final int MAX_VECTOR_LENGTH = 1024;
     private static final int INITIAL_BATCH_SIZE = 1;
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
+    public static final String PARQUET_CODEC_METRIC_PREFIX = "ParquetReaderCompressionFormat_";
 
     private final Optional<String> fileCreatedBy;
     private final List<BlockMetaData> blocks;
@@ -119,6 +123,7 @@ public class ParquetReader
     private final List<Optional<ColumnIndexStore>> columnIndexStore;
     private final List<RowRanges> blockRowRanges;
     private final Map<ColumnPath, ColumnDescriptor> paths = new HashMap<>();
+    private final Map<String, Metric<?>> codecMetrics;
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
@@ -174,6 +179,7 @@ public class ParquetReader
             this.filter = Optional.empty();
         }
         ListMultimap<ChunkKey, DiskRange> ranges = ArrayListMultimap.create();
+        Map<String, LongCount> codecMetrics = new HashMap<>();
         for (int rowGroup = 0; rowGroup < blocks.size(); rowGroup++) {
             BlockMetaData metadata = blocks.get(rowGroup);
             for (PrimitiveColumnIO column : columns) {
@@ -183,21 +189,29 @@ public class ParquetReader
                 long rowGroupRowCount = metadata.getRowCount();
                 long startingPosition = chunkMetadata.getStartingPos();
                 long totalLength = chunkMetadata.getTotalSize();
+                long totalDataSize = 0;
                 FilteredOffsetIndex filteredOffsetIndex = getFilteredOffsetIndex(rowGroup, rowGroupRowCount, columnPath);
                 if (filteredOffsetIndex == null) {
                     DiskRange range = new DiskRange(startingPosition, toIntExact(totalLength));
+                    totalDataSize = range.getLength();
                     ranges.put(new ChunkKey(columnId, rowGroup), range);
                 }
                 else {
                     List<OffsetRange> offsetRanges = filteredOffsetIndex.calculateOffsetRanges(startingPosition);
                     for (OffsetRange offsetRange : offsetRanges) {
                         DiskRange range = new DiskRange(offsetRange.getOffset(), toIntExact(offsetRange.getLength()));
+                        totalDataSize += range.getLength();
                         ranges.put(new ChunkKey(columnId, rowGroup), range);
                     }
                 }
+                // Update the metrics which records the codecs used along with data size
+                codecMetrics.merge(
+                        PARQUET_CODEC_METRIC_PREFIX + chunkMetadata.getCodec().name(),
+                        new LongCount(totalDataSize),
+                        LongCount::mergeWith);
             }
         }
-
+        this.codecMetrics = ImmutableMap.copyOf(codecMetrics);
         this.chunkReaders = dataSource.planRead(ranges);
     }
 
@@ -375,6 +389,11 @@ public class ParquetReader
             maxBytesPerCell[fieldId] = bytesPerCell;
         }
         return columnChunk;
+    }
+
+    public Map<String, Metric<?>> getCodecMetrics()
+    {
+        return codecMetrics;
     }
 
     private PageReader createPageReader(List<Slice> slices, ColumnChunkMetaData metadata, ColumnDescriptor columnDescriptor, OffsetIndex offsetIndex)

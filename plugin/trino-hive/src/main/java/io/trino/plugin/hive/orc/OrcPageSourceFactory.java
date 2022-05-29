@@ -448,7 +448,8 @@ public class OrcPageSourceFactory
                     deletedRows,
                     originalFileRowId,
                     memoryUsage,
-                    stats);
+                    stats,
+                    reader.getCompressionKind());
         }
         catch (Exception e) {
             try {
