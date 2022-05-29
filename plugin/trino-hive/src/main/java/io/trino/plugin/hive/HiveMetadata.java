@@ -693,8 +693,7 @@ public class HiveMetadata
                 .map(partitions -> new HiveInputInfo(
                         partitions.stream()
                                 .map(HivePartition::getPartitionId)
-                                .collect(toImmutableList()),
-                        false));
+                                .collect(toImmutableList())));
     }
 
     @Override
