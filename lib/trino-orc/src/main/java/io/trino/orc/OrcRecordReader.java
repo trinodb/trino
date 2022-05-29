@@ -86,6 +86,7 @@ public class OrcRecordReader
 
     private final long totalRowCount;
     private final long splitLength;
+    private final long totalDataLength;
     private final long maxBlockBytes;
     private final ColumnMetadata<OrcType> orcTypes;
     private long currentPosition;
@@ -190,6 +191,7 @@ public class OrcRecordReader
 
         long totalRowCount = 0;
         long fileRowCount = 0;
+        long totalDataLength = 0;
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
         ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
         if (fileStats.isEmpty() || predicate.matches(numberOfRows, fileStats.get())) {
@@ -200,11 +202,13 @@ public class OrcRecordReader
                     stripes.add(stripe);
                     stripeFilePositions.add(fileRowCount);
                     totalRowCount += stripe.getNumberOfRows();
+                    totalDataLength += stripe.getDataLength();
                 }
                 fileRowCount += stripe.getNumberOfRows();
             }
         }
         this.totalRowCount = totalRowCount;
+        this.totalDataLength = totalDataLength;
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
 
@@ -328,6 +332,11 @@ public class OrcRecordReader
     public long getSplitLength()
     {
         return splitLength;
+    }
+
+    public long getTotalDataLength()
+    {
+        return totalDataLength;
     }
 
     /**

@@ -552,7 +552,8 @@ public class IcebergPageSourceProvider
                             Optional.empty(),
                             Optional.empty(),
                             memoryUsage,
-                            stats),
+                            stats,
+                            reader.getCompressionKind()),
                     columnProjections);
         }
         catch (Exception e) {

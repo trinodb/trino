@@ -264,6 +264,18 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testOrcPageSourceMetrics()
+    {
+        // Alluxio metastore does not support create/insert/delete operations
+    }
+
+    @Override
+    public void testParquetPageSourceMetrics()
+    {
+        // Alluxio metastore does not support create/insert/delete operations
+    }
+
+    @Override
     public void testPreferredInsertLayout()
     {
         // Alluxio metastore does not support insert layout operations

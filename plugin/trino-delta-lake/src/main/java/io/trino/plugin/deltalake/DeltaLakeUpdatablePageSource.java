@@ -32,6 +32,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
@@ -272,6 +273,12 @@ public class DeltaLakeUpdatablePageSource
     public long getMemoryUsage()
     {
         return pageSourceDelegate.getMemoryUsage() + (rowsToDelete.size() / 8);
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return pageSourceDelegate.getMetrics();
     }
 
     @Override
