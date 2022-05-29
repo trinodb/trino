@@ -55,6 +55,7 @@ import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryOutputMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.StageCpuDistribution;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.analyzer.Analysis;
@@ -367,6 +368,9 @@ public class QueryMonitor
                         .mapToLong(OperatorStats::getPhysicalInputPositions)
                         .sum());
             }
+            Metrics connectorMetrics = inputTableOperatorStats.stream()
+                    .map(OperatorStats::getConnectorMetrics)
+                    .reduce(Metrics.EMPTY, Metrics::mergeWith);
 
             inputs.add(new QueryInputMetadata(
                     input.getCatalogName(),
@@ -375,6 +379,7 @@ public class QueryMonitor
                     input.getColumns().stream()
                             .map(Column::getName).collect(Collectors.toList()),
                     input.getConnectorInfo(),
+                    connectorMetrics,
                     physicalInputBytes,
                     physicalInputPositions));
         }
