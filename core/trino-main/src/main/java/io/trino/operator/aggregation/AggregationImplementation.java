@@ -19,6 +19,7 @@ import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
 
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,23 +34,7 @@ public class AggregationImplementation
     private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
     private final List<Class<?>> lambdaInterfaces;
 
-    public AggregationImplementation(
-            MethodHandle inputFunction,
-            Optional<MethodHandle> removeInputFunction,
-            Optional<MethodHandle> combineFunction,
-            MethodHandle outputFunction,
-            List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors)
-    {
-        this(
-                inputFunction,
-                removeInputFunction,
-                combineFunction,
-                outputFunction,
-                accumulatorStateDescriptors,
-                ImmutableList.of());
-    }
-
-    public AggregationImplementation(
+    private AggregationImplementation(
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
             Optional<MethodHandle> combineFunction,
@@ -101,7 +86,7 @@ public class AggregationImplementation
         private final AccumulatorStateSerializer<T> serializer;
         private final AccumulatorStateFactory<T> factory;
 
-        public AccumulatorStateDescriptor(Class<T> stateInterface, AccumulatorStateSerializer<T> serializer, AccumulatorStateFactory<T> factory)
+        private AccumulatorStateDescriptor(Class<T> stateInterface, AccumulatorStateSerializer<T> serializer, AccumulatorStateFactory<T> factory)
         {
             this.stateInterface = requireNonNull(stateInterface, "stateInterface is null");
             this.serializer = requireNonNull(serializer, "serializer is null");
@@ -122,6 +107,121 @@ public class AggregationImplementation
         public AccumulatorStateFactory<T> getFactory()
         {
             return factory;
+        }
+
+        public static <T extends AccumulatorState> Builder<T> builder(Class<T> stateInterface)
+        {
+            return new Builder<>(stateInterface);
+        }
+
+        public static class Builder<T extends AccumulatorState>
+        {
+            private final Class<T> stateInterface;
+            private AccumulatorStateSerializer<T> serializer;
+            private AccumulatorStateFactory<T> factory;
+
+            private Builder(Class<T> stateInterface)
+            {
+                this.stateInterface = requireNonNull(stateInterface, "stateInterface is null");
+            }
+
+            public Builder<T> serializer(AccumulatorStateSerializer<T> serializer)
+            {
+                this.serializer = serializer;
+                return this;
+            }
+
+            public Builder<T> factory(AccumulatorStateFactory<T> factory)
+            {
+                this.factory = factory;
+                return this;
+            }
+
+            public AccumulatorStateDescriptor<T> build()
+            {
+                return new AccumulatorStateDescriptor<>(stateInterface, serializer, factory);
+            }
+        }
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private MethodHandle inputFunction;
+        private Optional<MethodHandle> removeInputFunction = Optional.empty();
+        private Optional<MethodHandle> combineFunction = Optional.empty();
+        private MethodHandle outputFunction;
+        private List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors = new ArrayList<>();
+        private List<Class<?>> lambdaInterfaces = ImmutableList.of();
+
+        private Builder() {}
+
+        public Builder inputFunction(MethodHandle inputFunction)
+        {
+            this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
+            return this;
+        }
+
+        public Builder removeInputFunction(MethodHandle removeInputFunction)
+        {
+            this.removeInputFunction = Optional.of(requireNonNull(removeInputFunction, "removeInputFunction is null"));
+            return this;
+        }
+
+        public Builder combineFunction(MethodHandle combineFunction)
+        {
+            this.combineFunction = Optional.of(requireNonNull(combineFunction, "combineFunction is null"));
+            return this;
+        }
+
+        public Builder outputFunction(MethodHandle outputFunction)
+        {
+            this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
+            return this;
+        }
+
+        public <T extends AccumulatorState> Builder accumulatorStateDescriptor(Class<T> stateInterface, AccumulatorStateSerializer<T> serializer, AccumulatorStateFactory<T> factory)
+        {
+            this.accumulatorStateDescriptors.add(AccumulatorStateDescriptor.builder(stateInterface)
+                    .serializer(serializer)
+                    .factory(factory)
+                    .build());
+            return this;
+        }
+
+        public Builder accumulatorStateDescriptors(List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors)
+        {
+            requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
+
+            this.accumulatorStateDescriptors = new ArrayList<>();
+            this.accumulatorStateDescriptors.addAll(accumulatorStateDescriptors);
+            return this;
+        }
+
+        public Builder lambdaInterfaces(Class<?>... lambdaInterfaces)
+        {
+            return lambdaInterfaces(ImmutableList.copyOf(lambdaInterfaces));
+        }
+
+        public Builder lambdaInterfaces(List<Class<?>> lambdaInterfaces)
+        {
+            this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
+            return this;
+        }
+
+        public AggregationImplementation build()
+        {
+            return new AggregationImplementation(
+                    inputFunction,
+                    removeInputFunction,
+                    combineFunction,
+                    outputFunction,
+                    accumulatorStateDescriptors,
+                    lambdaInterfaces);
         }
     }
 }
