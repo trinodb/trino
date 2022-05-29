@@ -598,10 +598,10 @@ public final class AggregationFromAnnotationsParser
 
         public AccumulatorStateDescriptor<T> createAccumulatorStateDescriptor(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
         {
-            return new AccumulatorStateDescriptor<>(
-                    stateClass,
-                    serializerGenerator.apply(functionBinding, functionDependencies),
-                    factoryGenerator.apply(functionBinding, functionDependencies));
+            return AccumulatorStateDescriptor.builder(stateClass)
+                    .serializer(serializerGenerator.apply(functionBinding, functionDependencies))
+                    .factory(factoryGenerator.apply(functionBinding, functionDependencies))
+                    .build();
         }
 
         @Override

@@ -1049,13 +1049,18 @@ public final class AccumulatorCompiler
         // change aggregations state variables to simply AccumulatorState to avoid any class loader issues in generated code
         int stateParameterCount = implementation.getAccumulatorStateDescriptors().size();
         int lambdaParameterCount = implementation.getLambdaInterfaces().size();
-        return new AggregationImplementation(
-                castStateParameters(implementation.getInputFunction(), stateParameterCount, lambdaParameterCount),
-                implementation.getRemoveInputFunction().map(removeFunction -> castStateParameters(removeFunction, stateParameterCount, lambdaParameterCount)),
-                implementation.getCombineFunction().map(combineFunction -> castStateParameters(combineFunction, stateParameterCount * 2, lambdaParameterCount)),
-                castStateParameters(implementation.getOutputFunction(), stateParameterCount, 0),
-                implementation.getAccumulatorStateDescriptors(),
-                implementation.getLambdaInterfaces());
+        AggregationImplementation.Builder builder = AggregationImplementation.builder();
+        builder.inputFunction(castStateParameters(implementation.getInputFunction(), stateParameterCount, lambdaParameterCount));
+        implementation.getRemoveInputFunction()
+                .map(removeFunction -> castStateParameters(removeFunction, stateParameterCount, lambdaParameterCount))
+                .ifPresent(builder::removeInputFunction);
+        implementation.getCombineFunction()
+                .map(combineFunction -> castStateParameters(combineFunction, stateParameterCount * 2, lambdaParameterCount))
+                .ifPresent(builder::combineFunction);
+        builder.outputFunction(castStateParameters(implementation.getOutputFunction(), stateParameterCount, 0));
+        builder.accumulatorStateDescriptors(implementation.getAccumulatorStateDescriptors());
+        builder.lambdaInterfaces(implementation.getLambdaInterfaces());
+        return builder.build();
     }
 
     private static MethodHandle castStateParameters(MethodHandle inputFunction, int stateParameterCount, int lambdaParameterCount)

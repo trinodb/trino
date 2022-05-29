@@ -32,7 +32,6 @@ import io.trino.sql.gen.IsolatedClass;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
@@ -85,21 +84,18 @@ public class TestAccumulatorCompiler
         inputFunction = normalizeInputMethod(inputFunction, signature, STATE, INPUT_CHANNEL);
         MethodHandle combineFunction = methodHandle(aggregation, "combine", stateInterface, stateInterface);
         MethodHandle outputFunction = methodHandle(aggregation, "output", stateInterface, BlockBuilder.class);
-        AggregationImplementation metadata = new AggregationImplementation(
-                inputFunction,
-                Optional.empty(),
-                Optional.of(combineFunction),
-                outputFunction,
-                ImmutableList.of(new AggregationImplementation.AccumulatorStateDescriptor<>(
-                        stateInterface,
-                        stateSerializer,
-                        stateFactory)));
+        AggregationImplementation implementation = AggregationImplementation.builder()
+                .inputFunction(inputFunction)
+                .combineFunction(combineFunction)
+                .outputFunction(outputFunction)
+                .accumulatorStateDescriptor(stateInterface, stateSerializer, stateFactory)
+                .build();
         FunctionNullability functionNullability = new FunctionNullability(false, ImmutableList.of(false));
 
         // test if we can compile aggregation
-        AccumulatorFactory accumulatorFactory = AccumulatorCompiler.generateAccumulatorFactory(signature, metadata, functionNullability);
+        AccumulatorFactory accumulatorFactory = AccumulatorCompiler.generateAccumulatorFactory(signature, implementation, functionNullability);
         assertThat(accumulatorFactory).isNotNull();
-        assertThat(AccumulatorCompiler.generateWindowAccumulatorClass(signature, metadata, functionNullability)).isNotNull();
+        assertThat(AccumulatorCompiler.generateWindowAccumulatorClass(signature, implementation, functionNullability)).isNotNull();
 
         TestingAggregationFunction aggregationFunction = new TestingAggregationFunction(
                 ImmutableList.of(TIMESTAMP_PICOS),
