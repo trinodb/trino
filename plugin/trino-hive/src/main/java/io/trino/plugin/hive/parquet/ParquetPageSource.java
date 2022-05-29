@@ -26,6 +26,7 @@ import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 
 import java.io.IOException;
@@ -229,5 +230,11 @@ public class ParquetPageSource
             rowIndices[position] = baseIndex + position;
         }
         return new LongArrayBlock(size, Optional.empty(), rowIndices);
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return new Metrics(parquetReader.getCodecMetrics());
     }
 }

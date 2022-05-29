@@ -26,6 +26,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.authentication.HiveIdentity;
@@ -108,6 +109,7 @@ import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
@@ -198,6 +200,7 @@ import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.parquet.reader.ParquetReader.PARQUET_CODEC_METRIC_PREFIX;
 import static io.trino.plugin.hive.AbstractTestHive.TransactionDeleteInsertTestTag.COMMIT;
 import static io.trino.plugin.hive.AbstractTestHive.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_APPEND_PAGE;
 import static io.trino.plugin.hive.AbstractTestHive.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_BEGIN_INSERT;
@@ -263,6 +266,7 @@ import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
+import static io.trino.plugin.hive.orc.OrcPageSource.ORC_CODEC_METRIC_PREFIX;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_NAME;
@@ -3778,6 +3782,68 @@ public abstract class AbstractTestHive
         finally {
             dropTable(sourceTableName);
             dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testOrcPageSourceMetrics()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("orc_page_source_metrics");
+        try {
+            assertPageSourceMetrics(tableName, ORC, new Metrics(ImmutableMap.of(ORC_CODEC_METRIC_PREFIX + "SNAPPY", new LongCount(209))));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testParquetPageSourceMetrics()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("parquet_page_source_metrics");
+        try {
+            assertPageSourceMetrics(tableName, PARQUET, new Metrics(ImmutableMap.of(PARQUET_CODEC_METRIC_PREFIX + "SNAPPY", new LongCount(1169))));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    private void assertPageSourceMetrics(SchemaTableName tableName, HiveStorageFormat storageFormat, Metrics expectedMetrics)
+            throws Exception
+    {
+        createEmptyTable(
+                tableName,
+                storageFormat,
+                ImmutableList.of(
+                        new Column("id", HIVE_LONG, Optional.empty()),
+                        new Column("name", HIVE_STRING, Optional.empty())),
+                ImmutableList.of());
+        MaterializedResult.Builder inputDataBuilder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR);
+        IntStream.range(0, 100).forEach(i -> inputDataBuilder.row((long) i, String.valueOf(i)));
+        insertData(tableName, inputDataBuilder.build(), ImmutableMap.of("compression_codec", "SNAPPY"));
+
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+            metadata.beginQuery(session);
+
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+
+            // read entire table
+            List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
+                    .addAll(metadata.getColumnHandles(session, tableHandle).values())
+                    .build();
+
+            List<ConnectorSplit> splits = getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
+            for (ConnectorSplit split : splits) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles, DynamicFilter.EMPTY)) {
+                    materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
+                    assertThat(pageSource.getMetrics()).isEqualTo(expectedMetrics);
+                }
+            }
         }
     }
 
