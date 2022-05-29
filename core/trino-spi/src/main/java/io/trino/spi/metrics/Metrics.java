@@ -19,6 +19,7 @@ import io.trino.spi.Mergeable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
@@ -50,6 +51,25 @@ public class Metrics
     public static Accumulator accumulator()
     {
         return new Accumulator();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof Metrics)) {
+            return false;
+        }
+        Metrics that = (Metrics) o;
+        return metrics.equals(that.metrics);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(metrics);
     }
 
     public static class Accumulator
