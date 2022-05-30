@@ -73,6 +73,7 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
@@ -134,6 +135,7 @@ public class MockConnector
     private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
     private final Optional<ConnectorAccessControl> accessControl;
     private final Function<SchemaTableName, List<List<?>>> data;
+    private final Function<SchemaTableName, Metrics> metrics;
     private final Set<Procedure> procedures;
     private final boolean supportsReportingWrittenBytes;
     private final boolean allowMissingColumnsOnInsert;
@@ -168,6 +170,7 @@ public class MockConnector
             Optional<ConnectorNodePartitioningProvider> partitioningProvider,
             Optional<ConnectorAccessControl> accessControl,
             Function<SchemaTableName, List<List<?>>> data,
+            Function<SchemaTableName, Metrics> metrics,
             Set<Procedure> procedures,
             boolean allowMissingColumnsOnInsert,
             Supplier<List<PropertyMetadata<?>>> schemaProperties,
@@ -200,6 +203,7 @@ public class MockConnector
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
+        this.metrics = requireNonNull(metrics, "metrics is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
         this.supportsReportingWrittenBytes = supportsReportingWrittenBytes;
         this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
@@ -773,7 +777,7 @@ public class MockConnector
                         return projectedRow.build();
                     })
                     .collect(toImmutableList());
-            return new MockConnectorPageSource(new RecordPageSource(new InMemoryRecordSet(types, records)));
+            return new MockConnectorPageSource(new RecordPageSource(new InMemoryRecordSet(types, records)), metrics.apply(tableName));
         }
 
         private Map<String, Integer> getColumnIndexes(SchemaTableName tableName)
