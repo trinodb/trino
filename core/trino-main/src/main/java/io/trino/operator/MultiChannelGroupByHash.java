@@ -591,7 +591,7 @@ public class MultiChannelGroupByHash
         public boolean process()
         {
             int positionCount = page.getPositionCount();
-            checkState(lastPosition < positionCount, "position count out of bound");
+            checkState(lastPosition <= positionCount, "position count out of bound");
             int remainingPositions = positionCount - lastPosition;
 
             while (remainingPositions != 0) {
@@ -641,7 +641,7 @@ public class MultiChannelGroupByHash
         public boolean process()
         {
             int positionCount = page.getPositionCount();
-            checkState(lastPosition < positionCount, "position count out of bound");
+            checkState(lastPosition <= positionCount, "position count out of bound");
 
             // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
             // We can only proceed if tryRehash() successfully did a rehash.
@@ -777,7 +777,7 @@ public class MultiChannelGroupByHash
         public boolean process()
         {
             int positionCount = page.getPositionCount();
-            checkState(lastPosition < positionCount, "position count out of bound");
+            checkState(lastPosition <= positionCount, "position count out of bound");
             checkState(!finished);
 
             int remainingPositions = positionCount - lastPosition;
@@ -899,7 +899,7 @@ public class MultiChannelGroupByHash
         public boolean process()
         {
             int positionCount = page.getPositionCount();
-            checkState(lastPosition < positionCount, "position count out of bound");
+            checkState(lastPosition <= positionCount, "position count out of bound");
             checkState(!finished);
 
             // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
