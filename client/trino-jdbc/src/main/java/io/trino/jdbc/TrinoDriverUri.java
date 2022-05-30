@@ -21,10 +21,12 @@ import io.trino.client.ClientException;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.auth.external.CompositeRedirectHandler;
 import io.trino.client.auth.external.ExternalAuthenticator;
+import io.trino.client.auth.external.ExternalRedirectStrategy;
 import io.trino.client.auth.external.HttpTokenPoller;
 import io.trino.client.auth.external.RedirectHandler;
 import io.trino.client.auth.external.TokenPoller;
 import okhttp3.OkHttpClient;
+import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
 import java.net.URI;
@@ -117,6 +119,47 @@ public final class TrinoDriverUri
 
     private final Properties properties;
 
+    private Optional<String> user;
+    private Optional<String> password;
+    private Optional<String> sessionUser;
+    private Optional<Map<String, ClientSelectedRole>> roles;
+    private Optional<HostAndPort> socksProxy;
+    private Optional<HostAndPort> httpProxy;
+    private Optional<String> applicationNamePrefix;
+    private Optional<Boolean> disableCompression;
+    private Optional<Boolean> assumeLiteralNamesInMetadataCallsForNonConformingClients;
+    private Optional<Boolean> assumeLiteralUnderscoreInMetadataCallsForNonConformingClients;
+    private Optional<Boolean> ssl;
+    private Optional<SslVerificationMode> sslVerification;
+    private Optional<String> sslKeyStorePath;
+    private Optional<String> sslKeyStorePassword;
+    private Optional<String> sslKeyStoreType;
+    private Optional<String> sslTrustStorePath;
+    private Optional<String> sslTrustStorePassword;
+    private Optional<String> sslTrustStoreType;
+    private Optional<Boolean> sslUseSystemTrustStore;
+    private Optional<String> kerberosServicePrincipalPattern;
+    private Optional<String> kerberosRemoteServiceName;
+    private Optional<Boolean> kerberosUseCanonicalHostname;
+    private Optional<String> kerberosPrincipal;
+    private Optional<File> kerberosConfigPath;
+    private Optional<File> kerberosKeytabPath;
+    private Optional<File> kerberosCredentialCachePath;
+    private Optional<Boolean> kerberosDelegation;
+    private Optional<GSSCredential> kerberosConstrainedDelegation;
+    private Optional<String> accessToken;
+    private Optional<Boolean> externalAuthentication;
+    private Optional<io.airlift.units.Duration> externalAuthenticationTimeout;
+    private Optional<List<ExternalRedirectStrategy>> externalRedirectStrategies;
+    private Optional<KnownTokenCache> externalAuthenticationTokenCache;
+    private Optional<Map<String, String>> extraCredentials;
+    private Optional<String> hostnameInCertificate;
+    private Optional<String> clientInfo;
+    private Optional<String> clientTags;
+    private Optional<String> traceToken;
+    private Optional<Map<String, String>> sessionProperties;
+    private Optional<String> source;
+
     private Optional<String> catalog = Optional.empty();
     private Optional<String> schema = Optional.empty();
 
@@ -137,8 +180,10 @@ public final class TrinoDriverUri
 
         validateConnectionProperties(properties);
 
+        initFromProperties();
+
         // enable SSL by default for standard port
-        useSecureConnection = SSL.getValue(properties).orElse(uri.getPort() == 443);
+        useSecureConnection = ssl.orElse(uri.getPort() == 443);
 
         initCatalogAndSchema();
     }
@@ -177,31 +222,78 @@ public final class TrinoDriverUri
     public String getRequiredUser()
             throws SQLException
     {
-        return USER.getRequiredValue(properties);
+        return checkRequired(user, PropertyName.USER);
+    }
+
+    public static <T> T checkRequired(Optional<T> obj, PropertyName name)
+            throws SQLException
+    {
+        return obj.orElseThrow(() -> new SQLException(format("Connection property '%s' is required", name)));
     }
 
     public Optional<String> getUser()
-            throws SQLException
     {
-        return USER.getValue(properties);
+        return user;
     }
 
     public Optional<String> getSessionUser()
-            throws SQLException
     {
-        return SESSION_USER.getValue(properties);
+        return sessionUser;
     }
 
     public Map<String, ClientSelectedRole> getRoles()
-            throws SQLException
     {
-        return ROLES.getValue(properties).orElse(ImmutableMap.of());
+        return roles.orElse(ImmutableMap.of());
     }
 
     public Optional<String> getApplicationNamePrefix()
-            throws SQLException
     {
-        return APPLICATION_NAME_PREFIX.getValue(properties);
+        return applicationNamePrefix;
+    }
+
+    public Map<String, String> getExtraCredentials()
+    {
+        return extraCredentials.orElse(ImmutableMap.of());
+    }
+
+    public Optional<String> getClientInfo()
+    {
+        return clientInfo;
+    }
+
+    public Optional<String> getClientTags()
+    {
+        return clientTags;
+    }
+
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
+    }
+
+    public Map<String, String> getSessionProperties()
+    {
+        return sessionProperties.orElse(ImmutableMap.of());
+    }
+
+    public Optional<String> getSource()
+    {
+        return source;
+    }
+
+    public boolean isCompressionDisabled()
+    {
+        return disableCompression.orElse(false);
+    }
+
+    public boolean isAssumeLiteralNamesInMetadataCallsForNonConformingClients()
+    {
+        return assumeLiteralNamesInMetadataCallsForNonConformingClients.orElse(false);
+    }
+
+    public boolean isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()
+    {
+        return assumeLiteralUnderscoreInMetadataCallsForNonConformingClients.orElse(false);
     }
 
     public Properties getProperties()
@@ -209,70 +301,16 @@ public final class TrinoDriverUri
         return properties;
     }
 
-    public Map<String, String> getExtraCredentials()
-            throws SQLException
-    {
-        return EXTRA_CREDENTIALS.getValue(properties).orElse(ImmutableMap.of());
-    }
-
-    public Optional<String> getClientInfo()
-            throws SQLException
-    {
-        return CLIENT_INFO.getValue(properties);
-    }
-
-    public Optional<String> getClientTags()
-            throws SQLException
-    {
-        return CLIENT_TAGS.getValue(properties);
-    }
-
-    public Optional<String> getTraceToken()
-            throws SQLException
-    {
-        return TRACE_TOKEN.getValue(properties);
-    }
-
-    public Map<String, String> getSessionProperties()
-            throws SQLException
-    {
-        return SESSION_PROPERTIES.getValue(properties).orElse(ImmutableMap.of());
-    }
-
-    public Optional<String> getSource()
-            throws SQLException
-    {
-        return SOURCE.getValue(properties);
-    }
-
-    public boolean isCompressionDisabled()
-            throws SQLException
-    {
-        return DISABLE_COMPRESSION.getValue(properties).orElse(false);
-    }
-
-    public boolean isAssumeLiteralNamesInMetadataCallsForNonConformingClients()
-            throws SQLException
-    {
-        return ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValue(properties).orElse(false);
-    }
-
-    public boolean isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()
-            throws SQLException
-    {
-        return ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValue(properties).orElse(false);
-    }
-
     public void setupClient(OkHttpClient.Builder builder)
             throws SQLException
     {
         try {
             setupCookieJar(builder);
-            setupSocksProxy(builder, SOCKS_PROXY.getValue(properties));
-            setupHttpProxy(builder, HTTP_PROXY.getValue(properties));
+            setupSocksProxy(builder, socksProxy);
+            setupHttpProxy(builder, httpProxy);
 
             // TODO: fix Tempto to allow empty passwords
-            String password = PASSWORD.getValue(properties).orElse("");
+            String password = this.password.orElse("");
             if (!password.isEmpty() && !password.equals("***empty***")) {
                 if (!useSecureConnection) {
                     throw new SQLException("Authentication using username/password requires SSL to be enabled");
@@ -281,21 +319,21 @@ public final class TrinoDriverUri
             }
 
             if (useSecureConnection) {
-                SslVerificationMode sslVerificationMode = SSL_VERIFICATION.getValue(properties).orElse(FULL);
+                SslVerificationMode sslVerificationMode = sslVerification.orElse(FULL);
                 if (sslVerificationMode.equals(FULL) || sslVerificationMode.equals(CA)) {
                     setupSsl(
                             builder,
-                            SSL_KEY_STORE_PATH.getValue(properties),
-                            SSL_KEY_STORE_PASSWORD.getValue(properties),
-                            SSL_KEY_STORE_TYPE.getValue(properties),
-                            SSL_TRUST_STORE_PATH.getValue(properties),
-                            SSL_TRUST_STORE_PASSWORD.getValue(properties),
-                            SSL_TRUST_STORE_TYPE.getValue(properties),
-                            SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false));
+                            sslKeyStorePath,
+                            sslKeyStorePassword,
+                            sslKeyStoreType,
+                            sslTrustStorePath,
+                            sslTrustStorePassword,
+                            sslTrustStoreType,
+                            sslUseSystemTrustStore.orElse(false));
                 }
 
                 if (sslVerificationMode.equals(FULL)) {
-                    HOSTNAME_IN_CERTIFICATE.getValue(properties).ifPresent(certHostname ->
+                    hostnameInCertificate.ifPresent(certHostname ->
                             setupAlternateHostnameVerification(builder, certHostname));
                 }
 
@@ -308,32 +346,32 @@ public final class TrinoDriverUri
                 }
             }
 
-            if (KERBEROS_REMOTE_SERVICE_NAME.getValue(properties).isPresent()) {
+            if (kerberosRemoteServiceName.isPresent()) {
                 if (!useSecureConnection) {
                     throw new SQLException("Authentication using Kerberos requires SSL to be enabled");
                 }
                 setupKerberos(
                         builder,
-                        KERBEROS_SERVICE_PRINCIPAL_PATTERN.getRequiredValue(properties),
-                        KERBEROS_REMOTE_SERVICE_NAME.getRequiredValue(properties),
-                        KERBEROS_USE_CANONICAL_HOSTNAME.getRequiredValue(properties),
-                        KERBEROS_PRINCIPAL.getValue(properties),
-                        KERBEROS_CONFIG_PATH.getValue(properties),
-                        KERBEROS_KEYTAB_PATH.getValue(properties),
-                        Optional.ofNullable(KERBEROS_CREDENTIAL_CACHE_PATH.getValue(properties)
+                        checkRequired(kerberosServicePrincipalPattern, PropertyName.KERBEROS_SERVICE_PRINCIPAL_PATTERN),
+                        checkRequired(kerberosRemoteServiceName, PropertyName.KERBEROS_REMOTE_SERVICE_NAME),
+                        checkRequired(kerberosUseCanonicalHostname, PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME),
+                        kerberosPrincipal,
+                        kerberosConfigPath,
+                        kerberosKeytabPath,
+                        Optional.ofNullable(kerberosCredentialCachePath
                                 .orElseGet(() -> defaultCredentialCachePath().map(File::new).orElse(null))),
-                        KERBEROS_DELEGATION.getRequiredValue(properties),
-                        KERBEROS_CONSTRAINED_DELEGATION.getValue(properties));
+                        kerberosDelegation.orElse(false),
+                        kerberosConstrainedDelegation);
             }
 
-            if (ACCESS_TOKEN.getValue(properties).isPresent()) {
+            if (accessToken.isPresent()) {
                 if (!useSecureConnection) {
                     throw new SQLException("Authentication using an access token requires SSL to be enabled");
                 }
-                builder.addInterceptor(tokenAuth(ACCESS_TOKEN.getValue(properties).get()));
+                builder.addInterceptor(tokenAuth(accessToken.get()));
             }
 
-            if (EXTERNAL_AUTHENTICATION.getValue(properties).orElse(false)) {
+            if (externalAuthentication.orElse(false)) {
                 if (!useSecureConnection) {
                     throw new SQLException("Authentication using external authorization requires SSL to be enabled");
                 }
@@ -341,20 +379,21 @@ public final class TrinoDriverUri
                 // create HTTP client that shares the same settings, but without the external authenticator
                 TokenPoller poller = new HttpTokenPoller(builder.build());
 
-                Duration timeout = EXTERNAL_AUTHENTICATION_TIMEOUT.getValue(properties)
+                Duration timeout = externalAuthenticationTimeout
                         .map(value -> Duration.ofMillis(value.toMillis()))
                         .orElse(Duration.ofMinutes(2));
 
-                KnownTokenCache knownTokenCache = EXTERNAL_AUTHENTICATION_TOKEN_CACHE.getValue(properties).get();
+                KnownTokenCache knownTokenCache = externalAuthenticationTokenCache.orElse(KnownTokenCache.NONE);
 
-                Optional<RedirectHandler> configuredHandler = EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS.getValue(properties)
+                Optional<RedirectHandler> configuredHandler = externalRedirectStrategies
                         .map(CompositeRedirectHandler::new)
                         .map(RedirectHandler.class::cast);
 
                 RedirectHandler redirectHandler = Optional.ofNullable(REDIRECT_HANDLER.get())
                         .orElseGet(() -> configuredHandler.orElseThrow(() -> new RuntimeException("External authentication redirect handler is not configured")));
 
-                ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, poller, knownTokenCache.create(), timeout);
+                ExternalAuthenticator authenticator = new ExternalAuthenticator(
+                        redirectHandler, poller, knownTokenCache.create(), timeout);
 
                 builder.authenticator(authenticator);
                 builder.addInterceptor(authenticator);
@@ -450,6 +489,51 @@ public final class TrinoDriverUri
         }
     }
 
+    private void initFromProperties()
+            throws SQLException
+    {
+        this.user = USER.getValue(properties);
+        this.password = PASSWORD.getValue(properties);
+        this.sessionUser = SESSION_USER.getValue(properties);
+        this.roles = ROLES.getValue(properties);
+        this.socksProxy = SOCKS_PROXY.getValue(properties);
+        this.httpProxy = HTTP_PROXY.getValue(properties);
+        this.applicationNamePrefix = APPLICATION_NAME_PREFIX.getValue(properties);
+        this.disableCompression = DISABLE_COMPRESSION.getValue(properties);
+        this.assumeLiteralNamesInMetadataCallsForNonConformingClients = ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValue(properties);
+        this.assumeLiteralUnderscoreInMetadataCallsForNonConformingClients = ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValue(properties);
+        this.ssl = SSL.getValue(properties);
+        this.sslVerification = SSL_VERIFICATION.getValue(properties);
+        this.sslKeyStorePath = SSL_KEY_STORE_PATH.getValue(properties);
+        this.sslKeyStorePassword = SSL_KEY_STORE_PASSWORD.getValue(properties);
+        this.sslKeyStoreType = SSL_KEY_STORE_TYPE.getValue(properties);
+        this.sslTrustStorePath = SSL_TRUST_STORE_PATH.getValue(properties);
+        this.sslTrustStorePassword = SSL_TRUST_STORE_PASSWORD.getValue(properties);
+        this.sslTrustStoreType = SSL_TRUST_STORE_TYPE.getValue(properties);
+        this.sslUseSystemTrustStore = SSL_USE_SYSTEM_TRUST_STORE.getValue(properties);
+        this.kerberosServicePrincipalPattern = KERBEROS_SERVICE_PRINCIPAL_PATTERN.getValue(properties);
+        this.kerberosRemoteServiceName = KERBEROS_REMOTE_SERVICE_NAME.getValue(properties);
+        this.kerberosUseCanonicalHostname = KERBEROS_USE_CANONICAL_HOSTNAME.getValue(properties);
+        this.kerberosPrincipal = KERBEROS_PRINCIPAL.getValue(properties);
+        this.kerberosConfigPath = KERBEROS_CONFIG_PATH.getValue(properties);
+        this.kerberosKeytabPath = KERBEROS_KEYTAB_PATH.getValue(properties);
+        this.kerberosCredentialCachePath = KERBEROS_CREDENTIAL_CACHE_PATH.getValue(properties);
+        this.kerberosDelegation = KERBEROS_DELEGATION.getValue(properties);
+        this.kerberosConstrainedDelegation = KERBEROS_CONSTRAINED_DELEGATION.getValue(properties);
+        this.accessToken = ACCESS_TOKEN.getValue(properties);
+        this.externalAuthentication = EXTERNAL_AUTHENTICATION.getValue(properties);
+        this.externalAuthenticationTimeout = EXTERNAL_AUTHENTICATION_TIMEOUT.getValue(properties);
+        this.externalRedirectStrategies = EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS.getValue(properties);
+        this.externalAuthenticationTokenCache = EXTERNAL_AUTHENTICATION_TOKEN_CACHE.getValue(properties);
+        this.extraCredentials = EXTRA_CREDENTIALS.getValue(properties);
+        this.hostnameInCertificate = HOSTNAME_IN_CERTIFICATE.getValue(properties);
+        this.clientInfo = CLIENT_INFO.getValue(properties);
+        this.clientTags = CLIENT_TAGS.getValue(properties);
+        this.traceToken = TRACE_TOKEN.getValue(properties);
+        this.sessionProperties = SESSION_PROPERTIES.getValue(properties);
+        this.source = SOURCE.getValue(properties);
+    }
+
     private void initCatalogAndSchema()
             throws SQLException
     {
@@ -492,7 +576,6 @@ public final class TrinoDriverUri
     private static Properties mergeConnectionProperties(URI uri, Properties driverProperties)
             throws SQLException
     {
-        Map<String, Object> defaults = ConnectionProperties.getDefaults();
         Map<String, Object> urlProperties = parseParameters(uri.getQuery());
         Map<String, Object> suppliedProperties = driverProperties.entrySet().stream()
                 .collect(toImmutableMap(entry -> (String) entry.getKey(), Entry::getValue));
@@ -504,7 +587,6 @@ public final class TrinoDriverUri
         }
 
         Properties result = new Properties();
-        setProperties(result, defaults);
         setProperties(result, urlProperties);
         setProperties(result, suppliedProperties);
         return result;
