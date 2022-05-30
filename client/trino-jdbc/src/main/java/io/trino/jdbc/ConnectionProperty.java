@@ -22,7 +22,12 @@ import static java.lang.String.format;
 
 interface ConnectionProperty<V, T>
 {
-    String getKey();
+    default String getKey()
+    {
+        return getPropertyName().toString();
+    }
+
+    PropertyName getPropertyName();
 
     Optional<V> getDefault();
 

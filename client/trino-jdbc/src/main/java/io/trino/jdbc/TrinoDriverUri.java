@@ -393,6 +393,12 @@ public final class TrinoDriverUri
                 if (parts.size() != 2) {
                     throw new SQLException(format("Connection argument is not valid connection property: '%s'", queryArg));
                 }
+                try {
+                    PropertyName.get(parts.get(0));
+                }
+                catch (IllegalArgumentException e) {
+                    throw new SQLException(e.getMessage());
+                }
                 if (result.put(parts.get(0), parts.get(1)) != null) {
                     throw new SQLException(format("Connection property '%s' is in URL multiple times", parts.get(0)));
                 }
