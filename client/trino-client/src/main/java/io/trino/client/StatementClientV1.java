@@ -148,12 +148,8 @@ class StatementClientV1
         if (session.getClientInfo() != null) {
             builder.addHeader(TRINO_HEADERS.requestClientInfo(), session.getClientInfo());
         }
-        if (session.getCatalog() != null) {
-            builder.addHeader(TRINO_HEADERS.requestCatalog(), session.getCatalog());
-        }
-        if (session.getSchema() != null) {
-            builder.addHeader(TRINO_HEADERS.requestSchema(), session.getSchema());
-        }
+        session.getCatalog().ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestCatalog(), value));
+        session.getSchema().ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestSchema(), value));
         if (session.getPath() != null) {
             builder.addHeader(TRINO_HEADERS.requestPath(), session.getPath());
         }
