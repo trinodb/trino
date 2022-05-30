@@ -108,7 +108,7 @@ public final class HiveQueryRunner
             return new FileHiveMetastore(
                     new NodeVersion("test_version"),
                     HDFS_ENVIRONMENT,
-                    new HiveMetastoreConfig(),
+                    new HiveMetastoreConfig().isHideDeltaLakeTables(),
                     new FileHiveMetastoreConfig()
                             .setCatalogDirectory(baseDir.toURI().toString())
                             .setMetastoreUser("test"));

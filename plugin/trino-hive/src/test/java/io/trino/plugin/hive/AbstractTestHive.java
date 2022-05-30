@@ -791,7 +791,7 @@ public abstract class AbstractTestHive
         HiveMetastore metastore = cachingHiveMetastore(
                 new BridgingHiveMetastore(new ThriftHiveMetastore(
                         metastoreLocator,
-                        new HiveMetastoreConfig(),
+                        new HiveMetastoreConfig().isHideDeltaLakeTables(),
                         new HiveConfig().isTranslateHiveViews(),
                         new ThriftMetastoreConfig(),
                         hdfsEnvironment,

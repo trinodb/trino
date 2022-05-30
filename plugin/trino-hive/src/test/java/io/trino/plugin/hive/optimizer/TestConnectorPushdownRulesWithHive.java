@@ -111,7 +111,7 @@ public class TestConnectorPushdownRulesWithHive
         metastore = new FileHiveMetastore(
                 new NodeVersion("test_version"),
                 environment,
-                new HiveMetastoreConfig(),
+                new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
