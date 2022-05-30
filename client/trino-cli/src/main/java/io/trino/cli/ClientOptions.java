@@ -125,10 +125,10 @@ public class ClientOptions
     public String traceToken;
 
     @Option(names = "--catalog", paramLabel = "<catalog>", description = "Default catalog")
-    public String catalog;
+    public Optional<String> catalog;
 
     @Option(names = "--schema", paramLabel = "<schema>", description = "Default schema")
-    public String schema;
+    public Optional<String> schema;
 
     @Option(names = {"-f", "--file"}, paramLabel = "<file>", description = "Execute statements from file and exit")
     public String file;
@@ -236,8 +236,8 @@ public class ClientOptions
                 .traceToken(Optional.ofNullable(traceToken))
                 .clientTags(parseClientTags(nullToEmpty(clientTags)))
                 .clientInfo(clientInfo)
-                .catalog(catalog)
-                .schema(schema)
+                .catalog(catalog.orElse(null))
+                .schema(schema.orElse(null))
                 .timeZone(timeZone)
                 .locale(Locale.getDefault())
                 .resourceEstimates(toResourceEstimates(resourceEstimates))
