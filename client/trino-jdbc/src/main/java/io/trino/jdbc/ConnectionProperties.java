@@ -171,7 +171,7 @@ final class ConnectionProperties
     {
         public User()
         {
-            super("user", NOT_REQUIRED, ALLOWED, NON_EMPTY_STRING_CONVERTER);
+            super(PropertyName.USER, NOT_REQUIRED, ALLOWED, NON_EMPTY_STRING_CONVERTER);
         }
     }
 
@@ -180,7 +180,7 @@ final class ConnectionProperties
     {
         public Password()
         {
-            super("password", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+            super(PropertyName.PASSWORD, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -189,7 +189,7 @@ final class ConnectionProperties
     {
         protected SessionUser()
         {
-            super("sessionUser", NOT_REQUIRED, ALLOWED, NON_EMPTY_STRING_CONVERTER);
+            super(PropertyName.SESSION_USER, NOT_REQUIRED, ALLOWED, NON_EMPTY_STRING_CONVERTER);
         }
     }
 
@@ -198,7 +198,7 @@ final class ConnectionProperties
     {
         public Roles()
         {
-            super("roles", NOT_REQUIRED, ALLOWED, Roles::parseRoles);
+            super(PropertyName.ROLES, NOT_REQUIRED, ALLOWED, Roles::parseRoles);
         }
 
         // Roles consists of a list of catalog role pairs.
@@ -208,7 +208,7 @@ final class ConnectionProperties
         //  - `role` in `catalog3`
         public static Map<String, ClientSelectedRole> parseRoles(String roles)
         {
-            return new MapPropertyParser("roles").parse(roles).entrySet().stream()
+            return new MapPropertyParser(PropertyName.ROLES.toString()).parse(roles).entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, entry -> mapToClientSelectedRole(entry.getValue())));
         }
 
@@ -233,7 +233,7 @@ final class ConnectionProperties
 
         public SocksProxy()
         {
-            super("socksProxy", NOT_REQUIRED, NO_HTTP_PROXY, HostAndPort::fromString);
+            super(PropertyName.SOCKS_PROXY, NOT_REQUIRED, NO_HTTP_PROXY, HostAndPort::fromString);
         }
     }
 
@@ -245,7 +245,7 @@ final class ConnectionProperties
 
         public HttpProxy()
         {
-            super("httpProxy", NOT_REQUIRED, NO_SOCKS_PROXY, HostAndPort::fromString);
+            super(PropertyName.HTTP_PROXY, NOT_REQUIRED, NO_SOCKS_PROXY, HostAndPort::fromString);
         }
     }
 
@@ -254,7 +254,7 @@ final class ConnectionProperties
     {
         public ApplicationNamePrefix()
         {
-            super("applicationNamePrefix", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+            super(PropertyName.APPLICATION_NAME_PREFIX, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -263,7 +263,7 @@ final class ConnectionProperties
     {
         public ClientInfo()
         {
-            super("clientInfo", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+            super(PropertyName.CLIENT_INFO, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -272,7 +272,7 @@ final class ConnectionProperties
     {
         public ClientTags()
         {
-            super("clientTags", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+            super(PropertyName.CLIENT_TAGS, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -281,7 +281,7 @@ final class ConnectionProperties
     {
         public TraceToken()
         {
-            super("traceToken", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+            super(PropertyName.TRACE_TOKEN, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -290,7 +290,7 @@ final class ConnectionProperties
     {
         public DisableCompression()
         {
-            super("disableCompression", NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+            super(PropertyName.DISABLE_COMPRESSION, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
@@ -306,7 +306,7 @@ final class ConnectionProperties
         public AssumeLiteralNamesInMetadataCallsForNonConformingClients()
         {
             super(
-                    "assumeLiteralNamesInMetadataCallsForNonConformingClients",
+                    PropertyName.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS,
                     NOT_REQUIRED,
                     AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients.IS_ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED
                             .or(IS_ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED),
@@ -323,7 +323,7 @@ final class ConnectionProperties
         public AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()
         {
             super(
-                    "assumeLiteralUnderscoreInMetadataCallsForNonConformingClients",
+                    PropertyName.ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS,
                     NOT_REQUIRED,
                     AssumeLiteralNamesInMetadataCallsForNonConformingClients.IS_ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED
                             .or(IS_ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED),
@@ -336,7 +336,7 @@ final class ConnectionProperties
     {
         public Ssl()
         {
-            super("SSL", NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+            super(PropertyName.SSL, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
@@ -354,7 +354,7 @@ final class ConnectionProperties
 
         public SslVerification()
         {
-            super("SSLVerification", NOT_REQUIRED, IF_SSL_ENABLED, SslVerificationMode::valueOf);
+            super(PropertyName.SSL_VERIFICATION, NOT_REQUIRED, IF_SSL_ENABLED, SslVerificationMode::valueOf);
         }
     }
 
@@ -363,7 +363,7 @@ final class ConnectionProperties
     {
         public SslKeyStorePath()
         {
-            super("SSLKeyStorePath", NOT_REQUIRED, SslVerification.IF_SSL_VERIFICATION_ENABLED, STRING_CONVERTER);
+            super(PropertyName.SSL_KEY_STORE_PATH, NOT_REQUIRED, SslVerification.IF_SSL_VERIFICATION_ENABLED, STRING_CONVERTER);
         }
     }
 
@@ -375,7 +375,7 @@ final class ConnectionProperties
 
         public SslKeyStorePassword()
         {
-            super("SSLKeyStorePassword", NOT_REQUIRED, IF_KEY_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
+            super(PropertyName.SSL_KEY_STORE_PASSWORD, NOT_REQUIRED, IF_KEY_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
         }
     }
 
@@ -387,7 +387,7 @@ final class ConnectionProperties
 
         public SslKeyStoreType()
         {
-            super("SSLKeyStoreType", NOT_REQUIRED, IF_KEY_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
+            super(PropertyName.SSL_KEY_STORE_TYPE, NOT_REQUIRED, IF_KEY_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
         }
     }
 
@@ -399,7 +399,7 @@ final class ConnectionProperties
 
         public SslTrustStorePath()
         {
-            super("SSLTrustStorePath", NOT_REQUIRED, IF_SYSTEM_TRUST_STORE_NOT_ENABLED.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
+            super(PropertyName.SSL_TRUST_STORE_PATH, NOT_REQUIRED, IF_SYSTEM_TRUST_STORE_NOT_ENABLED.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
         }
     }
 
@@ -411,7 +411,7 @@ final class ConnectionProperties
 
         public SslTrustStorePassword()
         {
-            super("SSLTrustStorePassword", NOT_REQUIRED, IF_TRUST_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
+            super(PropertyName.SSL_TRUST_STORE_PASSWORD, NOT_REQUIRED, IF_TRUST_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
         }
     }
 
@@ -423,7 +423,7 @@ final class ConnectionProperties
 
         public SslTrustStoreType()
         {
-            super("SSLTrustStoreType", NOT_REQUIRED, IF_TRUST_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
+            super(PropertyName.SSL_TRUST_STORE_TYPE, NOT_REQUIRED, IF_TRUST_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
         }
     }
 
@@ -432,7 +432,7 @@ final class ConnectionProperties
     {
         public SslUseSystemTrustStore()
         {
-            super("SSLUseSystemTrustStore", NOT_REQUIRED, SslVerification.IF_SSL_VERIFICATION_ENABLED, BOOLEAN_CONVERTER);
+            super(PropertyName.SSL_USE_SYSTEM_TRUST_STORE, NOT_REQUIRED, SslVerification.IF_SSL_VERIFICATION_ENABLED, BOOLEAN_CONVERTER);
         }
     }
 
@@ -441,7 +441,7 @@ final class ConnectionProperties
     {
         public KerberosRemoteServiceName()
         {
-            super("KerberosRemoteServiceName", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+            super(PropertyName.KERBEROS_REMOTE_SERVICE_NAME, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -460,7 +460,7 @@ final class ConnectionProperties
     {
         public KerberosServicePrincipalPattern()
         {
-            super("KerberosServicePrincipalPattern", Optional.of("${SERVICE}@${HOST}"), isKerberosEnabled(), ALLOWED, STRING_CONVERTER);
+            super(PropertyName.KERBEROS_SERVICE_PRINCIPAL_PATTERN, Optional.of("${SERVICE}@${HOST}"), isKerberosEnabled(), ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -469,7 +469,7 @@ final class ConnectionProperties
     {
         public KerberosPrincipal()
         {
-            super("KerberosPrincipal", NOT_REQUIRED, isKerberosWithoutDelegation(), STRING_CONVERTER);
+            super(PropertyName.KERBEROS_PRINCIPAL, NOT_REQUIRED, isKerberosWithoutDelegation(), STRING_CONVERTER);
         }
     }
 
@@ -478,7 +478,7 @@ final class ConnectionProperties
     {
         public KerberosUseCanonicalHostname()
         {
-            super("KerberosUseCanonicalHostname", Optional.of("true"), isKerberosEnabled(), ALLOWED, BOOLEAN_CONVERTER);
+            super(PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME, Optional.of("true"), isKerberosEnabled(), ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
@@ -487,7 +487,7 @@ final class ConnectionProperties
     {
         public KerberosConfigPath()
         {
-            super("KerberosConfigPath", NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
+            super(PropertyName.KERBEROS_CONFIG_PATH, NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
         }
     }
 
@@ -496,7 +496,7 @@ final class ConnectionProperties
     {
         public KerberosKeytabPath()
         {
-            super("KerberosKeytabPath", NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
+            super(PropertyName.KERBEROS_KEYTAB_PATH, NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
         }
     }
 
@@ -505,7 +505,7 @@ final class ConnectionProperties
     {
         public KerberosCredentialCachePath()
         {
-            super("KerberosCredentialCachePath", NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
+            super(PropertyName.KERBEROS_CREDENTIAL_CACHE_PATH, NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
         }
     }
 
@@ -514,7 +514,7 @@ final class ConnectionProperties
     {
         public KerberosDelegation()
         {
-            super("KerberosDelegation", Optional.of("false"), isKerberosEnabled(), ALLOWED, BOOLEAN_CONVERTER);
+            super(PropertyName.KERBEROS_DELEGATION, Optional.of("false"), isKerberosEnabled(), ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
@@ -523,7 +523,7 @@ final class ConnectionProperties
     {
         public AccessToken()
         {
-            super("accessToken", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+            super(PropertyName.ACCESS_TOKEN, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -532,7 +532,7 @@ final class ConnectionProperties
     {
         public ExternalAuthentication()
         {
-            super("externalAuthentication", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+            super(PropertyName.EXTERNAL_AUTHENTICATION, Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
@@ -543,7 +543,12 @@ final class ConnectionProperties
 
         public ExternalAuthenticationRedirectHandlers()
         {
-            super("externalAuthenticationRedirectHandlers", Optional.of("OPEN"), NOT_REQUIRED, ALLOWED, ExternalAuthenticationRedirectHandlers::parse);
+            super(
+                    PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS,
+                    Optional.of("OPEN"),
+                    NOT_REQUIRED,
+                    ALLOWED,
+                    ExternalAuthenticationRedirectHandlers::parse);
         }
 
         public static List<ExternalRedirectStrategy> parse(String value)
@@ -562,7 +567,7 @@ final class ConnectionProperties
 
         public ExternalAuthenticationTimeout()
         {
-            super("externalAuthenticationTimeout", NOT_REQUIRED, IF_EXTERNAL_AUTHENTICATION_ENABLED, Duration::valueOf);
+            super(PropertyName.EXTERNAL_AUTHENTICATION_TIMEOUT, NOT_REQUIRED, IF_EXTERNAL_AUTHENTICATION_ENABLED, Duration::valueOf);
         }
     }
 
@@ -571,7 +576,7 @@ final class ConnectionProperties
     {
         public ExternalAuthenticationTokenCache()
         {
-            super("externalAuthenticationTokenCache", Optional.of(KnownTokenCache.NONE.name()), NOT_REQUIRED, ALLOWED, KnownTokenCache::valueOf);
+            super(PropertyName.EXTERNAL_AUTHENTICATION_TOKEN_CACHE, Optional.of("NONE"), NOT_REQUIRED, ALLOWED, KnownTokenCache::valueOf);
         }
     }
 
@@ -580,14 +585,14 @@ final class ConnectionProperties
     {
         public ExtraCredentials()
         {
-            super("extraCredentials", NOT_REQUIRED, ALLOWED, ExtraCredentials::parseExtraCredentials);
+            super(PropertyName.EXTRA_CREDENTIALS, NOT_REQUIRED, ALLOWED, ExtraCredentials::parseExtraCredentials);
         }
 
         // Extra credentials consists of a list of credential name value pairs.
         // E.g., `jdbc:trino://example.net:8080/?extraCredentials=abc:xyz;foo:bar` will create credentials `abc=xyz` and `foo=bar`
         public static Map<String, String> parseExtraCredentials(String extraCredentialString)
         {
-            return new MapPropertyParser("extraCredentials").parse(extraCredentialString);
+            return new MapPropertyParser(PropertyName.EXTRA_CREDENTIALS.toString()).parse(extraCredentialString);
         }
     }
 
@@ -598,14 +603,14 @@ final class ConnectionProperties
 
         public SessionProperties()
         {
-            super("sessionProperties", NOT_REQUIRED, ALLOWED, SessionProperties::parseSessionProperties);
+            super(PropertyName.SESSION_PROPERTIES, NOT_REQUIRED, ALLOWED, SessionProperties::parseSessionProperties);
         }
 
         // Session properties consists of a list of session property name value pairs.
         // E.g., `jdbc:trino://example.net:8080/?sessionProperties=abc:xyz;catalog.foo:bar` will create session properties `abc=xyz` and `catalog.foo=bar`
         public static Map<String, String> parseSessionProperties(String sessionPropertiesString)
         {
-            Map<String, String> sessionProperties = new MapPropertyParser("sessionProperties").parse(sessionPropertiesString);
+            Map<String, String> sessionProperties = new MapPropertyParser(PropertyName.SESSION_PROPERTIES.toString()).parse(sessionPropertiesString);
             for (String sessionPropertyName : sessionProperties.keySet()) {
                 checkArgument(NAME_PARTS_SPLITTER.splitToList(sessionPropertyName).size() <= 2, "Malformed session property name: %s", sessionPropertyName);
             }
@@ -618,7 +623,7 @@ final class ConnectionProperties
     {
         public Source()
         {
-            super("source", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+            super(PropertyName.SOURCE, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -627,7 +632,7 @@ final class ConnectionProperties
     {
         public Resolver()
         {
-            super("dnsResolver", NOT_REQUIRED, ALLOWED, Resolver::findByName);
+            super(PropertyName.DNS_RESOLVER, NOT_REQUIRED, ALLOWED, Resolver::findByName);
         }
 
         public static Class<? extends DnsResolver> findByName(String name)
@@ -646,7 +651,7 @@ final class ConnectionProperties
     {
         public ResolverContext()
         {
-            super("dnsResolverContext", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+            super(PropertyName.DNS_RESOLVER_CONTEXT, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -655,7 +660,7 @@ final class ConnectionProperties
     {
         public HostnameInCertificate()
         {
-            super("hostnameInCertificate", NOT_REQUIRED, SslVerification.IF_FULL_SSL_VERIFICATION_ENABLED, STRING_CONVERTER);
+            super(PropertyName.HOSTNAME_IN_CERTIFICATE, NOT_REQUIRED, SslVerification.IF_FULL_SSL_VERIFICATION_ENABLED, STRING_CONVERTER);
         }
     }
 
