@@ -83,7 +83,7 @@ General configuration
 These configuration properties are independent of which catalog implementation
 is used.
 
-.. list-table:: Iceberg configuration properties
+.. list-table:: Iceberg general configuration properties
   :widths: 30, 58, 12
   :header-rows: 1
 
@@ -110,6 +110,20 @@ is used.
   * - ``iceberg.max-partitions-per-writer``
     - Maximum number of partitions handled per writer.
     - 100
+
+ORC format configuration
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following properties are used to configure the read and write operations
+with ORC files performed by the Iceberg connector.
+
+.. list-table:: ORC format configuration properties
+  :widths: 30, 58, 12
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default
   * - ``hive.orc.bloom-filters.enabled``
     - Enable bloom filters for predicate pushdown.
     - ``false``
