@@ -80,7 +80,7 @@ public abstract class BaseTestHiveOnDataLake
                 new TestingMetastoreLocator(
                         Optional.empty(),
                         this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint()),
-                new HiveMetastoreConfig(),
+                new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 new HiveConfig().isTranslateHiveViews(),
                 new ThriftMetastoreConfig(),
                 new HdfsEnvironment(new HiveHdfsConfiguration(
