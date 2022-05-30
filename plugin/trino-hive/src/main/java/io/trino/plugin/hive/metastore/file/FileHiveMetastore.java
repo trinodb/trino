@@ -165,13 +165,13 @@ public class FileHiveMetastore
         return new FileHiveMetastore(
                 new NodeVersion("testversion"),
                 hdfsEnvironment,
-                new HiveMetastoreConfig(),
+                new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(catalogDirectory.toURI().toString())
                         .setMetastoreUser("test"));
     }
 
-    public FileHiveMetastore(NodeVersion nodeVersion, HdfsEnvironment hdfsEnvironment, HiveMetastoreConfig hiveMetastoreConfig, FileHiveMetastoreConfig config)
+    public FileHiveMetastore(NodeVersion nodeVersion, HdfsEnvironment hdfsEnvironment, boolean hideDeltaLakeTables, FileHiveMetastoreConfig config)
     {
         this.currentVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         requireNonNull(config, "config is null");
@@ -179,7 +179,7 @@ public class FileHiveMetastore
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.catalogDirectory = new Path(requireNonNull(config.getCatalogDirectory(), "catalogDirectory is null"));
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
-        this.hideDeltaLakeTables = requireNonNull(hiveMetastoreConfig, "hiveMetastoreConfig is null").isHideDeltaLakeTables();
+        this.hideDeltaLakeTables = hideDeltaLakeTables;
         try {
             metadataFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, this.catalogDirectory);
         }

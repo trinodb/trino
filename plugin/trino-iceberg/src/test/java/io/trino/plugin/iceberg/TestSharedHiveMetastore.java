@@ -89,7 +89,7 @@ public class TestSharedHiveMetastore
         HiveMetastore metastore = new FileHiveMetastore(
                 new NodeVersion("testversion"),
                 hdfsEnvironment,
-                new HiveMetastoreConfig(),
+                new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(dataDirectory.toFile().toURI().toString())
                         .setMetastoreUser("test"));
