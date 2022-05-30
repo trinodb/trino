@@ -31,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 abstract class AbstractConnectionProperty<V, T>
         implements ConnectionProperty<V, T>
 {
+    private final PropertyName propertyName;
     private final String key;
     private final Optional<V> defaultValue;
     private final Predicate<Properties> isRequired;
@@ -39,13 +40,14 @@ abstract class AbstractConnectionProperty<V, T>
     private final String[] choices;
 
     protected AbstractConnectionProperty(
-            String key,
+            PropertyName propertyName,
             Optional<V> defaultValue,
             Predicate<Properties> isRequired,
             Predicate<Properties> isAllowed,
             Converter<V, T> converter)
     {
-        this.key = requireNonNull(key, "key is null");
+        this.propertyName = requireNonNull(propertyName, "key is null");
+        this.key = propertyName.toString();
         this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
         this.isRequired = requireNonNull(isRequired, "isRequired is null");
         this.isAllowed = requireNonNull(isAllowed, "isAllowed is null");
@@ -66,7 +68,7 @@ abstract class AbstractConnectionProperty<V, T>
     }
 
     protected AbstractConnectionProperty(
-            String key,
+            PropertyName key,
             Predicate<Properties> required,
             Predicate<Properties> allowed,
             Converter<V, T> converter)
@@ -75,9 +77,9 @@ abstract class AbstractConnectionProperty<V, T>
     }
 
     @Override
-    public String getKey()
+    public PropertyName getPropertyName()
     {
-        return key;
+        return propertyName;
     }
 
     @Override
