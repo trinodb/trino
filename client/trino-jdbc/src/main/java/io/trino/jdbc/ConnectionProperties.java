@@ -15,7 +15,6 @@ package io.trino.jdbc;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
@@ -23,6 +22,7 @@ import io.trino.client.ClientSelectedRole;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -139,16 +139,6 @@ final class ConnectionProperties
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
             .collect(toMap(ConnectionProperty::getKey, identity())));
 
-    private static final Map<String, String> DEFAULTS;
-
-    static {
-        ImmutableMap.Builder<String, String> defaults = ImmutableMap.builder();
-        for (ConnectionProperty<?> property : ALL_PROPERTIES) {
-            property.getDefault().ifPresent(value -> defaults.put(property.getKey(), value));
-        }
-        DEFAULTS = defaults.buildOrThrow();
-    }
-
     private ConnectionProperties() {}
 
     public static ConnectionProperty<?> forKey(String propertiesKey)
@@ -159,11 +149,6 @@ final class ConnectionProperties
     public static Set<ConnectionProperty<?>> allProperties()
     {
         return ALL_PROPERTIES;
-    }
-
-    public static Map<String, String> getDefaults()
-    {
-        return DEFAULTS;
     }
 
     private static class User
@@ -478,7 +463,7 @@ final class ConnectionProperties
     {
         public KerberosUseCanonicalHostname()
         {
-            super(PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME, Optional.of("true"), isKerberosEnabled(), ALLOWED, BOOLEAN_CONVERTER);
+            super(PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME, Optional.of(true), isKerberosEnabled(), ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
@@ -514,7 +499,7 @@ final class ConnectionProperties
     {
         public KerberosDelegation()
         {
-            super(PropertyName.KERBEROS_DELEGATION, Optional.of("false"), isKerberosEnabled(), ALLOWED, BOOLEAN_CONVERTER);
+            super(PropertyName.KERBEROS_DELEGATION, Optional.of(false), isKerberosEnabled(), ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
@@ -532,7 +517,7 @@ final class ConnectionProperties
     {
         public ExternalAuthentication()
         {
-            super(PropertyName.EXTERNAL_AUTHENTICATION, Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+            super(PropertyName.EXTERNAL_AUTHENTICATION, Optional.of(false), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
@@ -545,7 +530,7 @@ final class ConnectionProperties
         {
             super(
                     PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS,
-                    Optional.of("OPEN"),
+                    Optional.of(Collections.singletonList(ExternalRedirectStrategy.OPEN)),
                     NOT_REQUIRED,
                     ALLOWED,
                     ExternalAuthenticationRedirectHandlers::parse);
@@ -576,7 +561,7 @@ final class ConnectionProperties
     {
         public ExternalAuthenticationTokenCache()
         {
-            super(PropertyName.EXTERNAL_AUTHENTICATION_TOKEN_CACHE, Optional.of("NONE"), NOT_REQUIRED, ALLOWED, KnownTokenCache::valueOf);
+            super(PropertyName.EXTERNAL_AUTHENTICATION_TOKEN_CACHE, Optional.of(KnownTokenCache.NONE), NOT_REQUIRED, ALLOWED, KnownTokenCache::valueOf);
         }
     }
 

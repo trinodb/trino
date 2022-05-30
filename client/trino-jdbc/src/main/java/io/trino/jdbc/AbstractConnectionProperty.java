@@ -33,7 +33,7 @@ abstract class AbstractConnectionProperty<T>
 {
     private final PropertyName propertyName;
     private final String key;
-    private final Optional<String> defaultValue;
+    private final Optional<T> defaultValue;
     private final Predicate<Properties> isRequired;
     private final Predicate<Properties> isAllowed;
     private final Converter<T> converter;
@@ -41,7 +41,7 @@ abstract class AbstractConnectionProperty<T>
 
     protected AbstractConnectionProperty(
             PropertyName propertyName,
-            Optional<String> defaultValue,
+            Optional<T> defaultValue,
             Predicate<Properties> isRequired,
             Predicate<Properties> isAllowed,
             Converter<T> converter)
@@ -83,12 +83,6 @@ abstract class AbstractConnectionProperty<T>
     }
 
     @Override
-    public Optional<String> getDefault()
-    {
-        return defaultValue;
-    }
-
-    @Override
     public DriverPropertyInfo getDriverPropertyInfo(Properties mergedProperties)
     {
         String currentValue = mergedProperties.getProperty(key);
@@ -114,12 +108,19 @@ abstract class AbstractConnectionProperty<T>
     public Optional<T> getValue(Properties properties)
             throws SQLException
     {
+        return getValueOrDefault(properties, defaultValue);
+    }
+
+    @Override
+    public Optional<T> getValueOrDefault(Properties properties, Optional<T> defaultValue)
+            throws SQLException
+    {
         String value = properties.getProperty(key);
         if (value == null) {
-            if (isRequired(properties)) {
+            if (isRequired(properties) && !defaultValue.isPresent()) {
                 throw new SQLException(format("Connection property '%s' is required", key));
             }
-            return Optional.empty();
+            return defaultValue;
         }
 
         try {

@@ -29,8 +29,6 @@ interface ConnectionProperty<T>
 
     PropertyName getPropertyName();
 
-    Optional<String> getDefault();
-
     DriverPropertyInfo getDriverPropertyInfo(Properties properties);
 
     boolean isRequired(Properties properties);
@@ -46,6 +44,9 @@ interface ConnectionProperty<T>
         return getValue(properties).orElseThrow(() ->
                 new SQLException(format("Connection property '%s' is required", getKey())));
     }
+
+    Optional<T> getValueOrDefault(Properties properties, Optional<T> defaultValue)
+            throws SQLException;
 
     void validate(Properties properties)
             throws SQLException;
