@@ -2553,7 +2553,7 @@ public class LocalExecutionPlanner
             checkArgument(partitionCount == 1, "Expected local execution to not be parallel");
 
             int operatorId = buildContext.getNextOperatorId();
-            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, partitionCount, localDynamicFilters);
+            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, localDynamicFilters);
             if (localDynamicFilter.isPresent()) {
                 buildSource = createDynamicFilterSourceOperatorFactory(operatorId, localDynamicFilter.get(), node, buildSource, buildContext);
             }
@@ -2817,7 +2817,7 @@ public class LocalExecutionPlanner
                     buildOutputTypes);
 
             int operatorId = buildContext.getNextOperatorId();
-            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, partitionCount, localDynamicFilters);
+            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, localDynamicFilters);
             if (localDynamicFilter.isPresent()) {
                 buildSource = createDynamicFilterSourceOperatorFactory(operatorId, localDynamicFilter.get(), node, buildSource, buildContext);
             }
@@ -2874,7 +2874,7 @@ public class LocalExecutionPlanner
                     new DynamicFilterSourceOperatorFactory(
                             operatorId,
                             node.getId(),
-                            dynamicFilter.getTupleDomainConsumer(),
+                            dynamicFilter,
                             filterBuildChannels,
                             multipleIf(getDynamicFilteringMaxDistinctValuesPerDriver(session, isReplicatedJoin), taskConcurrency, isBuildSideSingle),
                             multipleIf(getDynamicFilteringMaxSizePerDriver(session, isReplicatedJoin), taskConcurrency, isBuildSideSingle),
@@ -2899,7 +2899,6 @@ public class LocalExecutionPlanner
                 PhysicalOperation buildSource,
                 JoinNode node,
                 LocalExecutionPlanContext context,
-                int partitionCount,
                 Set<DynamicFilterId> localDynamicFilters)
         {
             Set<DynamicFilterId> coordinatorDynamicFilters = getCoordinatorDynamicFilters(node.getDynamicFilters().keySet(), node, context.getTaskId());
@@ -2914,7 +2913,7 @@ public class LocalExecutionPlanner
                     buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION,
                     "Dynamic filtering cannot be used with grouped execution");
             log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
-            LocalDynamicFilterConsumer filterConsumer = LocalDynamicFilterConsumer.create(node, buildSource.getTypes(), partitionCount, collectedDynamicFilters);
+            LocalDynamicFilterConsumer filterConsumer = LocalDynamicFilterConsumer.create(node, buildSource.getTypes(), collectedDynamicFilters);
             ListenableFuture<Map<DynamicFilterId, Domain>> domainsFuture = filterConsumer.getDynamicFilterDomains();
             if (!localDynamicFilters.isEmpty()) {
                 addSuccessCallback(domainsFuture, context::addLocalDynamicFilters);
@@ -3080,8 +3079,7 @@ public class LocalExecutionPlanner
                 log.debug("[Semi-join] Dynamic filter: %s", filterId);
                 LocalDynamicFilterConsumer filterConsumer = new LocalDynamicFilterConsumer(
                         ImmutableMap.of(filterId, buildChannel),
-                        ImmutableMap.of(filterId, buildSource.getTypes().get(buildChannel)),
-                        partitionCount);
+                        ImmutableMap.of(filterId, buildSource.getTypes().get(buildChannel)));
                 ListenableFuture<Map<DynamicFilterId, Domain>> domainsFuture = filterConsumer.getDynamicFilterDomains();
                 if (isLocalDynamicFilter) {
                     addSuccessCallback(domainsFuture, context::addLocalDynamicFilters);
@@ -3094,7 +3092,7 @@ public class LocalExecutionPlanner
                         new DynamicFilterSourceOperatorFactory(
                                 operatorId,
                                 node.getId(),
-                                filterConsumer.getTupleDomainConsumer(),
+                                filterConsumer,
                                 ImmutableList.of(new DynamicFilterSourceOperator.Channel(filterId, buildSource.getTypes().get(buildChannel), buildChannel)),
                                 getDynamicFilteringMaxDistinctValuesPerDriver(session, isReplicatedJoin),
                                 getDynamicFilteringMaxSizePerDriver(session, isReplicatedJoin),
