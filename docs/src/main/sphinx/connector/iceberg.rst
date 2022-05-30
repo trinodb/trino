@@ -110,6 +110,14 @@ is used.
   * - ``iceberg.max-partitions-per-writer``
     - Maximum number of partitions handled per writer.
     - 100
+  * - ``iceberg.table-statistics-enabled``
+    - Enables :doc:`/optimizer/statistics`. The equivalent
+      :doc:`catalog session property </sql/set-session>`
+      is ``statistics_enabled`` for session specific use.
+      Set to ``false`` to disable statistics. Disabling statistics
+      means that :doc:`/optimizer/cost-based-optimizations` can
+      not make smart decisions about the query plan.
+    - ``true``
 
 ORC format configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^
