@@ -26,9 +26,11 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -247,6 +249,39 @@ public abstract class BaseJdbcConnectorTest
                 "SELECT count(name) FROM nation WHERE name = 'ARGENTINA'",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
                 node(FilterNode.class, node(TableScanNode.class)));
+
+        // pruned away aggregation
+        assertThat(query("SELECT -13 FROM (SELECT count(*) FROM nation)"))
+                .matches("VALUES -13")
+                .hasPlan(node(OutputNode.class, node(ProjectNode.class, node(ValuesNode.class))));
+        // aggregation over aggregation
+        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation)"))
+                .matches("VALUES BIGINT '1'")
+                .hasPlan(node(OutputNode.class, node(ValuesNode.class)));
+        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation GROUP BY regionkey)"))
+                .matches("VALUES BIGINT '5'")
+                .isFullyPushedDown();
+
+        // aggregation with UNION ALL and aggregation
+        assertThat(query("SELECT count(*) FROM (SELECT name FROM nation UNION ALL SELECT name FROM region)"))
+                .matches("VALUES BIGINT '30'")
+                // TODO (https://github.com/trinodb/trino/issues/12547): support count(*) over UNION ALL pushdown
+                .isNotFullyPushedDown(
+                        node(ExchangeNode.class,
+                                node(AggregationNode.class, node(TableScanNode.class)),
+                                node(AggregationNode.class, node(TableScanNode.class))));
+
+        // aggregation with UNION ALL and aggregation
+        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation UNION ALL SELECT count(*) FROM region)"))
+                .matches("VALUES BIGINT '2'")
+                .hasPlan(
+                        // Note: engine could fold this to single ValuesNode
+                        node(OutputNode.class,
+                                node(AggregationNode.class,
+                                        node(ExchangeNode.class,
+                                                node(ExchangeNode.class,
+                                                        node(AggregationNode.class, node(ValuesNode.class)),
+                                                        node(AggregationNode.class, node(ValuesNode.class)))))));
     }
 
     @Test
