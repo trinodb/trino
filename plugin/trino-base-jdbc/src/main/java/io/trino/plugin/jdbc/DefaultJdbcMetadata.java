@@ -294,6 +294,10 @@ public class DefaultJdbcMetadata
         // Global aggregation is represented by [[]]
         verify(!groupingSets.isEmpty(), "No grouping sets provided");
 
+        if (aggregates.isEmpty() && groupingSets.stream().allMatch(List::isEmpty)) {
+            return Optional.empty();
+        }
+
         if (!jdbcClient.supportsAggregationPushdown(session, handle, aggregates, assignments, groupingSets)) {
             // JDBC client implementation prevents pushdown for the given table
             return Optional.empty();
