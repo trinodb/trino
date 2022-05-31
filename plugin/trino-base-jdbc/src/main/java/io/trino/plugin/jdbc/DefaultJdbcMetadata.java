@@ -289,6 +289,10 @@ public class DefaultJdbcMetadata
             return Optional.empty();
         }
 
+        if (aggregates.isEmpty() && groupingSets.stream().allMatch(List::isEmpty)) {
+            return Optional.empty();
+        }
+
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
         // Global aggregation is represented by [[]]
