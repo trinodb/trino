@@ -26,6 +26,7 @@ import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
@@ -62,7 +63,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
@@ -86,6 +86,7 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -236,7 +237,7 @@ public class SnowflakeClient
 
         if (type instanceof CharType) {
             // Snowflake CHAR is an alias for VARCHAR so we need to pad value with spaces
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction(((CharType) type)));
         }
 
         if (type instanceof VarcharType) {
@@ -258,6 +259,11 @@ public class SnowflakeClient
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    private static SliceWriteFunction charWriteFunction(CharType charType)
+    {
+        return (statement, index, value) -> statement.setString(index, padSpaces(value.toStringUtf8(), charType));
     }
 
     @Override
