@@ -104,19 +104,19 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
     protected DockerizedDataLake dockerizedDataLake;
 
-    abstract DockerizedDataLake createDockerizedDataLake()
+    protected abstract DockerizedDataLake createDockerizedDataLake()
             throws Exception;
 
-    abstract QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
+    protected abstract QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
             throws Exception;
 
-    abstract void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner);
+    protected abstract void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner);
 
-    abstract String getLocationForTable(String bucketName, String tableName);
+    protected abstract String getLocationForTable(String bucketName, String tableName);
 
-    abstract List<String> getTableFiles(String tableName);
+    protected abstract List<String> getTableFiles(String tableName);
 
-    abstract List<String> listCheckpointFiles(String transactionLogDirectory);
+    protected abstract List<String> listCheckpointFiles(String transactionLogDirectory);
 
     @Override
     protected QueryRunner createQueryRunner()
