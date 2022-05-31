@@ -560,7 +560,7 @@ public class OrcWriteValidation
                 return Optional.empty();
             }
             ImmutableList.Builder<ColumnStatistics> statisticsBuilders = ImmutableList.builder();
-            statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null, null));
+            statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null, null, null));
             columnStatisticsValidations.forEach(validation -> validation.build(statisticsBuilders));
             return Optional.of(new ColumnMetadata<>(statisticsBuilders.build()));
         }
@@ -752,7 +752,7 @@ public class OrcWriteValidation
         @Override
         public ColumnStatistics buildColumnStatistics()
         {
-            return new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null, null);
+            return new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null, null, null);
         }
     }
 

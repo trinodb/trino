@@ -18,11 +18,11 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.collect.cache.NonKeyEvictableCache;
 import org.weakref.jmx.Managed;
 
-import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 
 public class TypeOperatorsCache
@@ -36,9 +36,9 @@ public class TypeOperatorsCache
     public Object apply(Object operatorConvention, Supplier<Object> supplier)
     {
         try {
-            return cache.get(operatorConvention, supplier::get);
+            return uncheckedCacheGet(cache, operatorConvention, supplier);
         }
-        catch (ExecutionException | UncheckedExecutionException e) {
+        catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());
             throw new RuntimeException(e.getCause());
         }

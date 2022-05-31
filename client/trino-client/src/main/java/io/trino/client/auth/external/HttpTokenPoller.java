@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -137,7 +138,7 @@ public class HttpTokenPoller
             return response.getValue().toResult();
         }
 
-        String message = format("Request to %s failed: %s [Error: %s]", request.url(), response, response.getResponseBody());
+        String message = format("Request to %s failed: %s [Error: %s]", request.url(), response, response.getResponseBody().orElse("<Response Too Large>"));
 
         if (response.getStatusCode() == HTTP_UNAVAILABLE) {
             throw new IOException(message);
@@ -150,7 +151,7 @@ public class HttpTokenPoller
             throws IOException
     {
         try {
-            return execute(TOKEN_POLL_CODEC, client.get(), request);
+            return execute(TOKEN_POLL_CODEC, client.get(), request, OptionalLong.empty());
         }
         catch (UncheckedIOException e) {
             throw e.getCause();

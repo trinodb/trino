@@ -15,6 +15,7 @@ package io.trino.plugin.pinot;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
@@ -28,17 +29,16 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.pinot.core.operator.transform.TransformResultMetadata;
 import org.apache.pinot.spi.data.FieldSpec;
-import org.apache.pinot.spi.data.Schema;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
+import static io.trino.plugin.pinot.PinotMetadata.PINOT_COLUMN_NAME_PROPERTY;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PinotColumnHandle
@@ -75,9 +75,9 @@ public class PinotColumnHandle
         this.aliased = aliased;
         this.aggregate = aggregate;
         this.returnNullOnEmptyGroup = returnNullOnEmptyGroup;
-        requireNonNull(pushedDownAggregateFunctionName, "pushedDownaAggregateFunctionName is null");
-        requireNonNull(pushedDownAggregateFunctionArgument, "pushedDownaAggregateFunctionArgument is null");
-        checkState(pushedDownAggregateFunctionName.isPresent() == pushedDownAggregateFunctionArgument.isPresent(), "Unexpected arguments: Either pushedDownaAggregateFunctionName and pushedDownaAggregateFunctionArgument must both be present or both be empty.");
+        requireNonNull(pushedDownAggregateFunctionName, "pushedDownAggregateFunctionName is null");
+        requireNonNull(pushedDownAggregateFunctionArgument, "pushedDownAggregateFunctionArgument is null");
+        checkState(pushedDownAggregateFunctionName.isPresent() == pushedDownAggregateFunctionArgument.isPresent(), "Unexpected arguments: Either pushedDownAggregateFunctionName and pushedDownAggregateFunctionArgument must both be present or both be empty.");
         checkState((pushedDownAggregateFunctionName.isPresent() && aggregate) || pushedDownAggregateFunctionName.isEmpty(), "Unexpected arguments: aggregate is false but pushed down aggregation is present");
         this.pushedDownAggregateFunctionName = pushedDownAggregateFunctionName;
         this.pushedDownAggregateFunctionArgument = pushedDownAggregateFunctionArgument;
@@ -88,12 +88,10 @@ public class PinotColumnHandle
         return new PinotColumnHandle(columnHandle.getColumnName(), columnHandle.getDataType(), quoteIdentifier(columnHandle.getColumnName()), false, false, true, Optional.empty(), Optional.empty());
     }
 
-    public static List<PinotColumnHandle> getPinotColumnsForPinotSchema(Schema pinotTableSchema)
+    public static PinotColumnHandle fromColumnMetadata(ColumnMetadata columnMetadata)
     {
-        return pinotTableSchema.getColumnNames().stream()
-                .filter(columnName -> !columnName.startsWith("$")) // Hidden columns starts with "$", ignore them as we can't use them in PQL
-                .map(columnName -> new PinotColumnHandle(columnName, getTrinoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName))))
-                .collect(toImmutableList());
+        String columnName = (String) requireNonNull(columnMetadata.getProperties().get(PINOT_COLUMN_NAME_PROPERTY), format("Missing required column property '%s'", PINOT_COLUMN_NAME_PROPERTY));
+        return new PinotColumnHandle(columnName, columnMetadata.getType());
     }
 
     public static Type getTrinoTypeFromPinotType(FieldSpec field)
@@ -195,7 +193,7 @@ public class PinotColumnHandle
         return pushedDownAggregateFunctionName;
     }
 
-    // See comment for getPushedDownaAggregateFunctionName()
+    // See comment for getPushedDownAggregateFunctionName()
     @JsonProperty
     public Optional<String> getPushedDownAggregateFunctionArgument()
     {
@@ -204,7 +202,13 @@ public class PinotColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(getColumnName(), getDataType());
+        return ColumnMetadata.builder()
+                .setName(columnName)
+                .setType(dataType)
+                .setProperties(ImmutableMap.<String, Object>builder()
+                        .put(PINOT_COLUMN_NAME_PROPERTY, columnName)
+                        .buildOrThrow())
+                .build();
     }
 
     @Override
@@ -238,8 +242,8 @@ public class PinotColumnHandle
                 .add("aliased", aliased)
                 .add("aggregate", aggregate)
                 .add("returnNullOnEmptyGroup", returnNullOnEmptyGroup)
-                .add("pushedDownaAggregateFunctionName", pushedDownAggregateFunctionName)
-                .add("pushedDownaAggregateFunctionArgument", pushedDownAggregateFunctionArgument)
+                .add("pushedDownAggregateFunctionName", pushedDownAggregateFunctionName)
+                .add("pushedDownAggregateFunctionArgument", pushedDownAggregateFunctionArgument)
                 .toString();
     }
 }

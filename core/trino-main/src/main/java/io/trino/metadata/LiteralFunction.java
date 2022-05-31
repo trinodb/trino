@@ -30,8 +30,6 @@ import java.lang.invoke.MethodHandles;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.block.BlockSerdeUtil.READ_BLOCK;
 import static io.trino.block.BlockSerdeUtil.READ_BLOCK_VALUE;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -49,19 +47,17 @@ public class LiteralFunction
 
     public LiteralFunction(BlockEncodingSerde blockEncodingSerde)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        LITERAL_FUNCTION_NAME,
-                        ImmutableList.of(typeVariable("F"), typeVariable("T")),
-                        ImmutableList.of(),
-                        new TypeSignature("T"),
-                        ImmutableList.of(new TypeSignature("F")),
-                        false),
-                new FunctionNullability(false, ImmutableList.of(false)),
-                true,
-                true,
-                "literal",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name(LITERAL_FUNCTION_NAME)
+                        .typeVariable("F")
+                        .typeVariable("T")
+                        .returnType(new TypeSignature("T"))
+                        .argumentType(new TypeSignature("F"))
+                        .build())
+                .hidden()
+                .description("literal")
+                .build());
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
     }
 
@@ -85,7 +81,8 @@ public class LiteralFunction
             }
         }
 
-        checkArgument(methodHandle != null,
+        checkArgument(
+                methodHandle != null,
                 "Expected type %s to use (or can be converted into) Java type %s, but Java type is %s",
                 type,
                 parameterType.getJavaType(),

@@ -91,6 +91,6 @@ public final class TableExecuteHandle
     @Override
     public String toString()
     {
-        return "Execute[" + catalogName + ":" + connectorHandle + "]";
+        return catalogName + ":" + connectorHandle;
     }
 }

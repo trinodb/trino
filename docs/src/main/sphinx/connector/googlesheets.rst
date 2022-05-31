@@ -2,6 +2,10 @@
 Google Sheets connector
 =======================
 
+.. raw:: html
+
+  <img src="../_static/img/google-sheets.png" class="connector-logo">
+
 The Google Sheets connector allows reading `Google Sheets <https://www.google.com/sheets/about/>`_ spreadsheets as tables in Trino.
 
 Configuration

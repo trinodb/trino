@@ -50,7 +50,6 @@ import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
-import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
@@ -60,6 +59,7 @@ import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
@@ -133,6 +133,7 @@ import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.visibleFields;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.TableWriterNode.CreateReference;
 import static io.trino.sql.planner.plan.TableWriterNode.InsertReference;
@@ -220,7 +221,15 @@ public class LogicalPlanner
         PlanNode root = planStatement(analysis, analysis.getStatement());
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Initial plan:\n%s", PlanPrinter.textLogicalPlan(root, symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false));
+            LOG.debug("Initial plan:\n%s", PlanPrinter.textLogicalPlan(
+                    root,
+                    symbolAllocator.getTypes(),
+                    metadata,
+                    plannerContext.getFunctionManager(),
+                    StatsAndCosts.empty(),
+                    session,
+                    0,
+                    false));
         }
 
         planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
@@ -231,7 +240,15 @@ public class LogicalPlanner
                 requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
 
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("%s:\n%s", optimizer.getClass().getName(), PlanPrinter.textLogicalPlan(root, symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false));
+                    LOG.debug("%s:\n%s", optimizer.getClass().getName(), PlanPrinter.textLogicalPlan(
+                            root,
+                            symbolAllocator.getTypes(),
+                            metadata,
+                            plannerContext.getFunctionManager(),
+                            StatsAndCosts.empty(),
+                            session,
+                            0,
+                            false));
                 }
             }
         }
@@ -345,15 +362,11 @@ public class LogicalPlanner
 
         PlanNode planNode = new StatisticsWriterNode(
                 idAllocator.getNextId(),
-                new AggregationNode(
+                singleAggregation(
                         idAllocator.getNextId(),
                         TableScanNode.newInstance(idAllocator.getNextId(), targetTable, tableScanOutputs.build(), symbolToColumnHandle.buildOrThrow(), false, Optional.empty()),
                         statisticAggregations.getAggregations(),
-                        singleGroupingSet(groupingSymbols),
-                        ImmutableList.of(),
-                        AggregationNode.Step.SINGLE,
-                        Optional.empty(),
-                        Optional.empty()),
+                        singleGroupingSet(groupingSymbols)),
                 new StatisticsWriterNode.WriteStatisticsReference(targetTable),
                 symbolAllocator.newSymbol("rows", BIGINT),
                 tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
@@ -382,7 +395,6 @@ public class LogicalPlanner
                 .collect(toImmutableList());
 
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, destination.getCatalogName(), tableMetadata);
-
         return createTableWriterPlan(
                 analysis,
                 plan.getRoot(),
@@ -604,7 +616,7 @@ public class LogicalPlanner
         if (!statisticsMetadata.isEmpty()) {
             TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToSymbolMap);
 
-            StatisticAggregations.Parts aggregations = result.getAggregations().createPartialAggregations(symbolAllocator, plannerContext);
+            StatisticAggregations.Parts aggregations = result.getAggregations().createPartialAggregations(symbolAllocator, session, plannerContext);
 
             // partial aggregation is run within the TableWriteOperator to calculate the statistics for
             // the data consumed by the TableWriteOperator
@@ -810,12 +822,20 @@ public class LogicalPlanner
     private RelationPlan createTableExecutePlan(Analysis analysis, TableExecute statement)
     {
         Table table = statement.getTable();
-        TableHandle tableHandle = analysis.getTableHandle(table);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, table.getName());
         TableExecuteHandle executeHandle = analysis.getTableExecuteHandle().orElseThrow();
 
+        if (!analysis.isTableExecuteReadsData()) {
+            SimpleTableExecuteNode node = new SimpleTableExecuteNode(
+                    idAllocator.getNextId(),
+                    symbolAllocator.newSymbol("rows", BIGINT),
+                    executeHandle);
+            return new RelationPlan(node, analysis.getRootScope(), node.getOutputSymbols(), Optional.empty());
+        }
+
+        TableHandle tableHandle = analysis.getTableHandle(table);
         RelationPlan tableScanPlan = createRelationPlan(analysis, table);
-        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of());
+        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
         if (statement.getWhere().isPresent()) {
             SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, typeCoercion, Optional.empty(), session, ImmutableMap.of());
             Expression whereExpression = statement.getWhere().get();
@@ -831,7 +851,8 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(executeHandle, Optional.empty(), tableName.asSchemaTableName());
+        boolean supportsReportingWrittenBytes = metadata.supportsReportingWrittenBytes(session, tableHandle);
+        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(executeHandle, Optional.empty(), tableName.asSchemaTableName(), supportsReportingWrittenBytes);
 
         Optional<TableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
 

@@ -15,7 +15,8 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.exchange.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
+import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
@@ -26,7 +27,7 @@ import org.testng.annotations.AfterClass;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.exchange.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 
 public class TestHiveQueryFailureRecoveryTest
@@ -58,13 +59,16 @@ public class TestHiveQueryFailureRecoveryTest
                 .setInitialTables(requiredTpchTables)
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
+                .setAdditionalSetup(runner -> {
+                    runner.installPlugin(new FileSystemExchangePlugin());
+                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
+                })
                 .setHiveProperties(ImmutableMap.<String, String>builder()
                         // Streaming upload allocates non trivial amount of memory for buffering (16MB per output file by default).
                         // When streaming upload is enabled insert into a table with high number of buckets / partitions may cause
                         // the tests to run out of memory as the buffer space is eagerly allocated for each output file.
                         .put("hive.s3.streaming.enabled", "false")
                         .buildOrThrow())
-                .setExchangeManagerProperties(getExchangeManagerProperties(minioStorage))
                 .build();
     }
 

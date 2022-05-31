@@ -78,8 +78,12 @@ public class PipelineStats
     private final DataSize processedInputDataSize;
     private final long processedInputPositions;
 
+    private final Duration inputBlockedTime;
+
     private final DataSize outputDataSize;
     private final long outputPositions;
+
+    private final Duration outputBlockedTime;
 
     private final DataSize physicalWrittenDataSize;
 
@@ -132,8 +136,12 @@ public class PipelineStats
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
 
+            @JsonProperty("inputBlockedTime") Duration inputBlockedTime,
+
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
@@ -197,9 +205,13 @@ public class PipelineStats
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
+        this.inputBlockedTime = requireNonNull(inputBlockedTime, "inputBlockedTime is null");
+
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
@@ -403,6 +415,12 @@ public class PipelineStats
     }
 
     @JsonProperty
+    public Duration getInputBlockedTime()
+    {
+        return inputBlockedTime;
+    }
+
+    @JsonProperty
     public Duration getPhysicalInputReadTime()
     {
         return physicalInputReadTime;
@@ -418,6 +436,12 @@ public class PipelineStats
     public long getOutputPositions()
     {
         return outputPositions;
+    }
+
+    @JsonProperty
+    public Duration getOutputBlockedTime()
+    {
+        return outputBlockedTime;
     }
 
     @JsonProperty
@@ -474,8 +498,10 @@ public class PipelineStats
                 rawInputPositions,
                 processedInputDataSize,
                 processedInputPositions,
+                inputBlockedTime,
                 outputDataSize,
                 outputPositions,
+                outputBlockedTime,
                 physicalWrittenDataSize,
                 summarizeOperatorStats(operatorSummaries),
                 ImmutableList.of());

@@ -19,11 +19,12 @@ import io.trino.connector.CatalogName;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.metadata.AllNodes;
+import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
-import io.trino.metadata.SqlFunction;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
@@ -66,7 +67,7 @@ public final class StandaloneQueryRunner
 
         refreshNodes();
 
-        server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+        server.addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
     }
 
     @Override
@@ -144,6 +145,12 @@ public final class StandaloneQueryRunner
     public SessionPropertyManager getSessionPropertyManager()
     {
         return server.getSessionPropertyManager();
+    }
+
+    @Override
+    public FunctionManager getFunctionManager()
+    {
+        return server.getFunctionManager();
     }
 
     @Override
@@ -228,9 +235,9 @@ public final class StandaloneQueryRunner
     }
 
     @Override
-    public void addFunctions(List<? extends SqlFunction> functions)
+    public void addFunctions(FunctionBundle functionBundle)
     {
-        server.getMetadata().addFunctions(functions);
+        server.addFunctions(functionBundle);
     }
 
     public void createCatalog(String catalogName, String connectorName)

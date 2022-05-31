@@ -22,6 +22,8 @@ import io.trino.spi.predicate.ValueSet;
 import org.bson.Document;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.Range.equal;
 import static io.trino.spi.predicate.Range.greaterThan;
@@ -29,15 +31,17 @@ import static io.trino.spi.predicate.Range.greaterThanOrEqual;
 import static io.trino.spi.predicate.Range.lessThan;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 
 public class TestMongoSession
 {
-    private static final MongoColumnHandle COL1 = new MongoColumnHandle("col1", BIGINT, false);
-    private static final MongoColumnHandle COL2 = new MongoColumnHandle("col2", createUnboundedVarcharType(), false);
-    private static final MongoColumnHandle COL3 = new MongoColumnHandle("col3", createUnboundedVarcharType(), false);
+    private static final MongoColumnHandle COL1 = new MongoColumnHandle("col1", BIGINT, false, Optional.empty());
+    private static final MongoColumnHandle COL2 = new MongoColumnHandle("col2", createUnboundedVarcharType(), false, Optional.empty());
+    private static final MongoColumnHandle COL3 = new MongoColumnHandle("col3", createUnboundedVarcharType(), false, Optional.empty());
+    private static final MongoColumnHandle COL4 = new MongoColumnHandle("col4", BOOLEAN, false, Optional.empty());
 
     @Test
     public void testBuildQuery()
@@ -101,6 +105,16 @@ public class TestMongoSession
         Document expected = new Document("$or", asList(
                 new Document(COL1.getName(), new Document("$gt", 200L)),
                 new Document(COL1.getName(), new Document("$eq", null))));
+        assertEquals(query, expected);
+    }
+
+    @Test
+    public void testBooleanPredicatePushdown()
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(COL4, Domain.singleValue(BOOLEAN, true)));
+
+        Document query = MongoSession.buildQuery(tupleDomain);
+        Document expected = new Document().append(COL4.getName(), new Document("$eq", true));
         assertEquals(query, expected);
     }
 }

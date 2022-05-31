@@ -14,7 +14,6 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.FeaturesConfig;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -28,7 +27,6 @@ import io.trino.transaction.TransactionManager;
 import org.testng.annotations.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
@@ -43,7 +41,9 @@ import static io.trino.transaction.TransactionBuilder.transaction;
 public class TestCanonicalizeExpressionRewriter
 {
     private static final TransactionManager TRANSACTION_MANAGER = createTestTransactionManager();
-    private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder().withMetadata(createTestMetadataManager(TRANSACTION_MANAGER, new FeaturesConfig())).build();
+    private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
+            .withTransactionManager(TRANSACTION_MANAGER)
+            .build();
     private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
     private static final AllowAllAccessControl ACCESS_CONTROL = new AllowAllAccessControl();
 

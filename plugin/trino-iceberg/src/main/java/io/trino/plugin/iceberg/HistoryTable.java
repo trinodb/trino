@@ -75,7 +75,7 @@ public class HistoryTable
     {
         InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(COLUMNS);
 
-        Set<Long> ancestorIds = ImmutableSet.copyOf(SnapshotUtil.currentAncestors(icebergTable));
+        Set<Long> ancestorIds = ImmutableSet.copyOf(SnapshotUtil.currentAncestorIds(icebergTable));
         TimeZoneKey timeZoneKey = session.getTimeZoneKey();
         for (HistoryEntry historyEntry : icebergTable.history()) {
             long snapshotId = historyEntry.snapshotId();

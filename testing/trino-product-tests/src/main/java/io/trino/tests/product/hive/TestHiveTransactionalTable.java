@@ -537,6 +537,29 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "acidFormatColumnNames")
+    public void testAcidTableColumnNameConflict(String columnName)
+    {
+        withTemporaryTable("acid_column_name_conflict", true, true, NONE, tableName -> {
+            onHive().executeQuery("CREATE TABLE " + tableName + " (`" + columnName + "` INTEGER, fcol INTEGER, partcol INTEGER) STORED AS ORC " + hiveTableProperties(ACID, NONE));
+            onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 2, 3)");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).containsOnly(row(1, 2, 3));
+        });
+    }
+
+    @DataProvider
+    public Object[][] acidFormatColumnNames()
+    {
+        return new Object[][] {
+                {"operation"},
+                {"originalTransaction"},
+                {"bucket"},
+                {"rowId"},
+                {"row"},
+                {"currentTransaction"},
+        };
+    }
+
     @Test(groups = HIVE_TRANSACTIONAL)
     public void testSimpleUnpartitionedTransactionalInsert()
     {

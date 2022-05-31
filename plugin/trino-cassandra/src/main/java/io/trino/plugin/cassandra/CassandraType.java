@@ -13,16 +13,20 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.DataType;
-import com.datastax.driver.core.GettableByIndexData;
-import com.datastax.driver.core.LocalDate;
-import com.datastax.driver.core.ProtocolVersion;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.TupleType;
-import com.datastax.driver.core.TupleValue;
-import com.datastax.driver.core.UDTValue;
-import com.datastax.driver.core.UserType;
-import com.datastax.driver.core.utils.Bytes;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.ProtocolVersion;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.data.GettableByIndex;
+import com.datastax.oss.driver.api.core.data.TupleValue;
+import com.datastax.oss.driver.api.core.data.UdtValue;
+import com.datastax.oss.driver.api.core.type.DataType;
+import com.datastax.oss.driver.api.core.type.ListType;
+import com.datastax.oss.driver.api.core.type.MapType;
+import com.datastax.oss.driver.api.core.type.SetType;
+import com.datastax.oss.driver.api.core.type.TupleType;
+import com.datastax.oss.driver.api.core.type.UserDefinedType;
+import com.datastax.oss.protocol.internal.ProtocolConstants;
+import com.datastax.oss.protocol.internal.util.Bytes;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
@@ -30,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SingleRowBlockWriter;
@@ -53,8 +58,10 @@ import io.trino.spi.type.VarcharType;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -64,12 +71,13 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -78,6 +86,7 @@ import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraType
@@ -158,56 +167,54 @@ public class CassandraType
 
     public static Optional<CassandraType> toCassandraType(DataType dataType)
     {
-        switch (dataType.getName()) {
-            case ASCII:
+        switch (dataType.getProtocolCode()) {
+            case ProtocolConstants.DataType.ASCII:
                 return Optional.of(CassandraTypes.ASCII);
-            case BIGINT:
+            case ProtocolConstants.DataType.BIGINT:
                 return Optional.of(CassandraTypes.BIGINT);
-            case BLOB:
+            case ProtocolConstants.DataType.BLOB:
                 return Optional.of(CassandraTypes.BLOB);
-            case BOOLEAN:
+            case ProtocolConstants.DataType.BOOLEAN:
                 return Optional.of(CassandraTypes.BOOLEAN);
-            case COUNTER:
+            case ProtocolConstants.DataType.COUNTER:
                 return Optional.of(CassandraTypes.COUNTER);
-            case CUSTOM:
+            case ProtocolConstants.DataType.CUSTOM:
                 return Optional.of(CassandraTypes.CUSTOM);
-            case DATE:
+            case ProtocolConstants.DataType.DATE:
                 return Optional.of(CassandraTypes.DATE);
-            case DECIMAL:
+            case ProtocolConstants.DataType.DECIMAL:
                 return Optional.of(CassandraTypes.DECIMAL);
-            case DOUBLE:
+            case ProtocolConstants.DataType.DOUBLE:
                 return Optional.of(CassandraTypes.DOUBLE);
-            case FLOAT:
+            case ProtocolConstants.DataType.FLOAT:
                 return Optional.of(CassandraTypes.FLOAT);
-            case INET:
+            case ProtocolConstants.DataType.INET:
                 return Optional.of(CassandraTypes.INET);
-            case INT:
+            case ProtocolConstants.DataType.INT:
                 return Optional.of(CassandraTypes.INT);
-            case LIST:
+            case ProtocolConstants.DataType.LIST:
                 return Optional.of(CassandraTypes.LIST);
-            case MAP:
+            case ProtocolConstants.DataType.MAP:
                 return Optional.of(CassandraTypes.MAP);
-            case SET:
+            case ProtocolConstants.DataType.SET:
                 return Optional.of(CassandraTypes.SET);
-            case SMALLINT:
+            case ProtocolConstants.DataType.SMALLINT:
                 return Optional.of(CassandraTypes.SMALLINT);
-            case TEXT:
-                return Optional.of(CassandraTypes.TEXT);
-            case TIMESTAMP:
+            case ProtocolConstants.DataType.TIMESTAMP:
                 return Optional.of(CassandraTypes.TIMESTAMP);
-            case TIMEUUID:
+            case ProtocolConstants.DataType.TIMEUUID:
                 return Optional.of(CassandraTypes.TIMEUUID);
-            case TINYINT:
+            case ProtocolConstants.DataType.TINYINT:
                 return Optional.of(CassandraTypes.TINYINT);
-            case TUPLE:
+            case ProtocolConstants.DataType.TUPLE:
                 return createTypeForTuple(dataType);
-            case UDT:
+            case ProtocolConstants.DataType.UDT:
                 return createTypeForUserType(dataType);
-            case UUID:
+            case ProtocolConstants.DataType.UUID:
                 return Optional.of(CassandraTypes.UUID);
-            case VARCHAR:
+            case ProtocolConstants.DataType.VARCHAR:
                 return Optional.of(CassandraTypes.VARCHAR);
-            case VARINT:
+            case ProtocolConstants.DataType.VARINT:
                 return Optional.of(CassandraTypes.VARINT);
             default:
                 return Optional.empty();
@@ -239,16 +246,21 @@ public class CassandraType
 
     private static Optional<CassandraType> createTypeForUserType(DataType dataType)
     {
-        UserType userType = (UserType) dataType;
+        UserDefinedType userDefinedType = (UserDefinedType) dataType;
         // Using ImmutableMap is important as we exploit the fact that entries iteration order matches the order of putting values via builder
-        ImmutableMap.Builder<String, CassandraType> argumentTypes = new ImmutableMap.Builder<>();
-        for (UserType.Field field : userType) {
-            Optional<CassandraType> cassandraType = CassandraType.toCassandraType(field.getType());
+        ImmutableMap.Builder<String, CassandraType> argumentTypes = ImmutableMap.builder();
+
+        List<CqlIdentifier> fieldNames = userDefinedType.getFieldNames();
+        List<DataType> fieldTypes = userDefinedType.getFieldTypes();
+        if (fieldNames.size() != fieldTypes.size()) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Mismatch between the number of field names (%s) and the number of field types (%s) for the data type %s", fieldNames.size(), fieldTypes.size(), dataType));
+        }
+        for (int i = 0; i < fieldNames.size(); i++) {
+            Optional<CassandraType> cassandraType = CassandraType.toCassandraType(fieldTypes.get(i));
             if (cassandraType.isEmpty()) {
                 return Optional.empty();
             }
-
-            argumentTypes.put(field.getName(), cassandraType.get());
+            argumentTypes.put(fieldNames.get(i).toString(), cassandraType.get());
         }
 
         RowType trinoType = RowType.from(
@@ -261,10 +273,10 @@ public class CassandraType
 
     public NullableValue getColumnValue(Row row, int position)
     {
-        return getColumnValue(row, position, () -> row.getColumnDefinitions().getType(position));
+        return getColumnValue(row, position, () -> row.getColumnDefinitions().get(position).getType());
     }
 
-    public NullableValue getColumnValue(GettableByIndexData row, int position, Supplier<DataType> dataTypeSupplier)
+    public NullableValue getColumnValue(GettableByIndex row, int position, Supplier<DataType> dataTypeSupplier)
     {
         if (row.isNull(position)) {
             return NullableValue.asNull(trinoType);
@@ -285,30 +297,31 @@ public class CassandraType
             case COUNTER:
                 return NullableValue.of(trinoType, row.getLong(position));
             case BOOLEAN:
-                return NullableValue.of(trinoType, row.getBool(position));
+                return NullableValue.of(trinoType, row.getBoolean(position));
             case DOUBLE:
                 return NullableValue.of(trinoType, row.getDouble(position));
             case FLOAT:
                 return NullableValue.of(trinoType, (long) floatToRawIntBits(row.getFloat(position)));
             case DECIMAL:
-                return NullableValue.of(trinoType, row.getDecimal(position).doubleValue());
+                return NullableValue.of(trinoType, row.getBigDecimal(position).doubleValue());
             case UUID:
             case TIMEUUID:
-                return NullableValue.of(trinoType, javaUuidToTrinoUuid(row.getUUID(position)));
+                return NullableValue.of(trinoType, javaUuidToTrinoUuid(row.getUuid(position)));
             case TIMESTAMP:
-                return NullableValue.of(trinoType, packDateTimeWithZone(row.getTimestamp(position).getTime(), TimeZoneKey.UTC_KEY));
+                return NullableValue.of(trinoType, packDateTimeWithZone(row.getInstant(position).toEpochMilli(), TimeZoneKey.UTC_KEY));
             case DATE:
-                return NullableValue.of(trinoType, (long) row.getDate(position).getDaysSinceEpoch());
+                return NullableValue.of(trinoType, row.getLocalDate(position).toEpochDay());
             case INET:
-                return NullableValue.of(trinoType, utf8Slice(toAddrString(row.getInet(position))));
+                return NullableValue.of(trinoType, utf8Slice(toAddrString(row.getInetAddress(position))));
             case VARINT:
-                return NullableValue.of(trinoType, utf8Slice(row.getVarint(position).toString()));
+                return NullableValue.of(trinoType, utf8Slice(row.getBigInteger(position).toString()));
             case BLOB:
             case CUSTOM:
                 return NullableValue.of(trinoType, wrappedBuffer(row.getBytesUnsafe(position)));
             case SET:
+                return NullableValue.of(trinoType, utf8Slice(buildArrayValueFromSetType(row, position, dataTypeSupplier.get())));
             case LIST:
-                return NullableValue.of(trinoType, utf8Slice(buildArrayValue(row, position, dataTypeSupplier.get())));
+                return NullableValue.of(trinoType, utf8Slice(buildArrayValueFromListType(row, position, dataTypeSupplier.get())));
             case MAP:
                 return NullableValue.of(trinoType, utf8Slice(buildMapValue(row, position, dataTypeSupplier.get())));
             case TUPLE:
@@ -319,12 +332,11 @@ public class CassandraType
         throw new IllegalStateException("Handling of type " + this + " is not implemented");
     }
 
-    private static String buildMapValue(GettableByIndexData row, int position, DataType dataType)
+    private static String buildMapValue(GettableByIndex row, int position, DataType dataType)
     {
-        checkArgument(dataType.getTypeArguments().size() == 2, "Expected two type arguments, got: %s", dataType.getTypeArguments());
-        DataType keyType = dataType.getTypeArguments().get(0);
-        DataType valueType = dataType.getTypeArguments().get(1);
-        return buildMapValue((Map<?, ?>) row.getObject(position), keyType, valueType);
+        checkArgument(dataType instanceof MapType, "Expected to deal with an instance of %s class, got: %s", MapType.class, dataType);
+        MapType mapType = (MapType) dataType;
+        return buildMapValue((Map<?, ?>) row.getObject(position), mapType.getKeyType(), mapType.getValueType());
     }
 
     private static String buildMapValue(Map<?, ?> cassandraMap, DataType keyType, DataType valueType)
@@ -343,10 +355,18 @@ public class CassandraType
         return sb.toString();
     }
 
-    private static String buildArrayValue(GettableByIndexData row, int position, DataType dataType)
+    private static String buildArrayValueFromSetType(GettableByIndex row, int position, DataType type)
     {
-        DataType elementType = getOnlyElement(dataType.getTypeArguments());
-        return buildArrayValue((Collection<?>) row.getObject(position), elementType);
+        checkArgument(type instanceof SetType, "Expected to deal with an instance of %s class, got: %s", SetType.class, type);
+        SetType setType = (SetType) type;
+        return buildArrayValue((Collection<?>) row.getObject(position), setType.getElementType());
+    }
+
+    private static String buildArrayValueFromListType(GettableByIndex row, int position, DataType type)
+    {
+        checkArgument(type instanceof ListType, "Expected to deal with an instance of %s class, got: %s", ListType.class, type);
+        ListType listType = (ListType) type;
+        return buildArrayValue((Collection<?>) row.getObject(position), listType.getElementType());
     }
 
     @VisibleForTesting
@@ -364,7 +384,7 @@ public class CassandraType
         return sb.toString();
     }
 
-    private Block buildTupleValue(GettableByIndexData row, int position)
+    private Block buildTupleValue(GettableByIndex row, int position)
     {
         verify(this.kind == Kind.TUPLE, "Not a TUPLE type");
         TupleValue tupleValue = row.getTupleValue(position);
@@ -382,17 +402,17 @@ public class CassandraType
         return (Block) this.trinoType.getObject(blockBuilder, 0);
     }
 
-    private Block buildUserTypeValue(GettableByIndexData row, int position)
+    private Block buildUserTypeValue(GettableByIndex row, int position)
     {
         verify(this.kind == Kind.UDT, "Not a user defined type: %s", this.kind);
-        UDTValue udtValue = row.getUDTValue(position);
-        String[] fieldNames = udtValue.getType().getFieldNames().toArray(String[]::new);
+        UdtValue udtValue = row.getUdtValue(position);
         RowBlockBuilder blockBuilder = (RowBlockBuilder) this.trinoType.createBlockBuilder(null, 1);
         SingleRowBlockWriter singleRowBlockWriter = blockBuilder.beginBlockEntry();
         int tuplePosition = 0;
+        List<DataType> udtTypeFieldTypes = udtValue.getType().getFieldTypes();
         for (CassandraType argumentType : this.getArgumentTypes()) {
             int finalTuplePosition = tuplePosition;
-            NullableValue value = argumentType.getColumnValue(udtValue, tuplePosition, () -> udtValue.getType().getFieldType(fieldNames[finalTuplePosition]));
+            NullableValue value = argumentType.getColumnValue(udtValue, tuplePosition, () -> udtTypeFieldTypes.get(finalTuplePosition));
             writeNativeValue(argumentType.getTrinoType(), singleRowBlockWriter, value.getValue());
             tuplePosition++;
         }
@@ -429,18 +449,18 @@ public class CassandraType
             case FLOAT:
                 return Float.toString(row.getFloat(position));
             case DECIMAL:
-                return row.getDecimal(position).toString();
+                return row.getBigDecimal(position).toString();
             case UUID:
             case TIMEUUID:
-                return row.getUUID(position).toString();
+                return row.getUuid(position).toString();
             case TIMESTAMP:
-                return Long.toString(row.getTimestamp(position).getTime());
+                return Long.toString(row.getInstant(position).toEpochMilli());
             case DATE:
-                return quoteStringLiteral(row.getDate(position).toString());
+                return quoteStringLiteral(row.getLocalDate(position).toString());
             case INET:
-                return quoteStringLiteral(toAddrString(row.getInet(position)));
+                return quoteStringLiteral(toAddrString(row.getInetAddress(position)));
             case VARINT:
-                return row.getVarint(position).toString();
+                return row.getBigInteger(position).toString();
             case BLOB:
             case CUSTOM:
                 return Bytes.toHexString(row.getBytesUnsafe(position));
@@ -460,7 +480,7 @@ public class CassandraType
     public String toCqlLiteral(Object trinoNativeValue)
     {
         if (kind == Kind.DATE) {
-            LocalDate date = LocalDate.fromDaysSinceEpoch(toIntExact((long) trinoNativeValue));
+            LocalDate date = LocalDate.ofEpochDay(toIntExact((long) trinoNativeValue));
             return quoteStringLiteral(date.toString());
         }
         if (kind == Kind.TIMESTAMP) {
@@ -522,10 +542,17 @@ public class CassandraType
             case DECIMAL:
                 return cassandraValue.toString();
             case LIST:
+                checkArgument(dataType instanceof ListType, "Expected to deal with an instance of %s class, got: %s", ListType.class, dataType);
+                ListType listType = (ListType) dataType;
+                return buildArrayValue((Collection<?>) cassandraValue, listType.getElementType());
             case SET:
-                return buildArrayValue((Collection<?>) cassandraValue, getOnlyElement(dataType.getTypeArguments()));
+                checkArgument(dataType instanceof SetType, "Expected to deal with an instance of %s class, got: %s", SetType.class, dataType);
+                SetType setType = (SetType) dataType;
+                return buildArrayValue((Collection<?>) cassandraValue, setType.getElementType());
             case MAP:
-                return buildMapValue((Map<?, ?>) cassandraValue, dataType.getTypeArguments().get(0), dataType.getTypeArguments().get(1));
+                checkArgument(dataType instanceof MapType, "Expected to deal with an instance of %s class, got: %s", MapType.class, dataType);
+                MapType mapType = (MapType) dataType;
+                return buildMapValue((Map<?, ?>) cassandraValue, mapType.getKeyType(), mapType.getValueType());
         }
         throw new IllegalStateException("Unsupported type: " + cassandraType);
     }
@@ -557,9 +584,9 @@ public class CassandraType
                 // Otherwise partition id doesn't match
                 return new BigDecimal(trinoNativeValue.toString());
             case TIMESTAMP:
-                return new Date(unpackMillisUtc((Long) trinoNativeValue));
+                return Instant.ofEpochMilli(unpackMillisUtc((Long) trinoNativeValue));
             case DATE:
-                return LocalDate.fromDaysSinceEpoch(((Long) trinoNativeValue).intValue());
+                return LocalDate.ofEpochDay(((Long) trinoNativeValue).intValue());
             case UUID:
             case TIMEUUID:
                 return trinoUuidToJavaUuid((Slice) trinoNativeValue);
@@ -617,8 +644,31 @@ public class CassandraType
             return false;
         }
 
-        return dataType.getTypeArguments().stream()
-                .allMatch(CassandraType::isFullySupported);
+        if (dataType instanceof UserDefinedType) {
+            return ((UserDefinedType) dataType).getFieldTypes().stream()
+                    .allMatch(CassandraType::isFullySupported);
+        }
+
+        if (dataType instanceof MapType) {
+            MapType mapType = (MapType) dataType;
+            return Arrays.stream(new DataType[] {mapType.getKeyType(), mapType.getValueType()})
+                    .allMatch(CassandraType::isFullySupported);
+        }
+
+        if (dataType instanceof ListType) {
+            return CassandraType.isFullySupported(((ListType) dataType).getElementType());
+        }
+
+        if (dataType instanceof TupleType) {
+            return ((TupleType) dataType).getComponentTypes().stream()
+                    .allMatch(CassandraType::isFullySupported);
+        }
+
+        if (dataType instanceof SetType) {
+            return CassandraType.isFullySupported(((SetType) dataType).getElementType());
+        }
+
+        return true;
     }
 
     public static CassandraType toCassandraType(Type type, ProtocolVersion protocolVersion)
@@ -648,7 +698,7 @@ public class CassandraType
             return CassandraTypes.TEXT;
         }
         if (type.equals(DateType.DATE)) {
-            return protocolVersion.toInt() <= ProtocolVersion.V3.toInt()
+            return protocolVersion.getCode() <= ProtocolVersion.V3.getCode()
                     ? CassandraTypes.TEXT
                     : CassandraTypes.DATE;
         }
@@ -661,7 +711,7 @@ public class CassandraType
         if (type.equals(UuidType.UUID)) {
             return CassandraTypes.UUID;
         }
-        throw new IllegalArgumentException("unsupported type: " + type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
     }
 
     @Override
@@ -681,5 +731,16 @@ public class CassandraType
     public int hashCode()
     {
         return Objects.hash(kind, trinoType, argumentTypes);
+    }
+
+    @Override
+    public String toString()
+    {
+        String result = format("%s(%s", kind, trinoType);
+        if (!argumentTypes.isEmpty()) {
+            result += "; " + argumentTypes;
+        }
+        result += ")";
+        return result;
     }
 }

@@ -21,10 +21,12 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
+import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.RowBlock.createRowBlockInternal;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -46,6 +48,7 @@ public class RowBlockBuilder
 
     private boolean currentEntryOpened;
     private boolean hasNullRow;
+    private boolean hasNonNullRow;
 
     public RowBlockBuilder(List<Type> fieldTypes, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
@@ -85,9 +88,10 @@ public class RowBlockBuilder
     }
 
     @Override
+    @Nullable
     protected int[] getFieldBlockOffsets()
     {
-        return fieldBlockOffsets;
+        return hasNullRow ? fieldBlockOffsets : null;
     }
 
     @Override
@@ -140,7 +144,7 @@ public class RowBlockBuilder
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         for (int i = 0; i < numFields; i++) {
             consumer.accept(fieldBlockBuilders[i], fieldBlockBuilders[i].getRetainedSizeInBytes());
@@ -200,6 +204,7 @@ public class RowBlockBuilder
         }
         rowIsNull[positionCount] = isNull;
         hasNullRow |= isNull;
+        hasNonNullRow |= !isNull;
         positionCount++;
 
         for (int i = 0; i < numFields; i++) {
@@ -219,11 +224,14 @@ public class RowBlockBuilder
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
+        if (!hasNonNullRow) {
+            return nullRle(positionCount);
+        }
         Block[] fieldBlocks = new Block[numFields];
         for (int i = 0; i < numFields; i++) {
             fieldBlocks[i] = fieldBlockBuilders[i].build();
         }
-        return createRowBlockInternal(0, positionCount, hasNullRow ? rowIsNull : null, fieldBlockOffsets, fieldBlocks);
+        return createRowBlockInternal(0, positionCount, hasNullRow ? rowIsNull : null, hasNullRow ? fieldBlockOffsets : null, fieldBlocks);
     }
 
     @Override
@@ -241,5 +249,51 @@ public class RowBlockBuilder
             newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus);
         }
         return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new int[newSize + 1], new boolean[newSize]);
+    }
+
+    @Override
+    public Block copyPositions(int[] positions, int offset, int length)
+    {
+        checkArrayRange(positions, offset, length);
+
+        if (!hasNonNullRow) {
+            return nullRle(length);
+        }
+        return super.copyPositions(positions, offset, length);
+    }
+
+    @Override
+    public Block getRegion(int position, int length)
+    {
+        int positionCount = getPositionCount();
+        checkValidRegion(positionCount, position, length);
+
+        if (!hasNonNullRow) {
+            return nullRle(length);
+        }
+        return super.getRegion(position, length);
+    }
+
+    @Override
+    public Block copyRegion(int position, int length)
+    {
+        int positionCount = getPositionCount();
+        checkValidRegion(positionCount, position, length);
+
+        if (!hasNonNullRow) {
+            return nullRle(length);
+        }
+        return super.copyRegion(position, length);
+    }
+
+    private RunLengthEncodedBlock nullRle(int length)
+    {
+        Block[] fieldBlocks = new Block[numFields];
+        for (int i = 0; i < numFields; i++) {
+            fieldBlocks[i] = fieldBlockBuilders[i].newBlockBuilderLike(null).build();
+        }
+
+        RowBlock nullRowBlock = createRowBlockInternal(0, 1, new boolean[] {true}, new int[] {0, 0}, fieldBlocks);
+        return new RunLengthEncodedBlock(nullRowBlock, length);
     }
 }

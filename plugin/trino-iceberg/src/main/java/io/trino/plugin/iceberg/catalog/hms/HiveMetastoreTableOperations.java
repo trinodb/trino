@@ -14,12 +14,12 @@
 package io.trino.plugin.iceberg.catalog.hms;
 
 import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
-import io.trino.plugin.iceberg.catalog.AbstractMetastoreTableOperations;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
@@ -45,7 +45,7 @@ public class HiveMetastoreTableOperations
 
     public HiveMetastoreTableOperations(
             FileIO fileIo,
-            HiveMetastore metastore,
+            CachingHiveMetastore metastore,
             ThriftMetastore thriftMetastore,
             ConnectorSession session,
             String database,
@@ -65,42 +65,37 @@ public class HiveMetastoreTableOperations
 
         long lockId = thriftMetastore.acquireTableExclusiveLock(
                 identity,
+                new AcidTransactionOwner(session.getUser()),
                 session.getQueryId(),
                 database,
                 tableName);
         try {
-            Table table;
-            try {
-                Table currentTable = fromMetastoreApiTable(thriftMetastore.getTable(identity, database, tableName)
-                        .orElseThrow(() -> new TableNotFoundException(getSchemaTableName())));
+            Table currentTable = fromMetastoreApiTable(thriftMetastore.getTable(identity, database, tableName)
+                    .orElseThrow(() -> new TableNotFoundException(getSchemaTableName())));
 
-                checkState(currentMetadataLocation != null, "No current metadata location for existing table");
-                String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION_PROP);
-                if (!currentMetadataLocation.equals(metadataLocation)) {
-                    throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
-                            currentMetadataLocation, metadataLocation, getSchemaTableName());
-                }
+            checkState(currentMetadataLocation != null, "No current metadata location for existing table");
+            String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION_PROP);
+            if (!currentMetadataLocation.equals(metadataLocation)) {
+                throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
+                        currentMetadataLocation, metadataLocation, getSchemaTableName());
+            }
 
-                table = Table.builder(currentTable)
-                        .setDataColumns(toHiveColumns(metadata.schema().columns()))
-                        .withStorage(storage -> storage.setLocation(metadata.location()))
-                        .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
-                        .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
-                        .build();
-            }
-            catch (RuntimeException e) {
-                try {
-                    io().deleteFile(newMetadataLocation);
-                }
-                catch (RuntimeException ex) {
-                    e.addSuppressed(ex);
-                }
-                throw e;
-            }
+            Table table = Table.builder(currentTable)
+                    .setDataColumns(toHiveColumns(metadata.schema().columns()))
+                    .withStorage(storage -> storage.setLocation(metadata.location()))
+                    .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
+                    .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
+                    .build();
 
             // todo privileges should not be replaced for an alter
             PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
-            metastore.replaceTable(database, tableName, table, privileges);
+            try {
+                metastore.replaceTable(database, tableName, table, privileges);
+            }
+            catch (RuntimeException e) {
+                // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
+                throw new CommitFailedException(e, "Failed to commit to table %s.%s", database, tableName);
+            }
         }
         finally {
             thriftMetastore.releaseTableLock(identity, lockId);

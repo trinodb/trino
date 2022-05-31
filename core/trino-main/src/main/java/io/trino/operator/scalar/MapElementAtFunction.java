@@ -20,7 +20,6 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
@@ -31,8 +30,6 @@ import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -52,19 +49,18 @@ public class MapElementAtFunction
 
     protected MapElementAtFunction()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "element_at",
-                        ImmutableList.of(typeVariable("K"), typeVariable("V")),
-                        ImmutableList.of(),
-                        new TypeSignature("V"),
-                        ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V")), new TypeSignature("K")),
-                        false),
-                new FunctionNullability(true, ImmutableList.of(false, false)),
-                false,
-                true,
-                "Get value for the given key, or null if it does not exist",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name("element_at")
+                        .typeVariable("K")
+                        .typeVariable("V")
+                        .returnType(new TypeSignature("V"))
+                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .argumentType(new TypeSignature("K"))
+                        .build())
+                .nullable()
+                .description("Get value for the given key, or null if it does not exist")
+                .build());
     }
 
     @Override

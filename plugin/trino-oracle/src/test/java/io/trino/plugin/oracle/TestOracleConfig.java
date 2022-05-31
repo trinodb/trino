@@ -49,7 +49,7 @@ public class TestOracleConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("oracle.synonyms.enabled", "true")
                 .put("oracle.remarks-reporting.enabled", "true")
                 .put("oracle.number.default-scale", "2")

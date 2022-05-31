@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.hive.util;
 
+import io.trino.hive.orc.OrcConf;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.orc.OrcConf;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
 
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;

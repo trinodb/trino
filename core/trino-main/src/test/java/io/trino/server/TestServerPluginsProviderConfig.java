@@ -35,7 +35,7 @@ public class TestServerPluginsProviderConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("plugin.dir", "plugins-dir")
                 .buildOrThrow();
 

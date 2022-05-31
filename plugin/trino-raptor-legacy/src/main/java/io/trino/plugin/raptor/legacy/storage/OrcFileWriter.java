@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.trino.hive.orc.NullMemoryManager;
 import io.trino.plugin.raptor.legacy.util.SyncingFileSystem;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -45,7 +46,6 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.apache.hadoop.hive.shims.ShimLoader;
 import org.apache.hadoop.util.VersionInfo;
-import org.apache.orc.NullMemoryManager;
 
 import java.io.Closeable;
 import java.io.File;
@@ -329,6 +329,6 @@ public class OrcFileWriter
         if (isMapType(type)) {
             return mapOf(toStorageType(type.getTypeParameters().get(0)), toStorageType(type.getTypeParameters().get(1)));
         }
-        throw new TrinoException(NOT_SUPPORTED, "No storage type for type: " + type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
     }
 }

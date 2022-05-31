@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.QueryState;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.spi.QueryId;
@@ -83,25 +84,30 @@ public class TestClusterMemoryLeakDetector
                         new Duration(8, MINUTES),
                         new Duration(7, MINUTES),
                         new Duration(34, MINUTES),
+                        99,
                         13,
                         14,
                         15,
                         100,
                         DataSize.valueOf("21GB"),
                         22,
-                        DataSize.valueOf("20GB"),
-                        23,
                         DataSize.valueOf("23GB"),
-                        DataSize.valueOf("24GB"),
-                        DataSize.valueOf("25GB"),
+                        24,
+                        25,
                         DataSize.valueOf("26GB"),
-                        new Duration(23, MINUTES),
-                        new Duration(24, MINUTES),
+                        DataSize.valueOf("27GB"),
+                        DataSize.valueOf("28GB"),
+                        DataSize.valueOf("29GB"),
+                        new Duration(30, MINUTES),
+                        new Duration(31, MINUTES),
+                        new Duration(32, MINUTES),
+                        new Duration(33, MINUTES),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
                         OptionalDouble.of(20)),
                 null,
                 null,
-                Optional.empty());
+                Optional.empty(),
+                RetryPolicy.NONE);
     }
 }

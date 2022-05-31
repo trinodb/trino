@@ -72,7 +72,7 @@ public class CyclingGroupByHash
     }
 
     @Override
-    public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
+    public void appendValuesTo(int groupId, PageBuilder pageBuilder)
     {
         throw new UnsupportedOperationException("Not yet supported");
     }

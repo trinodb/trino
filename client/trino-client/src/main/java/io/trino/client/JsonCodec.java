@@ -20,6 +20,8 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.util.function.Supplier;
 
@@ -66,5 +68,11 @@ public class JsonCodec<T>
             throws JsonProcessingException
     {
         return mapper.readerFor(javaType).readValue(json);
+    }
+
+    public T fromJson(InputStream inputStream)
+            throws IOException, JsonProcessingException
+    {
+        return mapper.readerFor(javaType).readValue(inputStream);
     }
 }

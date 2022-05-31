@@ -44,16 +44,16 @@ supported databases are MySQL, PostgreSQL, and Oracle.
     resource-groups.config-db-user=username
     resource-groups.config-db-password=password
 
-The resource group configuration must be populated through tables 
+The resource group configuration must be populated through tables
 ``resource_groups_global_properties``, ``resource_groups``, and
 ``selectors``. If any of the tables do not exist when Trino starts, they
 will be created automatically.
 
-The rules in the ``selectors`` table are processed in descending order of the 
+The rules in the ``selectors`` table are processed in descending order of the
 values in the ``priority`` field.
 
 The ``resource_groups`` table also contains an ``environment`` field which is
-matched with the value contained in the ``node.environment`` property in 
+matched with the value contained in the ``node.environment`` property in
 :ref:`node_properties`. This allows the resource group configuration for different
 Trino clusters to be stored in the same database if required.
 
@@ -128,7 +128,7 @@ Resource group properties
   * ``query_priority``: all sub-groups must also be configured with ``query_priority``.
     Queued queries are selected strictly according to their priority.
 
-* ``schedulingWeight`` (optional): weight of this subgroup used in ``weight`` 
+* ``schedulingWeight`` (optional): weight of this sub-group used in ``weight``
   and the ``weighted_fair`` scheduling policy. Defaults to ``1``. See
   :ref:`scheduleweight-example`.
 
@@ -142,7 +142,7 @@ Resource group properties
 Scheduling weight example
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Schedule weighting is a method of assigning a priority to a resource. Subgroups
+Schedule weighting is a method of assigning a priority to a resource. Sub-groups
 with a higher scheduling weight are given higher priority. For example, to
 ensure timely execution of scheduled pipelines queries, weight them higher than
 adhoc queries.
@@ -150,10 +150,10 @@ adhoc queries.
 In the following example, pipeline queries are weighted with a value of ``350``,
 which is higher than the adhoc queries that have a scheduling weight of ``150``.
 This means that approximately 70% (350 out of 500 queries) of your queries come
-from the pipeline subgroup, and 30% (150 out of 500 queries) come from the adhoc
-subgroup in a given timeframe. Alternatively, if you set each subgroup value to
-``1``, the weight of the queries for the pipeline and adhoc subgroups are split
-evenly and each receive 50% of the queries in a given timeframe. 
+from the pipeline sub-group, and 30% (150 out of 500 queries) come from the adhoc
+sub-group in a given timeframe. Alternatively, if you set each sub-group value to
+``1``, the weight of the queries for the pipeline and adhoc sub-groups are split
+evenly and each receive 50% of the queries in a given timeframe.
 
 .. literalinclude:: schedule-weight-example.json
     :language: text
@@ -198,13 +198,25 @@ The source name can be set as follows:
 
 * CLI: use the ``--source`` option.
 
-* JDBC: set the ``ApplicationName`` client info property on the ``Connection`` instance.
+* JDBC driver when used in client apps: add the ``source`` property to the
+  connection configuration and set the value when using a Java application that
+  uses the JDBC Driver.
+
+* JDBC driver used with Java programs: add a property with the key ``source``
+  and the value on the ``Connection`` instance as shown in :ref:`the example
+  <jdbc-java-connection>`.
 
 Client tags can be set as follows:
 
 * CLI: use the ``--client-tags`` option.
 
-* JDBC: set the ``ClientTags`` client info property on the ``Connection`` instance.
+* JDBC driver when used in client apps: add the ``clientTags`` property to the
+  connection configuration and set the value when using a Java application that
+  uses the JDBC Driver.
+
+* JDBC driver used with Java programs: add a property with the key
+  ``clientTags`` and the value on the ``Connection`` instance as shown in
+  :ref:`the example <jdbc-parameter-reference>`.
 
 Example
 -------
@@ -303,8 +315,8 @@ This example is for a MySQL database.
 
     -- get ID of 'bi-${toolname}' group
     SELECT resource_group_id FROM resource_groups WHERE name = 'bi-${toolname}';  -- 6
-    -- create '${USER}' group with 'bi-${toolname}' as parent. This indicates 
-    -- nested group 'global.adhoc.bi-${toolname}.${USER}', and will have a 
+    -- create '${USER}' group with 'bi-${toolname}' as parent. This indicates
+    -- nested group 'global.adhoc.bi-${toolname}.${USER}', and will have a
     -- different ID than 'global.adhoc.other.${USER}' created above.
     INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued,  environment, parent) VALUES ('${USER}', '10%', 3, 10, 'test', 6);
 
@@ -313,7 +325,7 @@ This example is for a MySQL database.
 
     -- get ID of 'pipeline' group
     SELECT resource_group_id FROM resource_groups WHERE name = 'pipeline'; -- 8
-    -- create 'pipeline_${USER}' group with 'pipeline' as parent 
+    -- create 'pipeline_${USER}' group with 'pipeline' as parent
     INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued,  environment, parent) VALUES ('pipeline_${USER}', '50%', 5, 100, 'test', 8);
 
     -- create a root group 'admin' with NULL parent
@@ -325,8 +337,8 @@ This example is for a MySQL database.
     -- use ID of 'admin' resource group for selector
     INSERT INTO selectors (resource_group_id, user_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'admin'), 'bob', 6);
 
-    -- user group based matching is not supported for Database Resource Group configuration
-    -- INSERT INTO selectors (resource_group_id, user_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'admin'), 'admin', 5);
+    -- use ID of 'admin' resource group for selector
+    INSERT INTO selectors (resource_group_id, user_group_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'admin'), 'admin', 5);
 
     -- use ID of 'global.data_definition' resource group for selector
     INSERT INTO selectors (resource_group_id, source_regex, query_type, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'data_definition'), '.*pipeline.*', 'DATA_DEFINITION', 4);
@@ -335,15 +347,15 @@ This example is for a MySQL database.
     INSERT INTO selectors (resource_group_id, source_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'pipeline_${USER}'), '.*pipeline.*', 3);
 
     -- get ID of 'global.adhoc.bi-${toolname}.${USER}' resource group by disambiguating group name using parent ID
-    SELECT A.resource_group_id self_id, B.resource_group_id parent_id, concat(B.name, '.', A.name) name_with_parent 
+    SELECT A.resource_group_id self_id, B.resource_group_id parent_id, concat(B.name, '.', A.name) name_with_parent
     FROM resource_groups A JOIN resource_groups B ON A.parent = B.resource_group_id
-    WHERE A.name = '${USER}' AND B.name = 'bi-${toolname}'; 
+    WHERE A.name = '${USER}' AND B.name = 'bi-${toolname}';
     --  7 |         6 | bi-${toolname}.${USER}
     INSERT INTO selectors (resource_group_id, source_regex, client_tags, priority) VALUES (7, 'jdbc#(?<toolname>.*)', '["hipri"]', 2);
 
     -- get ID of 'global.adhoc.other.${USER}' resource group for by disambiguating group name using parent ID
-    SELECT A.resource_group_id self_id, B.resource_group_id parent_id, concat(B.name, '.', A.name) name_with_parent 
+    SELECT A.resource_group_id self_id, B.resource_group_id parent_id, concat(B.name, '.', A.name) name_with_parent
     FROM resource_groups A JOIN resource_groups B ON A.parent = B.resource_group_id
     WHERE A.name = '${USER}' AND B.name = 'other';
-    -- |       5 |         4 | other.${USER}    | 
+    -- |       5 |         4 | other.${USER}    |
     INSERT INTO selectors (resource_group_id, priority) VALUES (5, 1);

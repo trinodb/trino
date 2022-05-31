@@ -16,7 +16,6 @@ package io.trino.spiller;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
 import io.trino.execution.buffer.PagesSerdeUtil;
 import io.trino.memory.context.LocalMemoryContext;
@@ -129,7 +128,7 @@ public class TestFileSingleStreamSpiller
 
         // Assert the spill codec flags match the expected configuration
         try (InputStream is = newInputStream(listFiles(spillPath.toPath()).get(0))) {
-            Iterator<Slice> serializedPages = PagesSerdeUtil.readSerializedPages(new InputStreamSliceInput(is));
+            Iterator<Slice> serializedPages = PagesSerdeUtil.readSerializedPages(is);
             assertTrue(serializedPages.hasNext(), "at least one page should be successfully read back");
             Slice serializedPage = serializedPages.next();
             assertEquals(isSerializedPageCompressed(serializedPage), compression);

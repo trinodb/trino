@@ -25,18 +25,16 @@ import com.google.common.cache.CacheBuilder;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.NonEvictableCache;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 
 import javax.inject.Inject;
 
 import java.util.Optional;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED;
 import static io.trino.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -66,12 +64,7 @@ public class ViewMaterializationCache
 
     public TableInfo getCachedTable(BigQueryClient client, String query, Duration viewExpiration, TableInfo remoteTableId)
     {
-        try {
-            return destinationTableCache.get(query, new DestinationTableBuilder(client, viewExpiration, query, createDestinationTable(remoteTableId.getTableId())));
-        }
-        catch (ExecutionException e) {
-            throw new TrinoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
-        }
+        return uncheckedCacheGet(destinationTableCache, query, new DestinationTableBuilder(client, viewExpiration, query, createDestinationTable(remoteTableId.getTableId())));
     }
 
     private TableId createDestinationTable(TableId remoteTableId)
@@ -84,7 +77,7 @@ public class ViewMaterializationCache
     }
 
     private static class DestinationTableBuilder
-            implements Callable<TableInfo>
+            implements Supplier<TableInfo>
     {
         private final BigQueryClient bigQueryClient;
         private final Duration viewExpiration;
@@ -100,7 +93,7 @@ public class ViewMaterializationCache
         }
 
         @Override
-        public TableInfo call()
+        public TableInfo get()
         {
             return createTableFromQuery();
         }

@@ -17,8 +17,6 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.TestingColumnHandle;
@@ -26,7 +24,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.tree.Cast;
@@ -38,10 +35,10 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
@@ -51,14 +48,10 @@ import static org.testng.Assert.assertTrue;
 
 public class TestLocalDynamicFiltersCollector
 {
-    private final Metadata metadata = createTestMetadataManager();
-    private final TypeOperators typeOperators = new TypeOperators();
-    private final Session session = TEST_SESSION;
-
     @Test
     public void testSingleEquality()
     {
-        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(session);
+        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(TEST_SESSION);
         DynamicFilterId filterId = new DynamicFilterId("filter");
         collector.register(ImmutableSet.of(filterId));
 
@@ -93,7 +86,7 @@ public class TestLocalDynamicFiltersCollector
     @Test
     public void testDynamicFilterCoercion()
     {
-        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(session);
+        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(TEST_SESSION);
         DynamicFilterId filterId = new DynamicFilterId("filter");
         collector.register(ImmutableSet.of(filterId));
 
@@ -128,7 +121,7 @@ public class TestLocalDynamicFiltersCollector
     @Test
     public void testDynamicFilterCancellation()
     {
-        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(session);
+        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(TEST_SESSION);
         DynamicFilterId filterId = new DynamicFilterId("filter");
         collector.register(ImmutableSet.of(filterId));
 
@@ -163,7 +156,7 @@ public class TestLocalDynamicFiltersCollector
     @Test
     public void testMultipleProbeColumns()
     {
-        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(session);
+        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(TEST_SESSION);
         DynamicFilterId filterId = new DynamicFilterId("filter");
         collector.register(ImmutableSet.of(filterId));
 
@@ -203,7 +196,7 @@ public class TestLocalDynamicFiltersCollector
     @Test
     public void testComparison()
     {
-        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(session);
+        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(TEST_SESSION);
         DynamicFilterId filterId1 = new DynamicFilterId("filter1");
         DynamicFilterId filterId2 = new DynamicFilterId("filter2");
         collector.register(ImmutableSet.of(filterId1, filterId2));
@@ -242,7 +235,7 @@ public class TestLocalDynamicFiltersCollector
     @Test
     public void testIsNotDistinctFrom()
     {
-        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(session);
+        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(TEST_SESSION);
         DynamicFilterId filterId1 = new DynamicFilterId("filter1");
         DynamicFilterId filterId2 = new DynamicFilterId("filter2");
         collector.register(ImmutableSet.of(filterId1, filterId2));
@@ -283,7 +276,7 @@ public class TestLocalDynamicFiltersCollector
     @Test
     public void testMultipleBuildColumnsSingleProbeColumn()
     {
-        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(session);
+        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(TEST_SESSION);
         DynamicFilterId filter1 = new DynamicFilterId("filter1");
         DynamicFilterId filter2 = new DynamicFilterId("filter2");
         collector.register(ImmutableSet.of(filter1));
@@ -340,7 +333,7 @@ public class TestLocalDynamicFiltersCollector
     @Test
     public void testUnusedDynamicFilter()
     {
-        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(session);
+        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(TEST_SESSION);
         DynamicFilterId unusedFilterId = new DynamicFilterId("unused");
         DynamicFilterId usedFilterId = new DynamicFilterId("used");
         collector.register(ImmutableSet.of(unusedFilterId));
@@ -383,7 +376,7 @@ public class TestLocalDynamicFiltersCollector
     public void testUnregisteredDynamicFilter()
     {
         // One dynamic filter is not collected locally (e.g. due to a distributed join)
-        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(session);
+        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(TEST_SESSION);
         DynamicFilterId registeredFilterId = new DynamicFilterId("registered");
         DynamicFilterId unregisteredFilterId = new DynamicFilterId("unregistered");
         collector.register(ImmutableSet.of(registeredFilterId));
@@ -423,6 +416,6 @@ public class TestLocalDynamicFiltersCollector
             Map<Symbol, ColumnHandle> columnsMap,
             TypeProvider typeProvider)
     {
-        return collector.createDynamicFilter(descriptors, columnsMap, typeProvider, metadata, typeOperators);
+        return collector.createDynamicFilter(descriptors, columnsMap, typeProvider, PLANNER_CONTEXT);
     }
 }

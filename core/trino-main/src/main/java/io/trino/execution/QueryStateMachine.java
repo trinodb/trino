@@ -76,6 +76,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.BasicStageStats.EMPTY_STAGE_STATS;
 import static io.trino.execution.QueryState.DISPATCHING;
 import static io.trino.execution.QueryState.FAILED;
@@ -94,6 +95,7 @@ import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public class QueryStateMachine
@@ -372,6 +374,8 @@ public class QueryStateMachine
                 queryStateTimer.getElapsedTime(),
                 queryStateTimer.getExecutionTime(),
 
+                stageStats.getFailedTasks(),
+
                 stageStats.getTotalDrivers(),
                 stageStats.getQueuedDrivers(),
                 stageStats.getRunningDrivers(),
@@ -382,13 +386,16 @@ public class QueryStateMachine
                 stageStats.getPhysicalInputDataSize(),
 
                 stageStats.getCumulativeUserMemory(),
+                stageStats.getFailedCumulativeUserMemory(),
                 stageStats.getUserMemoryReservation(),
                 stageStats.getTotalMemoryReservation(),
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
 
                 stageStats.getTotalCpuTime(),
+                stageStats.getFailedCpuTime(),
                 stageStats.getTotalScheduledTime(),
+                stageStats.getFailedScheduledTime(),
 
                 stageStats.isFullyBlocked(),
                 stageStats.getBlockedReasons(),
@@ -407,7 +414,8 @@ public class QueryStateMachine
                 queryStats,
                 errorCode == null ? null : errorCode.getType(),
                 errorCode,
-                queryType);
+                queryType,
+                getRetryPolicy(session));
     }
 
     @VisibleForTesting
@@ -428,19 +436,19 @@ public class QueryStateMachine
             }
         }
 
-        boolean completeInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isCompleteInfo);
-        boolean isScheduled = isScheduled(rootStage);
+        List<StageInfo> allStages = getAllStages(rootStage);
+        QueryStats queryStats = getQueryStats(rootStage, allStages);
+        boolean finalInfo = state.isDone() && allStages.stream().allMatch(StageInfo::isFinalStageInfo);
 
         return new QueryInfo(
                 queryId,
                 session.toSessionRepresentation(),
                 state,
-                isScheduled,
                 self,
                 outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
                 query,
                 preparedQuery,
-                getQueryStats(rootStage),
+                queryStats,
                 Optional.ofNullable(setCatalog.get()),
                 Optional.ofNullable(setSchema.get()),
                 Optional.ofNullable(setPath.get()),
@@ -460,16 +468,18 @@ public class QueryStateMachine
                 output.get(),
                 referencedTables.get(),
                 routines.get(),
-                completeInfo,
+                finalInfo,
                 Optional.of(resourceGroup),
-                queryType);
+                queryType,
+                getRetryPolicy(session));
     }
 
-    private QueryStats getQueryStats(Optional<StageInfo> rootStage)
+    private QueryStats getQueryStats(Optional<StageInfo> rootStage, List<StageInfo> allStages)
     {
         int totalTasks = 0;
         int runningTasks = 0;
         int completedTasks = 0;
+        int failedTasks = 0;
 
         int totalDrivers = 0;
         int queuedDrivers = 0;
@@ -478,44 +488,65 @@ public class QueryStateMachine
         int completedDrivers = 0;
 
         long cumulativeUserMemory = 0;
+        long failedCumulativeUserMemory = 0;
         long userMemoryReservation = 0;
         long revocableMemoryReservation = 0;
         long totalMemoryReservation = 0;
 
         long totalScheduledTime = 0;
+        long failedScheduledTime = 0;
         long totalCpuTime = 0;
+        long failedCpuTime = 0;
         long totalBlockedTime = 0;
 
         long physicalInputDataSize = 0;
+        long failedPhysicalInputDataSize = 0;
         long physicalInputPositions = 0;
+        long failedPhysicalInputPositions = 0;
         long physicalInputReadTime = 0;
+        long failedPhysicalInputReadTime = 0;
 
         long internalNetworkInputDataSize = 0;
+        long failedInternalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
+        long failedInternalNetworkInputPositions = 0;
 
         long rawInputDataSize = 0;
+        long failedRawInputDataSize = 0;
         long rawInputPositions = 0;
+        long failedRawInputPositions = 0;
 
         long processedInputDataSize = 0;
+        long failedProcessedInputDataSize = 0;
         long processedInputPositions = 0;
+        long failedProcessedInputPositions = 0;
+
+        long inputBlockedTime = 0;
+        long failedInputBlockedTime = 0;
 
         long outputDataSize = 0;
+        long failedOutputDataSize = 0;
         long outputPositions = 0;
+        long failedOutputPositions = 0;
+
+        long outputBlockedTime = 0;
+        long failedOutputBlockedTime = 0;
 
         long physicalWrittenDataSize = 0;
+        long failedPhysicalWrittenDataSize = 0;
 
-        ImmutableList.Builder<StageGcStatistics> stageGcStatistics = ImmutableList.builder();
+        ImmutableList.Builder<StageGcStatistics> stageGcStatistics = ImmutableList.builderWithExpectedSize(allStages.size());
 
         boolean fullyBlocked = rootStage.isPresent();
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
         ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
-        boolean completeInfo = true;
-        for (StageInfo stageInfo : getAllStages(rootStage)) {
+        for (StageInfo stageInfo : allStages) {
             StageStats stageStats = stageInfo.getStageStats();
             totalTasks += stageStats.getTotalTasks();
             runningTasks += stageStats.getRunningTasks();
             completedTasks += stageStats.getCompletedTasks();
+            failedTasks += stageStats.getFailedTasks();
 
             totalDrivers += stageStats.getTotalDrivers();
             queuedDrivers += stageStats.getQueuedDrivers();
@@ -524,11 +555,14 @@ public class QueryStateMachine
             completedDrivers += stageStats.getCompletedDrivers();
 
             cumulativeUserMemory += stageStats.getCumulativeUserMemory();
+            failedCumulativeUserMemory += stageStats.getFailedCumulativeUserMemory();
             userMemoryReservation += stageStats.getUserMemoryReservation().toBytes();
             revocableMemoryReservation += stageStats.getRevocableMemoryReservation().toBytes();
             totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
             totalScheduledTime += stageStats.getTotalScheduledTime().roundTo(MILLISECONDS);
+            failedScheduledTime += stageStats.getFailedScheduledTime().roundTo(MILLISECONDS);
             totalCpuTime += stageStats.getTotalCpuTime().roundTo(MILLISECONDS);
+            failedCpuTime += stageStats.getFailedCpuTime().roundTo(MILLISECONDS);
             totalBlockedTime += stageStats.getTotalBlockedTime().roundTo(MILLISECONDS);
             if (!stageInfo.getState().isDone()) {
                 fullyBlocked &= stageStats.isFullyBlocked();
@@ -536,36 +570,55 @@ public class QueryStateMachine
             }
 
             physicalInputDataSize += stageStats.getPhysicalInputDataSize().toBytes();
+            failedPhysicalInputDataSize += stageStats.getFailedPhysicalInputDataSize().toBytes();
             physicalInputPositions += stageStats.getPhysicalInputPositions();
+            failedPhysicalInputPositions += stageStats.getFailedPhysicalInputPositions();
             physicalInputReadTime += stageStats.getPhysicalInputReadTime().roundTo(MILLISECONDS);
+            failedPhysicalInputReadTime += stageStats.getFailedPhysicalInputReadTime().roundTo(MILLISECONDS);
 
             internalNetworkInputDataSize += stageStats.getInternalNetworkInputDataSize().toBytes();
+            failedInternalNetworkInputDataSize += stageStats.getFailedInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += stageStats.getInternalNetworkInputPositions();
+            failedInternalNetworkInputPositions += stageStats.getFailedInternalNetworkInputPositions();
 
             PlanFragment plan = stageInfo.getPlan();
             if (plan != null && plan.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
                 rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
+                failedRawInputDataSize += stageStats.getFailedRawInputDataSize().toBytes();
                 rawInputPositions += stageStats.getRawInputPositions();
+                failedRawInputPositions += stageStats.getFailedRawInputPositions();
 
                 processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
+                failedProcessedInputDataSize += stageStats.getFailedProcessedInputDataSize().toBytes();
                 processedInputPositions += stageStats.getProcessedInputPositions();
+                failedProcessedInputPositions += stageStats.getFailedProcessedInputPositions();
             }
 
+            inputBlockedTime += stageStats.getInputBlockedTime().roundTo(NANOSECONDS);
+            failedInputBlockedTime += stageStats.getFailedInputBlockedTime().roundTo(NANOSECONDS);
+
+            outputBlockedTime += stageStats.getOutputBlockedTime().roundTo(NANOSECONDS);
+            failedOutputBlockedTime += stageStats.getFailedOutputBlockedTime().roundTo(NANOSECONDS);
+
             physicalWrittenDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
+            failedPhysicalWrittenDataSize += stageStats.getFailedPhysicalWrittenDataSize().toBytes();
 
             stageGcStatistics.add(stageStats.getGcInfo());
 
-            completeInfo = completeInfo && stageInfo.isCompleteInfo();
             operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
         }
 
         if (rootStage.isPresent()) {
             StageStats outputStageStats = rootStage.get().getStageStats();
             outputDataSize += outputStageStats.getOutputDataSize().toBytes();
+            failedOutputDataSize += outputStageStats.getFailedOutputDataSize().toBytes();
             outputPositions += outputStageStats.getOutputPositions();
+            failedOutputPositions += outputStageStats.getFailedOutputPositions();
         }
 
-        boolean isScheduled = isScheduled(rootStage);
+        boolean isScheduled = rootStage.isPresent() && allStages.stream()
+                .map(StageInfo::getState)
+                .allMatch(state -> state == StageState.RUNNING || state == StageState.PENDING || state.isDone());
 
         return new QueryStats(
                 queryStateTimer.getCreateTime(),
@@ -585,6 +638,7 @@ public class QueryStateMachine
                 totalTasks,
                 runningTasks,
                 completedTasks,
+                failedTasks,
 
                 totalDrivers,
                 queuedDrivers,
@@ -593,6 +647,7 @@ public class QueryStateMachine
                 completedDrivers,
 
                 cumulativeUserMemory,
+                failedCumulativeUserMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(revocableMemoryReservation),
                 succinctBytes(totalMemoryReservation),
@@ -606,24 +661,44 @@ public class QueryStateMachine
                 isScheduled,
 
                 new Duration(totalScheduledTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(failedScheduledTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(failedCpuTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
                 fullyBlocked,
                 blockedReasons,
 
                 succinctBytes(physicalInputDataSize),
+                succinctBytes(failedPhysicalInputDataSize),
                 physicalInputPositions,
+                failedPhysicalInputPositions,
                 new Duration(physicalInputReadTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(failedPhysicalInputReadTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(internalNetworkInputDataSize),
+                succinctBytes(failedInternalNetworkInputDataSize),
                 internalNetworkInputPositions,
+                failedInternalNetworkInputPositions,
                 succinctBytes(rawInputDataSize),
+                succinctBytes(failedRawInputDataSize),
                 rawInputPositions,
+                failedRawInputPositions,
                 succinctBytes(processedInputDataSize),
+                succinctBytes(failedProcessedInputDataSize),
                 processedInputPositions,
+                failedProcessedInputPositions,
+                new Duration(inputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(failedInputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+
                 succinctBytes(outputDataSize),
+                succinctBytes(failedOutputDataSize),
                 outputPositions,
+                failedOutputPositions,
+
+                new Duration(outputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(failedOutputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 succinctBytes(physicalWrittenDataSize),
+                succinctBytes(failedPhysicalWrittenDataSize),
 
                 stageGcStatistics.build(),
 
@@ -1033,16 +1108,6 @@ public class QueryStateMachine
         return queryStateTimer.getEndTime();
     }
 
-    private static boolean isScheduled(Optional<StageInfo> rootStage)
-    {
-        if (rootStage.isEmpty()) {
-            return false;
-        }
-        return getAllStages(rootStage).stream()
-                .map(StageInfo::getState)
-                .allMatch(state -> state == StageState.RUNNING || state == StageState.PENDING || state.isDone());
-    }
-
     public Optional<ExecutionFailureInfo> getFailureInfo()
     {
         if (queryState.get() != FAILED) {
@@ -1089,7 +1154,6 @@ public class QueryStateMachine
                 queryInfo.getQueryId(),
                 queryInfo.getSession(),
                 queryInfo.getState(),
-                queryInfo.isScheduled(),
                 queryInfo.getSelf(),
                 queryInfo.getFieldNames(),
                 queryInfo.getQuery(),
@@ -1114,9 +1178,10 @@ public class QueryStateMachine
                 queryInfo.getOutput(),
                 queryInfo.getReferencedTables(),
                 queryInfo.getRoutines(),
-                queryInfo.isCompleteInfo(),
+                queryInfo.isFinalQueryInfo(),
                 queryInfo.getResourceGroupId(),
-                queryInfo.getQueryType());
+                queryInfo.getQueryType(),
+                queryInfo.getRetryPolicy());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 
@@ -1136,6 +1201,7 @@ public class QueryStateMachine
                 queryStats.getPlanningTime(),
                 queryStats.getFinishingTime(),
                 queryStats.getTotalTasks(),
+                queryStats.getFailedTasks(),
                 queryStats.getRunningTasks(),
                 queryStats.getCompletedTasks(),
                 queryStats.getTotalDrivers(),
@@ -1144,6 +1210,7 @@ public class QueryStateMachine
                 queryStats.getBlockedDrivers(),
                 queryStats.getCompletedDrivers(),
                 queryStats.getCumulativeUserMemory(),
+                queryStats.getFailedCumulativeUserMemory(),
                 queryStats.getUserMemoryReservation(),
                 queryStats.getRevocableMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
@@ -1155,22 +1222,40 @@ public class QueryStateMachine
                 queryStats.getPeakTaskTotalMemory(),
                 queryStats.isScheduled(),
                 queryStats.getTotalScheduledTime(),
+                queryStats.getFailedScheduledTime(),
                 queryStats.getTotalCpuTime(),
+                queryStats.getFailedCpuTime(),
                 queryStats.getTotalBlockedTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),
                 queryStats.getPhysicalInputDataSize(),
+                queryStats.getFailedPhysicalInputDataSize(),
                 queryStats.getPhysicalInputPositions(),
+                queryStats.getFailedPhysicalInputPositions(),
                 queryStats.getPhysicalInputReadTime(),
+                queryStats.getFailedPhysicalInputReadTime(),
                 queryStats.getInternalNetworkInputDataSize(),
+                queryStats.getFailedInternalNetworkInputDataSize(),
                 queryStats.getInternalNetworkInputPositions(),
+                queryStats.getFailedInternalNetworkInputPositions(),
                 queryStats.getRawInputDataSize(),
+                queryStats.getFailedRawInputDataSize(),
                 queryStats.getRawInputPositions(),
+                queryStats.getFailedRawInputPositions(),
                 queryStats.getProcessedInputDataSize(),
+                queryStats.getFailedProcessedInputDataSize(),
                 queryStats.getProcessedInputPositions(),
+                queryStats.getFailedProcessedInputPositions(),
+                queryStats.getInputBlockedTime(),
+                queryStats.getFailedInputBlockedTime(),
                 queryStats.getOutputDataSize(),
+                queryStats.getFailedOutputDataSize(),
                 queryStats.getOutputPositions(),
+                queryStats.getFailedOutputPositions(),
+                queryStats.getOutputBlockedTime(),
+                queryStats.getFailedOutputBlockedTime(),
                 queryStats.getPhysicalWrittenDataSize(),
+                queryStats.getFailedPhysicalWrittenDataSize(),
                 queryStats.getStageGcStatistics(),
                 queryStats.getDynamicFiltersStats(),
                 ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially DirectExchangeClientStatus) can hold onto a large amount of memory

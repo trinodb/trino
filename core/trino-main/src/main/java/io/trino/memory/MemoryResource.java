@@ -13,15 +13,14 @@
  */
 package io.trino.memory;
 
+import io.trino.execution.SqlTaskManager;
 import io.trino.server.security.ResourceSecurity;
-import io.trino.spi.memory.MemoryPoolInfo;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
 import static java.util.Objects.requireNonNull;
@@ -35,7 +34,7 @@ public class MemoryResource
     private final LocalMemoryManager memoryManager;
 
     @Inject
-    public MemoryResource(LocalMemoryManager memoryManager)
+    public MemoryResource(LocalMemoryManager memoryManager, SqlTaskManager taskManager)
     {
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
     }
@@ -46,12 +45,5 @@ public class MemoryResource
     public MemoryInfo getMemoryInfo()
     {
         return memoryManager.getInfo();
-    }
-
-    private Response toSuccessfulResponse(MemoryPoolInfo memoryInfo)
-    {
-        return Response.ok()
-                .entity(memoryInfo)
-                .build();
     }
 }

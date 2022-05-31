@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
@@ -24,6 +25,7 @@ import java.nio.file.Files;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.hive.HiveConfig.HIVE_VIEWS_ENABLED;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -70,11 +72,13 @@ public class TestIcebergPlugin
     {
         ConnectorFactory factory = getConnectorFactory();
 
-        assertThatThrownBy(() -> factory.create(
+        factory.create(
                 "test",
-                Map.of("iceberg.catalog.type", "glue"),
-                new TestingConnectorContext()))
-                .hasMessageMatching("(?s).*Explicit bindings are required and HiveMetastoreFactory .* is not explicitly bound.*");
+                Map.of(
+                        "iceberg.catalog.type", "glue",
+                        "hive.metastore.glue.region", "us-east-1"),
+                new TestingConnectorContext())
+                .shutdown();
 
         assertThatThrownBy(() -> factory.create(
                 "test",
@@ -83,6 +87,15 @@ public class TestIcebergPlugin
                         "hive.metastore.uri", "thrift://foo:1234"),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
+
+        factory.create(
+                "test",
+                Map.of(
+                        "iceberg.catalog.type", "glue",
+                        "hive.metastore.glue.catalogid", "123",
+                        "hive.metastore.glue.region", "us-east-1"),
+                new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test
@@ -99,6 +112,16 @@ public class TestIcebergPlugin
                         "hive.metastore-recording-path", "/tmp"),
                 new TestingConnectorContext())
                 .shutdown();
+
+        // recording with glue
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                Map.of(
+                        "iceberg.catalog.type", "glue",
+                        "hive.metastore.glue.region", "us-east-2",
+                        "hive.metastore-recording-path", "/tmp"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Configuration property 'hive.metastore-recording-path' was not used");
     }
 
     @Test
@@ -169,6 +192,23 @@ public class TestIcebergPlugin
                         .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();
+    }
+
+    @Test
+    public void testIcebergPluginFailsWhenIncorrectPropertyProvided()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                Map.of(
+                        "iceberg.catalog.type", "HIVE_METASTORE",
+                        HIVE_VIEWS_ENABLED, "true",
+                        "hive.metastore.uri", "thrift://foo:1234"),
+                new TestingConnectorContext())
+                .shutdown())
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Configuration property 'hive.hive-views.enabled' was not used");
     }
 
     private static ConnectorFactory getConnectorFactory()

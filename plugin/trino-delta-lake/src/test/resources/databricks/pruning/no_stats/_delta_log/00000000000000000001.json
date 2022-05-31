@@ -1,0 +1,5 @@
+{"commitInfo":{"timestamp":1583527666903,"userId":"542723014186309","userName":"alex.albu@starburstdata.com","operation":"WRITE","operationParameters":{"mode":"Append","partitionBy":"[]"},"notebook":{"notebookId":"2476182773968461"},"clusterId":"0129-212853-nosh667","readVersion":0,"isolationLevel":"WriteSerializable","isBlindAppend":true}}
+{"add":{"path":"part_key=1.0/part-00000-fecae78c-38f8-438a-bc05-451ea338c0bd.c000.snappy.parquet","partitionValues":{"part_key":"1.0"},"size":605,"modificationTime":1583527667000,"dataChange":true,"stats":"null"}}
+{"add":{"path":"part_key=2.0/part-00001-85001c6e-1d42-49a1-b975-083e680642c4.c000.snappy.parquet","partitionValues":{"part_key":"2.0"},"size":605,"modificationTime":1583527667000,"dataChange":true,"stats":null}}
+{"add":{"path":"part_key=3.0/part-00000-acb88926-db40-4001-a8f0-18348daa31ee.c000.snappy.parquet","partitionValues":{"part_key":"3.0"},"size":623,"modificationTime":1583527673000,"dataChange":true,"tags":{}}}
+{"add":{"path":"part_key=4.0/part-00003-177aeaf4-bafd-4cff-abaf-daadd575a598.c000.snappy.parquet","partitionValues":{"part_key":"4.0"},"size":556,"modificationTime":1583527667000,"dataChange":true}}

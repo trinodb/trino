@@ -74,6 +74,18 @@ public class InMemoryNodeManager
         listeners.forEach(listener -> listener.accept(allNodes));
     }
 
+    public void removeNode(InternalNode node)
+    {
+        for (CatalogName catalog : ImmutableSet.copyOf(remoteNodes.keySet())) {
+            removeNode(catalog, node);
+        }
+    }
+
+    public void removeNode(CatalogName catalogName, InternalNode node)
+    {
+        remoteNodes.remove(catalogName, node);
+    }
+
     @Override
     public Set<InternalNode> getNodes(NodeState state)
     {
@@ -92,6 +104,16 @@ public class InMemoryNodeManager
     public Set<InternalNode> getActiveConnectorNodes(CatalogName catalogName)
     {
         return ImmutableSet.copyOf(remoteNodes.get(catalogName));
+    }
+
+    @Override
+    public NodesSnapshot getActiveNodesSnapshot()
+    {
+        Set<InternalNode> allActiveNodes = ImmutableSet.<InternalNode>builder()
+                .addAll(remoteNodes.values())
+                .add(localNode)
+                .build();
+        return new NodesSnapshot(allActiveNodes, remoteNodes);
     }
 
     @Override

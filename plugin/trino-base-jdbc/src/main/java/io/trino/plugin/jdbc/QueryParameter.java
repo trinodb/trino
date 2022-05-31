@@ -22,9 +22,8 @@ import io.trino.spi.type.Type;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
-import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static java.util.Objects.requireNonNull;
 
 public final class QueryParameter
@@ -45,8 +44,7 @@ public final class QueryParameter
     {
         requireNonNull(type, "type is null");
         requireNonNull(valueBlock, "valueBlock is null");
-        checkArgument(valueBlock.getPositionCount() == 1, "The block should have exactly one position, got %s", valueBlock.getPositionCount());
-        Optional<Object> value = Optional.ofNullable(readNativeValue(type, valueBlock, 0));
+        Optional<Object> value = Optional.ofNullable(blockToNativeValue(type, valueBlock));
         return new QueryParameter(jdbcType, type, value);
     }
 

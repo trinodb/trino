@@ -39,6 +39,7 @@ import java.util.Set;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
@@ -53,7 +54,7 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergProjectionPushdownPlans
         extends BasePushdownPlanTest
@@ -76,7 +77,7 @@ public class TestIcebergProjectionPushdownPlans
 
         queryRunner.createCatalog(
                 CATALOG,
-                new TestingIcebergConnectorFactory(Optional.of(metastore), Optional.empty()),
+                new TestingIcebergConnectorFactory(Optional.of(metastore), Optional.empty(), EMPTY_MODULE),
                 ImmutableMap.of());
 
         Database database = Database.builder()
@@ -134,7 +135,7 @@ public class TestIcebergProjectionPushdownPlans
         Session session = getQueryRunner().getDefaultSession();
 
         Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
-        assertTrue(tableHandle.isPresent(), "expected the table handle to be present");
+        assertThat(tableHandle).as("expected the table handle to be present").isPresent();
 
         Map<String, ColumnHandle> columns = getColumnHandles(session, completeTableName);
 

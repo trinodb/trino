@@ -25,6 +25,7 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.FunctionKind;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -172,6 +173,7 @@ public final class ShowQueriesRewrite
     @Inject
     public ShowQueriesRewrite(
             Metadata metadata,
+            FunctionManager functionManager,
             SqlParser parser,
             AccessControl accessControl,
             SessionPropertyManager sessionPropertyManager,
@@ -297,17 +299,21 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowGrants(ShowGrants showGrants, Void context)
         {
-            // TODO: make this method redirection aware
             String catalogName = session.getCatalog().orElse(null);
             Optional<Expression> predicate = Optional.empty();
 
             Optional<QualifiedName> tableName = showGrants.getTableName();
             if (tableName.isPresent()) {
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
-
-                if (!metadata.isView(session, qualifiedTableName) &&
-                        metadata.getTableHandle(session, qualifiedTableName).isEmpty()) {
-                    throw semanticException(TABLE_NOT_FOUND, showGrants, "Table '%s' does not exist", tableName);
+                if (!metadata.isView(session, qualifiedTableName)) {
+                    RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, qualifiedTableName);
+                    Optional<TableHandle> tableHandle = redirection.getTableHandle();
+                    if (tableHandle.isEmpty()) {
+                        throw semanticException(TABLE_NOT_FOUND, showGrants, "Table '%s' does not exist", tableName);
+                    }
+                    if (redirection.getRedirectedTableName().isPresent()) {
+                        throw semanticException(NOT_SUPPORTED, showGrants, "Table %s is redirected to %s and SHOW GRANTS is not supported with table redirections", tableName.get(), redirection.getRedirectedTableName().get());
+                    }
                 }
 
                 catalogName = qualifiedTableName.getCatalogName();
@@ -677,7 +683,7 @@ public final class ShowQueriesRewrite
                 List<Property> propertyNodes = buildProperties(targetTableName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 CreateTable createTable = new CreateTable(
-                        QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),
+                        QualifiedName.of(targetTableName.getCatalogName(), targetTableName.getSchemaName(), targetTableName.getObjectName()),
                         columns,
                         false,
                         propertyNodes,
@@ -764,7 +770,7 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowFunctions(ShowFunctions node, Void context)
         {
-            List<Expression> rows = metadata.listFunctions().stream()
+            List<Expression> rows = metadata.listFunctions(session).stream()
                     .filter(function -> !function.isHidden())
                     .map(function -> row(
                             new StringLiteral(function.getSignature().getName()),

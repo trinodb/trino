@@ -18,18 +18,6 @@ import io.trino.plugin.hive.metastore.Table;
 
 public interface TableInvalidationCallback
 {
-    TableInvalidationCallback NOOP = new TableInvalidationCallback() {
-        @Override
-        public void invalidate(Partition partition)
-        {
-        }
-
-        @Override
-        public void invalidate(Table table)
-        {
-        }
-    };
-
     void invalidate(Partition partition);
 
     void invalidate(Table table);

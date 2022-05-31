@@ -23,6 +23,7 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.DBRef;
+import com.mongodb.MongoNamespace;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -53,6 +54,7 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import org.bson.Document;
+import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
@@ -80,6 +82,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.toIntExact;
@@ -96,6 +99,7 @@ public class MongoSession
     private static final List<String> SYSTEM_TABLES = Arrays.asList("system.indexes", "system.users", "system.version");
 
     private static final String TABLE_NAME_KEY = "table";
+    private static final String COMMENT_KEY = "comment";
     private static final String FIELDS_KEY = "fields";
     private static final String FIELDS_NAME_KEY = "name";
     private static final String FIELDS_TYPE_KEY = "type";
@@ -158,6 +162,17 @@ public class MongoSession
                 .collect(toImmutableList());
     }
 
+    public void createSchema(String schemaName)
+    {
+        // Put an empty schema collection because MongoDB doesn't support a database without collections
+        client.getDatabase(schemaName).createCollection(schemaCollection);
+    }
+
+    public void dropSchema(String schemaName)
+    {
+        client.getDatabase(schemaName).drop();
+    }
+
     public Set<String> getAllTables(String schema)
             throws SchemaNotFoundException
     {
@@ -185,9 +200,12 @@ public class MongoSession
         }
     }
 
-    public void createTable(SchemaTableName name, List<MongoColumnHandle> columns)
+    public void createTable(SchemaTableName name, List<MongoColumnHandle> columns, Optional<String> comment)
     {
-        createTableMetadata(name, columns);
+        if (!getAllSchemas().contains(name.getSchemaName())) {
+            throw new SchemaNotFoundException(name.getSchemaName());
+        }
+        createTableMetadata(name, columns, comment);
         // collection is created implicitly
     }
 
@@ -197,6 +215,66 @@ public class MongoSession
         getCollection(tableName).drop();
 
         tableCache.invalidate(tableName);
+    }
+
+    public void setTableComment(SchemaTableName schemaTableName, Optional<String> comment)
+    {
+        String schemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
+        String tableName = toRemoteTableName(schemaName, schemaTableName.getTableName());
+
+        Document metadata = getTableMetadata(schemaName, tableName);
+        metadata.append(COMMENT_KEY, comment.orElse(null));
+
+        client.getDatabase(schemaName).getCollection(schemaCollection)
+                .findOneAndReplace(new Document(TABLE_NAME_KEY, tableName), metadata);
+
+        tableCache.invalidate(schemaTableName);
+    }
+
+    public void setColumnComment(SchemaTableName schemaTableName, String columnName, Optional<String> comment)
+    {
+        String remoteSchemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
+        String remoteTableName = toRemoteTableName(remoteSchemaName, schemaTableName.getTableName());
+
+        Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
+
+        ImmutableList.Builder<Document> columns = ImmutableList.builder();
+        for (Document column : getColumnMetadata(metadata)) {
+            if (column.getString(FIELDS_NAME_KEY).equals(columnName)) {
+                column.append(COMMENT_KEY, comment.orElse(null));
+            }
+            columns.add(column);
+        }
+
+        metadata.append(FIELDS_KEY, columns.build());
+
+        client.getDatabase(remoteSchemaName).getCollection(schemaCollection)
+                .findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
+
+        tableCache.invalidate(schemaTableName);
+    }
+
+    public void renameTable(SchemaTableName oldName, SchemaTableName newName)
+    {
+        String oldSchemaName = toRemoteSchemaName(oldName.getSchemaName());
+        String oldTableName = toRemoteTableName(oldSchemaName, oldName.getTableName());
+        String newSchemaName = toRemoteSchemaName(newName.getSchemaName());
+
+        // Schema collection should always have the source table definition
+        MongoCollection<Document> oldSchema = client.getDatabase(oldSchemaName).getCollection(schemaCollection);
+        Document tableDefinition = oldSchema.findOneAndDelete(new Document(TABLE_NAME_KEY, oldTableName));
+        requireNonNull(tableDefinition, "Table definition not found in schema collection: " + oldTableName);
+
+        MongoCollection<Document> newSchema = client.getDatabase(newSchemaName).getCollection(schemaCollection);
+        tableDefinition.append(TABLE_NAME_KEY, newName.getTableName());
+        newSchema.insertOne(tableDefinition);
+
+        // Need to check explicitly because the old collection may not exist when it doesn't have any data
+        if (collectionExists(client.getDatabase(oldSchemaName), oldTableName)) {
+            getCollection(oldName).renameCollection(new MongoNamespace(newSchemaName, newName.getTableName()));
+        }
+
+        tableCache.invalidate(oldName);
     }
 
     public void addColumn(SchemaTableName schemaTableName, ColumnMetadata columnMetadata)
@@ -211,6 +289,7 @@ public class MongoSession
         Document newColumn = new Document();
         newColumn.append(FIELDS_NAME_KEY, columnMetadata.getName());
         newColumn.append(FIELDS_TYPE_KEY, columnMetadata.getType().getTypeSignature().toString());
+        newColumn.append(COMMENT_KEY, columnMetadata.getComment());
         newColumn.append(FIELDS_HIDDEN_KEY, false);
         columns.add(newColumn);
 
@@ -259,7 +338,7 @@ public class MongoSession
         }
 
         MongoTableHandle tableHandle = new MongoTableHandle(schemaTableName);
-        return new MongoTable(tableHandle, columnHandles.build(), getIndexes(schemaName, tableName));
+        return new MongoTable(tableHandle, columnHandles.build(), getIndexes(schemaName, tableName), getComment(tableMeta));
     }
 
     private MongoColumnHandle buildColumnHandle(Document columnMeta)
@@ -267,10 +346,11 @@ public class MongoSession
         String name = columnMeta.getString(FIELDS_NAME_KEY);
         String typeString = columnMeta.getString(FIELDS_TYPE_KEY);
         boolean hidden = columnMeta.getBoolean(FIELDS_HIDDEN_KEY, false);
+        String comment = columnMeta.getString(COMMENT_KEY);
 
         Type type = typeManager.fromSqlType(typeString);
 
-        return new MongoColumnHandle(name, type, hidden);
+        return new MongoColumnHandle(name, type, hidden, Optional.ofNullable(comment));
     }
 
     private List<Document> getColumnMetadata(Document doc)
@@ -280,6 +360,11 @@ public class MongoSession
         }
 
         return (List<Document>) doc.get(FIELDS_KEY);
+    }
+
+    private static Optional<String> getComment(Document doc)
+    {
+        return Optional.ofNullable(doc.getString(COMMENT_KEY));
     }
 
     public MongoCollection<Document> getCollection(SchemaTableName tableName)
@@ -403,6 +488,10 @@ public class MongoSession
         requireNonNull(type, "type is null");
         checkArgument(Primitives.wrap(type.getJavaType()).isInstance(trinoNativeValue), "%s (%s) is not a valid representation for %s", trinoNativeValue, trinoNativeValue.getClass(), type);
 
+        if (type == BOOLEAN) {
+            return Optional.of(trinoNativeValue);
+        }
+
         if (type == TINYINT) {
             return Optional.of((long) SignedBytes.checkedCast(((Long) trinoNativeValue)));
         }
@@ -515,7 +604,7 @@ public class MongoSession
         return names;
     }
 
-    private void createTableMetadata(SchemaTableName schemaTableName, List<MongoColumnHandle> columns)
+    private void createTableMetadata(SchemaTableName schemaTableName, List<MongoColumnHandle> columns, Optional<String> tableComment)
     {
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
@@ -525,7 +614,7 @@ public class MongoSession
 
         ArrayList<Document> fields = new ArrayList<>();
         if (!columns.stream().anyMatch(c -> c.getName().equals("_id"))) {
-            fields.add(new MongoColumnHandle("_id", OBJECT_ID, true).getDocument());
+            fields.add(new MongoColumnHandle("_id", OBJECT_ID, true, Optional.empty()).getDocument());
         }
 
         fields.addAll(columns.stream()
@@ -533,6 +622,7 @@ public class MongoSession
                 .collect(toList()));
 
         metadata.append(FIELDS_KEY, fields);
+        tableComment.ifPresent(comment -> metadata.append(COMMENT_KEY, comment));
 
         MongoCollection<Document> schema = db.getCollection(schemaCollection);
         if (!indexExists(schema)) {
@@ -599,6 +689,9 @@ public class MongoSession
         TypeSignature typeSignature = null;
         if (value instanceof String) {
             typeSignature = createUnboundedVarcharType().getTypeSignature();
+        }
+        if (value instanceof Binary) {
+            typeSignature = VARBINARY.getTypeSignature();
         }
         else if (value instanceof Integer || value instanceof Long) {
             typeSignature = BIGINT.getTypeSignature();
@@ -698,7 +791,7 @@ public class MongoSession
 
     private boolean isView(String schemaName, String tableName)
     {
-        Document listCollectionsCommand = new Document(new ImmutableMap.Builder<String, Object>()
+        Document listCollectionsCommand = new Document(ImmutableMap.<String, Object>builder()
                 .put("listCollections", 1.0)
                 .put("filter", documentOf("name", tableName))
                 .put("nameOnly", true)

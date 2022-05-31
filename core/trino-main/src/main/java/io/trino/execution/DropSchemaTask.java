@@ -92,19 +92,7 @@ public class DropSchemaTask
     {
         QualifiedTablePrefix tablePrefix = new QualifiedTablePrefix(schema.getCatalogName(), schema.getSchemaName());
 
-        // These are best efforts checks that don't provide any guarantees against concurrent DDL operations
-        if (!metadata.listTables(session, tablePrefix).isEmpty()) {
-            return false;
-        }
-
-        if (!metadata.listViews(session, tablePrefix).isEmpty()) {
-            return false;
-        }
-
-        if (!metadata.listMaterializedViews(session, tablePrefix).isEmpty()) {
-            return false;
-        }
-
-        return true;
+        // This is a best effort check that doesn't provide any guarantees against concurrent DDL operations
+        return metadata.listTables(session, tablePrefix).isEmpty();
     }
 }

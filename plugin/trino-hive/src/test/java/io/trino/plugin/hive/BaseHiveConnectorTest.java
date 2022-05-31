@@ -25,11 +25,13 @@ import io.airlift.units.DataSize.Unit;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryInfo;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.InsertTableHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -95,7 +97,6 @@ import static com.google.common.collect.Sets.intersection;
 import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
 import static io.trino.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static io.trino.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
@@ -131,6 +132,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.ABOVE;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
@@ -188,6 +190,12 @@ public abstract class BaseHiveConnectorTest
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
+                .setAdditionalSetup(runner -> {
+                    if (!exchangeManagerProperties.isEmpty()) {
+                        runner.installPlugin(new FileSystemExchangePlugin());
+                        runner.loadExchangeManager("filesystem", exchangeManagerProperties);
+                    }
+                })
                 .setHiveProperties(ImmutableMap.of(
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
@@ -195,7 +203,6 @@ public abstract class BaseHiveConnectorTest
                         // Make weighted split scheduling more conservative to avoid OOMs in test
                         "hive.minimum-assigned-split-weight", "0.5"))
                 .addExtraProperty("legacy.allow-set-view-authorization", "true")
-                .setExchangeManagerProperties(exchangeManagerProperties)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 
@@ -242,6 +249,13 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
     public void testDeleteWithComplexPredicate()
     {
         assertThatThrownBy(super::testDeleteWithComplexPredicate)
@@ -277,6 +291,20 @@ public abstract class BaseHiveConnectorTest
         assertThatThrownBy(super::testUpdateRowConcurrently)
                 .hasMessage("Unexpected concurrent update failure")
                 .getCause()
+                .hasMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Override
+    public void testUpdateWithPredicates()
+    {
+        assertThatThrownBy(super::testUpdateWithPredicates)
+                .hasMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Override
+    public void testUpdateAllValues()
+    {
+        assertThatThrownBy(super::testUpdateAllValues)
                 .hasMessage("Hive update is only supported for ACID transactional tables");
     }
 
@@ -1782,6 +1810,7 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("scale_writers", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters);
@@ -1824,6 +1853,7 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node per partition
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("scale_writers", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters * 3);
@@ -3183,9 +3213,8 @@ public abstract class BaseHiveConnectorTest
                 .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
 
         // verify we can query with a predicate that is not representable as a TupleDomain
-        // TODO this shouldn't fail
-        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
-                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
+        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
+                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
         assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))  // may be translated to Domain.all except nulls
                 .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
 
@@ -4610,6 +4639,46 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
+    @Test
+    public void testMismatchedBucketWithBucketPredicate()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate8");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate32");
+
+        assertUpdate(
+                "CREATE TABLE test_mismatch_bucketing_with_bucket_predicate8 " +
+                        "WITH (bucket_count = 8, bucketed_by = ARRAY['key8']) AS " +
+                        "SELECT nationkey key8, comment value8 FROM nation",
+                25);
+        assertUpdate(
+                "CREATE TABLE test_mismatch_bucketing_with_bucket_predicate32 " +
+                        "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS " +
+                        "SELECT nationkey key32, comment value32 FROM nation",
+                25);
+
+        Session withMismatchOptimization = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "true")
+                .build();
+        Session withoutMismatchOptimization = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "false")
+                .build();
+
+        @Language("SQL") String query = "SELECT count(*) AS count " +
+                "FROM (" +
+                "  SELECT key32" +
+                "  FROM test_mismatch_bucketing_with_bucket_predicate32" +
+                "  WHERE \"$bucket\" between 16 AND 31" +
+                ") a " +
+                "JOIN test_mismatch_bucketing_with_bucket_predicate8 b " +
+                "ON a.key32 = b.key8";
+
+        assertQuery(withMismatchOptimization, query, "SELECT 9");
+        assertQuery(withoutMismatchOptimization, query, "SELECT 9");
+
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate8");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate32");
+    }
+
     @DataProvider
     public Object[][] timestampPrecisionAndValues()
     {
@@ -5846,7 +5915,8 @@ public abstract class BaseHiveConnectorTest
                     .size();
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
                 Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
+                FunctionManager functionManager = getDistributedQueryRunner().getCoordinator().getFunctionManager();
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
                         expectedRemoteExchangesCount,
@@ -5872,8 +5942,9 @@ public abstract class BaseHiveConnectorTest
                     .size();
             if (actualLocalExchangesCount != expectedLocalExchangesCount) {
                 Session session = getSession();
-                Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
+                Metadata metadata = getDistributedQueryRunner().getMetadata();
+                FunctionManager functionManager = getDistributedQueryRunner().getFunctionManager();
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] local repartitioned exchanges but found [\n%s\n] local repartitioned exchanges. Actual plan is [\n\n%s\n]",
                         expectedLocalExchangesCount,
@@ -7889,8 +7960,16 @@ public abstract class BaseHiveConnectorTest
 
         // compact with low threshold; nothing should change
         assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10B')");
-
         assertThat(getTableFiles(tableName)).hasSameElementsAs(compactedFiles);
+
+        // optimize with delimited procedure name
+        assertQueryFails(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Procedure optimize not registered for catalog hive");
+        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\"");
+        // optimize with delimited parameter name (and procedure name)
+        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"file_size_threshold\" => '10B')"); // TODO (https://github.com/trinodb/trino/issues/11326) this should fail
+        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"FILE_SIZE_THRESHOLD\" => '10B')");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -7916,6 +7995,8 @@ public abstract class BaseHiveConnectorTest
         Set<String> compactedFiles = getTableFiles(tableName);
         assertThat(compactedFiles).hasSize(1);
         assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -7973,6 +8054,8 @@ public abstract class BaseHiveConnectorTest
         Set<String> compactedFiles = getTableFiles(tableName);
         assertThat(compactedFiles).hasSize(partitionsCount);
         assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -7997,6 +8080,8 @@ public abstract class BaseHiveConnectorTest
 
         assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
         assertNationNTimes(tableName, insertCount);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -8016,6 +8101,8 @@ public abstract class BaseHiveConnectorTest
 
         assertThatThrownBy(() -> computeActual(optimizeEnabledSession(), format("ALTER TABLE \"%s$partitions\" EXECUTE optimize(file_size_threshold => '10kB')", tableName)))
                 .hasMessage("This connector does not support table procedures");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private Session optimizeEnabledSession()
@@ -8239,6 +8326,30 @@ public abstract class BaseHiveConnectorTest
         assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', 57, 'CA'), (333, %s, 35, 'WA')", caryValue));
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "hiddenColumnNames")
+    public void testHiddenColumnNameConflict(String columnName)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_hidden_column_name_conflict",
+                format("(\"%s\" int, _bucket int, _partition int) WITH (partitioned_by = ARRAY['_partition'], bucketed_by = ARRAY['_bucket'], bucket_count = 10)", columnName))) {
+            assertThatThrownBy(() -> query("SELECT * FROM " + table.getName()))
+                    .hasMessageContaining("Multiple entries with same key: " + columnName);
+        }
+    }
+
+    @DataProvider
+    public Object[][] hiddenColumnNames()
+    {
+        return new Object[][] {
+                {"$path"},
+                {"$bucket"},
+                {"$file_size"},
+                {"$file_modified_time"},
+                {"$partition"},
+        };
     }
 
     @Test(dataProvider = "legalUseColumnNamesProvider")

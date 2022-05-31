@@ -123,7 +123,7 @@ public class TestFileBasedSystemAccessControl
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig(), DefaultSystemAccessControl.NAME);
-        accessControlManager.setSystemAccessControl(
+        accessControlManager.loadSystemAccessControl(
                 FileBasedSystemAccessControl.NAME,
                 ImmutableMap.of("security.config-file", new File("../../docs/src/main/sphinx/security/user-impersonation.json").getAbsolutePath()));
 
@@ -785,7 +785,7 @@ public class TestFileBasedSystemAccessControl
         configFile.deleteOnExit();
         copy(new File(getResourcePath("catalog.json")), configFile);
 
-        accessControlManager.setSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of(
+        accessControlManager.loadSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of(
                 SECURITY_CONFIG_FILE, configFile.getAbsolutePath(),
                 SECURITY_REFRESH_PERIOD, "1ms"));
 
@@ -842,7 +842,7 @@ public class TestFileBasedSystemAccessControl
     {
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig(), DefaultSystemAccessControl.NAME);
 
-        accessControlManager.setSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of("security.config-file", getResourcePath(resourceName)));
+        accessControlManager.loadSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of("security.config-file", getResourcePath(resourceName)));
 
         return accessControlManager;
     }

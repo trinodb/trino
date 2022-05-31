@@ -26,6 +26,7 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestRunLengthEncodedBlock
         extends AbstractTestBlock
@@ -59,6 +60,26 @@ public class TestRunLengthEncodedBlock
     private static BlockBuilder createBlockBuilder()
     {
         return new VariableWidthBlockBuilder(null, 1, 1);
+    }
+
+    @Test
+    public void testPositionsSizeInBytes()
+    {
+        Block valueBlock = createSingleValueBlock(createExpectedValue(10));
+        Block rleBlock = new RunLengthEncodedBlock(valueBlock, 10);
+        // Size in bytes is not fixed per position
+        assertTrue(rleBlock.fixedSizeInBytesPerPosition().isEmpty());
+        // Accepts specific position selection
+        boolean[] positions = new boolean[rleBlock.getPositionCount()];
+        positions[0] = true;
+        positions[1] = true;
+        assertEquals(rleBlock.getPositionsSizeInBytes(positions, 2), valueBlock.getSizeInBytes());
+        // Accepts null positions array with count only
+        assertEquals(rleBlock.getPositionsSizeInBytes(null, 2), valueBlock.getSizeInBytes());
+        // Always reports the same size in bytes regardless of positions
+        for (int positionCount = 0; positionCount < rleBlock.getPositionCount(); positionCount++) {
+            assertEquals(rleBlock.getPositionsSizeInBytes(null, positionCount), valueBlock.getSizeInBytes());
+        }
     }
 
     @Test

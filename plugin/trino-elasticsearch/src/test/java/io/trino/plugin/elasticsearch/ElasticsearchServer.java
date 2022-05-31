@@ -31,6 +31,8 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class ElasticsearchServer
 {
+    public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.0.0";
+
     private final Path configurationPath;
     private final ElasticsearchContainer container;
 

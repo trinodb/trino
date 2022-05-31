@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.security;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
@@ -25,6 +26,7 @@ import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -387,14 +389,19 @@ public class LegacyAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    public void checkCanExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
-        return Optional.empty();
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        return Optional.empty();
+        return ImmutableList.of();
+    }
+
+    @Override
+    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        return ImmutableList.of();
     }
 }

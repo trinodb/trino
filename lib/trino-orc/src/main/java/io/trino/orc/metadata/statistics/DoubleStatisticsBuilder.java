@@ -27,7 +27,7 @@ public class DoubleStatisticsBuilder
         implements StatisticsBuilder
 {
     private long nonNullValueCount;
-    private boolean hasNan;
+    private long nanValueCount;
     private double minimum = Double.POSITIVE_INFINITY;
     private double maximum = Double.NEGATIVE_INFINITY;
 
@@ -71,7 +71,7 @@ public class DoubleStatisticsBuilder
     {
         nonNullValueCount++;
         if (Double.isNaN(value)) {
-            hasNan = true;
+            nanValueCount++;
         }
         else {
             minimum = Math.min(value, minimum);
@@ -93,7 +93,7 @@ public class DoubleStatisticsBuilder
     private Optional<DoubleStatistics> buildDoubleStatistics()
     {
         // if there are NaN values we cannot say anything about the data
-        if (nonNullValueCount == 0 || hasNan) {
+        if (nonNullValueCount == 0 || nanValueCount > 0) {
             return Optional.empty();
         }
         return Optional.of(new DoubleStatistics(minimum, maximum));
@@ -109,6 +109,7 @@ public class DoubleStatisticsBuilder
                 null,
                 null,
                 doubleStatistics.orElse(null),
+                nanValueCount,
                 null,
                 null,
                 null,

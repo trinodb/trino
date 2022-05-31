@@ -5,7 +5,8 @@ target="${BASH_SOURCE%/*/*}/target"
 if command -v mvnd >/dev/null; then
     # Using mvnd here can save more than 2 seconds compared to ./mvnw startup cost. This is especially important
     # when invoking inspection commands like --help, env list, etc.
-    trino_version=$(mvnd -B help:evaluate -Dexpression=pom.version -q -DforceStdout --raw-streams)
+    # See https://github.com/apache/maven-mvnd/issues/604 for why mvnd.logPurgePeriod is set.
+    trino_version=$(mvnd -B help:evaluate -Dexpression=pom.version -q -DforceStdout --raw-streams -Dmvnd.logPurgePeriod=999999d)
     mvn="mvnd"
 else
     trino_version=$(./mvnw -B help:evaluate -Dexpression=pom.version -q -DforceStdout)

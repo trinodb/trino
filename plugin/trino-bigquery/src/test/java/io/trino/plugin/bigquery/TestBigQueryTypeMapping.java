@@ -41,7 +41,9 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * @see <a href="https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types">BigQuery data types</a>
@@ -63,7 +65,7 @@ public class TestBigQueryTypeMapping
     {
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
-                ImmutableMap.of());
+                ImmutableMap.of("bigquery.skip-view-materialization", "true"));
     }
 
     @Test
@@ -73,7 +75,8 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("boolean", "true", BOOLEAN, "true")
                 .addRoundTrip("boolean", "false", BOOLEAN, "false")
                 .addRoundTrip("boolean", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
-                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.boolean"));
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.boolean"))
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.boolean"));
     }
 
     @Test
@@ -89,7 +92,8 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("bytes", "from_hex('000000000000')", VARBINARY, "X'000000000000'")
                 .addRoundTrip("bytes(10)", "from_hex('68656C6C6F')", VARBINARY, "to_utf8('hello')")
                 .addRoundTrip("bytes(4001)", "from_hex('68656C6C6F')", VARBINARY, "to_utf8('hello')")
-                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.bytes"));
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.bytes"))
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.bytes"));
     }
 
     @Test(dataProvider = "bigqueryIntegerTypeProvider")
@@ -100,7 +104,8 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip(inputType, "9223372036854775807", BIGINT, "9223372036854775807")
                 .addRoundTrip(inputType, "0", BIGINT, "CAST(0 AS BIGINT)")
                 .addRoundTrip(inputType, "NULL", BIGINT, "CAST(NULL AS BIGINT)")
-                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.integer"));
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.integer"))
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.integer"));
     }
 
     @DataProvider
@@ -127,7 +132,8 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("float64", "CAST('NaN' AS float64)", DOUBLE, "nan()")
                 .addRoundTrip("float64", "CAST('Infinity' AS float64)", DOUBLE, "+infinity()")
                 .addRoundTrip("float64", "CAST('-Infinity' AS float64)", DOUBLE, "-infinity()")
-                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.float"));
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.float"))
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.float"));
     }
 
     @Test
@@ -162,6 +168,47 @@ public class TestBigQueryTypeMapping
     }
 
     @Test
+    public void testNumericMappingView()
+    {
+        // BigQuery views always return DECIMAL(38, 9)
+        SqlDataTypeTest.create()
+                .addRoundTrip("NUMERIC(3, 0)", "NUMERIC '193'", createDecimalType(38, 9), "CAST(193 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(3, 0)", "NUMERIC '19'", createDecimalType(38, 9), "CAST(19 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(3, 0)", "NUMERIC '-193'", createDecimalType(38, 9), "CAST(-193 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(3, 1)", "NUMERIC '10.0'", createDecimalType(38, 9), "CAST(10.0 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(3, 1)", "NUMERIC '10.1'", createDecimalType(38, 9), "CAST(10.1 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(3, 1)", "NUMERIC '-10.1'", createDecimalType(38, 9), "CAST(-10.1 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(4, 2)", "NUMERIC '2'", createDecimalType(38, 9), "CAST(2 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(4, 2)", "NUMERIC '2.3'", createDecimalType(38, 9), "CAST(2.3 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(24, 2)", "NUMERIC '2'", createDecimalType(38, 9), "CAST(2 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(24, 2)", "NUMERIC '2.3'", createDecimalType(38, 9), "CAST(2.3 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(24, 2)", "NUMERIC '123456789.3'", createDecimalType(38, 9), "CAST(123456789.3 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(24, 4)", "NUMERIC '12345678901234567890.31'", createDecimalType(38, 9), "CAST(12345678901234567890.31 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(29, 0)", "NUMERIC '27182818284590452353602874713'", createDecimalType(38, 9), "CAST('27182818284590452353602874713' AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(29, 0)", "NUMERIC '-27182818284590452353602874713'", createDecimalType(38, 9), "CAST('-27182818284590452353602874713' AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(30, 5)", "NUMERIC '3141592653589793238462643.38327'", createDecimalType(38, 9), "CAST(3141592653589793238462643.38327 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(30, 5)", "NUMERIC '-3141592653589793238462643.38327'", createDecimalType(38, 9), "CAST(-3141592653589793238462643.38327 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(38, 9)", "NUMERIC '100000000020000000001234567.123456789'", createDecimalType(38, 9), "CAST(100000000020000000001234567.123456789 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(38, 9)", "NUMERIC '-100000000020000000001234567.123456789'", createDecimalType(38, 9), "CAST(-100000000020000000001234567.123456789 AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(10, 3)", "CAST(NULL AS NUMERIC)", createDecimalType(38, 9), "CAST(NULL AS DECIMAL(38, 9))")
+                .addRoundTrip("NUMERIC(38, 9)", "CAST(NULL AS NUMERIC)", createDecimalType(38, 9), "CAST(NULL AS DECIMAL(38, 9))")
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.numeric"));
+    }
+
+    @Test
+    public void testInvalidNumericScaleType()
+    {
+        String tableName = "test.invalid_numeric_scale_" + randomTableSuffix();
+        try {
+            assertThatThrownBy(() -> getBigQuerySqlExecutor().execute(format("CREATE TABLE %s (invalid_type NUMERIC(38, 10))", tableName)))
+                    .hasMessageContaining("In NUMERIC(P, S), S must be between 0 and 9");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
     public void testBigNumericMapping()
     {
         SqlDataTypeTest.create()
@@ -190,6 +237,16 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("BIGNUMERIC(38)", "BIGNUMERIC '10000000002000000000300000000012345678'", createDecimalType(38, 0), "CAST('10000000002000000000300000000012345678' AS DECIMAL(38, 0))")
                 .addRoundTrip("BIGNUMERIC(38)", "BIGNUMERIC '-10000000002000000000300000000012345678'", createDecimalType(38, 0), "CAST('-10000000002000000000300000000012345678' AS DECIMAL(38, 0))")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.bignumeric"));
+        // TODO (https://github.com/trinodb/trino/pull/12210) Add support for bigquery type in views
+    }
+
+    @Test
+    public void testUnsupportedBigNumericMappingView()
+    {
+        assertThatThrownBy(() -> SqlDataTypeTest.create()
+                .addRoundTrip("BIGNUMERIC(3, 0)", "BIGNUMERIC '193'", createDecimalType(3, 0), "CAST(193 AS DECIMAL(3, 0))")
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.bignumeric")))
+                .hasMessageContaining("SELECT * not allowed from relation that has no columns");
     }
 
     @Test(dataProvider = "bigqueryUnsupportedBigNumericTypeProvider")
@@ -232,7 +289,8 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'")
                 .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'")
                 .addRoundTrip("date", "DATE '9999-12-31'", DATE, "DATE '9999-12-31'") // max value in BigQuery
-                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.date"));
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.date"))
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.date"));
     }
 
     @Test
@@ -283,7 +341,8 @@ public class TestBigQueryTypeMapping
                 // max value in BigQuery
                 .addRoundTrip("datetime", "datetime '9999-12-31 23:59:59.999999'", createTimestampType(6), "TIMESTAMP '9999-12-31 23:59:59.999999'")
 
-                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.datetime"));
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.datetime"))
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.datetime"));
     }
 
     @Test
@@ -305,7 +364,8 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("time", "'23:59:59.99999'", createTimeType(6), "TIME '23:59:59.999990'")
                 .addRoundTrip("time", "'23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
 
-                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.time"));
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.time"))
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.time"));
     }
 
     @Test
@@ -345,6 +405,7 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("TIMESTAMP", "TIMESTAMP '9999-12-31 23:59:59.999999-00:00'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.timestamp_tz"));
+        // TODO (https://github.com/trinodb/trino/pull/12210) Add support for timestamp with time zone type in views
     }
 
     @Test
@@ -358,7 +419,8 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("STRING", "'Ну, погоди!'", VARCHAR, "VARCHAR 'Ну, погоди!'")
                 .addRoundTrip("STRING(255)", "'text_b'", VARCHAR, "VARCHAR 'text_b'")
                 .addRoundTrip("STRING(4001)", "'text_c'", VARCHAR, "VARCHAR 'text_c'")
-                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.string"));
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.string"))
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.string"));
     }
 
     @Test
@@ -368,7 +430,8 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("GEOGRAPHY", "ST_GeogPoint(0, 0)", VARCHAR, "VARCHAR 'POINT(0 0)'")
                 .addRoundTrip("GEOGRAPHY", "ST_GeogPoint(90, -90)", VARCHAR, "VARCHAR 'POINT(90 -90)'")
                 .addRoundTrip("GEOGRAPHY", "NULL", VARCHAR, "CAST(NULL AS VARCHAR)")
-                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.geography"));
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.geography"))
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.geography"));
     }
 
     @Test
@@ -384,7 +447,8 @@ public class TestBigQueryTypeMapping
                         "ARRAY[CAST(ROW(1, 'string') AS ROW(x BIGINT, y VARCHAR))]")
                 .addRoundTrip("ARRAY<BOOLEAN>", "[]", new ArrayType(BOOLEAN), "CAST(ARRAY[] AS ARRAY<BOOLEAN>)")
                 .addRoundTrip("ARRAY<BOOLEAN>", "NULL", new ArrayType(BOOLEAN), "CAST(ARRAY[] AS ARRAY<BOOLEAN>)")
-                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.array"));
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.array"))
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.array"));
     }
 
     @Test
@@ -407,12 +471,18 @@ public class TestBigQueryTypeMapping
                         "NULL",
                         RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT))),
                         "CAST(NULL AS ROW(x BIGINT))")
-                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.struct"));
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.struct"))
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.struct"));
     }
 
     private DataSetup bigqueryCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(getBigQuerySqlExecutor(), tableNamePrefix);
+    }
+
+    private DataSetup bigqueryViewCreateAndInsert(String tableNamePrefix)
+    {
+        return new BigQueryViewCreateAndInsertDataSetup(getBigQuerySqlExecutor(), tableNamePrefix);
     }
 
     private SqlExecutor getBigQuerySqlExecutor()

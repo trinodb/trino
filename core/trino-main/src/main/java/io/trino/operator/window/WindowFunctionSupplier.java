@@ -13,14 +13,14 @@
  */
 package io.trino.operator.window;
 
-import io.trino.operator.aggregation.LambdaProvider;
 import io.trino.spi.function.WindowFunction;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 public interface WindowFunctionSupplier
 {
-    WindowFunction createWindowFunction(boolean ignoreNulls, List<LambdaProvider> lambdaProviders);
+    WindowFunction createWindowFunction(boolean ignoreNulls, List<Supplier<Object>> lambdaProviders);
 
     List<Class<?>> getLambdaInterfaces();
 }

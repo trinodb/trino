@@ -26,8 +26,11 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 
 import java.math.BigDecimal;
@@ -68,6 +71,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.ColorType.COLOR;
+import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
@@ -116,7 +120,7 @@ public final class BlockAssertions
     {
         assertEquals(actual.getPositionCount(), expected.getPositionCount());
         for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
+            assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position), "position " + position);
         }
     }
 
@@ -174,8 +178,18 @@ public final class BlockAssertions
         if (type == UUID) {
             return createRandomUUIDsBlock(positionCount, nullRate);
         }
+        if (type == IPADDRESS) {
+            return createRandomIpAddressesBlock(positionCount, nullRate);
+        }
         if (type == VARBINARY) {
             return createRandomVarbinariesBlock(positionCount, nullRate);
+        }
+        if (type instanceof TimestampType) {
+            TimestampType timestampType = (TimestampType) type;
+            if (timestampType.isShort()) {
+                return createRandomShortTimestampBlock(timestampType, positionCount, nullRate);
+            }
+            return createRandomLongTimestampBlock(timestampType, positionCount, nullRate);
         }
 
         return createRandomBlockForNestedType(type, positionCount, nullRate);
@@ -248,6 +262,28 @@ public final class BlockAssertions
                 () -> String.valueOf(RANDOM.nextLong())));
     }
 
+    public static Block createRandomShortTimestampBlock(TimestampType type, int positionCount, float nullRate)
+    {
+        return createLongsBlock(
+                generateListWithNulls(
+                        positionCount,
+                        nullRate,
+                        () -> SqlTimestamp.fromMillis(type.getPrecision(), RANDOM.nextLong()).getEpochMicros()));
+    }
+
+    public static Block createRandomLongTimestampBlock(TimestampType type, int positionCount, float nullRate)
+    {
+        return createLongTimestampBlock(
+                type,
+                generateListWithNulls(
+                        positionCount,
+                        nullRate,
+                        () -> {
+                            SqlTimestamp sqlTimestamp = SqlTimestamp.fromMillis(type.getPrecision(), RANDOM.nextLong());
+                            return new LongTimestamp(sqlTimestamp.getEpochMicros(), sqlTimestamp.getPicosOfMicros());
+                        }));
+    }
+
     public static Block createRandomLongsBlock(int positionCount, int numberOfUniqueValues)
     {
         checkArgument(positionCount >= numberOfUniqueValues, "numberOfUniqueValues must be between 1 and positionCount: %s but was %s", positionCount, numberOfUniqueValues);
@@ -288,6 +324,11 @@ public final class BlockAssertions
         return createSlicesBlock(UUID, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(RANDOM.nextLong(), RANDOM.nextLong())));
     }
 
+    private static Block createRandomIpAddressesBlock(int positionCount, float nullRate)
+    {
+        return createSlicesBlock(IPADDRESS, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(RANDOM.nextLong(), RANDOM.nextLong())));
+    }
+
     private static Block createRandomTinyintsBlock(int positionCount, float nullRate)
     {
         return createTypedLongsBlock(TINYINT, generateListWithNulls(positionCount, nullRate, () -> (long) (byte) RANDOM.nextLong()));
@@ -312,6 +353,16 @@ public final class BlockAssertions
             result.add(nullPositions.contains(i) ? null : valueSupplier.get());
         }
         return unmodifiableList(result);
+    }
+
+    public static Set<Integer> chooseNullPositions(int positionCount, float nullRate)
+    {
+        int nullCount = (int) (positionCount * nullRate);
+        if (nullCount == 0) {
+            verify(nullRate == 0 || positionCount == 0, "position count %s too small to have at least one null with rate %s", (Object) positionCount, nullRate);
+            return ImmutableSet.of();
+        }
+        return chooseRandomUnique(positionCount, nullCount);
     }
 
     public static Block createStringsBlock(String... values)
@@ -473,9 +524,55 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createLongTimestampBlock(TimestampType type, LongTimestamp... values)
+    {
+        requireNonNull(values, "values is null");
+        return createLongTimestampBlock(type, Arrays.asList(values));
+    }
+
+    public static Block createLongTimestampBlock(TimestampType type, Iterable<LongTimestamp> values)
+    {
+        BlockBuilder builder = type.createBlockBuilder(null, 100);
+
+        for (LongTimestamp value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                type.writeObject(builder, value);
+            }
+        }
+
+        return builder.build();
+    }
+
     public static Block createCharsBlock(CharType charType, List<String> values)
     {
         return createBlock(charType, charType::writeString, values);
+    }
+
+    public static Block createTinyintsBlock(Integer... values)
+    {
+        requireNonNull(values, "values is null");
+
+        return createTinyintsBlock(Arrays.asList(values));
+    }
+
+    public static Block createTinyintsBlock(Iterable<Integer> values)
+    {
+        return createBlock(TINYINT, (ValueWriter<Integer>) TINYINT::writeLong, values);
+    }
+
+    public static Block createSmallintsBlock(Integer... values)
+    {
+        requireNonNull(values, "values is null");
+
+        return createSmallintsBlock(Arrays.asList(values));
+    }
+
+    public static Block createSmallintsBlock(Iterable<Integer> values)
+    {
+        return createBlock(SMALLINT, (ValueWriter<Integer>) SMALLINT::writeLong, values);
     }
 
     public static Block createIntsBlock(Integer... values)
@@ -812,16 +909,6 @@ public final class BlockAssertions
     private interface ValueWriter<T>
     {
         void write(BlockBuilder builder, T value);
-    }
-
-    private static Set<Integer> chooseNullPositions(int positionCount, float nullRate)
-    {
-        int nullCount = (int) (positionCount * nullRate);
-        if (nullCount == 0) {
-            verify(nullRate == 0, "position count %s too small to have at least one null with rate %s", (Object) positionCount, nullRate);
-            return ImmutableSet.of();
-        }
-        return chooseRandomUnique(positionCount, nullCount);
     }
 
     private static Set<Integer> chooseRandomUnique(int bound, int count)

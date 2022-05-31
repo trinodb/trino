@@ -28,11 +28,14 @@ import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Date;
 
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -59,12 +62,9 @@ public abstract class BaseMongoConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_CREATE_SCHEMA:
+            case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
-            case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -102,6 +102,39 @@ public abstract class BaseMongoConnectorTest
                 "TopNPartial\\[5 by \\(nationkey DESC");
     }
 
+    @Test(dataProvider = "guessFieldTypesProvider")
+    public void testGuessFieldTypes(String mongoValue, String trinoValue)
+    {
+        Document document = Document.parse(format("{\"test\":%s}", mongoValue));
+
+        assertUpdate("DROP TABLE IF EXISTS test.test_guess_field_type");
+        client.getDatabase("test").getCollection("test_guess_field_type").insertOne(document);
+
+        assertThat(query("SELECT test FROM test.test_guess_field_type"))
+                .matches("SELECT " + trinoValue);
+
+        assertUpdate("DROP TABLE test.test_guess_field_type");
+    }
+
+    @DataProvider
+    public Object[][] guessFieldTypesProvider()
+    {
+        return new Object[][] {
+                {"true", "true"}, // boolean -> boolean
+                {"2147483647", "bigint '2147483647'"}, // int32 -> bigint
+                {"{\"$numberLong\": \"9223372036854775807\"}", "9223372036854775807"}, // int64 -> bigint
+                {"1.23", "double '1.23'"}, // double -> double
+                {"{\"$date\": \"1970-01-01T00:00:00.000Z\"}", "timestamp '1970-01-01 00:00:00.000'"}, // date -> timestamp(3)
+                {"'String type'", "varchar 'String type'"}, // string -> varchar
+                {"{$binary: \"\",\"$type\": \"0\"}", "to_utf8('')"}, // binary -> varbinary
+                {"{\"$oid\": \"6216f0c6c432d45190f25e7c\"}", "ObjectId('6216f0c6c432d45190f25e7c')"}, // objectid -> objectid
+                {"[1]", "array[bigint '1']"}, // array with single type -> array
+                {"{\"field\": \"object\"}", "CAST(row('object') AS row(field varchar))"}, // object -> row
+                {"[9, \"test\"]", "CAST(row(9, 'test') AS row(_pos1 bigint, _pos2 varchar))"}, // array with multiple types -> row
+                {"{\"$ref\":\"test_ref\",\"$id\":ObjectId(\"4e3f33de6266b5845052c02c\"),\"$db\":\"test_db\"}", "CAST(row('test_db', 'test_ref', ObjectId('4e3f33de6266b5845052c02c')) AS row(databasename varchar, collectionname varchar, id ObjectId))"}, // dbref -> row
+        };
+    }
+
     @Test
     public void createTableWithEveryType()
     {
@@ -116,7 +149,8 @@ public abstract class BaseMongoConnectorTest
                 ", DATE '1980-05-07' _date" +
                 ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
                 ", ObjectId('ffffffffffffffffffffffff') _objectid" +
-                ", JSON '{\"name\":\"alice\"}' _json";
+                ", JSON '{\"name\":\"alice\"}' _json" +
+                ", cast(12.3 as decimal(30, 5)) _long_decimal";
 
         assertUpdate(query, 1);
 
@@ -131,6 +165,7 @@ public abstract class BaseMongoConnectorTest
         assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
         assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
         assertEquals(row.getField(8), "{\"name\":\"alice\"}");
+        assertEquals(row.getField(9), new BigDecimal("12.30000"));
         assertUpdate("DROP TABLE test_types_table");
 
         assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
@@ -256,23 +291,39 @@ public abstract class BaseMongoConnectorTest
         assertQueryReturnsEmptyResult("SHOW COLUMNS FROM test.tmp_guess_schema2");
     }
 
-    @Test
-    public void testDBRef()
+    @Test(dataProvider = "dbRefProvider")
+    public void testDBRef(Object objectId, String expectedValue, String expectedType)
     {
         Document document = Document.parse("{\"_id\":ObjectId(\"5126bbf64aed4daf9e2ab771\"),\"col1\":\"foo\"}");
 
-        ObjectId objectId = new ObjectId("5126bc054aed4daf9e2ab772");
         DBRef dbRef = new DBRef("test", "creators", objectId);
         document.append("creator", dbRef);
 
+        assertUpdate("DROP TABLE IF EXISTS test.test_dbref");
         client.getDatabase("test").getCollection("test_dbref").insertOne(document);
 
-        assertQuery(
-                "SELECT creator.databaseName, creator.collectionName, CAST(creator.id AS VARCHAR) FROM test.test_dbref",
-                "SELECT 'test', 'creators', '5126bc054aed4daf9e2ab772'");
+        assertThat(query("SELECT creator.databaseName, creator.collectionName, creator.id FROM test.test_dbref"))
+                .matches("SELECT varchar 'test', varchar 'creators', " + expectedValue);
         assertQuery(
                 "SELECT typeof(creator) FROM test.test_dbref",
-                "SELECT 'row(databaseName varchar, collectionName varchar, id ObjectId)'");
+                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+
+        assertUpdate("DROP TABLE test.test_dbref");
+    }
+
+    @DataProvider
+    public Object[][] dbRefProvider()
+    {
+        return new Object[][] {
+                {"String type", "varchar 'String type'", "varchar"},
+                {"BinData".getBytes(UTF_8), "to_utf8('BinData')", "varbinary"},
+                {1234567890, "bigint '1234567890'", "bigint"},
+                {true, "true", "boolean"},
+                {12.3f, "double '12.3'", "double"},
+                {new Date(0), "timestamp '1970-01-01 00:00:00.000'", "timestamp(3)"},
+                {ImmutableList.of(1), "array[bigint '1']", "array(bigint)"},
+                {new ObjectId("5126bc054aed4daf9e2ab772"), "ObjectId('5126bc054aed4daf9e2ab772')", "ObjectId"},
+        };
     }
 
     @Test
@@ -410,6 +461,21 @@ public abstract class BaseMongoConnectorTest
     }
 
     @Test
+    public void testCaseInsensitiveRenameTable()
+    {
+        MongoCollection<Document> collection = client.getDatabase("testCase_RenameTable").getCollection("testInsensitive_RenameTable");
+        collection.insertOne(new Document(ImmutableMap.of("value", 1)));
+        assertQuery("SHOW TABLES IN testcase_renametable", "SELECT 'testinsensitive_renametable'");
+        assertQuery("SELECT value FROM testcase_renametable.testinsensitive_renametable", "SELECT 1");
+
+        assertUpdate("ALTER TABLE testcase_renametable.testinsensitive_renametable RENAME TO testcase_renametable.testinsensitive_renamed_table");
+
+        assertQuery("SHOW TABLES IN testcase_renametable", "SELECT 'testinsensitive_renamed_table'");
+        assertQuery("SELECT value FROM testcase_renametable.testinsensitive_renamed_table", "SELECT 1");
+        assertUpdate("DROP TABLE testcase_renametable.testinsensitive_renamed_table");
+    }
+
+    @Test
     public void testNonLowercaseViewName()
     {
         // Case insensitive schema name
@@ -448,11 +514,16 @@ public abstract class BaseMongoConnectorTest
     }
 
     @Test
-    public void testDropTable()
+    public void testBooleanPredicates()
     {
-        assertUpdate("CREATE TABLE test.drop_table(col bigint)");
-        assertUpdate("DROP TABLE test.drop_table");
-        assertQueryFails("SELECT * FROM test.drop_table", ".*Table 'mongodb.test.drop_table' does not exist");
+        assertUpdate("CREATE TABLE boolean_predicates(id integer, value boolean)");
+        assertUpdate("INSERT INTO boolean_predicates VALUES(1, true)", 1);
+        assertUpdate("INSERT INTO boolean_predicates VALUES(2, false)", 1);
+
+        assertQuery("SELECT id FROM boolean_predicates WHERE value = true", "VALUES 1");
+        assertQuery("SELECT id FROM boolean_predicates WHERE value = false", "VALUES 2");
+
+        assertUpdate("DROP TABLE boolean_predicates");
     }
 
     @Test
@@ -483,6 +554,13 @@ public abstract class BaseMongoConnectorTest
         // MongoDB doesn't support limit number greater than integer max
         assertThat(query("SELECT name FROM nation LIMIT 2147483647")).isFullyPushedDown();
         assertThat(query("SELECT name FROM nation LIMIT 2147483648")).isNotFullyPushedDown(LimitNode.class);
+    }
+
+    @Override
+    public void testAddColumnConcurrently()
+    {
+        // TODO: Enable after supporting multi-document transaction https://www.mongodb.com/docs/manual/core/transactions/
+        throw new SkipException("TODO");
     }
 
     private void assertOneNotNullResult(String query)

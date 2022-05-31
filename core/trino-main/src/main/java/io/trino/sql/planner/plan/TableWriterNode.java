@@ -21,8 +21,11 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.trino.Session;
 import io.trino.metadata.InsertTableHandle;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.OutputTableHandle;
+import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
@@ -208,6 +211,8 @@ public class TableWriterNode
     {
         @Override
         public abstract String toString();
+
+        public abstract boolean supportsReportingWrittenBytes(Metadata metadata, Session session);
     }
 
     // only used during planning -- will not be serialized
@@ -230,14 +235,24 @@ public class TableWriterNode
             return catalog;
         }
 
-        public ConnectorTableMetadata getTableMetadata()
+        @Override
+        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
         {
-            return tableMetadata;
+            QualifiedObjectName fullTableName = new QualifiedObjectName(
+                    catalog,
+                    tableMetadata.getTableSchema().getTable().getSchemaName(),
+                    tableMetadata.getTableSchema().getTable().getTableName());
+            return metadata.supportsReportingWrittenBytes(session, fullTableName, tableMetadata.getProperties());
         }
 
         public Optional<TableLayout> getLayout()
         {
             return layout;
+        }
+
+        public ConnectorTableMetadata getTableMetadata()
+        {
+            return tableMetadata;
         }
 
         @Override
@@ -252,14 +267,17 @@ public class TableWriterNode
     {
         private final OutputTableHandle handle;
         private final SchemaTableName schemaTableName;
+        private final boolean reportingWrittenBytesSupported;
 
         @JsonCreator
         public CreateTarget(
                 @JsonProperty("handle") OutputTableHandle handle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.reportingWrittenBytesSupported = reportingWrittenBytesSupported;
         }
 
         @JsonProperty
@@ -274,10 +292,22 @@ public class TableWriterNode
             return schemaTableName;
         }
 
+        @JsonProperty
+        public boolean getReportingWrittenBytesSupported()
+        {
+            return reportingWrittenBytesSupported;
+        }
+
         @Override
         public String toString()
         {
             return handle.toString();
+        }
+
+        @Override
+        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+        {
+            return reportingWrittenBytesSupported;
         }
     }
 
@@ -309,6 +339,12 @@ public class TableWriterNode
         {
             return handle.toString();
         }
+
+        @Override
+        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+        {
+            return metadata.supportsReportingWrittenBytes(session, handle);
+        }
     }
 
     public static class InsertTarget
@@ -316,14 +352,17 @@ public class TableWriterNode
     {
         private final InsertTableHandle handle;
         private final SchemaTableName schemaTableName;
+        private final boolean reportingWrittenBytesSupported;
 
         @JsonCreator
         public InsertTarget(
                 @JsonProperty("handle") InsertTableHandle handle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.reportingWrittenBytesSupported = reportingWrittenBytesSupported;
         }
 
         @JsonProperty
@@ -338,10 +377,22 @@ public class TableWriterNode
             return schemaTableName;
         }
 
+        @JsonProperty
+        public boolean getReportingWrittenBytesSupported()
+        {
+            return reportingWrittenBytesSupported;
+        }
+
         @Override
         public String toString()
         {
             return handle.toString();
+        }
+
+        @Override
+        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+        {
+            return reportingWrittenBytesSupported;
         }
     }
 
@@ -378,6 +429,12 @@ public class TableWriterNode
         public String toString()
         {
             return table.toString();
+        }
+
+        @Override
+        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+        {
+            return metadata.supportsReportingWrittenBytes(session, storageTableHandle);
         }
     }
 
@@ -431,6 +488,12 @@ public class TableWriterNode
         {
             return insertHandle.toString();
         }
+
+        @Override
+        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+        {
+            return metadata.supportsReportingWrittenBytes(session, tableHandle);
+        }
     }
 
     public static class DeleteTarget
@@ -470,6 +533,12 @@ public class TableWriterNode
         public String toString()
         {
             return handle.map(Object::toString).orElse("[]");
+        }
+
+        @Override
+        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 
@@ -530,6 +599,12 @@ public class TableWriterNode
         {
             return handle.map(Object::toString).orElse("[]");
         }
+
+        @Override
+        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 
     public static class TableExecuteTarget
@@ -538,16 +613,19 @@ public class TableWriterNode
         private final TableExecuteHandle executeHandle;
         private final Optional<TableHandle> sourceHandle;
         private final SchemaTableName schemaTableName;
+        private final boolean reportingWrittenBytesSupported;
 
         @JsonCreator
         public TableExecuteTarget(
                 @JsonProperty("executeHandle") TableExecuteHandle executeHandle,
                 @JsonProperty("sourceHandle") Optional<TableHandle> sourceHandle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported)
         {
             this.executeHandle = requireNonNull(executeHandle, "handle is null");
             this.sourceHandle = requireNonNull(sourceHandle, "sourceHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.reportingWrittenBytesSupported = reportingWrittenBytesSupported;
         }
 
         @JsonProperty
@@ -573,10 +651,22 @@ public class TableWriterNode
             return schemaTableName;
         }
 
+        @JsonProperty
+        public boolean isReportingWrittenBytesSupported()
+        {
+            return reportingWrittenBytesSupported;
+        }
+
         @Override
         public String toString()
         {
             return executeHandle.toString();
+        }
+
+        @Override
+        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+        {
+            return sourceHandle.map(tableHandle -> metadata.supportsReportingWrittenBytes(session, tableHandle)).orElse(reportingWrittenBytesSupported);
         }
     }
 }

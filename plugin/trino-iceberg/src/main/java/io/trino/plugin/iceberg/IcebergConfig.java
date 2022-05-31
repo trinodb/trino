@@ -15,19 +15,31 @@ package io.trino.plugin.iceberg;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Optional;
+
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class IcebergConfig
 {
+    public static final int FORMAT_VERSION_SUPPORT_MIN = 1;
+    public static final int FORMAT_VERSION_SUPPORT_MAX = 2;
+    public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire_snapshots.min-retention";
+    public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove_orphan_files.min-retention";
+
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = ZSTD;
     private boolean useFileSizeFromMetadata = true;
@@ -37,6 +49,15 @@ public class IcebergConfig
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean projectionPushdownEnabled = true;
+    private Optional<String> hiveCatalogName = Optional.empty();
+    private int formatVersion = FORMAT_VERSION_SUPPORT_MAX;
+    private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
+    private Duration removeOrphanFilesMinRetention = new Duration(7, DAYS);
+    private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
+    // This is meant to protect users who are misusing schema locations (by
+    // putting schemas in locations with extraneous files), so default to false
+    // to avoid deleting those files if Trino is unable to check.
+    private boolean deleteSchemaLocationsFallback;
 
     public CatalogType getCatalogType()
     {
@@ -164,6 +185,90 @@ public class IcebergConfig
     public IcebergConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
         this.projectionPushdownEnabled = projectionPushdownEnabled;
+        return this;
+    }
+
+    public Optional<String> getHiveCatalogName()
+    {
+        return hiveCatalogName;
+    }
+
+    @Config("iceberg.hive-catalog-name")
+    @ConfigDescription("Catalog to redirect to when a Hive table is referenced")
+    public IcebergConfig setHiveCatalogName(String hiveCatalogName)
+    {
+        this.hiveCatalogName = Optional.ofNullable(hiveCatalogName);
+        return this;
+    }
+
+    @Min(FORMAT_VERSION_SUPPORT_MIN)
+    @Max(FORMAT_VERSION_SUPPORT_MAX)
+    public int getFormatVersion()
+    {
+        return formatVersion;
+    }
+
+    @Config("iceberg.format-version")
+    @ConfigDescription("Default Iceberg table format version")
+    public IcebergConfig setFormatVersion(int formatVersion)
+    {
+        this.formatVersion = formatVersion;
+        return this;
+    }
+
+    @NotNull
+    public Duration getExpireSnapshotsMinRetention()
+    {
+        return expireSnapshotsMinRetention;
+    }
+
+    @Config(EXPIRE_SNAPSHOTS_MIN_RETENTION)
+    @ConfigDescription("Minimal retention period for expire_snapshot procedure")
+    public IcebergConfig setExpireSnapshotsMinRetention(Duration expireSnapshotsMinRetention)
+    {
+        this.expireSnapshotsMinRetention = expireSnapshotsMinRetention;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRemoveOrphanFilesMinRetention()
+    {
+        return removeOrphanFilesMinRetention;
+    }
+
+    @Config(REMOVE_ORPHAN_FILES_MIN_RETENTION)
+    @ConfigDescription("Minimal retention period for remove_orphan_files procedure")
+    public IcebergConfig setRemoveOrphanFilesMinRetention(Duration removeOrphanFilesMinRetention)
+    {
+        this.removeOrphanFilesMinRetention = removeOrphanFilesMinRetention;
+        return this;
+    }
+
+    public DataSize getTargetMaxFileSize()
+    {
+        return targetMaxFileSize;
+    }
+
+    @LegacyConfig("hive.target-max-file-size")
+    @Config("iceberg.target-max-file-size")
+    @ConfigDescription("Target maximum size of written files; the actual size may be larger")
+    public IcebergConfig setTargetMaxFileSize(DataSize targetMaxFileSize)
+    {
+        this.targetMaxFileSize = targetMaxFileSize;
+        return this;
+    }
+
+    public boolean isDeleteSchemaLocationsFallback()
+    {
+        return this.deleteSchemaLocationsFallback;
+    }
+
+    @LegacyConfig("hive.delete-schema-locations-fallback")
+    @Config("iceberg.delete-schema-locations-fallback")
+    @ConfigDescription("Whether schema locations should be deleted when Trino can't determine whether they contain external files.")
+    public IcebergConfig setDeleteSchemaLocationsFallback(boolean deleteSchemaLocationsFallback)
+    {
+        this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         return this;
     }
 }

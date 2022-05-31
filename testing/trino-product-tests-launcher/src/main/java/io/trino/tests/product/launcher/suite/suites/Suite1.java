@@ -31,7 +31,7 @@ public class Suite1
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
-                        .withExcludedGroups("big_query", "storage_formats", "storage_formats_detailed", "profile_specific_tests", "tpcds", "hive_compression")
+                        .withExcludedGroups("large_query", "storage_formats", "storage_formats_detailed", "profile_specific_tests", "tpcds", "hive_compression", "azure")
                         .build());
     }
 }

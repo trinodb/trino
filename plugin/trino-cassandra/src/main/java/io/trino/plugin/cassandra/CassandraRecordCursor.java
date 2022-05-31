@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
 import io.airlift.slice.Slice;
 import io.trino.plugin.cassandra.CassandraType.Kind;
 import io.trino.spi.connector.RecordCursor;
@@ -34,7 +34,6 @@ public class CassandraRecordCursor
     private final List<CassandraType> cassandraTypes;
     private final ResultSet rs;
     private Row currentRow;
-    private long count;
 
     public CassandraRecordCursor(CassandraSession cassandraSession, List<CassandraType> cassandraTypes, String cql)
     {
@@ -46,9 +45,9 @@ public class CassandraRecordCursor
     @Override
     public boolean advanceNextPosition()
     {
-        if (!rs.isExhausted()) {
-            currentRow = rs.one();
-            count++;
+        Row row = rs.one();
+        if (row != null) {
+            currentRow = row;
             return true;
         }
         return false;
@@ -68,7 +67,7 @@ public class CassandraRecordCursor
     @Override
     public long getCompletedBytes()
     {
-        return count;
+        return 0;
     }
 
     @Override
@@ -86,7 +85,7 @@ public class CassandraRecordCursor
             case FLOAT:
                 return currentRow.getFloat(i);
             case DECIMAL:
-                return currentRow.getDecimal(i).doubleValue();
+                return currentRow.getBigDecimal(i).doubleValue();
             default:
                 throw new IllegalStateException("Cannot retrieve double for " + getCassandraType(i));
         }
@@ -106,9 +105,9 @@ public class CassandraRecordCursor
             case COUNTER:
                 return currentRow.getLong(i);
             case TIMESTAMP:
-                return packDateTimeWithZone(currentRow.getTimestamp(i).getTime(), TimeZoneKey.UTC_KEY);
+                return packDateTimeWithZone(currentRow.getInstant(i).toEpochMilli(), TimeZoneKey.UTC_KEY);
             case DATE:
-                return currentRow.getDate(i).getDaysSinceEpoch();
+                return currentRow.getLocalDate(i).toEpochDay();
             case FLOAT:
                 return floatToRawIntBits(currentRow.getFloat(i));
             default:
@@ -157,7 +156,7 @@ public class CassandraRecordCursor
     public boolean isNull(int i)
     {
         if (getCassandraType(i).getKind() == Kind.TIMESTAMP) {
-            return currentRow.getTimestamp(i) == null;
+            return currentRow.getInstant(i) == null;
         }
         return currentRow.isNull(i);
     }

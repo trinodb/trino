@@ -69,6 +69,7 @@ public class VerifierConfig
     private int queryRepetitions = 1;
     private String skipCorrectnessRegex = "^$";
     private boolean checkCorrectness = true;
+    private boolean checkDeterminism = true;
     private String skipCpuCheckRegex = "(?i)(?s).*LIMIT.*";
     private boolean checkCpu = true;
     private boolean explainOnly;
@@ -88,6 +89,9 @@ public class VerifierConfig
     private String shadowTestTablePrefix = "tmp_verifier_";
     private String shadowControlTablePrefix = "tmp_verifier_";
     private boolean runTearDownOnResultMismatch;
+    private boolean skipControl;
+    private boolean simplifiedControlQueriesGenerationEnabled;
+    private String simplifiedControlQueriesOutputDirectory = "/tmp/verifier/generated-control-queries";
 
     private Duration regressionMinCpuTime = new Duration(5, TimeUnit.MINUTES);
 
@@ -361,6 +365,18 @@ public class VerifierConfig
     public VerifierConfig setCheckCorrectnessEnabled(boolean checkCorrectness)
     {
         this.checkCorrectness = checkCorrectness;
+        return this;
+    }
+
+    public boolean isCheckDeterminismEnabled()
+    {
+        return checkDeterminism;
+    }
+
+    @Config("check-determinism")
+    public VerifierConfig setCheckDeterminismEnabled(boolean checkDeterminism)
+    {
+        this.checkDeterminism = checkDeterminism;
         return this;
     }
 
@@ -778,6 +794,43 @@ public class VerifierConfig
     public VerifierConfig setRunTearDownOnResultMismatch(boolean runTearDownOnResultMismatch)
     {
         this.runTearDownOnResultMismatch = runTearDownOnResultMismatch;
+        return this;
+    }
+
+    public boolean isSkipControl()
+    {
+        return skipControl;
+    }
+
+    @Config("skip-control")
+    public VerifierConfig setSkipControl(boolean skipControl)
+    {
+        this.skipControl = skipControl;
+        return this;
+    }
+
+    public boolean isSimplifiedControlQueriesGenerationEnabled()
+    {
+        return simplifiedControlQueriesGenerationEnabled;
+    }
+
+    @Config("simplified-control-queries-generation-enabled")
+    public VerifierConfig setSimplifiedControlQueriesGenerationEnabled(boolean simplifiedControlQueriesGenerationEnabled)
+    {
+        this.simplifiedControlQueriesGenerationEnabled = simplifiedControlQueriesGenerationEnabled;
+        return this;
+    }
+
+    @NotNull
+    public String getSimplifiedControlQueriesOutputDirectory()
+    {
+        return simplifiedControlQueriesOutputDirectory;
+    }
+
+    @Config("simplified-control-queries-output-directory")
+    public VerifierConfig setSimplifiedControlQueriesOutputDirectory(String simplifiedControlQueriesOutputDirectory)
+    {
+        this.simplifiedControlQueriesOutputDirectory = simplifiedControlQueriesOutputDirectory;
         return this;
     }
 }

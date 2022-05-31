@@ -63,6 +63,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class HiveConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    public static final String HIVE_VIEWS_ENABLED = "hive.hive-views.enabled";
 
     private boolean singleStatementWritesOnly;
 
@@ -141,7 +142,11 @@ public class HiveConfig
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
     private long fileStatusCacheMaxSize = 1000 * 1000;
     private List<String> fileStatusCacheTables = ImmutableList.of();
+    private long perTransactionFileStatusCacheMaximumSize = 1000 * 1000;
+
     private boolean translateHiveViews;
+    private boolean legacyHiveViewTranslation;
+    private boolean hiveViewsRunAsInvoker;
 
     private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
     private int hiveTransactionHeartbeatThreads = 5;
@@ -158,13 +163,14 @@ public class HiveConfig
 
     private boolean optimizeSymlinkListing = true;
 
-    private boolean legacyHiveViewTranslation;
     private Optional<String> icebergCatalogName = Optional.empty();
+    private Optional<String> deltaLakeCatalogName = Optional.empty();
 
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
 
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
+    private boolean autoPurge;
 
     public boolean isSingleStatementWritesOnly()
     {
@@ -746,17 +752,58 @@ public class HiveConfig
         return this;
     }
 
+    @Min(1)
+    public long getPerTransactionFileStatusCacheMaximumSize()
+    {
+        return perTransactionFileStatusCacheMaximumSize;
+    }
+
+    @Config("hive.per-transaction-file-status-cache-maximum-size")
+    @ConfigDescription("Maximum number of file statuses cached by transactional file status cache")
+    public HiveConfig setPerTransactionFileStatusCacheMaximumSize(long perTransactionFileStatusCacheMaximumSize)
+    {
+        this.perTransactionFileStatusCacheMaximumSize = perTransactionFileStatusCacheMaximumSize;
+        return this;
+    }
+
     public boolean isTranslateHiveViews()
     {
         return translateHiveViews;
     }
 
-    @LegacyConfig("hive.views-execution.enabled")
-    @Config("hive.translate-hive-views")
+    @LegacyConfig({"hive.views-execution.enabled", "hive.translate-hive-views"})
+    @Config(HIVE_VIEWS_ENABLED)
     @ConfigDescription("Experimental: Allow translation of Hive views into Trino views")
     public HiveConfig setTranslateHiveViews(boolean translateHiveViews)
     {
         this.translateHiveViews = translateHiveViews;
+        return this;
+    }
+
+    public boolean isLegacyHiveViewTranslation()
+    {
+        return this.legacyHiveViewTranslation;
+    }
+
+    @LegacyConfig("hive.legacy-hive-view-translation")
+    @Config("hive.hive-views.legacy-translation")
+    @ConfigDescription("Use legacy Hive view translation mechanism")
+    public HiveConfig setLegacyHiveViewTranslation(boolean legacyHiveViewTranslation)
+    {
+        this.legacyHiveViewTranslation = legacyHiveViewTranslation;
+        return this;
+    }
+
+    public boolean isHiveViewsRunAsInvoker()
+    {
+        return hiveViewsRunAsInvoker;
+    }
+
+    @Config("hive.hive-views.run-as-invoker")
+    @ConfigDescription("Execute Hive views with permissions of invoker")
+    public HiveConfig setHiveViewsRunAsInvoker(boolean hiveViewsRunAsInvoker)
+    {
+        this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
         return this;
     }
 
@@ -1113,19 +1160,6 @@ public class HiveConfig
         return this;
     }
 
-    @Config("hive.legacy-hive-view-translation")
-    @ConfigDescription("Use legacy Hive view translation mechanism")
-    public HiveConfig setLegacyHiveViewTranslation(boolean legacyHiveViewTranslation)
-    {
-        this.legacyHiveViewTranslation = legacyHiveViewTranslation;
-        return this;
-    }
-
-    public boolean isLegacyHiveViewTranslation()
-    {
-        return this.legacyHiveViewTranslation;
-    }
-
     public Optional<String> getIcebergCatalogName()
     {
         return icebergCatalogName;
@@ -1164,5 +1198,30 @@ public class HiveConfig
     public double getMinimumAssignedSplitWeight()
     {
         return minimumAssignedSplitWeight;
+    }
+
+    public Optional<String> getDeltaLakeCatalogName()
+    {
+        return deltaLakeCatalogName;
+    }
+
+    @Config("hive.delta-lake-catalog-name")
+    @ConfigDescription("Catalog to redirect to when a Delta Lake table is referenced")
+    public HiveConfig setDeltaLakeCatalogName(String deltaLakeCatalogName)
+    {
+        this.deltaLakeCatalogName = Optional.ofNullable(deltaLakeCatalogName);
+        return this;
+    }
+
+    public boolean isAutoPurge()
+    {
+        return this.autoPurge;
+    }
+
+    @Config("hive.auto-purge")
+    public HiveConfig setAutoPurge(boolean autoPurge)
+    {
+        this.autoPurge = autoPurge;
+        return this;
     }
 }

@@ -14,10 +14,10 @@
 package io.trino.plugin.kudu.schema;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.kudu.KuduClientWrapper;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
-import org.apache.kudu.client.KuduClient;
 
 import java.util.List;
 
@@ -28,7 +28,7 @@ public class NoSchemaEmulation
         implements SchemaEmulation
 {
     @Override
-    public void createSchema(KuduClient client, String schemaName)
+    public void createSchema(KuduClientWrapper client, String schemaName)
     {
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             throw new SchemaAlreadyExistsException(schemaName);
@@ -39,7 +39,7 @@ public class NoSchemaEmulation
     }
 
     @Override
-    public void dropSchema(KuduClient client, String schemaName)
+    public void dropSchema(KuduClientWrapper client, String schemaName)
     {
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             throw new TrinoException(GENERIC_USER_ERROR, "Deleting default schema not allowed.");
@@ -50,13 +50,13 @@ public class NoSchemaEmulation
     }
 
     @Override
-    public boolean existsSchema(KuduClient client, String schemaName)
+    public boolean existsSchema(KuduClientWrapper client, String schemaName)
     {
         return DEFAULT_SCHEMA.equals(schemaName);
     }
 
     @Override
-    public List<String> listSchemaNames(KuduClient client)
+    public List<String> listSchemaNames(KuduClientWrapper client)
     {
         return ImmutableList.of("default");
     }

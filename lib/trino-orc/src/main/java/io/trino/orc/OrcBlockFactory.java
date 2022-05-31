@@ -66,7 +66,7 @@ public class OrcBlockFactory
         }
 
         @Override
-        public final Block load()
+        public Block load()
         {
             checkState(!loaded, "Already loaded");
             checkState(currentPageId == expectedPageId, "ORC reader has been advanced beyond block");

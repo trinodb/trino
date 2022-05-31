@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
@@ -28,9 +28,12 @@ import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -46,10 +49,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.SystemSessionProperties.MAX_DRIVERS_PER_TASK;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
-import static io.trino.plugin.iceberg.TestIcebergOrcMetricsCollection.DataFileRecord.toDataFileRecord;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
+import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -57,8 +62,7 @@ import static org.testng.Assert.assertNull;
 public class TestIcebergOrcMetricsCollection
         extends AbstractTestQueryFramework
 {
-    private HiveMetastore metastore;
-    private HdfsEnvironment hdfsEnvironment;
+    private TrinoCatalog trinoCatalog;
     private IcebergTableOperationsProvider tableOperationsProvider;
 
     @Override
@@ -81,9 +85,9 @@ public class TestIcebergOrcMetricsCollection
 
         HdfsConfig hdfsConfig = new HdfsConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
 
-        metastore = new FileHiveMetastore(
+        HiveMetastore metastore = new FileHiveMetastore(
                 new NodeVersion("test_version"),
                 hdfsEnvironment,
                 new MetastoreConfig(),
@@ -91,8 +95,18 @@ public class TestIcebergOrcMetricsCollection
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
         tableOperationsProvider = new FileMetastoreTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment));
+        trinoCatalog = new TrinoHiveCatalog(
+                new CatalogName("catalog"),
+                memoizeMetastore(metastore, 1000),
+                hdfsEnvironment,
+                new TestingTypeManager(),
+                tableOperationsProvider,
+                "trino-version",
+                false,
+                false,
+                false);
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty()));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty(), EMPTY_MODULE));
         queryRunner.createCatalog("iceberg", "iceberg");
 
         queryRunner.installPlugin(new TpchPlugin());
@@ -107,7 +121,7 @@ public class TestIcebergOrcMetricsCollection
     public void testMetrics()
     {
         assertUpdate("create table no_metrics (c1 varchar, c2 varchar)");
-        Table table = IcebergUtil.loadIcebergTable(metastore, tableOperationsProvider, TestingConnectorSession.SESSION,
+        Table table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, TestingConnectorSession.SESSION,
                 new SchemaTableName("test_schema", "no_metrics"));
         // skip metrics for all columns
         table.updateProperties().set("write.metadata.metrics.default", "none").commit();
@@ -124,7 +138,7 @@ public class TestIcebergOrcMetricsCollection
 
         // keep c1 metrics
         assertUpdate("create table c1_metrics (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(metastore, tableOperationsProvider, TestingConnectorSession.SESSION,
+        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, TestingConnectorSession.SESSION,
                 new SchemaTableName("test_schema", "c1_metrics"));
         table.updateProperties()
                 .set("write.metadata.metrics.default", "none")
@@ -142,7 +156,7 @@ public class TestIcebergOrcMetricsCollection
 
         // set c1 metrics mode to count
         assertUpdate("create table c1_metrics_count (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(metastore, tableOperationsProvider, TestingConnectorSession.SESSION,
+        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, TestingConnectorSession.SESSION,
                 new SchemaTableName("test_schema", "c1_metrics_count"));
         table.updateProperties()
                 .set("write.metadata.metrics.default", "none")
@@ -160,7 +174,7 @@ public class TestIcebergOrcMetricsCollection
 
         // set c1 metrics mode to truncate(10)
         assertUpdate("create table c1_metrics_truncate (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(metastore, tableOperationsProvider, TestingConnectorSession.SESSION,
+        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, TestingConnectorSession.SESSION,
                 new SchemaTableName("test_schema", "c1_metrics_truncate"));
         table.updateProperties()
                 .set("write.metadata.metrics.default", "none")
@@ -180,7 +194,7 @@ public class TestIcebergOrcMetricsCollection
 
         // keep both c1 and c2 metrics
         assertUpdate("create table c_metrics (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(metastore, tableOperationsProvider, TestingConnectorSession.SESSION,
+        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, TestingConnectorSession.SESSION,
                 new SchemaTableName("test_schema", "c_metrics"));
         table.updateProperties()
                 .set("write.metadata.metrics.column.c1", "full")
@@ -197,7 +211,7 @@ public class TestIcebergOrcMetricsCollection
 
         // keep all metrics
         assertUpdate("create table metrics (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(metastore, tableOperationsProvider, TestingConnectorSession.SESSION,
+        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, TestingConnectorSession.SESSION,
                 new SchemaTableName("test_schema", "metrics"));
         table.updateProperties()
                 .set("write.metadata.metrics.default", "full")
@@ -327,8 +341,11 @@ public class TestIcebergOrcMetricsCollection
         // Check per-column value count
         datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 3L));
 
-        // TODO: add more checks after NaN info is collected
-        assertNull(datafile.getNanValueCounts());
+        // Check per-column nan value count
+        assertEquals(datafile.getNanValueCounts().size(), 2);
+        assertEquals(datafile.getNanValueCounts().get(2), (Long) 1L);
+        assertEquals(datafile.getNanValueCounts().get(3), (Long) 1L);
+
         assertNull(datafile.getLowerBounds().get(2));
         assertNull(datafile.getLowerBounds().get(3));
         assertNull(datafile.getUpperBounds().get(2));
@@ -408,118 +425,5 @@ public class TestIcebergOrcMetricsCollection
         assertQuery("SELECT max(_timestamp) FROM test_timestamp", "VALUES '2021-01-31 00:00:00.333333'");
 
         assertUpdate("DROP TABLE test_timestamp");
-    }
-
-    public static class DataFileRecord
-    {
-        private final int content;
-        private final String filePath;
-        private final String fileFormat;
-        private final long recordCount;
-        private final long fileSizeInBytes;
-        private final Map<Integer, Long> columnSizes;
-        private final Map<Integer, Long> valueCounts;
-        private final Map<Integer, Long> nullValueCounts;
-        private final Map<Integer, Long> nanValueCounts;
-        private final Map<Integer, String> lowerBounds;
-        private final Map<Integer, String> upperBounds;
-
-        public static DataFileRecord toDataFileRecord(MaterializedRow row)
-        {
-            assertEquals(row.getFieldCount(), 14);
-            return new DataFileRecord(
-                    (int) row.getField(0),
-                    (String) row.getField(1),
-                    (String) row.getField(2),
-                    (long) row.getField(3),
-                    (long) row.getField(4),
-                    row.getField(5) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(5)) : null,
-                    row.getField(6) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(6)) : null,
-                    row.getField(7) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(7)) : null,
-                    row.getField(8) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(8)) : null,
-                    row.getField(9) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(9)) : null,
-                    row.getField(10) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(10)) : null);
-        }
-
-        private DataFileRecord(
-                int content,
-                String filePath,
-                String fileFormat,
-                long recordCount,
-                long fileSizeInBytes,
-                Map<Integer, Long> columnSizes,
-                Map<Integer, Long> valueCounts,
-                Map<Integer, Long> nullValueCounts,
-                Map<Integer, Long> nanValueCounts,
-                Map<Integer, String> lowerBounds,
-                Map<Integer, String> upperBounds)
-        {
-            this.content = content;
-            this.filePath = filePath;
-            this.fileFormat = fileFormat;
-            this.recordCount = recordCount;
-            this.fileSizeInBytes = fileSizeInBytes;
-            this.columnSizes = columnSizes;
-            this.valueCounts = valueCounts;
-            this.nullValueCounts = nullValueCounts;
-            this.nanValueCounts = nanValueCounts;
-            this.lowerBounds = lowerBounds;
-            this.upperBounds = upperBounds;
-        }
-
-        public int getContent()
-        {
-            return content;
-        }
-
-        public String getFilePath()
-        {
-            return filePath;
-        }
-
-        public String getFileFormat()
-        {
-            return fileFormat;
-        }
-
-        public long getRecordCount()
-        {
-            return recordCount;
-        }
-
-        public long getFileSizeInBytes()
-        {
-            return fileSizeInBytes;
-        }
-
-        public Map<Integer, Long> getColumnSizes()
-        {
-            return columnSizes;
-        }
-
-        public Map<Integer, Long> getValueCounts()
-        {
-            return valueCounts;
-        }
-
-        public Map<Integer, Long> getNullValueCounts()
-        {
-            return nullValueCounts;
-        }
-
-        public Map<Integer, Long> getNanValueCounts()
-        {
-            return nanValueCounts;
-        }
-
-        public Map<Integer, String> getLowerBounds()
-        {
-            return lowerBounds;
-        }
-
-        public Map<Integer, String> getUpperBounds()
-        {
-            return upperBounds;
-        }
     }
 }

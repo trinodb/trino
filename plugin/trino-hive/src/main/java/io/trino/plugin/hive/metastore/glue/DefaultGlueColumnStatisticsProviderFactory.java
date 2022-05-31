@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.services.glue.AWSGlueAsync;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.concurrent.Executor;
@@ -25,17 +24,14 @@ import static java.util.Objects.requireNonNull;
 public class DefaultGlueColumnStatisticsProviderFactory
         implements GlueColumnStatisticsProviderFactory
 {
-    private final @Nullable String catalogId;
     private final Executor statisticsReadExecutor;
     private final Executor statisticsWriteExecutor;
 
     @Inject
     public DefaultGlueColumnStatisticsProviderFactory(
-            GlueHiveMetastoreConfig glueConfig,
             @ForGlueColumnStatisticsRead Executor statisticsReadExecutor,
             @ForGlueColumnStatisticsWrite Executor statisticsWriteExecutor)
     {
-        this.catalogId = requireNonNull(glueConfig, "glueConfig is null").getCatalogId().orElse(null);
         this.statisticsReadExecutor = requireNonNull(statisticsReadExecutor, "statisticsReadExecutor is null");
         this.statisticsWriteExecutor = requireNonNull(statisticsWriteExecutor, "statisticsWriteExecutor is null");
     }
@@ -45,7 +41,6 @@ public class DefaultGlueColumnStatisticsProviderFactory
     {
         return new DefaultGlueColumnStatisticsProvider(
                 glueClient,
-                catalogId,
                 statisticsReadExecutor,
                 statisticsWriteExecutor,
                 stats);

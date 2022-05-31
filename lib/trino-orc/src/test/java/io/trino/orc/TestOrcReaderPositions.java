@@ -16,6 +16,7 @@ package io.trino.orc;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
+import io.trino.hive.orc.NullMemoryManager;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.Footer;
 import io.trino.orc.metadata.OrcColumnId;
@@ -34,7 +35,6 @@ import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.io.Writable;
-import org.apache.orc.NullMemoryManager;
 import org.testng.annotations.Test;
 
 import java.io.File;

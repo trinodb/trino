@@ -13,7 +13,7 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -21,6 +21,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
@@ -44,8 +45,12 @@ public class FutureStateChange<T>
         // remove the listener when the future completes
         listener.addListener(
                 () -> {
-                    synchronized (listeners) {
-                        listeners.remove(listener);
+                    // Only listeners that are canceled before being notified need individual removal from the listeners set,
+                    // since all futures are cleared from the listeners set before being notified
+                    if (listener.isCancelled()) {
+                        synchronized (listeners) {
+                            listeners.remove(listener);
+                        }
                     }
                 },
                 directExecutor());
@@ -66,9 +71,9 @@ public class FutureStateChange<T>
     private void fireStateChange(T newState, Executor executor)
     {
         requireNonNull(executor, "executor is null");
-        Set<SettableFuture<T>> futures;
+        List<SettableFuture<T>> futures;
         synchronized (listeners) {
-            futures = ImmutableSet.copyOf(listeners);
+            futures = ImmutableList.copyOf(listeners);
             listeners.clear();
         }
 

@@ -9,10 +9,12 @@ from different data sources.
     :maxdepth: 1
 
     Accumulo        <connector/accumulo>
+    Atop            <connector/atop>
     BigQuery        <connector/bigquery>
     Black Hole      <connector/blackhole>
     Cassandra       <connector/cassandra>
     ClickHouse      <connector/clickhouse>
+    Delta Lake      <connector/delta-lake>
     Druid           <connector/druid>
     Elasticsearch   <connector/elasticsearch>
     Google Sheets   <connector/googlesheets>
@@ -23,6 +25,7 @@ from different data sources.
     Kinesis         <connector/kinesis>
     Kudu            <connector/kudu>
     Local File      <connector/localfile>
+    MariaDB         <connector/mariadb>
     Memory          <connector/memory>
     MongoDB         <connector/mongodb>
     MySQL           <connector/mysql>

@@ -190,7 +190,7 @@ public class TestFileResourceGroupConfigurationManager
     {
         long memoryPoolSize = 31415926535900L; // arbitrary uneven value for testing
         FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(
-                (listener) -> listener.accept(new MemoryPoolInfo(memoryPoolSize, 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of())),
+                (listener) -> listener.accept(new MemoryPoolInfo(memoryPoolSize, 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of())),
                 new FileResourceGroupConfig()
                         // TODO: figure out a better way to validate documentation
                         .setConfigFile("../../docs/src/main/sphinx/admin/resource-groups-example.json"));

@@ -40,6 +40,12 @@ where ``from_item`` is one of
 For detailed description of ``MATCH_RECOGNIZE`` clause, see :doc:`pattern
 recognition in FROM clause</sql/match-recognize>`.
 
+.. code-block:: text
+
+    TABLE (table_function_invocation) [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+
+For description of table functions usage, see :doc:`table functions</functions/table>`.
+
 and ``join_type`` is one of
 
 .. code-block:: text

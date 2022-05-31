@@ -43,17 +43,12 @@ class ChildAggregatedMemoryContext
     @Override
     synchronized boolean tryUpdateBytes(String allocationTag, long delta)
     {
+        checkState(!isClosed(), "ChildAggregatedMemoryContext is already closed");
         if (parentMemoryContext.tryUpdateBytes(allocationTag, delta)) {
             addBytes(delta);
             return true;
         }
         return false;
-    }
-
-    @Override
-    synchronized AbstractAggregatedMemoryContext getParent()
-    {
-        return parentMemoryContext;
     }
 
     @Override

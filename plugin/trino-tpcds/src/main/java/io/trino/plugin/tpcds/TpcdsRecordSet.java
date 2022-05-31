@@ -25,10 +25,9 @@ import io.trino.spi.type.Type;
 import io.trino.tpcds.Results;
 import io.trino.tpcds.column.Column;
 import io.trino.tpcds.column.ColumnType;
-import org.joda.time.Days;
-import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
 
+import java.time.LocalDate;
 import java.util.Iterator;
 import java.util.List;
 
@@ -131,7 +130,7 @@ public class TpcdsRecordSet
             checkState(row != null, "No current row");
             Column column = columns.get(field);
             if (column.getType().getBase() == ColumnType.Base.DATE) {
-                return Days.daysBetween(new LocalDate(0), LocalDate.parse(row.get(column.getPosition()))).getDays();
+                return LocalDate.parse(row.get(column.getPosition())).toEpochDay();
             }
             if (column.getType().getBase() == ColumnType.Base.TIME) {
                 return LocalTime.parse(row.get(column.getPosition())).getMillisOfDay();

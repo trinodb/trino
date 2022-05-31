@@ -28,11 +28,9 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -74,10 +72,7 @@ public class EnvSinglenodeSparkHive
                     CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
 
-        builder.configureContainer(COORDINATOR, container -> container
-                .withCopyFileToContainer(
-                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-hive/hive.properties")),
-                        CONTAINER_PRESTO_ETC + "/catalog/hive.properties"));
+        builder.addConnector("hive", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-hive/hive.properties")));
 
         builder.addContainer(createSpark())
                 .containerDependsOn("spark", HADOOP);

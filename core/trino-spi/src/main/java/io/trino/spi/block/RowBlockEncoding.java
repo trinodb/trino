@@ -35,40 +35,61 @@ public class RowBlockEncoding
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         AbstractRowBlock rowBlock = (AbstractRowBlock) block;
+        int[] fieldBlockOffsets = rowBlock.getFieldBlockOffsets();
+
         int numFields = rowBlock.numFields;
 
         int positionCount = rowBlock.getPositionCount();
 
         int offsetBase = rowBlock.getOffsetBase();
-        int[] fieldBlockOffsets = rowBlock.getFieldBlockOffsets();
-        int startFieldBlockOffset = fieldBlockOffsets[offsetBase];
-        int endFieldBlockOffset = fieldBlockOffsets[offsetBase + positionCount];
+
+        int startFieldBlockOffset = fieldBlockOffsets != null ? fieldBlockOffsets[offsetBase] : offsetBase;
+        int endFieldBlockOffset = fieldBlockOffsets != null ? fieldBlockOffsets[offsetBase + positionCount] : offsetBase + positionCount;
 
         sliceOutput.appendInt(numFields);
+        sliceOutput.appendInt(positionCount);
+
         for (int i = 0; i < numFields; i++) {
             blockEncodingSerde.writeBlock(sliceOutput, rowBlock.getRawFieldBlocks()[i].getRegion(startFieldBlockOffset, endFieldBlockOffset - startFieldBlockOffset));
         }
 
-        sliceOutput.appendInt(positionCount);
-        for (int position = 0; position < positionCount + 1; position++) {
-            sliceOutput.writeInt(fieldBlockOffsets[offsetBase + position] - startFieldBlockOffset);
-        }
         EncoderUtil.encodeNullsAsBits(sliceOutput, block);
+
+        if ((rowBlock.getRowIsNull() == null) != (fieldBlockOffsets == null)) {
+            throw new IllegalArgumentException("When rowIsNull is (non) null then fieldBlockOffsets should be (non) null as well");
+        }
+
+        if (fieldBlockOffsets != null) {
+            if (startFieldBlockOffset == 0) {
+                sliceOutput.writeBytes(wrappedIntArray(fieldBlockOffsets, offsetBase, positionCount + 1));
+            }
+            else {
+                int[] newFieldBlockOffsets = new int[positionCount + 1];
+                for (int position = 0; position < positionCount + 1; position++) {
+                    newFieldBlockOffsets[position] = fieldBlockOffsets[offsetBase + position] - startFieldBlockOffset;
+                }
+                sliceOutput.writeBytes(wrappedIntArray(newFieldBlockOffsets));
+            }
+        }
     }
 
     @Override
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int numFields = sliceInput.readInt();
+        int positionCount = sliceInput.readInt();
+
         Block[] fieldBlocks = new Block[numFields];
         for (int i = 0; i < numFields; i++) {
             fieldBlocks[i] = blockEncodingSerde.readBlock(sliceInput);
         }
 
-        int positionCount = sliceInput.readInt();
-        int[] fieldBlockOffsets = new int[positionCount + 1];
-        sliceInput.readBytes(wrappedIntArray(fieldBlockOffsets));
         boolean[] rowIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount).orElse(null);
+        int[] fieldBlockOffsets = null;
+        if (rowIsNull != null) {
+            fieldBlockOffsets = new int[positionCount + 1];
+            sliceInput.readBytes(wrappedIntArray(fieldBlockOffsets));
+        }
         return createRowBlockInternal(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
     }
 }

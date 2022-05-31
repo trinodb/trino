@@ -89,6 +89,9 @@ public abstract class BaseElasticsearchConnectorTest
             case SUPPORTS_CREATE_TABLE:
                 return false;
 
+            case SUPPORTS_ADD_COLUMN:
+                return false;
+
             case SUPPORTS_CREATE_SCHEMA:
                 return false;
 
@@ -1042,6 +1045,64 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testLike()
+            throws IOException
+    {
+        String indexName = "like_test";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "    \"text_column\":      { \"type\": \"text\" }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "so.me tex\\t")
+                .put("text_column", "so.me tex\\t")
+                .buildOrThrow());
+
+        // Add another document to make sure '.' is escaped and not treated as any character
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "soome tex\\t")
+                .put("text_column", "soome tex\\t")
+                .buildOrThrow());
+
+        // Add another document to make sure '%' can be escaped and not treated as any character
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "soome%text")
+                .put("text_column", "soome%text")
+                .buildOrThrow());
+
+        assertThat(query("" +
+                "SELECT " +
+                "keyword_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE 's_.m%ex\\t'"))
+                .matches("VALUES VARCHAR 'so.me tex\\t'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                 "SELECT " +
+                 "text_column " +
+                 "FROM " + indexName + " " +
+                 "WHERE text_column LIKE 's_.m%ex\\t'"))
+                .matches("VALUES VARCHAR 'so.me tex\\t'");
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE 'soome$%%' ESCAPE '$'"))
+                .matches("VALUES VARCHAR 'soome%text'")
+                .isFullyPushedDown();
+    }
+
+    @Test
     public void testDataTypes()
             throws IOException
     {
@@ -1239,6 +1300,37 @@ public abstract class BaseElasticsearchConnectorTest
                 .build();
 
         assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testNestedTimestamps()
+            throws IOException
+    {
+        String indexName = "nested_timestamps";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\":{" +
+                "    \"field\": {" +
+                "      \"properties\": {" +
+                "        \"timestamp_column\": { \"type\": \"date\" }" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.of("field", ImmutableMap.of("timestamp_column", 0)));
+        index(indexName, ImmutableMap.of("field", ImmutableMap.of("timestamp_column", "1")));
+        index(indexName, ImmutableMap.of("field", ImmutableMap.of("timestamp_column", "1970-01-01T01:01:00+0000")));
+
+        assertThat(query("SELECT field.timestamp_column FROM " + indexName))
+                .matches("VALUES " +
+                        "(TIMESTAMP '1970-01-01 00:00:00.000')," +
+                        "(TIMESTAMP '1970-01-01 00:00:00.001')," +
+                        "(TIMESTAMP '1970-01-01 01:01:00.000')");
     }
 
     @Test

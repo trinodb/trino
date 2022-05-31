@@ -909,9 +909,9 @@ public abstract class AbstractTestParquetReader
     {
         for (int precision = 1; precision < MAX_PRECISION; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
-            ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
-            ImmutableList.Builder<SqlDecimal> expectedValuesMaxPrecision = new ImmutableList.Builder<>();
-            ImmutableList.Builder<HiveDecimal> writeValues = new ImmutableList.Builder<>();
+            ImmutableList.Builder<SqlDecimal> expectedValues = ImmutableList.builder();
+            ImmutableList.Builder<SqlDecimal> expectedValuesMaxPrecision = ImmutableList.builder();
+            ImmutableList.Builder<HiveDecimal> writeValues = ImmutableList.builder();
 
             BigInteger start = BigDecimal.valueOf(Math.pow(10, precision - 1)).negate().toBigInteger();
             BigInteger end = BigDecimal.valueOf(Math.pow(10, precision)).toBigInteger();
@@ -950,7 +950,7 @@ public abstract class AbstractTestParquetReader
         for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
             ContiguousSet<Long> longValues = longsBetween(Byte.MIN_VALUE, Byte.MAX_VALUE);
-            ImmutableList.Builder<Byte> expectedValues = new ImmutableList.Builder<>();
+            ImmutableList.Builder<Byte> expectedValues = ImmutableList.builder();
             for (Long value : longValues) {
                 expectedValues.add(value.byteValue());
             }
@@ -965,7 +965,7 @@ public abstract class AbstractTestParquetReader
         for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
             ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
-            ImmutableList.Builder<Short> expectedValues = new ImmutableList.Builder<>();
+            ImmutableList.Builder<Short> expectedValues = ImmutableList.builder();
             for (Long value : longValues) {
                 expectedValues.add(value.shortValue());
             }
@@ -980,7 +980,7 @@ public abstract class AbstractTestParquetReader
         for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
             ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
-            ImmutableList.Builder<Integer> expectedValues = new ImmutableList.Builder<>();
+            ImmutableList.Builder<Integer> expectedValues = ImmutableList.builder();
             for (Long value : longValues) {
                 expectedValues.add(value.intValue());
             }
@@ -995,7 +995,7 @@ public abstract class AbstractTestParquetReader
         for (int precision = 4; precision <= MAX_PRECISION_INT64; precision++) {
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
             ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
-            ImmutableList.Builder<Long> expectedValues = new ImmutableList.Builder<>();
+            ImmutableList.Builder<Long> expectedValues = ImmutableList.builder();
             for (Long value : longValues) {
                 expectedValues.add(value);
             }

@@ -20,6 +20,8 @@ Cluster access security
   security/inspect-pem
   security/inspect-jks
 
+.. _security-authentication:
+
 Authentication
 ==============
 

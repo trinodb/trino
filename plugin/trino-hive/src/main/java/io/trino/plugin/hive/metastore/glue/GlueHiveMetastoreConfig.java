@@ -30,7 +30,7 @@ public class GlueHiveMetastoreConfig
     private Optional<String> glueEndpointUrl = Optional.empty();
     private boolean pinGlueClientToCurrentRegion;
     private int maxGlueErrorRetries = 10;
-    private int maxGlueConnections = 5;
+    private int maxGlueConnections = 30;
     private Optional<String> defaultWarehouseDir = Optional.empty();
     private Optional<String> iamRole = Optional.empty();
     private Optional<String> externalId = Optional.empty();

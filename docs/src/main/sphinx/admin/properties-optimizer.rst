@@ -146,3 +146,56 @@ Specifies minimal bucket to task ratio that has to be matched or exceeded in ord
 to use table scan node partitioning. When the table bucket count is small
 compared to the number of workers, then the table scan is distributed across
 all workers for improved parallelism.
+
+``optimizer.filter-conjunction-independence-factor``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-double`
+* **Default value:** ``0.75``
+* **Min allowed value:** ``0``
+* **Max allowed value:** ``1``
+
+Scales the strength of independence assumption for estimating the selectivity of
+the conjunction of multiple predicates. Lower values for this property will produce
+more conservative estimates by assuming a greater degree of correlation between the
+columns of the predicates in a conjunction. A value of ``0`` results in the
+optimizer assuming that the columns of the predicates are fully correlated and only
+the most selective predicate drives the selectivity of a conjunction of predicates.
+
+``optimizer.join-multi-clause-independence-factor``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-double`
+* **Default value:** ``0.25``
+* **Min allowed value:** ``0``
+* **Max allowed value:** ``1``
+
+Scales the strength of independence assumption for estimating the output of a
+multi-clause join. Lower values for this property will produce more
+conservative estimates by assuming a greater degree of correlation between the
+columns of the clauses in a join. A value of ``0`` results in the optimizer
+assuming that the columns of the join clauses are fully correlated and only
+the most selective clause drives the selectivity of the join.
+
+``optimizer.non-estimatable-predicate-approximation.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``true``
+
+Enables approximation of the output row count of filters whose costs cannot be
+accurately estimated even with complete statistics. This allows the optimizer to
+produce more efficient plans in the presence of filters which were previously
+not estimated.
+
+``optimizer.join-partitioned-build-min-row-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Default value:** ``1000000``
+* **Min allowed value:** ``0``
+
+The minimum number of join build side rows required to use partitioned join lookup.
+If the build side of a join is estimated to be smaller than the configured threshold,
+single threaded join lookup is used to improve join performance.
+A value of ``0`` disables this optimization.

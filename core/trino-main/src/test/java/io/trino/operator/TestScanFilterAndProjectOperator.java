@@ -19,10 +19,10 @@ import io.trino.SequencePageBuilder;
 import io.trino.block.BlockAssertions;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionManager;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.Split;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.index.PageRecordSet;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
@@ -80,8 +80,6 @@ import static org.testng.Assert.assertTrue;
 public class TestScanFilterAndProjectOperator
         extends AbstractTestFunctions
 {
-    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-    private final ExpressionCompiler expressionCompiler = functionResolution.getExpressionCompiler();
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     private ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
 
@@ -101,8 +99,8 @@ public class TestScanFilterAndProjectOperator
         DriverContext driverContext = newDriverContext();
 
         List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
-        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);
+        Supplier<CursorProcessor> cursorProcessor = functionAssertions.getExpressionCompiler().compileCursorProcessor(Optional.empty(), projections, "key");
+        Supplier<PageProcessor> pageProcessor = functionAssertions.getExpressionCompiler().compilePageProcessor(Optional.empty(), projections);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
@@ -140,12 +138,12 @@ public class TestScanFilterAndProjectOperator
                 .build();
 
         RowExpression filter = call(
-                functionResolution.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
+                functionAssertions.getTestingFunctionResolution().resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
                 field(0, BIGINT),
                 constant(10L, BIGINT));
         List<RowExpression> projections = ImmutableList.of(field(0, BIGINT));
-        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.of(filter), projections, "key");
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), projections);
+        Supplier<CursorProcessor> cursorProcessor = functionAssertions.getExpressionCompiler().compileCursorProcessor(Optional.of(filter), projections, "key");
+        Supplier<PageProcessor> pageProcessor = functionAssertions.getExpressionCompiler().compilePageProcessor(Optional.of(filter), projections);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
@@ -189,7 +187,7 @@ public class TestScanFilterAndProjectOperator
         DriverContext driverContext = newDriverContext();
 
         List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
-        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
+        Supplier<CursorProcessor> cursorProcessor = functionAssertions.getExpressionCompiler().compileCursorProcessor(Optional.empty(), projections, "key");
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new LazyPagePageProjection()));
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
@@ -224,8 +222,8 @@ public class TestScanFilterAndProjectOperator
         DriverContext driverContext = newDriverContext();
 
         List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
-        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);
+        Supplier<CursorProcessor> cursorProcessor = functionAssertions.getExpressionCompiler().compileCursorProcessor(Optional.empty(), projections, "key");
+        Supplier<PageProcessor> pageProcessor = functionAssertions.getExpressionCompiler().compilePageProcessor(Optional.empty(), projections);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
@@ -268,14 +266,13 @@ public class TestScanFilterAndProjectOperator
                 return value;
             }));
         }
-        Metadata metadata = functionAssertions.getMetadata();
-        metadata.addFunctions(functions.build());
+        functionAssertions.addFunctions(new InternalFunctionBundle(functions.build()));
 
         // match each column with a projection
-        ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(functionAssertions.getFunctionManager(), new PageFunctionCompiler(functionAssertions.getFunctionManager(), 0));
         ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
-            projections.add(call(metadata.resolveFunction(session, QualifiedName.of("generic_long_page_col" + i), fromTypes(BIGINT)), field(0, BIGINT)));
+            projections.add(call(functionAssertions.getMetadata().resolveFunction(session, QualifiedName.of("generic_long_page_col" + i), fromTypes(BIGINT)), field(0, BIGINT)));
         }
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections.build(), "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build(), MAX_BATCH_SIZE);
@@ -332,15 +329,15 @@ public class TestScanFilterAndProjectOperator
         DriverContext driverContext = newDriverContext();
 
         // set up generic long function with a callback to force yield
-        Metadata metadata = functionAssertions.getMetadata();
-        metadata.addFunctions(ImmutableList.of(new GenericLongFunction("record_cursor", value -> {
+        functionAssertions.addFunctions(new InternalFunctionBundle(new GenericLongFunction("record_cursor", value -> {
             driverContext.getYieldSignal().forceYieldForTesting();
             return value;
         })));
-        ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
+        FunctionManager functionManager = functionAssertions.getFunctionManager();
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(functionManager, new PageFunctionCompiler(functionManager, 0));
 
         List<RowExpression> projections = ImmutableList.of(call(
-                metadata.resolveFunction(session, QualifiedName.of("generic_long_record_cursor"), fromTypes(BIGINT)),
+                functionAssertions.getMetadata().resolveFunction(session, QualifiedName.of("generic_long_record_cursor"), fromTypes(BIGINT)),
                 field(0, BIGINT)));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);

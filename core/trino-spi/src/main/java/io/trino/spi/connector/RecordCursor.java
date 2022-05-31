@@ -21,6 +21,10 @@ import java.io.Closeable;
 public interface RecordCursor
         extends Closeable
 {
+    /**
+     * Gets the number of input bytes processed by this record cursor so far.
+     * If size is not available, this method should return zero.
+     */
     long getCompletedBytes();
 
     /**

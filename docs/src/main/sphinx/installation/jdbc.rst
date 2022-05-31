@@ -88,6 +88,8 @@ This example JDBC URL locates a Trino instance running on port ``8080`` on
   client. If it is not, use ``io.trino.jdbc.TrinoDriver`` wherever a driver
   classname is required.
 
+.. _jdbc-java-connection:
+
 Connection parameters
 ---------------------
 
@@ -97,7 +99,7 @@ examples are equivalent:
 
 .. code-block:: java
 
-    // URL parameters
+    // properties
     String url = "jdbc:trino://example.net:8080/hive/sales";
     Properties properties = new Properties();
     properties.setProperty("user", "test");
@@ -105,7 +107,7 @@ examples are equivalent:
     properties.setProperty("SSL", "true");
     Connection connection = DriverManager.getConnection(url, properties);
 
-    // properties
+    // URL parameters
     String url = "jdbc:trino://example.net:8443/hive/sales?user=test&password=secret&SSL=true";
     Connection connection = DriverManager.getConnection(url);
 
@@ -138,7 +140,7 @@ Name                                                         Description
                                                              property nor ``ApplicationName`` or ``source`` are set, the source
                                                              name for the query is ``trino-jdbc``.
 ``accessToken``                                              :doc:`JWT </security/jwt>` access token for token based authentication.
-``SSL``                                                      Set ``true`` to specify using HTTPS/TLS for connections.
+``SSL``                                                      Set ``true`` to specify using TLS/HTTPS for connections.
 ``SSLVerification``                                          The method of TLS verification. There are three modes: ``FULL``
                                                              (default), ``CA`` and ``NONE``. For ``FULL``, the normal TLS
                                                              verification is performed. For ``CA``, only the CA is verified but
@@ -156,6 +158,11 @@ Name                                                         Description
 ``SSLTrustStorePassword``                                    The password for the TrustStore.
 ``SSLTrustStoreType``                                        The type of the TrustStore. The default type is provided by the Java
                                                              ``keystore.type`` security property or ``jks`` if none exists.
+``SSLUseSystemTrustStore``                                   Set ``true`` to automatically use the system TrustStore based on the operating system.
+                                                             The supported OSes are Windows and macOS. For Windows, the ``Windows-ROOT``
+                                                             TrustStore is selected. For macOS, the ``KeychainStore`` TrustStore is selected.
+                                                             For other OSes, the default Java TrustStore is loaded.
+                                                             The TrustStore specification can be overridden using ``SSLTrustStoreType``.
 ``KerberosRemoteServiceName``                                Trino coordinator Kerberos service name. This parameter is
                                                              required for Kerberos authentication.
 ``KerberosPrincipal``                                        The principal to use when authenticating to the Trino coordinator.

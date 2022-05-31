@@ -4,6 +4,8 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+abort_if_not_gib_impacted
+
 check_vars ADL_NAME ADL_CLIENT_ID ADL_CREDENTIAL ADL_REFRESH_URL
 
 cleanup_hadoop_docker_containers
@@ -26,7 +28,7 @@ stop_unnecessary_hadoop_services
 # run product tests
 pushd $PROJECT_ROOT
 set +e
-./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-adl \
+./mvnw ${MAVEN_TEST:--B} -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-adl \
     -DHADOOP_USER_NAME=hive \
     -Dhive.hadoop2.metastoreHost=localhost \
     -Dhive.hadoop2.metastorePort=9083 \

@@ -40,7 +40,7 @@ public class DecimalStatistics
     private final BigDecimal maximum;
     private final long retainedSizeInBytes;
 
-    @SuppressWarnings("NumberEquality")
+    @SuppressWarnings({"NumberEquality", "BoxedPrimitiveEquality"})
     public DecimalStatistics(BigDecimal minimum, BigDecimal maximum, long decimalSizeInBytes)
     {
         checkArgument(minimum == null || maximum == null || minimum.compareTo(maximum) <= 0, "minimum is not less than or equal to maximum: %s, %s", minimum, maximum);

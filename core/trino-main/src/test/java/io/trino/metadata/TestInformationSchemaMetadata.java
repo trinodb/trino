@@ -93,7 +93,7 @@ public class TestInformationSchemaMetadata
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
 
-        ImmutableMap.Builder<ColumnHandle, Domain> domains = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<ColumnHandle, Domain> domains = ImmutableMap.builder();
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
         domains.put(new InformationSchemaColumnHandle("table_name"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_view")));
         Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
@@ -133,7 +133,7 @@ public class TestInformationSchemaMetadata
         TransactionId transactionId = transactionManager.beginTransaction(false);
 
         // predicate without schema predicates should cause schemas to be enumerated when table predicates are present
-        ImmutableMap.Builder<ColumnHandle, Domain> domains = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<ColumnHandle, Domain> domains = ImmutableMap.builder();
         domains.put(new InformationSchemaColumnHandle("table_name"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_view")));
         Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 
@@ -157,7 +157,7 @@ public class TestInformationSchemaMetadata
         TransactionId transactionId = transactionManager.beginTransaction(false);
 
         // predicate without table name predicates should not cause table level prefixes to be evaluated
-        ImmutableMap.Builder<ColumnHandle, Domain> domains = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<ColumnHandle, Domain> domains = ImmutableMap.builder();
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
         Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 

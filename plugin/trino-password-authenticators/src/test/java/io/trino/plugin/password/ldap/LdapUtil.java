@@ -45,6 +45,7 @@ final class LdapUtil
     private LdapUtil()
     {}
 
+    @SuppressWarnings("BanJNDI")
     public static String addLdapDefinition(LdapObjectDefinition ldapObjectDefinition, DirContext context)
     {
         requireNonNull(ldapObjectDefinition, "LDAP Object Definition is null");
@@ -69,6 +70,7 @@ final class LdapUtil
         return ldapObjectDefinition.getDistinguishedName();
     }
 
+    @SuppressWarnings("BanJNDI")
     public static void addAttributesToExistingLdapObjects(String distinguishedName, Map<String, List<String>> modifiedAttributes, DirContext context)
     {
         requireNonNull(distinguishedName, "distinguishedName is null");

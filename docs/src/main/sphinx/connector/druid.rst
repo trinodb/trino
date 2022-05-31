@@ -2,6 +2,10 @@
 Druid connector
 ===============
 
+.. raw:: html
+
+  <img src="../_static/img/druid.png" class="connector-logo">
+
 The Druid connector allows querying an `Apache Druid <https://druid.apache.org/>`_
 database from Trino.
 

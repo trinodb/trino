@@ -25,11 +25,10 @@ import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
-import io.trino.testing.datatype.DataType;
-import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -39,8 +38,6 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.List;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -66,14 +63,13 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.datatype.DataType.dataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
-import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * @see <a href="https://phoenix.apache.org/language/datatypes.html">Phoenix data types</a>
@@ -119,21 +115,6 @@ public class TestPhoenixTypeMapping
     }
 
     @Test
-    public void testBasicTypes()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("boolean", "true", BOOLEAN, "true")
-                .addRoundTrip("boolean", "false", BOOLEAN, "false")
-                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
-                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
-                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
-                .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
-                .addRoundTrip("double", "123.45", DOUBLE, "DOUBLE '123.45'")
-                .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
-    }
-
-    @Test
     public void testBoolean()
     {
         SqlDataTypeTest.create()
@@ -141,6 +122,7 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("boolean", "false", BOOLEAN, "false")
                 .addRoundTrip("boolean", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_boolean"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_boolean"))
 
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_boolean"));
@@ -150,14 +132,28 @@ public class TestPhoenixTypeMapping
     public void testTinyInt()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("tinyint", "-128", TINYINT, "TINYINT '-128'") // min value in Phoenix
+                .addRoundTrip("tinyint", "-128", TINYINT, "TINYINT '-128'") // min value in Phoenix and Trino
                 .addRoundTrip("tinyint", "0", TINYINT, "TINYINT '0'")
-                .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'") // max value in Phoenix
+                .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'") // max value in Phoenix and Trino
                 .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"))
 
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_tinyint"));
+    }
+
+    @Test
+    public void testUnsupportedTinyint()
+    {
+        try (TestTable table = new TestTable(new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()), "tpch.test_unsupported_tinyint", "(data tinyint, pk tinyint primary key)")) {
+            assertPhoenixQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (-129, 1)", // min - 1
+                    "ERROR 203 (22005): Type mismatch. BIGINT and TINYINT for expression: -129 in column 0.DATA");
+            assertPhoenixQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (128, 2)", // max + 1
+                    "ERROR 203 (22005): Type mismatch. TINYINT and INTEGER for 128");
+        }
     }
 
     @Test
@@ -175,14 +171,28 @@ public class TestPhoenixTypeMapping
     public void testSmallInt()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in Phoenix
+                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in Phoenix and Trino
                 .addRoundTrip("smallint", "0", SMALLINT, "SMALLINT '0'")
-                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in Phoenix
+                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in Phoenix and Trino
                 .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"))
 
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_smallint"));
+    }
+
+    @Test
+    public void testUnsupportedSmallint()
+    {
+        try (TestTable table = new TestTable(new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()), "tpch.test_unsupported_smallint", "(data smallint, pk smallint primary key)")) {
+            assertPhoenixQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (-32769, 1)", // min - 1
+                    "ERROR 203 (22005): Type mismatch. BIGINT and SMALLINT for expression: -32769 in column 0.DATA");
+            assertPhoenixQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (32768, 2)", // max + 1
+                    "ERROR 203 (22005): Type mismatch. SMALLINT and INTEGER for 32768");
+        }
     }
 
     @Test
@@ -200,14 +210,28 @@ public class TestPhoenixTypeMapping
     public void testInteger()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648") // min value in Phoenix
+                .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648") // min value in Phoenix and Trino
                 .addRoundTrip("integer", "0", INTEGER, "0")
-                .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in Phoenix
+                .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in Phoenix and Trino
                 .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_integer"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_integer"))
 
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_integer"));
+    }
+
+    @Test
+    public void testUnsupportedInteger()
+    {
+        try (TestTable table = new TestTable(new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()), "tpch.test_unsupported_integer", "(data integer, pk integer primary key)")) {
+            assertPhoenixQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (-2147483649, 1)", // min - 1
+                    "ERROR 203 (22005): Type mismatch. BIGINT and INTEGER for expression: -2147483649 in column 0.DATA");
+            assertPhoenixQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (2147483648, 2)", // max + 1
+                    "ERROR 203 (22005): Type mismatch. INTEGER and BIGINT for 2147483648");
+        }
     }
 
     @Test
@@ -225,14 +249,30 @@ public class TestPhoenixTypeMapping
     public void testBigInt()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in Phoenix
+                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in Phoenix and Trino
                 .addRoundTrip("bigint", "0", BIGINT, "BIGINT '0'")
-                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in Phoenix
+                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in Phoenix and Trino
                 .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"))
 
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_bigint"));
+    }
+
+    @Test
+    public void testUnsupportedBigInt()
+    {
+        try (TestTable table = new TestTable(new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()), "tpch.test_unsupported_bigint", "(data bigint, pk bigint primary key)")) {
+            assertPhoenixQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (-9223372036854775809, 1)", // min - 1
+                    "ERROR 203 (22005): Type mismatch. DECIMAL and BIGINT for expression: -9223372036854775809 in column 0.DATA");
+
+            // Phoenix JDBC driver throws ArithmeticException instead of SQLException when the value is larger than max of bigint
+            assertThatThrownBy(() -> new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()).execute(format("INSERT INTO %s VALUES (9223372036854775808, 2)", table.getName()))) // max + 1
+                    .isInstanceOf(ArithmeticException.class)
+                    .hasMessage("Overflow");
+        }
     }
 
     @Test
@@ -256,7 +296,8 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("real", "REAL '123.456E10'", REAL, "REAL '123.456E10'")
                 .addRoundTrip("real", "REAL '3.402823466E38'", REAL, "REAL '3.402823466E38'") // max value in Phoenix
                 .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_float"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_float"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_float"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("float", "-3.402823466E38", REAL, "REAL '-3.402823466E38'") // min value in Phoenix
@@ -293,6 +334,7 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("double", "1.7976931348623158E308", DOUBLE, "DOUBLE '1.7976931348623158E308'") // max value in Phoenix
                 .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_double"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_double"))
 
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_double"));
@@ -325,6 +367,7 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("varchar(10)", "NULL", createVarcharType(10), "CAST(NULL AS VARCHAR(10))")
                 .addRoundTrip("varchar", "NULL", VARCHAR, "CAST(NULL AS VARCHAR)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_varchar"))
 
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_varchar"));
@@ -339,6 +382,7 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("char(65536)", "'text_e'", createCharType(CharType.MAX_LENGTH), "CAST('text_e' AS CHAR(65536))")
                 .addRoundTrip("char(10)", "NULL", createCharType(10), "CAST(NULL AS CHAR(10))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_char"))
 
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_char"));
@@ -377,7 +421,8 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
                 .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_varbinary"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
@@ -415,7 +460,8 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .addRoundTrip("decimal(3, 0)", "NULL", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_decimal"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("decimal(3, 0)", "CAST(193 AS decimal(3, 0))", createDecimalType(3, 0), "CAST('193' AS decimal(3, 0))")
@@ -514,8 +560,9 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("date", "DATE '5881580-07-11'", DATE, "DATE '5881580-07-11'") // max value in Trino
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("date", "TO_DATE('5877642-06-23 BC', 'yyyy-MM-dd G', 'local')", DATE, "DATE '-5877641-06-23'") // min value in Trino
@@ -573,7 +620,8 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("ARRAY(smallint)", "ARRAY[32456]", new ArrayType(SMALLINT), "ARRAY[SMALLINT '32456']")
                 .addRoundTrip("ARRAY(double)", "ARRAY[123.45]", new ArrayType(DOUBLE), "ARRAY[DOUBLE '123.45']")
                 .addRoundTrip("ARRAY(real)", "ARRAY[123.45]", new ArrayType(REAL), "ARRAY[REAL '123.45']")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_basic"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_basic"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_array_basic"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("ARRAY(date)", "ARRAY[DATE '1952-04-03']", new ArrayType(DATE), "ARRAY[DATE '1952-04-03']") // before epoch
@@ -583,7 +631,8 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("ARRAY(date)", "ARRAY[DATE '2017-01-01']", new ArrayType(DATE), "ARRAY[DATE '2017-01-01']") // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip("ARRAY(date)", "ARRAY[DATE '1983-04-01']", new ArrayType(DATE), "ARRAY[DATE '1983-04-01']")
                 .addRoundTrip("ARRAY(date)", "ARRAY[DATE '1983-10-01']", new ArrayType(DATE), "ARRAY[DATE '1983-10-01']")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_date"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_date"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_array_date"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("date ARRAY", "ARRAY[TO_DATE('1952-04-03', 'yyyy-MM-dd', 'local')]", new ArrayType(DATE), "ARRAY[DATE '1952-04-03']") // before epoch
@@ -604,7 +653,8 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("ARRAY(decimal(24, 4))", "ARRAY[CAST('12345678901234567890.31' AS decimal(24, 4))]", new ArrayType(createDecimalType(24, 4)), "ARRAY[CAST('12345678901234567890.31' AS decimal(24, 4))]")
                 .addRoundTrip("ARRAY(decimal(30, 5))", "ARRAY[CAST('3141592653589793238462643.38327' AS decimal(30, 5)), CAST('-3141592653589793238462643.38327' AS decimal(30, 5))]", new ArrayType(createDecimalType(30, 5)), "ARRAY[CAST('3141592653589793238462643.38327' AS decimal(30, 5)), CAST('-3141592653589793238462643.38327' AS decimal(30, 5))]")
                 .addRoundTrip("ARRAY(decimal(38, 0))", "ARRAY[CAST('27182818284590452353602874713526624977' AS decimal(38, 0)), CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))]", new ArrayType(createDecimalType(38, 0)), "ARRAY[CAST('27182818284590452353602874713526624977' AS decimal(38, 0)), CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))]")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_decimal"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_decimal"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_array_decimal"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("decimal(3, 0) ARRAY", "ARRAY[CAST(193 AS decimal(3, 0)), CAST(19 AS decimal(3, 0)), CAST(-193 AS decimal(3, 0))]", new ArrayType(createDecimalType(3, 0)), "ARRAY[CAST(193 AS decimal(3, 0)), CAST(19 AS decimal(3, 0)), CAST(-193 AS decimal(3, 0))]")
@@ -617,11 +667,18 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_decimal"));
 
-        // TODO (https://github.com/trinodb/trino/issues/10451) Migrate to SqlDataTypeTest after fixing predicate pushdown failure on array(char) type
-        arrayStringDataTypeTest(TestPhoenixTypeMapping::arrayDataType, DataType::charDataType)
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_char"));
-        arrayStringDataTypeTest(TestPhoenixTypeMapping::phoenixArrayDataType, DataType::charDataType)
-                .addRoundTrip(primaryKey(), 1)
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY(char(10))", "ARRAY['text_a']", new ArrayType(createCharType(10)), "ARRAY[CAST('text_a' AS char(10))]")
+                .addRoundTrip("ARRAY(char(255))", "ARRAY['text_b']", new ArrayType(createCharType(255)), "ARRAY[CAST('text_b' AS char(255))]")
+                .addRoundTrip("ARRAY(char(65535))", "ARRAY['text_d']", new ArrayType(createCharType(65535)), "ARRAY[CAST('text_d' AS char(65535))]")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_array_char"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(10) ARRAY", "ARRAY['text_a']", new ArrayType(createCharType(10)), "ARRAY[CAST('text_a' AS char(10))]")
+                .addRoundTrip("char(255) ARRAY", "ARRAY['text_b']", new ArrayType(createCharType(255)), "ARRAY[CAST('text_b' AS char(255))]")
+                .addRoundTrip("char(65535) ARRAY", "ARRAY['text_d']", new ArrayType(createCharType(65535)), "ARRAY[CAST('text_d' AS char(65535))]")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_char"));
 
         SqlDataTypeTest.create()
@@ -630,7 +687,8 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("ARRAY(varchar(65535))", "ARRAY['text_d']", new ArrayType(createVarcharType(65535)), "ARRAY[CAST('text_d' AS varchar(65535))]")
                 .addRoundTrip("ARRAY(varchar(10485760))", "ARRAY['text_f']", new ArrayType(createVarcharType(10485760)), "ARRAY[CAST('text_f' AS varchar(10485760))]")
                 .addRoundTrip("ARRAY(varchar)", "ARRAY['unbounded']", new ArrayType(VARCHAR), "ARRAY[CAST('unbounded' AS varchar)]")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_array_varchar"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(10) ARRAY", "ARRAY['text_a']", new ArrayType(createVarcharType(10)), "ARRAY[CAST('text_a' AS varchar(10))]")
@@ -651,33 +709,6 @@ public class TestPhoenixTypeMapping
             assertThat(query("SELECT c2 FROM " + table.getName())).matches("VALUES CAST(ARRAY[NULL] AS ARRAY(varchar))");
             assertThat(query("SELECT c3 FROM " + table.getName())).matches("VALUES CAST(ARRAY['foo', NULL, 'bar', NULL] AS ARRAY(varchar))");
         }
-    }
-
-    private DataTypeTest arrayStringDataTypeTest(Function<DataType<String>, DataType<List<String>>> arrayTypeFactory, Function<Integer, DataType<String>> dataTypeFactory)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(10)), asList("text_a"))
-                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(255)), asList("text_b"))
-                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(65535)), asList("text_d"));
-    }
-
-    private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType)
-    {
-        return arrayDataType(elementType, format("ARRAY(%s)", elementType.getInsertType()));
-    }
-
-    private static <E> DataType<List<E>> phoenixArrayDataType(DataType<E> elementType)
-    {
-        return arrayDataType(elementType, elementType.getInsertType() + " ARRAY");
-    }
-
-    private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType, String insertType)
-    {
-        return dataType(
-                insertType,
-                new ArrayType(elementType.getTrinoResultType()),
-                valuesList -> "ARRAY" + valuesList.stream().map(elementType::toLiteral).collect(toList()),
-                valuesList -> valuesList == null ? null : valuesList.stream().map(elementType::toTrinoQueryResult).collect(toList()));
     }
 
     @DataProvider
@@ -708,11 +739,6 @@ public class TestPhoenixTypeMapping
         verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 
-    private DataType<Integer> primaryKey()
-    {
-        return dataType("integer primary key", INTEGER, Object::toString);
-    }
-
     private DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
         return trinoCreateAsSelect(getSession(), tableNamePrefix);
@@ -721,6 +747,11 @@ public class TestPhoenixTypeMapping
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
     }
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
@@ -748,5 +779,12 @@ public class TestPhoenixTypeMapping
                 .setCatalogSessionProperty("phoenix", DECIMAL_MAPPING, STRICT.name())
                 .setCatalogSessionProperty("phoenix", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
                 .build();
+    }
+
+    private void assertPhoenixQueryFails(@Language("SQL") String sql, String expectedMessage)
+    {
+        assertThatThrownBy(() -> new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()).execute(sql))
+                .getCause()
+                .hasMessageContaining(expectedMessage);
     }
 }

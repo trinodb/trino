@@ -96,7 +96,19 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testBucketedTableEvolutionWithDifferentReadBucketCount()
+    {
+        // Alluxio metastore does not support create operations
+    }
+
+    @Override
     public void testEmptyOrcFile()
+    {
+        // Alluxio metastore does not support create operations
+    }
+
+    @Override
+    public void testPerTransactionDirectoryListerCache()
     {
         // Alluxio metastore does not support create operations
     }

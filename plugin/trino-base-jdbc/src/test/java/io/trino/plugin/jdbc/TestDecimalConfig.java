@@ -40,7 +40,7 @@ public class TestDecimalConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("decimal-mapping", "allow_overflow")
                 .put("decimal-default-scale", "16")
                 .put("decimal-rounding-mode", "HALF_UP")

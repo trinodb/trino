@@ -46,7 +46,9 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
                 .put("http-server.authentication.oauth2.client-id", TRINO_CLIENT_ID)
                 .put("http-server.authentication.oauth2.client-secret", TRINO_CLIENT_SECRET)
                 .put("http-server.authentication.oauth2.additional-audiences", TRUSTED_CLIENT_ID)
+                .put("http-server.authentication.oauth2.max-clock-skew", "0s")
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)(@.*)?")
+                .put("http-server.authentication.oauth2.oidc.discovery", "false")
                 .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
                 .buildOrThrow();
     }

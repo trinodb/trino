@@ -40,7 +40,7 @@ public class TestBackupConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("backup.provider", "file")
                 .put("backup.timeout", "42s")
                 .put("backup.timeout-threads", "13")

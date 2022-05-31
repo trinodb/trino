@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.LittleEndianDataInputStream;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -27,9 +28,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.ResponseTooLargeException;
 import io.airlift.log.Logger;
-import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
@@ -684,7 +683,7 @@ public final class HttpPageBufferClient
                 boolean complete = getComplete(response, uri);
                 boolean remoteTaskFailed = getTaskFailed(response, uri);
 
-                try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
+                try (LittleEndianDataInputStream input = new LittleEndianDataInputStream(response.getInputStream())) {
                     int magic = input.readInt();
                     if (magic != SERIALIZED_PAGES_MAGIC) {
                         throw new IllegalStateException(format("Invalid stream header, expected 0x%08x, but was 0x%08x", SERIALIZED_PAGES_MAGIC, magic));

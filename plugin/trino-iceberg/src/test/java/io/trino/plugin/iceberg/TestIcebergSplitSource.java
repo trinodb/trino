@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
@@ -25,7 +26,9 @@ import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
@@ -37,6 +40,8 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.apache.iceberg.PartitionSpecParser;
+import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
@@ -56,10 +61,10 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
-import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.tpch.TpchTable.NATION;
@@ -72,8 +77,7 @@ public class TestIcebergSplitSource
         extends AbstractTestQueryFramework
 {
     private File metastoreDir;
-    private HiveMetastore metastore;
-    private IcebergTableOperationsProvider operationsProvider;
+    private TrinoCatalog catalog;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -85,10 +89,23 @@ public class TestIcebergSplitSource
 
         File tempDir = Files.createTempDirectory("test_iceberg_split_source").toFile();
         this.metastoreDir = new File(tempDir, "iceberg_data");
-        this.metastore = createTestingFileHiveMetastore(metastoreDir);
-        this.operationsProvider = new FileMetastoreTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment));
+        HiveMetastore metastore = createTestingFileHiveMetastore(metastoreDir);
+        IcebergTableOperationsProvider operationsProvider = new FileMetastoreTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment));
+        this.catalog = new TrinoHiveCatalog(
+                new CatalogName("hive"),
+                memoizeMetastore(metastore, 1000),
+                hdfsEnvironment,
+                new TestingTypeManager(),
+                operationsProvider,
+                "test",
+                false,
+                false,
+                false);
 
-        return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of(NATION), Optional.of(metastoreDir));
+        return IcebergQueryRunner.builder()
+                .setInitialTables(NATION)
+                .setMetastoreDirectory(metastoreDir)
+                .build();
     }
 
     @AfterClass(alwaysRun = true)
@@ -104,16 +121,23 @@ public class TestIcebergSplitSource
     {
         long startMillis = System.currentTimeMillis();
         SchemaTableName schemaTableName = new SchemaTableName("tpch", "nation");
+        Table nationTable = catalog.loadTable(SESSION, schemaTableName);
         IcebergTableHandle tableHandle = new IcebergTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 TableType.DATA,
                 Optional.empty(),
+                SchemaParser.toJson(nationTable.schema()),
+                PartitionSpecParser.toJson(nationTable.spec()),
+                1,
                 TupleDomain.all(),
                 TupleDomain.all(),
                 ImmutableSet.of(),
-                Optional.empty());
-        Table nationTable = loadIcebergTable(metastore, operationsProvider, SESSION, schemaTableName);
+                Optional.empty(),
+                nationTable.location(),
+                nationTable.properties(),
+                NO_RETRIES,
+                ImmutableList.of());
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 tableHandle,

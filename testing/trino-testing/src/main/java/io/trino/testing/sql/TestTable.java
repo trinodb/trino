@@ -35,6 +35,7 @@ public class TestTable
     private static final int RANDOM_SUFFIX_LENGTH = 10;
 
     private final SqlExecutor sqlExecutor;
+    private final String tableDefinition;
     private final String name;
 
     public TestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition)
@@ -46,6 +47,12 @@ public class TestTable
     {
         this.sqlExecutor = sqlExecutor;
         this.name = namePrefix + randomTableSuffix();
+        this.tableDefinition = tableDefinition;
+        createAndInsert(rowsToInsert);
+    }
+
+    public void createAndInsert(List<String> rowsToInsert)
+    {
         sqlExecutor.execute(format("CREATE TABLE %s %s", name, tableDefinition));
         try {
             for (String row : rowsToInsert) {

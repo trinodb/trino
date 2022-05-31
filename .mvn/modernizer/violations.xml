@@ -55,6 +55,52 @@
     </violation>
 
     <violation>
+        <name>com/google/common/collect/ImmutableBiMap$Builder."&lt;init&gt;":()V</name>
+        <version>1.8</version>
+        <comment>Use builder() static factory method instead</comment>
+    </violation>
+    <violation>
+        <name>com/google/common/collect/ImmutableList$Builder."&lt;init&gt;":()V</name>
+        <version>1.8</version>
+        <comment>Use builder() static factory method instead</comment>
+    </violation>
+    <violation>
+        <name>com/google/common/collect/ImmutableMap$Builder."&lt;init&gt;":()V</name>
+        <version>1.8</version>
+        <comment>Use builder() static factory method instead</comment>
+    </violation>
+    <violation>
+        <name>com/google/common/collect/ImmutableMultimap$Builder."&lt;init&gt;":()V</name>
+        <version>1.8</version>
+        <comment>Use builder() static factory method instead</comment>
+    </violation>
+    <violation>
+        <name>com/google/common/collect/ImmutableMultiset$Builder."&lt;init&gt;":()V</name>
+        <version>1.8</version>
+        <comment>Use builder() static factory method instead</comment>
+    </violation>
+    <violation>
+        <name>com/google/common/collect/ImmutableSet$Builder."&lt;init&gt;":()V</name>
+        <version>1.8</version>
+        <comment>Use builder() static factory method instead</comment>
+    </violation>
+    <violation>
+        <name>com/google/common/collect/ImmutableSortedMap$Builder."&lt;init&gt;":()V</name>
+        <version>1.8</version>
+        <comment>Use orderedBy() static factory method instead</comment>
+    </violation>
+    <violation>
+        <name>com/google/common/collect/ImmutableSortedSet$Builder."&lt;init&gt;":()V</name>
+        <version>1.8</version>
+        <comment>Use orderedBy() static factory method instead</comment>
+    </violation>
+    <violation>
+        <name>com/google/common/collect/ImmutableTable$Builder."&lt;init&gt;":()V</name>
+        <version>1.8</version>
+        <comment>Use builder() static factory method instead</comment>
+    </violation>
+
+    <violation>
         <name>com/google/common/cache/CacheBuilder.build:()Lcom/google/common/cache/Cache;</name>
         <version>1.8</version>
         <comment>Guava Cache has concurrency issues around invalidation and ongoing loads. Use EvictableCacheBuilder or SafeCaches to build caches.

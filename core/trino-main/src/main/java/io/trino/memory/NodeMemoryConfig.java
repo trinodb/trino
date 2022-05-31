@@ -16,12 +16,9 @@ package io.trino.memory;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
-
-import java.util.Optional;
 
 // This is separate from MemoryManagerConfig because it's difficult to test the default value of maxQueryMemoryPerNode
 @DefunctConfig({
@@ -29,16 +26,14 @@ import java.util.Optional;
         "experimental.reserved-pool-disabled",
         "experimental.reserved-pool-enabled",
         "query.max-total-memory-per-node",
+        "query.max-memory-per-task"
 })
 public class NodeMemoryConfig
 {
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
     public static final String QUERY_MAX_MEMORY_PER_NODE_CONFIG = "query.max-memory-per-node";
-    public static final String QUERY_MAX_MEMORY_PER_TASK_CONFIG = "query.max-memory-per-task";
 
     private DataSize maxQueryMemoryPerNode = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
-
-    private Optional<DataSize> maxQueryMemoryPerTask = Optional.empty();
 
     private DataSize heapHeadroom = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
 
@@ -52,21 +47,6 @@ public class NodeMemoryConfig
     public NodeMemoryConfig setMaxQueryMemoryPerNode(DataSize maxQueryMemoryPerNode)
     {
         this.maxQueryMemoryPerNode = maxQueryMemoryPerNode;
-        return this;
-    }
-
-    @NotNull
-    public Optional<DataSize> getMaxQueryMemoryPerTask()
-    {
-        return maxQueryMemoryPerTask;
-    }
-
-    @Config(QUERY_MAX_MEMORY_PER_TASK_CONFIG)
-    @LegacyConfig("query.max-total-memory-per-task")
-    @ConfigDescription("Sets memory limit enforced for a single task; there is no memory limit by default")
-    public NodeMemoryConfig setMaxQueryMemoryPerTask(DataSize maxQueryMemoryPerTask)
-    {
-        this.maxQueryMemoryPerTask = Optional.ofNullable(maxQueryMemoryPerTask);
         return this;
     }
 

@@ -50,13 +50,16 @@ import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.SqlQueryManager;
+import io.trino.execution.SqlTaskManager;
 import io.trino.execution.StateMachine.StateChangeListener;
-import io.trino.execution.TaskManager;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.FunctionManager;
+import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
@@ -153,6 +156,8 @@ public class TestingTrinoServer
     private final TypeManager typeManager;
     private final QueryExplainer queryExplainer;
     private final SessionPropertyManager sessionPropertyManager;
+    private final FunctionManager functionManager;
+    private final GlobalFunctionCatalog globalFunctionCatalog;
     private final StatsCalculator statsCalculator;
     private final ProcedureRegistry procedureRegistry;
     private final TestingAccessControlManager accessControl;
@@ -170,7 +175,7 @@ public class TestingTrinoServer
     private final Announcer announcer;
     private final DispatchManager dispatchManager;
     private final SqlQueryManager queryManager;
-    private final TaskManager taskManager;
+    private final SqlTaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
     private final MBeanServer mBeanServer;
@@ -231,7 +236,8 @@ public class TestingTrinoServer
                 .put("coordinator", String.valueOf(coordinator))
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
-                .put("exchange.client-threads", "4");
+                .put("exchange.client-threads", "4")
+                .put("internal-communication.shared-secret", "internal-shared-secret");
 
         if (coordinator) {
             // TODO: enable failure detector
@@ -303,8 +309,10 @@ public class TestingTrinoServer
         server = injector.getInstance(TestingHttpServer.class);
         catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
+        globalFunctionCatalog = injector.getInstance(GlobalFunctionCatalog.class);
         metadata = injector.getInstance(Metadata.class);
         typeManager = injector.getInstance(TypeManager.class);
+        functionManager = injector.getInstance(FunctionManager.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         groupProvider = injector.getInstance(TestingGroupProvider.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
@@ -339,7 +347,7 @@ public class TestingTrinoServer
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
-        taskManager = injector.getInstance(TaskManager.class);
+        taskManager = injector.getInstance(SqlTaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         mBeanServer = injector.getInstance(MBeanServer.class);
         announcer = injector.getInstance(Announcer.class);
@@ -483,6 +491,16 @@ public class TestingTrinoServer
         return sessionPropertyManager;
     }
 
+    public FunctionManager getFunctionManager()
+    {
+        return functionManager;
+    }
+
+    public void addFunctions(FunctionBundle functionBundle)
+    {
+        globalFunctionCatalog.addFunctions(functionBundle);
+    }
+
     public StatsCalculator getStatsCalculator()
     {
         checkState(coordinator, "not a coordinator");
@@ -555,7 +573,7 @@ public class TestingTrinoServer
         return gracefulShutdownHandler;
     }
 
-    public TaskManager getTaskManager()
+    public SqlTaskManager getTaskManager()
     {
         return taskManager;
     }

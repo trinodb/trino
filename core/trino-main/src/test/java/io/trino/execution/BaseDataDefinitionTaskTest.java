@@ -20,7 +20,6 @@ import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
-import io.trino.metadata.FunctionInvoker;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
@@ -41,7 +40,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
-import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
@@ -405,12 +403,6 @@ public abstract class BaseDataDefinitionTaskTest
         public ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType)
         {
             return delegate.getCoercion(session, operatorType, fromType, toType);
-        }
-
-        @Override
-        public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
-        {
-            return delegate.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
         }
     }
 }

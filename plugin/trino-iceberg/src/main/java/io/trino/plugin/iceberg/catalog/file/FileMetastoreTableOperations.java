@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.iceberg.catalog.file;
 
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.iceberg.catalog.AbstractMetastoreTableOperations;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
+import io.trino.plugin.iceberg.catalog.hms.AbstractMetastoreTableOperations;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
@@ -38,7 +38,7 @@ public class FileMetastoreTableOperations
 {
     public FileMetastoreTableOperations(
             FileIO fileIo,
-            HiveMetastore metastore,
+            CachingHiveMetastore metastore,
             ConnectorSession session,
             String database,
             String table,
@@ -71,6 +71,12 @@ public class FileMetastoreTableOperations
 
         // todo privileges should not be replaced for an alter
         PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
-        metastore.replaceTable(database, tableName, table, privileges);
+
+        try {
+            metastore.replaceTable(database, tableName, table, privileges);
+        }
+        catch (RuntimeException e) {
+            throw new CommitFailedException(e, "Failed to commit transaction to FileHiveMetastore");
+        }
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.connector;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
@@ -23,6 +24,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
@@ -120,15 +122,19 @@ class MockConnectorAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        return Optional.ofNullable(rowFilters.apply(tableName));
+        return Optional.ofNullable(rowFilters.apply(tableName))
+                .map(ImmutableList::of)
+                .orElseGet(ImmutableList::of);
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
-        return Optional.ofNullable(columnMasks.apply(tableName, columnName));
+        return Optional.ofNullable(columnMasks.apply(tableName, columnName))
+                .map(ImmutableList::of)
+                .orElseGet(ImmutableList::of);
     }
 
     public void grantSchemaPrivileges(String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)

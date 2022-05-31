@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.block.BlockAssertions;
+import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.PagesIndex;
@@ -41,7 +42,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestAggregationFunction
 {
-    protected final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+    protected final TestingFunctionResolution functionResolution;
+
+    protected AbstractTestAggregationFunction()
+    {
+        functionResolution = new TestingFunctionResolution();
+    }
+
+    protected AbstractTestAggregationFunction(FunctionBundle functions)
+    {
+        functionResolution = new TestingFunctionResolution(functions);
+    }
 
     protected abstract Block[] getSequenceBlocks(int start, int length);
 
@@ -135,7 +146,7 @@ public abstract class AbstractTestAggregationFunction
         WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, 0, totalPositions - 1);
 
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of(getFunctionName()), fromTypes(getFunctionParameterTypes()));
-        AggregationMetadata aggregationMetadata = functionResolution.getMetadata().getAggregateFunctionImplementation(resolvedFunction);
+        AggregationMetadata aggregationMetadata = functionResolution.getPlannerContext().getFunctionManager().getAggregateFunctionImplementation(resolvedFunction);
         WindowAccumulator aggregation = createWindowAccumulator(resolvedFunction, aggregationMetadata);
         int oldStart = 0;
         int oldWidth = 0;

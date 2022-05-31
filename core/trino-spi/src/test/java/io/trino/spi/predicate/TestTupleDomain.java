@@ -165,6 +165,21 @@ public class TestTupleDomain
     }
 
     @Test
+    public void testIntersectResultType()
+    {
+        TupleDomain<Number> numberDomain = TupleDomain.withColumnDomains(Map.of(10, Domain.singleValue(BIGINT, 42L)));
+        TupleDomain<Integer> integerDomain = TupleDomain.withColumnDomains(Map.of(10, Domain.multipleValues(BIGINT, List.of(41L, 42L, 42L))));
+        // Declare explicit variable to verify assignability from the derived type of TupleDomain.intersect
+        TupleDomain<Number> intersection = numberDomain.intersect(integerDomain);
+        assertEquals(intersection, numberDomain);
+        // Sadly, this cannot be made to work:
+        //   intersection = integerDomain.intersect(numberDomain)
+        // but this can:
+        intersection = TupleDomain.intersect(List.of(integerDomain, numberDomain));
+        assertEquals(intersection, numberDomain);
+    }
+
+    @Test
     public void testColumnWiseUnion()
     {
         TupleDomain<ColumnHandle> tupleDomain1 = TupleDomain.withColumnDomains(

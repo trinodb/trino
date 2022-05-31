@@ -15,7 +15,6 @@ package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -140,8 +139,6 @@ public final class PhoenixQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         DistributedQueryRunner queryRunner = createPhoenixQueryRunner(
                 TestingPhoenixServer.getInstance(),
                 ImmutableMap.of("http-server.http.port", "8080"),

@@ -25,6 +25,8 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
+import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
@@ -66,6 +68,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -233,7 +236,12 @@ public final class FunctionAssertions
         runner = LocalQueryRunner.builder(session)
                 .withFeaturesConfig(featuresConfig)
                 .build();
-        testingFunctionResolution = new TestingFunctionResolution(runner.getTransactionManager(), runner.getMetadata());
+        testingFunctionResolution = new TestingFunctionResolution(runner);
+    }
+
+    public void addFunctions(FunctionBundle functionBundle)
+    {
+        runner.addFunctions(functionBundle);
     }
 
     public Metadata getMetadata()
@@ -251,6 +259,11 @@ public final class FunctionAssertions
         return testingFunctionResolution;
     }
 
+    public FunctionManager getFunctionManager()
+    {
+        return runner.getFunctionManager();
+    }
+
     public TypeOperators getTypeOperators()
     {
         return runner.getTypeOperators();
@@ -259,6 +272,16 @@ public final class FunctionAssertions
     public BlockTypeOperators getBlockTypeOperators()
     {
         return runner.getBlockTypeOperators();
+    }
+
+    public TestingFunctionResolution getTestingFunctionResolution()
+    {
+        return new TestingFunctionResolution(runner);
+    }
+
+    public ExpressionCompiler getExpressionCompiler()
+    {
+        return new ExpressionCompiler(getFunctionManager(), new PageFunctionCompiler(getFunctionManager(), 0));
     }
 
     public void installPlugin(Plugin plugin)
@@ -843,7 +866,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Session session, Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<Symbol, Integer> layout)
     {
-        return translate(projection, expressionTypes, layout, getMetadata(), session, false);
+        return translate(projection, expressionTypes, layout, getMetadata(), getFunctionManager(), session, false);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)

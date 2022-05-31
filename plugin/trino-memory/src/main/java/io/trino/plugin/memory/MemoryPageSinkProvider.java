@@ -28,7 +28,9 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -84,7 +86,7 @@ public class MemoryPageSinkProvider
         private final MemoryPagesStore pagesStore;
         private final HostAddress currentHostAddress;
         private final long tableId;
-        private long addedRows;
+        private final List<Page> appendedPages = new ArrayList<>();
 
         public MemoryPageSink(MemoryPagesStore pagesStore, HostAddress currentHostAddress, long tableId)
         {
@@ -96,14 +98,20 @@ public class MemoryPageSinkProvider
         @Override
         public CompletableFuture<?> appendPage(Page page)
         {
-            pagesStore.add(tableId, page);
-            addedRows += page.getPositionCount();
+            appendedPages.add(page);
             return NOT_BLOCKED;
         }
 
         @Override
         public CompletableFuture<Collection<Slice>> finish()
         {
+            // add pages to pagesStore
+            long addedRows = 0;
+            for (Page page : appendedPages) {
+                pagesStore.add(tableId, page);
+                addedRows += page.getPositionCount();
+            }
+
             return completedFuture(ImmutableList.of(new MemoryDataFragment(currentHostAddress, addedRows).toSlice()));
         }
 

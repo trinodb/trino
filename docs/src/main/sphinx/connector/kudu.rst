@@ -2,6 +2,10 @@
 Kudu connector
 ==============
 
+.. raw:: html
+
+  <img src="../_static/img/kudu.png" class="connector-logo">
+
 The Kudu connector allows querying, inserting and deleting data in `Apache Kudu`_.
 
 .. _Apache Kudu: https://kudu.apache.org/
@@ -25,6 +29,9 @@ replacing the properties as appropriate:
 .. code-block:: properties
 
    connector.name=kudu
+
+   ## Defaults to NONE
+   kudu.authentication.type = NONE
 
    ## List of Kudu master addresses, at least one is needed (comma separated)
    ## Supported formats: example.com, example.com:7051, 192.0.2.1, 192.0.2.1:7051,
@@ -54,6 +61,29 @@ replacing the properties as appropriate:
    ## Disable Kudu client's collection of statistics.
    #kudu.client.disable-statistics = false
 
+Kerberos support
+----------------
+
+In order to connect to a kudu cluster that uses ``kerberos``
+authentication, you need to configure the following kudu properties:
+
+.. code-block:: properties
+
+   kudu.authentication.type = KERBEROS
+
+   ## The kerberos client principal name
+   kudu.authentication.client.principal = clientprincipalname
+
+   ## The path to the kerberos keytab file
+   ## The configured client principal must exist in this keytab file
+   kudu.authentication.client.keytab = /path/to/keytab/file.keytab
+
+   ## The path to the krb5.conf kerberos config file
+   kudu.authentication.config = /path/to/kerberos/krb5.conf
+
+   ## Optional and defaults to "kudu"
+   ## If kudu is running with a custom SPN this needs to be configured
+   kudu.authentication.server.principal.primary = kudu
 
 Querying data
 -------------
@@ -192,31 +222,31 @@ The data types of Trino and Kudu are mapped as far as possible:
 | ``DECIMAL``           | ``DECIMAL``           | only supported for    |
 |                       |                       | Kudu server >= 1.7.0  |
 +-----------------------+-----------------------+-----------------------+
-| ``CHAR``              | -                     | not supported         |
+| ``CHAR``              | \-                    | not supported         |
 +-----------------------+-----------------------+-----------------------+
-| ``DATE``              | -                     | not supported [2]_    |
+| ``DATE``              | \-                    | not supported [2]_    |
 +-----------------------+-----------------------+-----------------------+
-| ``TIME``              | -                     | not supported         |
+| ``TIME``              | \-                    | not supported         |
 +-----------------------+-----------------------+-----------------------+
-| ``JSON``              | -                     | not supported         |
+| ``JSON``              | \-                    | not supported         |
 +-----------------------+-----------------------+-----------------------+
-| ``TIME WITH           | -                     | not supported         |
+| ``TIME WITH           | \-                    | not supported         |
 | TIMEZONE``            |                       |                       |
 +-----------------------+-----------------------+-----------------------+
-| ``TIMESTAMP WITH TIME | -                     | not supported         |
+| ``TIMESTAMP WITH TIME | \-                    | not supported         |
 | ZONE``                |                       |                       |
 +-----------------------+-----------------------+-----------------------+
-| ``INTERVAL YEAR TO MO | -                     | not supported         |
+| ``INTERVAL YEAR TO MO | \-                    | not supported         |
 | NTH``                 |                       |                       |
 +-----------------------+-----------------------+-----------------------+
-| ``INTERVAL DAY TO SEC | -                     | not supported         |
+| ``INTERVAL DAY TO SEC | \-                    | not supported         |
 | OND``                 |                       |                       |
 +-----------------------+-----------------------+-----------------------+
-| ``ARRAY``             | -                     | not supported         |
+| ``ARRAY``             | \-                    | not supported         |
 +-----------------------+-----------------------+-----------------------+
-| ``MAP``               | -                     | not supported         |
+| ``MAP``               | \-                    | not supported         |
 +-----------------------+-----------------------+-----------------------+
-| ``IPADDRESS``         | -                     | not supported         |
+| ``IPADDRESS``         | \-                    | not supported         |
 +-----------------------+-----------------------+-----------------------+
 
 
@@ -588,4 +618,3 @@ Limitations
 -----------
 
 -  Only lower case table and column names in Kudu are supported.
--  Using a secured Kudu cluster has not been tested.

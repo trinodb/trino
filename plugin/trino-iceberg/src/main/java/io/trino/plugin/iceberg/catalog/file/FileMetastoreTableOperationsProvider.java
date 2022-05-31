@@ -14,10 +14,11 @@
 package io.trino.plugin.iceberg.catalog.file;
 
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.FileIoProvider;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
@@ -39,7 +40,7 @@ public class FileMetastoreTableOperationsProvider
 
     @Override
     public IcebergTableOperations createTableOperations(
-            HiveMetastore hiveMetastore,
+            TrinoCatalog catalog,
             ConnectorSession session,
             String database,
             String table,
@@ -48,7 +49,7 @@ public class FileMetastoreTableOperationsProvider
     {
         return new FileMetastoreTableOperations(
                 fileIoProvider.createFileIo(new HdfsContext(session), session.getQueryId()),
-                hiveMetastore,
+                ((TrinoHiveCatalog) catalog).getMetastore(),
                 session,
                 database,
                 table,

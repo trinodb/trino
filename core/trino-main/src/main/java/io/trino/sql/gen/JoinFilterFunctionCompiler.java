@@ -30,7 +30,7 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.jmx.CacheStatsMBean;
 import io.trino.collect.cache.NonEvictableLoadingCache;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionManager;
 import io.trino.operator.join.InternalJoinFilterFunction;
 import io.trino.operator.join.JoinFilterFunction;
 import io.trino.operator.join.StandardJoinFilterFunction;
@@ -71,12 +71,12 @@ import static java.util.Objects.requireNonNull;
 
 public class JoinFilterFunctionCompiler
 {
-    private final Metadata metadata;
+    private final FunctionManager functionManager;
 
     @Inject
-    public JoinFilterFunctionCompiler(Metadata metadata)
+    public JoinFilterFunctionCompiler(FunctionManager functionManager)
     {
-        this.metadata = metadata;
+        this.functionManager = functionManager;
     }
 
     private final NonEvictableLoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories = buildNonEvictableCache(
@@ -113,7 +113,7 @@ public class JoinFilterFunctionCompiler
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        new JoinFilterFunctionCompiler(metadata).generateMethods(classDefinition, callSiteBinder, filterExpression, leftBlocksSize);
+        new JoinFilterFunctionCompiler(functionManager).generateMethods(classDefinition, callSiteBinder, filterExpression, leftBlocksSize);
 
         //
         // toString method
@@ -198,7 +198,7 @@ public class JoinFilterFunctionCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize),
-                metadata,
+                functionManager,
                 compiledLambdaMap);
 
         BytecodeNode visitorBody = compiler.compile(filter, scope);
@@ -230,7 +230,7 @@ public class JoinFilterFunctionCompiler
                     compiledLambdaMap.buildOrThrow(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata);
+                    functionManager);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }

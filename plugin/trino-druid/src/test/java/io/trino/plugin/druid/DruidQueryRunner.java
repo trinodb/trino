@@ -16,7 +16,6 @@ package io.trino.plugin.druid;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -43,6 +42,7 @@ import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.PART;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DruidQueryRunner
@@ -113,7 +113,7 @@ public class DruidQueryRunner
             throws IOException
     {
         File file = new File(dataFile);
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(file))) {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(file, UTF_8))) {
             for (MaterializedRow row : rows.getMaterializedRows()) {
                 bw.write(convertToTSV(row.getFields()));
                 bw.newLine();
@@ -131,8 +131,6 @@ public class DruidQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         DistributedQueryRunner queryRunner = createDruidQueryRunnerTpch(
                 new TestingDruidServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),

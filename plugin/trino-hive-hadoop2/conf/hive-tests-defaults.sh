@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# Download maven wrapper if it is not present so next command can have clean output
-./mvnw --version >/dev/null
-
 DEFAULT_DOCKER_VERSION=$(./mvnw help:evaluate -Dexpression=dep.docker.images.version -q -DforceStdout)
 
 if [ -z "$DEFAULT_DOCKER_VERSION" ];

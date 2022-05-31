@@ -37,7 +37,7 @@ public class TestFailureInjectionConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("failure-injection.request-timeout", "12m")
                 .put("failure-injection.expiration-period", "7m")
                 .buildOrThrow();

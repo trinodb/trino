@@ -147,6 +147,7 @@ public abstract class AbstractFileFormat
                 ImmutableList.of(),
                 ImmutableList.of(),
                 OptionalInt.empty(),
+                OptionalInt.empty(),
                 0,
                 false,
                 TableToPartitionMapping.empty(),

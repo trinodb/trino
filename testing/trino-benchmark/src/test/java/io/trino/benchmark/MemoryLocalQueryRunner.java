@@ -72,7 +72,6 @@ public class MemoryLocalQueryRunner
         QueryContext queryContext = new QueryContext(
                 new QueryId("test"),
                 DataSize.of(1, GIGABYTE),
-                Optional.empty(),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
@@ -99,7 +98,7 @@ public class MemoryLocalQueryRunner
             boolean processed = false;
             for (Driver driver : drivers) {
                 if (!driver.isFinished()) {
-                    driver.process();
+                    driver.processForNumberOfIterations(1);
                     processed = true;
                 }
             }

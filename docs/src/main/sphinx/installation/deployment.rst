@@ -70,8 +70,11 @@ This holds the following configuration:
 
 * Node Properties: environmental configuration specific to each node
 * JVM Config: command line options for the Java Virtual Machine
-* Config Properties: configuration for the Trino server
-* Catalog Properties: configuration for :doc:`/connector` (data sources)
+* Config Properties: configuration for the Trino server. See the
+  :doc:`/admin/properties` for available configuration properties.
+* Catalog Properties: configuration for :doc:`/connector` (data sources).
+  The available catalog configuration properties for a connector are described
+  in the respective connector documentation.
 
 .. _node_properties:
 
@@ -138,6 +141,8 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -XX:PerBytecodeRecompilationCutoff=10000
     -Djdk.attach.allowAttachSelf=true
     -Djdk.nio.maxCachedBufferSize=2000000
+    -XX:+UnlockDiagnosticVMOptions
+    -XX:+UseAESCTRIntrinsics
 
 Because an ``OutOfMemoryError`` typically leaves the JVM in an
 inconsistent state, we write a heap dump, for debugging, and forcibly
@@ -149,6 +154,8 @@ Specifically, the mount must not have the ``noexec`` flag set. The default
 prevents Trino from starting. You can workaround this by overriding the
 temporary directory by adding ``-Djava.io.tmpdir=/path/to/other/tmpdir`` to the
 list of JVM options.
+
+We enable ``-XX:+UnlockDiagnosticVMOptions`` and ``-XX:+UseAESCTRIntrinsics`` to improve AES performance for S3, etc. on ARM64 (`JDK-8271567 <https://bugs.openjdk.java.net/browse/JDK-8271567>`_)
 
 .. _config_properties:
 

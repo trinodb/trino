@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
@@ -444,8 +445,10 @@ class Query
         // only return a next if
         // (1) the query is not done AND the query state is not FAILED
         //   OR
-        // (2)there is more data to send (due to buffering)
-        if (queryInfo.getState() != FAILED && (!queryInfo.isFinalQueryInfo() || !exchangeClient.isFinished() || (lastResult != null && lastResult.getData() != null))) {
+        // (2) there is more data to send (due to buffering)
+        //   OR
+        // (3) cached query result needs client acknowledgement to discard
+        if (queryInfo.getState() != FAILED && (!queryInfo.isFinalQueryInfo() || !exchangeClient.isFinished() || (queryInfo.getOutputStage().isPresent() && !resultRows.isEmpty()))) {
             nextToken = OptionalLong.of(token + 1);
         }
         else {
@@ -731,11 +734,14 @@ class Query
         QueryStats queryStats = queryInfo.getQueryStats();
         StageInfo outputStage = queryInfo.getOutputStage().orElse(null);
 
+        Set<String> globalUniqueNodes = new HashSet<>();
+        StageStats rootStageStats = toStageStats(outputStage, globalUniqueNodes);
+
         return StatementStats.builder()
                 .setState(queryInfo.getState().toString())
                 .setQueued(queryInfo.getState() == QueryState.QUEUED)
                 .setScheduled(queryInfo.isScheduled())
-                .setNodes(globalUniqueNodes(outputStage).size())
+                .setNodes(globalUniqueNodes.size())
                 .setTotalSplits(queryStats.getTotalDrivers())
                 .setQueuedSplits(queryStats.getQueuedDrivers())
                 .setRunningSplits(queryStats.getRunningDrivers() + queryStats.getBlockedDrivers())
@@ -749,11 +755,11 @@ class Query
                 .setPhysicalInputBytes(queryStats.getPhysicalInputDataSize().toBytes())
                 .setPeakMemoryBytes(queryStats.getPeakUserMemoryReservation().toBytes())
                 .setSpilledBytes(queryStats.getSpilledDataSize().toBytes())
-                .setRootStage(toStageStats(outputStage))
+                .setRootStage(rootStageStats)
                 .build();
     }
 
-    private static StageStats toStageStats(StageInfo stageInfo)
+    private static StageStats toStageStats(StageInfo stageInfo, Set<String> globalUniqueNodes)
     {
         if (stageInfo == null) {
             return null;
@@ -761,23 +767,11 @@ class Query
 
         io.trino.execution.StageStats stageStats = stageInfo.getStageStats();
 
-        ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            subStages.add(toStageStats(subStage));
-        }
-
-        Set<String> uniqueNodes = new HashSet<>();
-        for (TaskInfo task : stageInfo.getTasks()) {
-            // todo add nodeId to TaskInfo
-            URI uri = task.getTaskStatus().getSelf();
-            uniqueNodes.add(uri.getHost() + ":" + uri.getPort());
-        }
-
-        return StageStats.builder()
+        // Store current stage details into a builder
+        StageStats.Builder builder = StageStats.builder()
                 .setStageId(String.valueOf(stageInfo.getStageId().getId()))
                 .setState(stageInfo.getState().toString())
                 .setDone(stageInfo.getState().isDone())
-                .setNodes(uniqueNodes.size())
                 .setTotalSplits(stageStats.getTotalDrivers())
                 .setQueuedSplits(stageStats.getQueuedDrivers())
                 .setRunningSplits(stageStats.getRunningDrivers() + stageStats.getBlockedDrivers())
@@ -789,26 +783,34 @@ class Query
                 .setPhysicalInputBytes(stageStats.getPhysicalInputDataSize().toBytes())
                 .setFailedTasks(stageStats.getFailedTasks())
                 .setCoordinatorOnly(stageInfo.isCoordinatorOnly())
-                .setSubStages(subStages.build())
-                .build();
+                .setNodes(countStageAndAddGlobalUniqueNodes(stageInfo, globalUniqueNodes));
+
+        // Recurse into child stages to create their StageStats
+        List<StageInfo> subStages = stageInfo.getSubStages();
+        if (subStages.isEmpty()) {
+            builder.setSubStages(ImmutableList.of());
+        }
+        else {
+            ImmutableList.Builder<StageStats> subStagesBuilder = ImmutableList.builderWithExpectedSize(subStages.size());
+            for (StageInfo subStage : subStages) {
+                subStagesBuilder.add(toStageStats(subStage, globalUniqueNodes));
+            }
+            builder.setSubStages(subStagesBuilder.build());
+        }
+
+        return builder.build();
     }
 
-    private static Set<String> globalUniqueNodes(StageInfo stageInfo)
+    private static int countStageAndAddGlobalUniqueNodes(StageInfo stageInfo, Set<String> globalUniqueNodes)
     {
-        if (stageInfo == null) {
-            return ImmutableSet.of();
+        List<TaskInfo> tasks = stageInfo.getTasks();
+        Set<String> stageUniqueNodes = Sets.newHashSetWithExpectedSize(tasks.size());
+        for (TaskInfo task : tasks) {
+            String nodeId = task.getTaskStatus().getNodeId();
+            stageUniqueNodes.add(nodeId);
+            globalUniqueNodes.add(nodeId);
         }
-        ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
-        for (TaskInfo task : stageInfo.getTasks()) {
-            // todo add nodeId to TaskInfo
-            URI uri = task.getTaskStatus().getSelf();
-            nodes.add(uri.getHost() + ":" + uri.getPort());
-        }
-
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            nodes.addAll(globalUniqueNodes(subStage));
-        }
-        return nodes.build();
+        return stageUniqueNodes.size();
     }
 
     private static Optional<Integer> findCancelableLeafStage(QueryInfo queryInfo)

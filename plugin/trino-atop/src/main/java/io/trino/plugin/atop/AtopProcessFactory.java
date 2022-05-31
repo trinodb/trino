@@ -38,6 +38,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.plugin.atop.AtopErrorCode.ATOP_CANNOT_START_PROCESS_ERROR;
 import static io.trino.plugin.atop.AtopErrorCode.ATOP_READ_TIMEOUT;
 import static java.lang.String.format;
+import static java.nio.charset.Charset.defaultCharset;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -97,7 +98,7 @@ public class AtopProcessFactory
         private AtopProcess(Process process, Duration readTimeout, ExecutorService executor)
         {
             this.process = requireNonNull(process, "process is null");
-            underlyingReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            underlyingReader = new BufferedReader(new InputStreamReader(process.getInputStream(), defaultCharset()));
             TimeLimiter limiter = SimpleTimeLimiter.create(executor);
             this.reader = limiter.newProxy(underlyingReader::readLine, LineReader.class, readTimeout.toMillis(), MILLISECONDS);
             try {

@@ -1,0 +1,3 @@
+databases:
+  presto:
+    jdbc_url: "jdbc:trino://${databases.presto.host}:${databases.presto.port}/mariadb/test"

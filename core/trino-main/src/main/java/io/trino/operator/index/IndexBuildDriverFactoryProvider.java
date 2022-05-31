@@ -83,7 +83,7 @@ public class IndexBuildDriverFactoryProvider
                 false,
                 ImmutableList.<OperatorFactory>builder()
                         .addAll(coreOperatorFactories)
-                        .add(new PagesIndexBuilderOperatorFactory(outputOperatorId, planNodeId, indexSnapshotBuilder))
+                        .add(new PagesIndexBuilderOperatorFactory(outputOperatorId, planNodeId, indexSnapshotBuilder, "IndexBuilder"))
                         .build(),
                 OptionalInt.empty(),
                 UNGROUPED_EXECUTION);
@@ -99,7 +99,7 @@ public class IndexBuildDriverFactoryProvider
             operatorFactories.add(dynamicTupleFilterFactory.get().filterWithTuple(indexKeyTuple));
         }
 
-        operatorFactories.add(new PageBufferOperatorFactory(outputOperatorId, planNodeId, pageBuffer));
+        operatorFactories.add(new PageBufferOperatorFactory(outputOperatorId, planNodeId, pageBuffer, "IndexBuilder"));
 
         return new DriverFactory(pipelineId, inputDriver, false, operatorFactories.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
     }

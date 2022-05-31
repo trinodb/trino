@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
 import io.trino.client.ProtocolHeaders;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import org.testng.annotations.Test;
@@ -40,7 +41,11 @@ import static org.testng.Assert.assertEquals;
 
 public class TestHttpRequestSessionContextFactory
 {
-    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, new AllowAllAccessControl());
+    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(
+            new PreparedStatementEncoder(new ProtocolConfig()),
+            createTestMetadataManager(),
+            ImmutableSet::of,
+            new AllowAllAccessControl());
 
     @Test
     public void testSessionContext()

@@ -61,7 +61,10 @@ public class EnvSinglenodeOauth2HttpsProxy
                             CONTAINER_PRESTO_CONFIG_PROPERTIES)
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("cert/truststore.jks")),
-                            CONTAINER_PRESTO_ETC + "/cert/truststore.jks");
+                            CONTAINER_PRESTO_ETC + "/cert/truststore.jks")
+                    .withCopyFileToContainer(
+                            forHostPath(configDir.getPath("log.properties")),
+                            CONTAINER_PRESTO_ETC + "/log.properties");
 
             binder.exposePort(dockerContainer, 7778);
         });
@@ -81,9 +84,9 @@ public class EnvSinglenodeOauth2HttpsProxy
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("httpd.conf")),
                         "/usr/local/apache2/conf/httpd.conf")
-                        .withCopyFileToContainer(
-                                forHostPath(configDir.getPath("cert")),
-                                "/usr/local/apache2/conf/cert");
+                .withCopyFileToContainer(
+                        forHostPath(configDir.getPath("cert")),
+                        "/usr/local/apache2/conf/cert");
         builder.addContainer(proxy);
         builder.containerDependsOn(COORDINATOR, "proxy");
     }

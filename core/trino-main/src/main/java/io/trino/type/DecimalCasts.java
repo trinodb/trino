@@ -96,7 +96,7 @@ public final class DecimalCasts
     {
         Signature signature = Signature.builder()
                 .operatorType(CAST)
-                .argumentTypes(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
+                .argumentType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                 .returnType(to)
                 .build();
         return new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
@@ -129,7 +129,7 @@ public final class DecimalCasts
     {
         Signature signature = Signature.builder()
                 .operatorType(CAST)
-                .argumentTypes(from)
+                .argumentType(from)
                 .returnType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                 .build();
         return new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
@@ -156,7 +156,7 @@ public final class DecimalCasts
     public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
             .signature(Signature.builder()
                     .operatorType(CAST)
-                    .argumentTypes(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
+                    .argumentType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                     .returnType(new TypeSignature("varchar", typeVariable("x")))
                     .build())
             .deterministic(true)
