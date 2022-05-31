@@ -11,10 +11,14 @@ package com.starburstdata.trino.plugin.stargate;
 
 import com.google.inject.Binder;
 import com.google.inject.Key;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.jdbc.ConfiguringConnectionFactory;
+import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
@@ -30,6 +34,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 
 public class StargateModule
         extends AbstractConfigurationAwareModule
@@ -66,6 +71,18 @@ public class StargateModule
         install(new StargateAuthenticationModule());
         install(new JdbcJoinPushdownSupportModule());
         install(new JdbcTableScanRedirectionModule());
+    }
+
+    @Provides
+    @Singleton
+    @ForBaseJdbc
+    public ConnectionFactory getConnectionFactory(@TransportConnectionFactory ConnectionFactory delegate, @EnableWrites boolean enableWrites)
+    {
+        requireNonNull(delegate, "delegate is null");
+        if (enableWrites) {
+            return delegate;
+        }
+        return new ConfiguringConnectionFactory(delegate, connection -> connection.setReadOnly(true));
     }
 
     private static class SslModule

@@ -23,7 +23,6 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
-import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.credential.CredentialConfig;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
@@ -85,7 +84,7 @@ public class StargateAuthenticationModule
 
         @Provides
         @Singleton
-        @ForBaseJdbc
+        @TransportConnectionFactory
         public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, StargateConfig stargateConfig, StargateSslConfig sslConfig, CredentialProvider credentialProvider)
         {
             checkState(
@@ -113,7 +112,7 @@ public class StargateAuthenticationModule
 
         @Provides
         @Singleton
-        @ForBaseJdbc
+        @TransportConnectionFactory
         public ConnectionFactory getConnectionFactory(
                 BaseJdbcConfig config,
                 StargateConfig connectorConfig,
@@ -143,7 +142,7 @@ public class StargateAuthenticationModule
 
         @Provides
         @Singleton
-        @ForBaseJdbc
+        @TransportConnectionFactory
         public ConnectionFactory getConnectionFactory(
                 BaseJdbcConfig config,
                 StargateConfig connectorConfig,
@@ -217,7 +216,7 @@ public class StargateAuthenticationModule
 
         @Provides
         @Singleton
-        @ForBaseJdbc
+        @TransportConnectionFactory
         public ConnectionFactory getConnectionFactory(
                 BaseJdbcConfig baseJdbcConfig,
                 StargateConfig connectorConfig,
@@ -250,7 +249,7 @@ public class StargateAuthenticationModule
 
         @Provides
         @Singleton
-        @ForBaseJdbc
+        @TransportConnectionFactory
         public ConnectionFactory getConnectionFactory(
                 BaseJdbcConfig baseJdbcConfig,
                 StargateConfig connectorConfig,
