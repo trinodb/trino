@@ -293,6 +293,12 @@ public class TestSynapseConnectorTest
     }
 
     @Override
+    public void testInsertRowConcurrently()
+    {
+        throw new SkipException("Synapse INSERTs are slow and the futures sometimes timeout in the test. TODO https://starburstdata.atlassian.net/browse/SEP-9214");
+    }
+
+    @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return format("(?s)Cannot insert the value NULL into column '%s'.*", columnName);
