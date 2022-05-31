@@ -141,6 +141,7 @@
         <module>plugin/trino-phoenix</module>
         <module>plugin/trino-phoenix5</module>
         <module>plugin/trino-pinot</module>
+        <module>plugin/trino-plugin-archetype</module>
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>
         <module>plugin/trino-raptor-legacy</module>
