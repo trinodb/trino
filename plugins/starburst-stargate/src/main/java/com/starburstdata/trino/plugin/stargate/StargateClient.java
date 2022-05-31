@@ -232,6 +232,10 @@ public class StargateClient
     @Override
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
+        if (!enableWrites) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column comments");
+        }
+
         String sql = format(
                 "COMMENT ON COLUMN %s.%s IS %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
