@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseOrcWithBloomFiltersTest
         extends AbstractTestQueryFramework
@@ -40,6 +41,18 @@ public abstract class BaseOrcWithBloomFiltersTest
         // `totalprice 51890 is chosen to lie between min/max values of row group
         assertBloomFilterBasedRowGroupPruning(format("SELECT * FROM %s WHERE totalprice = 51890", tableName));
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testInvalidOrcBloomFilterColumnsDuringCreate()
+    {
+        String tableName = "create_orc_with_bloom_filters_" + randomTableSuffix();
+        assertThatThrownBy(() -> computeActual(
+                format(
+                        "CREATE TABLE %s WITH (%s) AS SELECT orderstatus FROM tpch.tiny.orders",
+                        tableName,
+                        getTableProperties("totalprice", "orderstatus"))))
+                .hasMessage("Orc bloom filter columns [totalprice] not present in schema");
     }
 
     @Test
