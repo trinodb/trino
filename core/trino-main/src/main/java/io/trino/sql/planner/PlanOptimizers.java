@@ -188,6 +188,7 @@ import io.trino.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
 import io.trino.sql.planner.iterative.rule.RemoveDuplicateConditions;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyDeleteRuleSet;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyExceptBranches;
+import io.trino.sql.planner.iterative.rule.RemoveEmptyGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyTableExecute;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyUnionBranches;
 import io.trino.sql.planner.iterative.rule.RemoveFullSample;
@@ -983,6 +984,7 @@ public class PlanOptimizers
     {
         return ImmutableSet.of(
                 new PruneAggregationColumns(),
+                new RemoveEmptyGlobalAggregation(), // aggregation can become empty after pruning its output columns
                 new PruneAggregationSourceColumns(),
                 new PruneApplyColumns(),
                 new PruneApplyCorrelation(),
