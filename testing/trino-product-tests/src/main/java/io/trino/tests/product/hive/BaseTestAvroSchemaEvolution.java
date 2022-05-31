@@ -233,7 +233,7 @@ public abstract class BaseTestAvroSchemaEvolution
 
     private List<Row> prepareShowColumnsResultRows(Row... rows)
     {
-        ImmutableList.Builder<Row> rowsWithPartitionsBuilder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<Row> rowsWithPartitionsBuilder = ImmutableList.builder();
         rowsWithPartitionsBuilder.add(rows);
         varcharPartitionColumns.stream()
                 .map(partition -> row(partition, "varchar", "partition key", ""))

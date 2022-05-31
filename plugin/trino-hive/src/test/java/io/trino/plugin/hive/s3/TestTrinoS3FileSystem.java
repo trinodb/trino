@@ -15,6 +15,7 @@ package io.trino.plugin.hive.s3;
 
 import com.amazonaws.AmazonWebServiceClient;
 import com.amazonaws.ClientConfiguration;
+import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSSessionCredentials;
@@ -38,6 +39,7 @@ import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.securitytoken.AWSSecurityTokenService;
 import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClient;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.s3.TrinoS3FileSystem.UnrecoverableS3OperationException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -581,6 +583,89 @@ public class TestTrinoS3FileSystem
     {
         assertSkipGlacierObjects(true);
         assertSkipGlacierObjects(false);
+    }
+
+    @Test
+    public void testProxyDefaultsS3ClientConfiguration()
+            throws Exception
+    {
+        HiveS3Config hiveS3Config = new HiveS3Config();
+
+        TrinoS3ConfigurationInitializer configurationInitializer = new TrinoS3ConfigurationInitializer(hiveS3Config);
+        Configuration trinoFsConfiguration = new Configuration(false);
+        configurationInitializer.initializeConfiguration(trinoFsConfiguration);
+
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), trinoFsConfiguration);
+            ClientConfiguration config = getFieldValue(fs.getS3Client(), AmazonWebServiceClient.class, "clientConfiguration", ClientConfiguration.class);
+            assertNull(config.getProxyHost());
+            assertEquals(config.getProxyPort(), -1);
+            assertEquals(config.getProxyProtocol(), Protocol.HTTP);
+            assertEquals(config.getNonProxyHosts(), System.getProperty("http.nonProxyHosts"));
+            assertNull(config.getProxyUsername());
+            assertNull(config.getProxyPassword());
+            assertFalse(config.isPreemptiveBasicProxyAuth());
+        }
+    }
+
+    @Test
+    public void testOnNoHostProxyDefaultsS3ClientConfiguration()
+            throws Exception
+    {
+        HiveS3Config hiveS3Config = new HiveS3Config();
+        hiveS3Config.setS3ProxyHost(null);
+        hiveS3Config.setS3ProxyPort(40000);
+        hiveS3Config.setS3ProxyProtocol("https");
+        hiveS3Config.setS3NonProxyHosts(ImmutableList.of("firsthost.com", "secondhost.com"));
+        hiveS3Config.setS3ProxyUsername("dummy_username");
+        hiveS3Config.setS3ProxyPassword("dummy_password");
+        hiveS3Config.setS3PreemptiveBasicProxyAuth(true);
+
+        TrinoS3ConfigurationInitializer configurationInitializer = new TrinoS3ConfigurationInitializer(hiveS3Config);
+        Configuration trinoFsConfiguration = new Configuration(false);
+        configurationInitializer.initializeConfiguration(trinoFsConfiguration);
+
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), trinoFsConfiguration);
+            ClientConfiguration config = getFieldValue(fs.getS3Client(), AmazonWebServiceClient.class, "clientConfiguration", ClientConfiguration.class);
+            assertNull(config.getProxyHost());
+            assertEquals(config.getProxyPort(), -1);
+            assertEquals(config.getProxyProtocol(), Protocol.HTTP);
+            assertEquals(config.getNonProxyHosts(), System.getProperty("http.nonProxyHosts"));
+            assertNull(config.getProxyUsername());
+            assertNull(config.getProxyPassword());
+            assertFalse(config.isPreemptiveBasicProxyAuth());
+        }
+    }
+
+    @Test
+    public void testExplicitProxyS3ClientConfiguration()
+            throws Exception
+    {
+        HiveS3Config hiveS3Config = new HiveS3Config();
+        hiveS3Config.setS3ProxyHost("dummy.com");
+        hiveS3Config.setS3ProxyPort(40000);
+        hiveS3Config.setS3ProxyProtocol("https");
+        hiveS3Config.setS3NonProxyHosts(ImmutableList.of("firsthost.com", "secondhost.com"));
+        hiveS3Config.setS3ProxyUsername("dummy_username");
+        hiveS3Config.setS3ProxyPassword("dummy_password");
+        hiveS3Config.setS3PreemptiveBasicProxyAuth(true);
+
+        TrinoS3ConfigurationInitializer configurationInitializer = new TrinoS3ConfigurationInitializer(hiveS3Config);
+        Configuration trinoFsConfiguration = new Configuration(false);
+        configurationInitializer.initializeConfiguration(trinoFsConfiguration);
+
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), trinoFsConfiguration);
+            ClientConfiguration config = getFieldValue(fs.getS3Client(), AmazonWebServiceClient.class, "clientConfiguration", ClientConfiguration.class);
+            assertEquals(config.getProxyHost(), "dummy.com");
+            assertEquals(config.getProxyPort(), 40000);
+            assertEquals(config.getProxyProtocol(), Protocol.HTTPS);
+            assertEquals(config.getNonProxyHosts(), "firsthost.com|secondhost.com");
+            assertEquals(config.getProxyUsername(), "dummy_username");
+            assertEquals(config.getProxyPassword(), "dummy_password");
+            assertTrue(config.isPreemptiveBasicProxyAuth());
+        }
     }
 
     private static void assertSkipGlacierObjects(boolean skipGlacierObjects)

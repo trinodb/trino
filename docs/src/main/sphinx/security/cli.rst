@@ -37,48 +37,13 @@ Configuration for TLS
 ^^^^^^^^^^^^^^^^^^^^^
 
 When using Kerberos authentication, access to the Trino coordinator must be
-through HTTPS. If you have not yet configured HTTPS/TLS for your coordinator,
+through HTTPS. If you have not yet configured TLS/HTTPS for your coordinator,
 refer to :doc:`HTTPS and TLS </security/tls>`.
 
 Trino CLI execution
---------------------
+-------------------
 
-In addition to the options that are required when connecting to a Trino
-coordinator, that does not require Kerberos authentication, invoking the CLI
-with Kerberos support enabled requires a number of additional command line
-options. The simplest way to invoke the CLI is with a wrapper script.
-
-.. code-block:: text
-
-    #!/bin/bash
-
-    ./trino \
-      --server https://trino-coordinator.example.com:7778 \
-      --krb5-config-path /etc/krb5.conf \
-      --krb5-principal someuser@EXAMPLE.COM \
-      --krb5-keytab-path /home/someuser/someuser.keytab \
-      --krb5-remote-service-name trino \
-      --keystore-path /tmp/trino.jks \
-      --keystore-password password \
-      --catalog <catalog> \
-      --schema <schema>
-
-=============================== =========================================================================
-Option                          Description
-=============================== =========================================================================
-``--server``                    The address and port of the Trino coordinator.  The port must
-                                be set to the port the Trino coordinator is listening for HTTPS
-                                connections on.
-``--krb5-config-path``          Kerberos configuration file.
-``--krb5-principal``            The principal to use when authenticating to the coordinator.
-``--krb5-keytab-path``          The location of the keytab that can be used to
-                                authenticate the principal specified by ``--krb5-principal``
-``--krb5-remote-service-name``  Trino coordinator Kerberos service name.
-``--keystore-path``             The location of the Java Keystore file that is used
-                                to secure TLS.
-``--keystore-password``         The password for the keystore. This must match the
-                                password you specified when creating the keystore.
-=============================== =========================================================================
+Use the :ref:`Kerberos options to run the CLI <cli-kerberos-auth>`.
 
 Troubleshooting
 ---------------

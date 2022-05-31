@@ -6,11 +6,11 @@ Trino can be configured to enable Kerberos authentication over HTTPS for
 clients, such as the :doc:`Trino CLI </security/cli>`, or the JDBC and ODBC
 drivers.
 
-To enable Kerberos authentication for Trino, configuration changes are made on
-the Trino coordinator. No changes are required to the worker configuration.
-The worker nodes continue to connect to the coordinator over
-unauthenticated HTTP. However, if you want to secure the communication between
-Trino nodes with SSL/TLS, configure :doc:`/security/internal-communication`.
+To enable Kerberos authentication for Trino, Kerberos-related configuration
+changes are made on the Trino coordinator.
+
+Using :doc:`TLS <tls>` and :doc:`a configured shared secret
+</security/internal-communication>` is required for Kerberos authentication.
 
 Environment configuration
 -------------------------
@@ -50,7 +50,7 @@ Configuration for TLS
 ^^^^^^^^^^^^^^^^^^^^^
 
 When using Kerberos authentication, access to the Trino coordinator must be
-through :doc:`HTTPS and TLS </security/tls>`.
+through :doc:`TLS and HTTPS </security/tls>`.
 
 System access control plugin
 ----------------------------

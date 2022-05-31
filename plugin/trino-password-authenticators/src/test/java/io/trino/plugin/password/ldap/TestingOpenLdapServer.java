@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.trino.testing.TestingProperties;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 
@@ -30,7 +31,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 
-import static io.trino.plugin.password.jndi.JndiUtils.createDirContext;
+import static io.trino.plugin.base.jndi.JndiUtils.createDirContext;
 import static io.trino.plugin.password.ldap.LdapUtil.MEMBER;
 import static io.trino.plugin.password.ldap.LdapUtil.addAttributesToExistingLdapObjects;
 import static io.trino.plugin.password.ldap.LdapUtil.addLdapDefinition;
@@ -46,14 +47,15 @@ public class TestingOpenLdapServer
 {
     private static final String BASE_DISTINGUISED_NAME = "dc=trino,dc=testldap,dc=com";
 
-    private static final int LDAP_PORT = 389;
+    public static final int LDAP_PORT = 389;
 
     private final Closer closer = Closer.create();
     private final GenericContainer<?> openLdapServer;
 
-    public TestingOpenLdapServer()
+    public TestingOpenLdapServer(Network network)
     {
         openLdapServer = new GenericContainer<>("ghcr.io/trinodb/testing/centos7-oj11-openldap:" + TestingProperties.getDockerImagesVersion())
+                .withNetwork(network)
                 .withExposedPorts(LDAP_PORT)
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(new HostPortWaitStrategy())
@@ -67,6 +69,11 @@ public class TestingOpenLdapServer
         openLdapServer.start();
     }
 
+    public String getNetworkAlias()
+    {
+        return openLdapServer.getNetworkAliases().get(0);
+    }
+
     public String getLdapUrl()
     {
         return format("ldap://%s:%s", openLdapServer.getContainerIpAddress(), openLdapServer.getMappedPort(LDAP_PORT));
@@ -75,33 +82,27 @@ public class TestingOpenLdapServer
     public DisposableSubContext createOrganization()
             throws NamingException
     {
-        DirContext context = createContext();
-        try {
-            return new DisposableSubContext(addLdapDefinition(buildLdapOrganizationObject("organization_" + randomSuffix(), BASE_DISTINGUISED_NAME), context));
-        }
-        finally {
-            context.close();
-        }
+        return createDisposableSubContext(buildLdapOrganizationObject("organization_" + randomSuffix(), BASE_DISTINGUISED_NAME));
     }
 
     public DisposableSubContext createGroup(DisposableSubContext organization)
             throws Exception
     {
-        DirContext context = createContext();
-        try {
-            return new DisposableSubContext(addLdapDefinition(buildLdapGroupObject(organization.getDistinguishedName(), "group_" + randomSuffix()), context));
-        }
-        finally {
-            context.close();
-        }
+        return createDisposableSubContext(buildLdapGroupObject(organization.getDistinguishedName(), "group_" + randomSuffix()));
     }
 
     public DisposableSubContext createUser(DisposableSubContext organization, String userName, String password)
             throws Exception
     {
+        return createDisposableSubContext(buildLdapUserObject(organization.getDistinguishedName(), userName, password));
+    }
+
+    public DisposableSubContext createDisposableSubContext(LdapObjectDefinition ldapObjectDefinition)
+            throws NamingException
+    {
         DirContext context = createContext();
         try {
-            return new DisposableSubContext(addLdapDefinition(buildLdapUserObject(organization.getDistinguishedName(), userName, password), context));
+            return new DisposableSubContext(addLdapDefinition(ldapObjectDefinition, context));
         }
         finally {
             context.close();

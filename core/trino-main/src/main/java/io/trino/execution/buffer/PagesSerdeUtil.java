@@ -14,19 +14,26 @@
 package io.trino.execution.buffer;
 
 import com.google.common.collect.AbstractIterator;
+import com.google.common.io.ByteStreams;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
 
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.Iterator;
 import java.util.List;
 
 import static io.trino.block.BlockSerdeUtil.readBlock;
 import static io.trino.block.BlockSerdeUtil.writeBlock;
+import static io.trino.execution.buffer.PagesSerde.SERIALIZED_PAGE_HEADER_SIZE;
 import static io.trino.execution.buffer.PagesSerde.readSerializedPage;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -93,9 +100,9 @@ public final class PagesSerdeUtil
         return size;
     }
 
-    public static Iterator<Page> readPages(PagesSerde serde, SliceInput sliceInput)
+    public static Iterator<Page> readPages(PagesSerde serde, InputStream inputStream)
     {
-        return new PageReader(serde, sliceInput);
+        return new PageReader(serde, inputStream);
     }
 
     private static class PageReader
@@ -103,50 +110,72 @@ public final class PagesSerdeUtil
     {
         private final PagesSerde serde;
         private final PagesSerde.PagesSerdeContext context;
-        private final SliceInput input;
+        private final InputStream inputStream;
+        private final byte[] headerBuffer = new byte[SERIALIZED_PAGE_HEADER_SIZE];
+        private final Slice headerSlice = Slices.wrappedBuffer(headerBuffer);
 
-        PageReader(PagesSerde serde, SliceInput input)
+        PageReader(PagesSerde serde, InputStream inputStream)
         {
             this.serde = requireNonNull(serde, "serde is null");
-            this.input = requireNonNull(input, "input is null");
+            this.inputStream = requireNonNull(inputStream, "inputStream is null");
             this.context = serde.newContext();
         }
 
         @Override
         protected Page computeNext()
         {
-            if (!input.isReadable()) {
-                context.close(); // Release context buffers
-                return endOfData();
-            }
+            try {
+                int read = ByteStreams.read(inputStream, headerBuffer, 0, headerBuffer.length);
+                if (read <= 0) {
+                    context.close(); // Release context buffers
+                    return endOfData();
+                }
+                else if (read != headerBuffer.length) {
+                    throw new EOFException();
+                }
 
-            return serde.deserialize(context, readSerializedPage(input));
+                return serde.deserialize(context, readSerializedPage(headerSlice, inputStream));
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
     }
 
-    public static Iterator<Slice> readSerializedPages(SliceInput sliceInput)
+    public static Iterator<Slice> readSerializedPages(InputStream inputStream)
     {
-        return new SerializedPageReader(sliceInput);
+        return new SerializedPageReader(inputStream);
     }
 
     private static class SerializedPageReader
             extends AbstractIterator<Slice>
     {
-        private final SliceInput input;
+        private final InputStream inputStream;
+        private final byte[] headerBuffer = new byte[SERIALIZED_PAGE_HEADER_SIZE];
+        private final Slice headerSlice = Slices.wrappedBuffer(headerBuffer);
 
-        SerializedPageReader(SliceInput input)
+        SerializedPageReader(InputStream input)
         {
-            this.input = requireNonNull(input, "input is null");
+            this.inputStream = requireNonNull(input, "inputStream is null");
         }
 
         @Override
         protected Slice computeNext()
         {
-            if (!input.isReadable()) {
-                return endOfData();
-            }
+            try {
+                int read = ByteStreams.read(inputStream, headerBuffer, 0, headerBuffer.length);
+                if (read <= 0) {
+                    return endOfData();
+                }
+                else if (read != headerBuffer.length) {
+                    throw new EOFException();
+                }
 
-            return readSerializedPage(input);
+                return readSerializedPage(headerSlice, inputStream);
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
     }
 }

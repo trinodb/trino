@@ -46,13 +46,11 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.inject.Inject;
 
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.function.IntUnaryOperator;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -231,14 +229,14 @@ public class PagesIndex
             pagesMemorySize += block.getRetainedSizeInBytes();
         }
 
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            long sliceAddress = encodeSyntheticAddress(pageIndex, position);
+        // this uses a long[] internally, so cap size to a nice round number for safety
+        int resultingSize = valueAddresses.size() + page.getPositionCount();
+        if (resultingSize < 0 || resultingSize >= 2_000_000_000) {
+            throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of pages index cannot exceed 2 billion entries");
+        }
 
-            // this uses a long[] internally, so cap size to a nice round number for safety
-            if (valueAddresses.size() >= 2_000_000_000) {
-                throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of pages index cannot exceed 2 billion entries");
-            }
-            valueAddresses.add(sliceAddress);
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            valueAddresses.add(encodeSyntheticAddress(pageIndex, position));
         }
         estimatedSize = calculateEstimatedSize();
     }
@@ -292,7 +290,7 @@ public class PagesIndex
         elements[b] = temp;
     }
 
-    private int buildPage(int position, int[] outputChannels, PageBuilder pageBuilder)
+    private int buildPage(int position, PageBuilder pageBuilder)
     {
         while (!pageBuilder.isFull() && position < positionCount) {
             long pageAddress = valueAddresses.getLong(position);
@@ -301,11 +299,10 @@ public class PagesIndex
 
             // append the row
             pageBuilder.declarePosition();
-            for (int i = 0; i < outputChannels.length; i++) {
-                int outputChannel = outputChannels[i];
-                Type type = types.get(outputChannel);
-                Block block = this.channels[outputChannel].get(blockIndex);
-                type.appendTo(block, blockPosition, pageBuilder.getBlockBuilder(i));
+            for (int channel = 0; channel < channels.length; channel++) {
+                Type type = types.get(channel);
+                Block block = channels[channel].get(blockIndex);
+                type.appendTo(block, blockPosition, pageBuilder.getBlockBuilder(channel));
             }
 
             position++;
@@ -597,16 +594,11 @@ public class PagesIndex
         {
             private int currentPosition;
             private final PageBuilder pageBuilder = new PageBuilder(types);
-            private final int[] outputChannels = new int[types.size()];
-
-            {
-                Arrays.setAll(outputChannels, IntUnaryOperator.identity());
-            }
 
             @Override
             public Page computeNext()
             {
-                currentPosition = buildPage(currentPosition, outputChannels, pageBuilder);
+                currentPosition = buildPage(currentPosition, pageBuilder);
                 if (pageBuilder.isEmpty()) {
                     return endOfData();
                 }

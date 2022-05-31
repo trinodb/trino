@@ -97,7 +97,7 @@ public class TestAccumulatorCompiler
         FunctionNullability functionNullability = new FunctionNullability(false, ImmutableList.of(false));
 
         // test if we can compile aggregation
-        AccumulatorFactory accumulatorFactory = AccumulatorCompiler.generateAccumulatorFactory(signature, metadata, functionNullability, ImmutableList.of());
+        AccumulatorFactory accumulatorFactory = AccumulatorCompiler.generateAccumulatorFactory(signature, metadata, functionNullability);
         assertThat(accumulatorFactory).isNotNull();
         assertThat(AccumulatorCompiler.generateWindowAccumulatorClass(signature, metadata, functionNullability)).isNotNull();
 

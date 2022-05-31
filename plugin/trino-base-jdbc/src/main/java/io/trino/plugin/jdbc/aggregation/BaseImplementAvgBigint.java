@@ -17,7 +17,6 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
-import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.spi.connector.AggregateFunction;
@@ -31,7 +30,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionType;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -43,13 +42,13 @@ import static java.lang.String.format;
  * can result in rounding of the output to a bigint.
  */
 public abstract class BaseImplementAvgBigint
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
-    private final Capture<Variable> input;
+    private final Capture<Variable> argument;
 
     public BaseImplementAvgBigint()
     {
-        this.input = newCapture();
+        this.argument = newCapture();
     }
 
     @Override
@@ -57,26 +56,24 @@ public abstract class BaseImplementAvgBigint
     {
         return basicAggregation()
                 .with(functionName().equalTo("avg"))
-                .with(singleInput().matching(
+                .with(singleArgument().matching(
                         variable()
                                 .with(expressionType().matching(type -> type == BIGINT))
-                                .capturedAs(this.input)));
+                                .capturedAs(this.argument)));
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
-        Variable input = captures.get(this.input);
-        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
+        Variable argument = captures.get(this.argument);
         verify(aggregateFunction.getOutputType() == DOUBLE);
 
-        String columnName = context.getIdentifierQuote().apply(columnHandle.getColumnName());
-
         return Optional.of(new JdbcExpression(
-                format(getRewriteFormatExpression(), columnName),
+                format(getRewriteFormatExpression(), context.rewriteExpression(argument).orElseThrow()),
                 new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())));
     }
 
+    // TODO String.format is not great for contract of an extensible API. Replace with formatting method.
     /**
      * Implement this method for each connector supporting avg(bigint) pushdown
      * @return A format string expression with a single placeholder for the column name; The string expression pushes down avg to the remote database

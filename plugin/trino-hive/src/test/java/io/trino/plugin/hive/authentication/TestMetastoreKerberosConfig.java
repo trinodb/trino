@@ -42,7 +42,7 @@ public class TestMetastoreKerberosConfig
     {
         Path clientKeytabFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.service.principal", "hive/_HOST@EXAMPLE.COM")
                 .put("hive.metastore.client.principal", "metastore@EXAMPLE.COM")
                 .put("hive.metastore.client.keytab", clientKeytabFile.toString())

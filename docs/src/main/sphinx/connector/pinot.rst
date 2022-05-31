@@ -2,6 +2,10 @@
 Pinot connector
 ===============
 
+.. raw:: html
+
+  <img src="../_static/img/pinot.png" class="connector-logo">
+
 The Pinot connector allows Trino to query data stored in
 `Apache Pinot™ <https://pinot.apache.org/>`_.
 
@@ -10,7 +14,7 @@ Requirements
 
 To connect to Pinot, you need:
 
-* Pinot 0.8.0 or higher.
+* Pinot 0.9.3 or higher.
 * Network access from the Trino coordinator and workers to the Pinot controller
   nodes. Port 8098 is the default port.
 

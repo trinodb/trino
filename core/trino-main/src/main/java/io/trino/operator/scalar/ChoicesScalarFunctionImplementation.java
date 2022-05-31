@@ -32,8 +32,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
 import static java.lang.String.format;
 import static java.util.Comparator.comparingInt;
@@ -204,11 +202,18 @@ public final class ChoicesScalarFunctionImplementation
         {
             int score = 0;
             for (InvocationArgumentConvention argument : callingConvention.getArgumentConventions()) {
-                if (argument == NULL_FLAG) {
-                    score += 1;
-                }
-                else if (argument == BLOCK_POSITION) {
-                    score += 1000;
+                switch (argument) {
+                    case NULL_FLAG:
+                        score += 1;
+                        break;
+                    case BLOCK_POSITION:
+                        score += 1000;
+                        break;
+                    case IN_OUT:
+                        score += 10_000;
+                        break;
+                    default:
+                        break;
                 }
             }
             return score;

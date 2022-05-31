@@ -144,9 +144,9 @@ class SubqueryPlanner
     private <T extends Expression> List<T> selectSubqueries(PlanBuilder subPlan, Expression parent, List<T> candidates)
     {
         SuccessorsFunction<Node> recurse = expression -> {
-            if (expression instanceof Expression &&
-                    !analysis.isColumnReference((Expression) expression) && // no point in following dereference chains
-                    !subPlan.canTranslate((Expression) expression)) { // don't consider subqueries under parts of the expression that have already been handled
+            if (!(expression instanceof Expression) ||
+                    (!analysis.isColumnReference((Expression) expression) && // no point in following dereference chains
+                            !subPlan.canTranslate((Expression) expression))) { // don't consider subqueries under parts of the expression that have already been handled
                 return expression.getChildren();
             }
 
@@ -235,7 +235,9 @@ class SubqueryPlanner
         PlanBuilder subqueryPlan = newPlanBuilder(
                 relationPlan,
                 analysis,
-                lambdaDeclarationToSymbolMap);
+                lambdaDeclarationToSymbolMap,
+                session,
+                plannerContext);
 
         PlanNode root = new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan.getRoot());
 
@@ -464,7 +466,9 @@ class SubqueryPlanner
                 relationPlan,
                 analysis,
                 lambdaDeclarationToSymbolMap,
-                ImmutableMap.of(scopeAwareKey(subquery, analysis, relationPlan.getScope()), column));
+                ImmutableMap.of(scopeAwareKey(subquery, analysis, relationPlan.getScope()), column),
+                session,
+                plannerContext);
 
         RelationType descriptor = relationPlan.getDescriptor();
         ImmutableList.Builder<Expression> fields = ImmutableList.builder();

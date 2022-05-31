@@ -19,6 +19,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
@@ -141,7 +142,14 @@ public class DeduplicatingDirectExchangeBuffer
         }
 
         if (!outputReady.isDone()) {
-            return nonCancellationPropagating(outputReady);
+            return nonCancellationPropagating(Futures.transformAsync(outputReady, ignored -> {
+                synchronized (this) {
+                    if (outputSource != null) {
+                        return outputSource.isBlocked();
+                    }
+                    return immediateVoidFuture();
+                }
+            }, directExecutor()));
         }
 
         checkState(outputSource != null, "outputSource is expected to be set");
@@ -760,7 +768,7 @@ public class DeduplicatingDirectExchangeBuffer
     {
         private final Set<TaskId> selectedTasks;
         private final QueryId queryId;
-        private final ListenableFuture<ExchangeSource> exchangeSourceFuture;
+        private ListenableFuture<ExchangeSource> exchangeSourceFuture;
 
         private ExchangeSource exchangeSource;
         private boolean finished;
@@ -821,7 +829,10 @@ public class DeduplicatingDirectExchangeBuffer
                 return immediateVoidFuture();
             }
             if (!exchangeSourceFuture.isDone()) {
-                return nonCancellationPropagating(asVoid(exchangeSourceFuture));
+                return nonCancellationPropagating(asVoid(Futures.transformAsync(
+                        exchangeSourceFuture,
+                        exchangeSource -> toListenableFuture(exchangeSource.isBlocked()),
+                        directExecutor())));
             }
             if (exchangeSource != null) {
                 CompletableFuture<Void> blocked = exchangeSource.isBlocked();
@@ -848,6 +859,7 @@ public class DeduplicatingDirectExchangeBuffer
                 return;
             }
             finished = true;
+            exchangeSource = null;
             addCallback(exchangeSourceFuture, new FutureCallback<>()
             {
                 @Override
@@ -868,6 +880,7 @@ public class DeduplicatingDirectExchangeBuffer
                     // It a failure occurred it is expected to be propagated by the getNext method
                 }
             }, directExecutor());
+            exchangeSourceFuture = null;
         }
     }
 }

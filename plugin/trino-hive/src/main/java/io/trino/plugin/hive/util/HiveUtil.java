@@ -75,12 +75,14 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.joda.time.DateTimeZone;
+import org.joda.time.Days;
+import org.joda.time.LocalDateTime;
+import org.joda.time.LocalTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import javax.annotation.Nullable;
 
@@ -90,10 +92,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -183,7 +185,8 @@ public final class HiveUtil
     public static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
     public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
-    private static final DateTimeFormatter HIVE_DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
+    private static final LocalDateTime EPOCH_DAY = new LocalDateTime(1970, 1, 1, 0, 0);
+    private static final DateTimeFormatter HIVE_DATE_PARSER;
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
     private static final Field COMPRESSION_CODECS_FIELD;
 
@@ -206,6 +209,7 @@ public final class HiveUtil
         };
         DateTimePrinter timestampWithoutTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS").getPrinter();
         HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
+        HIVE_DATE_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
 
         try {
             COMPRESSION_CODECS_FIELD = TextInputFormat.class.getDeclaredField("compressionCodecs");
@@ -373,8 +377,11 @@ public final class HiveUtil
 
     public static long parseHiveDate(String value)
     {
-        long millis = HIVE_DATE_PARSER.parseMillis(value);
-        return TimeUnit.MILLISECONDS.toDays(millis);
+        LocalDateTime date = HIVE_DATE_PARSER.parseLocalDateTime(value);
+        if (!date.toLocalTime().equals(LocalTime.MIDNIGHT)) {
+            throw new IllegalArgumentException(format("The value should be a whole round date: '%s'", value));
+        }
+        return Days.daysBetween(EPOCH_DAY, date).getDays();
     }
 
     public static long parseHiveTimestamp(String value)
@@ -1128,13 +1135,23 @@ public final class HiveUtil
 
     public static boolean isDeltaLakeTable(Table table)
     {
-        return table.getParameters().containsKey(SPARK_TABLE_PROVIDER_KEY)
-                && table.getParameters().get(SPARK_TABLE_PROVIDER_KEY).toLowerCase(ENGLISH).equals(DELTA_LAKE_PROVIDER);
+        return isDeltaLakeTable(table.getParameters());
+    }
+
+    public static boolean isDeltaLakeTable(Map<String, String> tableParameters)
+    {
+        return tableParameters.containsKey(SPARK_TABLE_PROVIDER_KEY)
+                && tableParameters.get(SPARK_TABLE_PROVIDER_KEY).toLowerCase(ENGLISH).equals(DELTA_LAKE_PROVIDER);
     }
 
     public static boolean isIcebergTable(Table table)
     {
-        return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(ICEBERG_TABLE_TYPE_NAME));
+        return isIcebergTable(table.getParameters());
+    }
+
+    public static boolean isIcebergTable(Map<String, String> tableParameters)
+    {
+        return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(tableParameters.get(ICEBERG_TABLE_TYPE_NAME));
     }
 
     public static boolean isSparkBucketedTable(Table table)

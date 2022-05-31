@@ -200,7 +200,7 @@ public class ParquetPageSource
         }
 
         @Override
-        public final Block load()
+        public Block load()
         {
             checkState(!loaded, "Already loaded");
             checkState(batchId == expectedBatchId, "Inconsistent state; wrong batch");

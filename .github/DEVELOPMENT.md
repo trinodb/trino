@@ -21,15 +21,13 @@ When writing a Git commit message, follow these [guidelines](https://chris.beams
 
 Pull requests are usually merged into `master` using the  [`rebase and merge`](https://docs.github.com/en/github/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges#rebase-and-merge-your-pull-request-commits) strategy.
 
-A typical pull request should strive to contain a single logical change.
+A typical pull request should strive to contain a single logical change (but not necessarily a single commit).
 Unrelated changes should generally be extracted into their own PRs.
 
 If a pull request does consist of multiple commits, it is expected that every prefix of it is correct. That is,
 there might be preparatory commits at the bottom of the stack that don't bring any value by themselves,
 but none of the commits should introduce an error that is fixed by some future commit.
 Every commit should build and pass all tests.
-
-It is important to keep commits on feature branches neat, squashing the feature branch as necessary.
 
 Commit messages and history are also important, as they are used by other developers to keep track of
 the motivation behind changes. Keep logical diffs grouped together in separate commits, and order commits
@@ -49,12 +47,21 @@ To run checkstyle and other maven checks before opening a PR: `./mvnw validate`
 
 In addition to those you should also adhere to the following:
 
+### Readability
+
+The purpose of code style rules is to maintain code readability and developer efficiency when
+working with the code. All the code style rules explained below are good guidelines to follow
+but there may be exceptional situations where we purposefully depart from them. When readability
+and code style rule are at odds, the readability is more important.
+
+### Consistency
+
+Keep code consistent with surrounding code where possible.
+
 ### Alphabetize
 
 Alphabetize sections in the documentation source files (both in the table of
-contents files and other regular documentation files).  In general, alphabetize
-methods/variables/sections if such ordering already exists in the surrounding
-code.
+contents files and other regular documentation files).
 
 ### Use streams
 

@@ -602,8 +602,8 @@ public class TestShowStats
                 sessionWith(getSession(), USE_PARTIAL_DISTINCT_LIMIT, "false"),
                 "SHOW STATS FOR (SELECT DISTINCT regionkey FROM nation LIMIT 3)",
                 "VALUES " +
-                        "   ('regionkey', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   ('regionkey', null, 3, 0, null, 0, 4), " +
+                        "   (null, null, null, null, 3, null, null)");
     }
 
     @Test
@@ -704,11 +704,11 @@ public class TestShowStats
         assertQuery(
                 "SHOW STATS FOR (SELECT * FROM nation_view WHERE regionkey = 0)",
                 "VALUES " +
-                        "   ('nationkey', null, 1, 0, null, 0, 24), " +
-                        "   ('name', 7.08, 1, 0, null, null, null), " +
-                        "   ('comment', 74.28, 1, 0, null, null, null), " +
-                        "   ('regionkey', null, 1, 0, null, 0, 0), " +
-                        "   (null, null, null, null, 1, null, null)");
+                        "   ('nationkey', null, 0.29906975624424414, 0, null, 0, 24), " +
+                        "   ('name', 2.1174138742092485, 0.29906975624424414, 0, null, null, null), " +
+                        "   ('comment', 22.214901493822456, 0.29906975624424414, 0, null, null, null), " +
+                        "   ('regionkey', null, 0.29906975624424414, 0, null, 0, 0), " +
+                        "   (null, null, null, null, 0.29906975624424414, null, null)");
         assertUpdate("DROP VIEW nation_view");
     }
 

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -61,6 +60,7 @@ public final class MongoQueryRunner
 
             queryRunner.installPlugin(new MongoPlugin());
             queryRunner.createCatalog("mongodb", "mongodb", properties);
+            queryRunner.execute("CREATE SCHEMA mongodb." + TPCH_SCHEMA);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
             return queryRunner;
@@ -87,7 +87,6 @@ public final class MongoQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
         DistributedQueryRunner queryRunner = createMongoQueryRunner(
                 new MongoServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),

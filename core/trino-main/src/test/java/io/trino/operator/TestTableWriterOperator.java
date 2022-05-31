@@ -289,6 +289,7 @@ public class TestTableWriterOperator
     {
         List<String> notNullColumnNames = new ArrayList<>(1);
         notNullColumnNames.add(null);
+        SchemaTableName schemaTableName = new SchemaTableName("testSchema", "testTable");
         TableWriterOperatorFactory factory = new TableWriterOperatorFactory(
                 0,
                 new PlanNodeId("test"),
@@ -297,7 +298,8 @@ public class TestTableWriterOperator
                         CONNECTOR_ID,
                         new ConnectorTransactionHandle() {},
                         new ConnectorOutputTableHandle() {}),
-                        new SchemaTableName("testSchema", "testTable")),
+                        schemaTableName,
+                        false),
                 ImmutableList.of(0),
                 notNullColumnNames,
                 session,

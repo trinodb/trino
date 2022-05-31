@@ -168,7 +168,7 @@ public final class JoinTestUtils
         sinkOperatorFactory.noMoreOperators();
 
         while (!sourceDriver.isFinished()) {
-            sourceDriver.process();
+            sourceDriver.processUntilBlocked();
         }
 
         // build side operator factories
@@ -214,7 +214,7 @@ public final class JoinTestUtils
 
         while (!lookupSourceProvider.isDone()) {
             for (Driver buildDriver : buildDrivers) {
-                buildDriver.process();
+                buildDriver.processForNumberOfIterations(1);
             }
         }
         getFutureValue(lookupSourceProvider).close();
@@ -232,7 +232,7 @@ public final class JoinTestUtils
         executor.execute(() -> {
             if (!driver.isFinished()) {
                 try {
-                    driver.process();
+                    driver.processUntilBlocked();
                 }
                 catch (TrinoException e) {
                     driver.getDriverContext().failed(e);

@@ -87,7 +87,7 @@ public class BenchmarkGroupByHash
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
         for (int groupId = 0; groupId < groupByHash.getGroupCount(); groupId++) {
             pageBuilder.declarePosition();
-            groupByHash.appendValuesTo(groupId, pageBuilder, 0);
+            groupByHash.appendValuesTo(groupId, pageBuilder);
             if (pageBuilder.isFull()) {
                 pages.add(pageBuilder.build());
                 pageBuilder.reset();
@@ -124,7 +124,7 @@ public class BenchmarkGroupByHash
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
         for (int groupId = 0; groupId < groupByHash.getGroupCount(); groupId++) {
             pageBuilder.declarePosition();
-            groupByHash.appendValuesTo(groupId, pageBuilder, 0);
+            groupByHash.appendValuesTo(groupId, pageBuilder);
             if (pageBuilder.isFull()) {
                 pages.add(pageBuilder.build());
                 pageBuilder.reset();
@@ -145,7 +145,7 @@ public class BenchmarkGroupByHash
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
         for (int groupId = 0; groupId < groupByHash.getGroupCount(); groupId++) {
             pageBuilder.declarePosition();
-            groupByHash.appendValuesTo(groupId, pageBuilder, 0);
+            groupByHash.appendValuesTo(groupId, pageBuilder);
             if (pageBuilder.isFull()) {
                 pages.add(pageBuilder.build());
                 pageBuilder.reset();

@@ -119,7 +119,7 @@ public final class KafkaQueryRunner
             Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
                     .putAll(extraTopicDescription)
                     .putAll(tpchTopicDescriptions)
-                    .putAll(testTopicDescriptions.build())
+                    .putAll(testTopicDescriptions.buildOrThrow())
                     .buildOrThrow();
             setExtension(combine(
                     extension,

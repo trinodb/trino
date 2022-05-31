@@ -15,12 +15,12 @@ package io.trino.operator.window;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
-import io.trino.operator.aggregation.LambdaProvider;
 import io.trino.spi.function.WindowFunction;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -62,7 +62,7 @@ public class ReflectionWindowFunctionSupplier
     }
 
     @Override
-    public WindowFunction createWindowFunction(boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
+    public WindowFunction createWindowFunction(boolean ignoreNulls, List<Supplier<Object>> lambdaProviders)
     {
         requireNonNull(lambdaProviders, "lambdaProviders is null");
         checkArgument(lambdaProviders.isEmpty(), "lambdaProviders is not empty");

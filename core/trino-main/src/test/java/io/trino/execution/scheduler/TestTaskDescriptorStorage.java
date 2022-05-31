@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,8 +80,17 @@ public class TestTaskDescriptorStorage
                 .flatMap(TestTaskDescriptorStorage::getCatalogName)
                 .contains("catalog6");
 
-        manager.destroy(QUERY_1);
-        manager.destroy(QUERY_2);
+        manager.remove(QUERY_1_STAGE_1, 0);
+        manager.remove(QUERY_2_STAGE_2, 1);
+
+        assertThatThrownBy(() -> manager.get(QUERY_1_STAGE_1, 0))
+                .hasMessageContaining("descriptor not found for key");
+        assertThatThrownBy(() -> manager.get(QUERY_2_STAGE_2, 1))
+                .hasMessageContaining("descriptor not found for key");
+
+        assertThat(manager.getReservedBytes())
+                .isGreaterThanOrEqualTo(toBytes(5, KILOBYTE))
+                .isLessThanOrEqualTo(toBytes(7, KILOBYTE));
     }
 
     @Test
@@ -139,6 +149,12 @@ public class TestTaskDescriptorStorage
                 .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
         assertThatThrownBy(() -> manager.get(QUERY_1_STAGE_2, 0))
                 .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
+        assertThatThrownBy(() -> manager.remove(QUERY_1_STAGE_1, 0))
+                .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
+        assertThatThrownBy(() -> manager.remove(QUERY_1_STAGE_1, 1))
+                .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
+        assertThatThrownBy(() -> manager.remove(QUERY_1_STAGE_2, 0))
+                .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
 
         // QUERY_2 is still active
         assertThat(manager.get(QUERY_2_STAGE_1, 0))
@@ -159,6 +175,8 @@ public class TestTaskDescriptorStorage
                 .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
         assertThatThrownBy(() -> manager.get(QUERY_2_STAGE_1, 0))
                 .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
+        assertThatThrownBy(() -> manager.remove(QUERY_2_STAGE_1, 0))
+                .matches(TestTaskDescriptorStorage::isStorageCapacityExceededFailure);
     }
 
     private static TaskDescriptor createTaskDescriptor(int partitionId, DataSize retainedSize)
@@ -177,7 +195,7 @@ public class TestTaskDescriptorStorage
                 partitionId,
                 ImmutableListMultimap.of(),
                 ImmutableListMultimap.of(new PlanNodeId("1"), new TestingExchangeSourceHandle(retainedSize.toBytes())),
-                new NodeRequirements(catalog, ImmutableSet.of()));
+                new NodeRequirements(catalog, ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
     }
 
     private static Optional<String> getCatalogName(TaskDescriptor descriptor)

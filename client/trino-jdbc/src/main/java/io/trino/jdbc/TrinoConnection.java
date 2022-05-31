@@ -93,7 +93,7 @@ public class TrinoConnection
 
     private final URI jdbcUri;
     private final URI httpUri;
-    private final String user;
+    private final Optional<String> user;
     private final Optional<String> sessionUser;
     private final boolean compressionDisabled;
     private final boolean assumeLiteralNamesInMetadataCallsForNonConformingClients;
@@ -680,11 +680,6 @@ public class TrinoConnection
         return jdbcUri;
     }
 
-    String getUser()
-    {
-        return user;
-    }
-
     @VisibleForTesting
     Map<String, String> getExtraCredentials()
     {
@@ -770,6 +765,11 @@ public class TrinoConnection
         if (client.isClearTransactionId()) {
             transactionId.set(null);
         }
+    }
+
+    void removePreparedStatement(String name)
+    {
+        preparedStatements.remove(name);
     }
 
     private void registerStatement(TrinoStatement statement)

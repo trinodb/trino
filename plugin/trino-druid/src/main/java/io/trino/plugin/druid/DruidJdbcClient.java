@@ -25,11 +25,13 @@ import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -115,9 +117,9 @@ public class DruidJdbcClient
     public static final String DRUID_SCHEMA = "druid";
 
     @Inject
-    public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
+    public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
     }
 
     @Override
@@ -156,14 +158,14 @@ public class DruidJdbcClient
         }
     }
 
-    /*
+    /**
      * Overridden since the {@link BaseJdbcClient#getTables(Connection, Optional, Optional)}
      * method uses character escaping that doesn't work well with Druid's Avatica handler.
      * Unfortunately, because we can't escape search characters like '_' and '%", this call
      * ends up retrieving metadata for all tables that match the search
      * pattern. For ex - LIKE some_table matches somertable, somextable and some_table.
      *
-     * See getTableHandle(JdbcIdentity, SchemaTableName)} to look at
+     * See {@link DruidJdbcClient#getTableHandle(ConnectorSession, SchemaTableName)} to look at
      * how tables are filtered.
      */
     @Override
@@ -175,6 +177,13 @@ public class DruidJdbcClient
                 DRUID_SCHEMA,
                 tableName.orElse(null),
                 null);
+    }
+
+    @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+    {
+        // Don't return a comment until the connector supports creating tables with comment
+        return Optional.empty();
     }
 
     @Override
@@ -283,8 +292,10 @@ public class DruidJdbcClient
                             new RemoteTableName(
                                     Optional.empty(),
                                     table.getRequiredNamedRelation().getRemoteTableName().getSchemaName(),
-                                    table.getRequiredNamedRelation().getRemoteTableName().getTableName())),
+                                    table.getRequiredNamedRelation().getRemoteTableName().getTableName()),
+                            Optional.empty()),
                     table.getConstraint(),
+                    table.getConstraintExpressions(),
                     table.getSortOrder(),
                     table.getLimit(),
                     table.getColumns(),
@@ -295,14 +306,15 @@ public class DruidJdbcClient
         return table;
     }
 
-    /*
+    /**
      * Overridden since the {@link BaseJdbcClient#getColumns(JdbcTableHandle, DatabaseMetaData)}
      * method uses character escaping that doesn't work well with Druid's Avatica handler.
      * Unfortunately, because we can't escape search characters like '_' and '%",
      * this call ends up retrieving columns for all tables that match the search
      * pattern. For ex - LIKE some_table matches somertable, somextable and some_table.
      *
-     * See getColumns(ConnectorSession, JdbcTableHandle)} to look at tables are filtered.
+     * See {@link BaseJdbcClient#getColumns(ConnectorSession, JdbcTableHandle)} to look at
+     * how columns are filtered.
      */
     @Override
     protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
@@ -356,6 +368,12 @@ public class DruidJdbcClient
     public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns");
     }
 
     @Override

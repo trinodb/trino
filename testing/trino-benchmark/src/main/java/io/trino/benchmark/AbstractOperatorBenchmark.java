@@ -49,7 +49,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.split.SplitSource;
@@ -82,6 +81,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
+import static io.trino.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
@@ -159,7 +159,7 @@ public abstract class AbstractOperatorBenchmark
     protected final BenchmarkAggregationFunction createAggregationFunction(String name, Type... argumentTypes)
     {
         ResolvedFunction resolvedFunction = localQueryRunner.getMetadata().resolveFunction(session, QualifiedName.of(name), fromTypes(argumentTypes));
-        AggregationMetadata aggregationMetadata = localQueryRunner.getMetadata().getAggregateFunctionImplementation(resolvedFunction);
+        AggregationMetadata aggregationMetadata = localQueryRunner.getFunctionManager().getAggregateFunctionImplementation(resolvedFunction);
         return new BenchmarkAggregationFunction(resolvedFunction, aggregationMetadata);
     }
 
@@ -248,9 +248,9 @@ public abstract class AbstractOperatorBenchmark
         Map<NodeRef<Expression>, Type> expressionTypes = createTestingTypeAnalyzer(localQueryRunner.getPlannerContext())
                 .getTypes(session, TypeProvider.copyOf(symbolTypes), hashExpression.get());
 
-        RowExpression translated = translate(hashExpression.get(), expressionTypes, symbolToInputMapping.buildOrThrow(), localQueryRunner.getMetadata(), session, false);
+        RowExpression translated = translate(hashExpression.get(), expressionTypes, symbolToInputMapping.buildOrThrow(), localQueryRunner.getMetadata(), localQueryRunner.getFunctionManager(), session, false);
 
-        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getFunctionManager(), 0);
         projections.add(functionCompiler.compileProjection(translated, Optional.empty()).get());
 
         return FilterAndProjectOperator.createOperatorFactory(
@@ -274,7 +274,7 @@ public abstract class AbstractOperatorBenchmark
             boolean processed = false;
             for (Driver driver : drivers) {
                 if (!driver.isFinished()) {
-                    driver.process();
+                    driver.processForDuration(SPLIT_RUN_QUANTA);
                     long lastPeakMemory = peakMemory;
                     peakMemory = taskContext.getTaskStats().getUserMemoryReservation().toBytes();
                     if (peakMemory <= lastPeakMemory) {
@@ -295,13 +295,12 @@ public abstract class AbstractOperatorBenchmark
                 .setSystemProperty("optimizer.optimize-hash-generation", "true")
                 .setTransactionId(this.session.getRequiredTransactionId())
                 .build();
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE));
+        MemoryPool memoryPool = new MemoryPool(DataSize.of(1, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
 
         TaskContext taskContext = new QueryContext(
                 new QueryId("test"),
                 DataSize.of(256, MEGABYTE),
-                Optional.empty(),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),

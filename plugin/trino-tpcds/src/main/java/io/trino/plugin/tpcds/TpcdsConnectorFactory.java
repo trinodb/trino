@@ -29,6 +29,7 @@ import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Integer.parseInt;
 
@@ -57,6 +58,8 @@ public class TpcdsConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
+        checkSpiVersion(context, this);
+
         int splitsPerNode = getSplitsPerNode(config);
         NodeManager nodeManager = context.getNodeManager();
         return new Connector()

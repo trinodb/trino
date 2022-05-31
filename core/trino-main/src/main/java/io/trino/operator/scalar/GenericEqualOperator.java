@@ -13,11 +13,11 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionInvoker;
-import io.trino.metadata.SqlOperator;
-import io.trino.spi.function.OperatorType;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
@@ -25,23 +25,27 @@ import io.trino.spi.type.TypeSignature;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.Signature.comparableTypeParameter;
+import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class GenericEqualOperator
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     private final TypeOperators typeOperators;
 
     public GenericEqualOperator(TypeOperators typeOperators)
     {
-        super(OperatorType.EQUAL,
-                ImmutableList.of(comparableTypeParameter("T")),
-                ImmutableList.of(),
-                BOOLEAN.getTypeSignature(),
-                ImmutableList.of(new TypeSignature("T"), new TypeSignature("T")),
-                true);
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .operatorType(EQUAL)
+                        .comparableTypeParameter("T")
+                        .returnType(BOOLEAN)
+                        .argumentType(new TypeSignature("T"))
+                        .argumentType(new TypeSignature("T"))
+                        .build())
+                .nullable()
+                .build());
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }
 

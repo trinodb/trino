@@ -30,7 +30,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionType;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static java.lang.String.format;
 
@@ -38,31 +38,31 @@ import static java.lang.String.format;
  * Implements {@code avg(decimal(p, s)}
  */
 public class ImplementAvgDecimal
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
-    private static final Capture<Variable> INPUT = newCapture();
+    private static final Capture<Variable> ARGUMENT = newCapture();
 
     @Override
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
                 .with(functionName().equalTo("avg"))
-                .with(singleInput().matching(
+                .with(singleArgument().matching(
                         variable()
                                 .with(expressionType().matching(DecimalType.class::isInstance))
-                                .capturedAs(INPUT)));
+                                .capturedAs(ARGUMENT)));
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
-        Variable input = captures.get(INPUT);
-        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
+        Variable argument = captures.get(ARGUMENT);
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
         DecimalType type = (DecimalType) columnHandle.getColumnType();
         verify(aggregateFunction.getOutputType().equals(type));
 
         return Optional.of(new JdbcExpression(
-                format("CAST(avg(%s) AS decimal(%s, %s))", context.getIdentifierQuote().apply(columnHandle.getColumnName()), type.getPrecision(), type.getScale()),
+                format("CAST(avg(%s) AS decimal(%s, %s))", context.rewriteExpression(argument).orElseThrow(), type.getPrecision(), type.getScale()),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

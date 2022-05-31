@@ -32,7 +32,6 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.metadata.Signature.mangleOperatorName;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -47,7 +46,7 @@ public final class PolymorphicScalarFunctionBuilder
     private Signature signature;
     private boolean nullableResult;
     private List<Boolean> argumentNullability;
-    private String description = "";
+    private String description;
     private Optional<Boolean> hidden = Optional.empty();
     private Boolean deterministic;
     private final List<PolymorphicScalarFunctionChoice> choices = new ArrayList<>();
@@ -114,14 +113,29 @@ public final class PolymorphicScalarFunctionBuilder
         checkState(deterministic != null, "deterministic is null");
         checkState(argumentNullability != null, "argumentNullability is null");
 
+        FunctionMetadata.Builder functionMetadata = FunctionMetadata.scalarBuilder()
+                .signature(signature);
+
+        if (description != null) {
+            functionMetadata.description(description);
+        }
+        else {
+            functionMetadata.noDescription();
+        }
+
+        if (hidden.orElse(false)) {
+            functionMetadata.hidden();
+        }
+        if (!deterministic) {
+            functionMetadata.nondeterministic();
+        }
+        if (nullableResult) {
+            functionMetadata.nullable();
+        }
+        functionMetadata.argumentNullability(argumentNullability);
+
         return new PolymorphicScalarFunction(
-                new FunctionMetadata(
-                        signature,
-                        new FunctionNullability(nullableResult, argumentNullability),
-                        hidden.orElse(false),
-                        deterministic,
-                        description,
-                        SCALAR),
+                functionMetadata.build(),
                 choices);
     }
 

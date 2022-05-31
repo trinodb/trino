@@ -202,7 +202,7 @@ public class RcFilePageSource
         }
 
         @Override
-        public final Block load()
+        public Block load()
         {
             checkState(!loaded, "Already loaded");
             checkState(pageId == expectedBatchId);

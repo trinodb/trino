@@ -97,7 +97,6 @@ public class HiveSplitManager
     private final HivePartitionManager partitionManager;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
-    private final DirectoryLister directoryLister;
     private final Executor executor;
     private final int maxOutstandingSplits;
     private final DataSize maxOutstandingSplitsSize;
@@ -117,7 +116,6 @@ public class HiveSplitManager
             HivePartitionManager partitionManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
-            DirectoryLister directoryLister,
             ExecutorService executorService,
             VersionEmbedder versionEmbedder,
             TypeManager typeManager)
@@ -127,7 +125,6 @@ public class HiveSplitManager
                 partitionManager,
                 namenodeStats,
                 hdfsEnvironment,
-                directoryLister,
                 versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads())),
                 new CounterStat(),
                 hiveConfig.getMaxOutstandingSplits(),
@@ -146,7 +143,6 @@ public class HiveSplitManager
             HivePartitionManager partitionManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
-            DirectoryLister directoryLister,
             Executor executor,
             CounterStat highMemorySplitSourceCounter,
             int maxOutstandingSplits,
@@ -163,7 +159,6 @@ public class HiveSplitManager
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.executor = new ErrorCodedExecutor(executor);
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
@@ -190,7 +185,8 @@ public class HiveSplitManager
         SchemaTableName tableName = hiveTable.getSchemaTableName();
 
         // get table metadata
-        SemiTransactionalHiveMetastore metastore = transactionManager.get(transaction, session.getIdentity()).getMetastore();
+        TransactionalMetadata transactionalMetadata = transactionManager.get(transaction, session.getIdentity());
+        SemiTransactionalHiveMetastore metastore = transactionalMetadata.getMetastore();
         Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
@@ -223,6 +219,14 @@ public class HiveSplitManager
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
 
+        if (bucketHandle.isPresent()) {
+            if (bucketHandle.get().getReadBucketCount() > bucketHandle.get().getTableBucketCount()) {
+                throw new TrinoException(
+                        GENERIC_INTERNAL_ERROR,
+                        "readBucketCount (%s) is greater than the tableBucketCount (%s) which generally points to an issue in plan generation");
+            }
+        }
+
         Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(session, metastore, table, tableName, partitions, bucketHandle.map(HiveBucketHandle::toTableBucketProperty));
 
         // Only one thread per partition is usable when a table is not transactional
@@ -239,7 +243,7 @@ public class HiveSplitManager
                 session,
                 hdfsEnvironment,
                 namenodeStats,
-                directoryLister,
+                transactionalMetadata.getDirectoryLister(),
                 executor,
                 concurrency,
                 recursiveDfsWalkerEnabled,

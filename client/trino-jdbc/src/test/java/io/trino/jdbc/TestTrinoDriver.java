@@ -33,6 +33,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.Date;
 import java.sql.Driver;
 import java.sql.DriverManager;
+import java.sql.DriverPropertyInfo;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -47,7 +48,9 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -56,6 +59,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -374,6 +378,57 @@ public class TestTrinoDriver
         assertThatThrownBy(() -> driver.acceptsURL(null))
                 .isInstanceOf(SQLException.class)
                 .hasMessage("URL is null");
+    }
+
+    @Test
+    public void testDriverPropertyInfoEmpty()
+            throws Exception
+    {
+        Driver driver = DriverManager.getDriver("jdbc:trino:");
+
+        Properties properties = new Properties();
+        DriverPropertyInfo[] infos = driver.getPropertyInfo(jdbcUrl(), properties);
+
+        assertThat(infos)
+                .extracting(TestTrinoDriver::driverPropertyInfoToString)
+                .contains("{name=user, required=false}")
+                .contains("{name=password, required=false}")
+                .contains("{name=accessToken, required=false}")
+                .contains("{name=SSL, required=false, choices=[true, false]}");
+
+        assertThat(infos).extracting(x -> x.name)
+                .doesNotContain("SSLVerification", "SSLTrustStorePath");
+    }
+
+    @Test
+    public void testDriverPropertyInfoSslEnabled()
+            throws Exception
+    {
+        Driver driver = DriverManager.getDriver("jdbc:trino:");
+
+        Properties properties = new Properties();
+        properties.setProperty("user", "test");
+        properties.setProperty("SSL", "true");
+        DriverPropertyInfo[] infos = driver.getPropertyInfo(jdbcUrl(), properties);
+
+        assertThat(infos)
+                .extracting(TestTrinoDriver::driverPropertyInfoToString)
+                .contains("{name=user, value=test, required=false}")
+                .contains("{name=SSL, value=true, required=false, choices=[true, false]}")
+                .contains("{name=SSLVerification, required=false, choices=[FULL, CA, NONE]}")
+                .contains("{name=SSLTrustStorePath, required=false}");
+    }
+
+    private static String driverPropertyInfoToString(DriverPropertyInfo info)
+    {
+        return toStringHelper("")
+                .add("name", info.name)
+                .add("value", info.value)
+                .add("description", info.description)
+                .add("required", info.required)
+                .add("choices", info.choices)
+                .omitNullValues()
+                .toString();
     }
 
     @Test
@@ -719,22 +774,48 @@ public class TestTrinoDriver
     }
 
     @Test
-    public void testUserIsRequired()
-    {
-        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl()))
-                .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'user' is required");
-    }
-
-    @Test
     public void testNullConnectProperties()
             throws Exception
     {
-        Driver driver = DriverManager.getDriver("jdbc:trino:");
+        DriverManager.getDriver("jdbc:trino:").connect(jdbcUrl(), null);
+    }
 
-        assertThatThrownBy(() -> driver.connect(jdbcUrl(), null))
+    @Test
+    public void testPropertyAllowed()
+            throws Exception
+    {
+        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("KerberosPrincipal", "test")
+                        .buildOrThrow())))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'user' is required");
+                .hasMessage("Connection property 'KerberosPrincipal' is not allowed");
+
+        assertThat(DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("KerberosRemoteServiceName", "example.com")
+                        .put("KerberosPrincipal", "test")
+                        .put("SSL", "true")
+                        .buildOrThrow())))
+                .isNotNull();
+
+        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("SSLVerification", "NONE")
+                        .buildOrThrow())))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'SSLVerification' is not allowed");
+
+        assertThat(DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("SSL", "true")
+                        .put("SSLVerification", "NONE")
+                        .buildOrThrow())))
+                .isNotNull();
     }
 
     @Test
@@ -1036,5 +1117,12 @@ public class TestTrinoDriver
     {
         String url = format("jdbc:trino://%s/%s/%s", server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, "test", null);
+    }
+
+    private static Properties toProperties(Map<String, String> map)
+    {
+        Properties properties = new Properties();
+        map.forEach(properties::setProperty);
+        return properties;
     }
 }

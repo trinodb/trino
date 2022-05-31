@@ -492,7 +492,13 @@ public class TestRemoveUnsupportedDynamicFilters
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            PlanAssert.assertPlan(session, metadata, getQueryRunner().getStatsCalculator(), new Plan(actual, builder.getTypes(), StatsAndCosts.empty()), pattern);
+            PlanAssert.assertPlan(
+                    session,
+                    metadata,
+                    getQueryRunner().getFunctionManager(),
+                    getQueryRunner().getStatsCalculator(),
+                    new Plan(actual, builder.getTypes(), StatsAndCosts.empty()),
+                    pattern);
             return null;
         });
     }

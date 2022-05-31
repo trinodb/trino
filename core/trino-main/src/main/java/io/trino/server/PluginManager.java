@@ -21,8 +21,10 @@ import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleResolver;
-import io.trino.metadata.MetadataManager;
+import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.metadata.TypeRegistry;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
@@ -52,12 +54,12 @@ import java.net.URL;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.metadata.FunctionExtractor.extractFunctions;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -75,7 +77,7 @@ public class PluginManager
 
     private final PluginsProvider pluginsProvider;
     private final ConnectorManager connectorManager;
-    private final MetadataManager metadataManager;
+    private final GlobalFunctionCatalog globalFunctionCatalog;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControlManager accessControlManager;
     private final Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager;
@@ -89,13 +91,12 @@ public class PluginManager
     private final BlockEncodingManager blockEncodingManager;
     private final HandleResolver handleResolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
-    private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
     @Inject
     public PluginManager(
             PluginsProvider pluginsProvider,
             ConnectorManager connectorManager,
-            MetadataManager metadataManager,
+            GlobalFunctionCatalog globalFunctionCatalog,
             ResourceGroupManager<?> resourceGroupManager,
             AccessControlManager accessControlManager,
             Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager,
@@ -111,7 +112,7 @@ public class PluginManager
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
-        this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
+        this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
@@ -135,8 +136,6 @@ public class PluginManager
         pluginsProvider.loadPlugins(this::loadPlugin, PluginManager::createClassLoader);
 
         typeRegistry.verifyTypes();
-
-        pluginsLoaded.set(true);
     }
 
     private void loadPlugin(String plugin, Supplier<PluginClassLoader> createClassLoader)
@@ -198,9 +197,12 @@ public class PluginManager
             connectorManager.addConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory);
         }
 
-        for (Class<?> functionClass : plugin.getFunctions()) {
-            log.info("Registering functions from %s", functionClass.getName());
-            metadataManager.addFunctions(extractFunctions(functionClass));
+        Set<Class<?>> functions = plugin.getFunctions();
+        if (!functions.isEmpty()) {
+            log.info("Registering functions from %s", plugin.getClass().getSimpleName());
+            InternalFunctionBundleBuilder builder = InternalFunctionBundle.builder();
+            functions.forEach(builder::functions);
+            globalFunctionCatalog.addFunctions(builder.build());
         }
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {

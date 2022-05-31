@@ -92,6 +92,7 @@ ALTER TABLE ... SET PROPERTIES       all                owner
 CREATE VIEW                          all                owner
 DROP VIEW                            all                owner
 ALTER VIEW ... RENAME TO             all                owner*               Ownership is required on both old and new views
+REFRESH MATERIALIZED VIEW            all                update
 COMMENT ON TABLE                     all                owner
 COMMENT ON COLUMN                    all                owner
 ALTER TABLE ... ADD COLUMN           all                owner
@@ -102,6 +103,7 @@ SELECT FROM table                    read-only          select
 SELECT FROM view                     read-only          select, grant_select
 INSERT INTO                          all                insert
 DELETE FROM                          all                delete
+UPDATE                               all                update
 ==================================== ========== ======= ==================== ===================================================
 
 .. _system-file-auth-visibility:
@@ -249,7 +251,7 @@ Each table rule is composed of the following fields:
 * ``schema`` (optional): regex to match against schema name. Defaults to ``.*``.
 * ``table`` (optional): regex to match against table names. Defaults to ``.*``.
 * ``privileges`` (required): zero or more of ``SELECT``, ``INSERT``,
-  ``DELETE``, ``OWNERSHIP``, ``GRANT_SELECT``
+  ``DELETE``, ``UPDATE``, ``OWNERSHIP``, ``GRANT_SELECT``
 * ``columns`` (optional): list of column constraints.
 * ``filter`` (optional): boolean filter expression for the table.
 * ``filter_environment`` (optional): environment use during filter evaluation.
@@ -273,6 +275,8 @@ Filter and mask environment
 
     These rules do not apply to ``information_schema``.
 
+    ``mask`` can contain conditional expressions such as ``IF`` or ``CASE``, which achieves conditional masking.
+
 The example below defines the following table access policy:
 
 * Role ``admin`` has all privileges across all tables and schemas
@@ -289,7 +293,7 @@ The example below defines the following table access policy:
       "tables": [
         {
           "role": "admin",
-          "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
+          "privileges": ["SELECT", "INSERT", "DELETE", "UPDATE", "OWNERSHIP"]
         },
         {
           "user": "banned_user",
@@ -603,7 +607,7 @@ These rules govern the privileges granted on specific tables.
 * ``schema`` (optional): regex to match against schema name.
 * ``table`` (optional): regex to match against table name.
 * ``privileges`` (required): zero or more of ``SELECT``, ``INSERT``,
-  ``DELETE``, ``OWNERSHIP``, ``GRANT_SELECT``.
+  ``DELETE``, ``UPDATE``, ``OWNERSHIP``, ``GRANT_SELECT``.
 * ``columns`` (optional): list of column constraints.
 * ``filter`` (optional): boolean filter expression for the table.
 * ``filter_environment`` (optional): environment used during filter evaluation.
@@ -624,6 +628,10 @@ Filter environment and mask environment
 These rules apply to ``filter_environment`` and ``mask_environment``.
 
 * ``user`` (optional): username for checking permission of subqueries in a mask.
+
+.. note::
+
+    ``mask`` can contain conditional expressions such as ``IF`` or ``CASE``, which achieves conditional masking.
 
 Session property rules
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -666,7 +674,7 @@ Example
       "tables": [
         {
           "user": "admin",
-          "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
+          "privileges": ["SELECT", "INSERT", "DELETE", "UPDATE", "OWNERSHIP"]
         },
         {
           "user": "banned_user",

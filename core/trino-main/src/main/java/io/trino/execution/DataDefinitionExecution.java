@@ -22,7 +22,6 @@ import io.trino.Session;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.memory.VersionedMemoryPoolId;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
@@ -75,18 +74,6 @@ public class DataDefinitionExecution<T extends Statement>
     public Slug getSlug()
     {
         return slug;
-    }
-
-    @Override
-    public VersionedMemoryPoolId getMemoryPool()
-    {
-        return stateMachine.getMemoryPool();
-    }
-
-    @Override
-    public void setMemoryPool(VersionedMemoryPoolId poolId)
-    {
-        stateMachine.setMemoryPool(poolId);
     }
 
     @Override
@@ -227,6 +214,12 @@ public class DataDefinitionExecution<T extends Statement>
 
     @Override
     public void cancelStage(StageId stageId)
+    {
+        // no-op
+    }
+
+    @Override
+    public void failTask(TaskId taskId, Exception reason)
     {
         // no-op
     }

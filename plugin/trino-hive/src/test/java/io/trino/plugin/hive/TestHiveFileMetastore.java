@@ -72,6 +72,12 @@ public class TestHiveFileMetastore
     }
 
     @Override
+    public void testBucketedTableEvolutionWithDifferentReadBucketCount()
+    {
+        // FileHiveMetastore has various incompatibilities
+    }
+
+    @Override
     public void testTransactionDeleteInsert()
     {
         // FileHiveMetastore has various incompatibilities

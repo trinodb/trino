@@ -14,9 +14,7 @@
 package io.trino.memory;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.Session;
@@ -35,7 +33,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -46,8 +43,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.ExceededMemoryLimitException.exceededLocalUserMemoryLimit;
@@ -73,23 +68,14 @@ public class QueryContext
     private final SpillSpaceTracker spillSpaceTracker;
     private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap<>();
 
-    @GuardedBy("this")
-    private boolean resourceOverCommit;
     private volatile boolean memoryLimitsInitialized;
 
     // TODO: This field should be final. However, due to the way QueryContext is constructed the memory limit is not known in advance
     @GuardedBy("this")
     private long maxUserMemory;
-    @GuardedBy("this")
-    private Optional<DataSize> maxTaskMemory;
 
-    private final MemoryTrackingContext queryMemoryContext;
-
-    @GuardedBy("this")
-    private MemoryPool memoryPool;
-    // TODO: remove after https://github.com/trinodb/trino/issues/6677 is done
-    @GuardedBy("this")
-    private SettableFuture<Void> memoryPoolMoveFuture = SettableFuture.create();
+    private final MemoryPool memoryPool;
+    private final long guaranteedMemory;
 
     @GuardedBy("this")
     private long spillUsed;
@@ -97,7 +83,6 @@ public class QueryContext
     public QueryContext(
             QueryId queryId,
             DataSize maxUserMemory,
-            Optional<DataSize> maxTaskMemory,
             MemoryPool memoryPool,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
@@ -108,7 +93,6 @@ public class QueryContext
         this(
                 queryId,
                 maxUserMemory,
-                maxTaskMemory,
                 memoryPool,
                 GUARANTEED_MEMORY,
                 gcMonitor,
@@ -121,7 +105,6 @@ public class QueryContext
     public QueryContext(
             QueryId queryId,
             DataSize maxUserMemory,
-            Optional<DataSize> maxTaskMemory,
             MemoryPool memoryPool,
             long guaranteedMemory,
             GcMonitor gcMonitor,
@@ -132,16 +115,13 @@ public class QueryContext
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null").toBytes();
-        this.maxTaskMemory = requireNonNull(maxTaskMemory, "maxTaskMemory is null");
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.maxSpill = requireNonNull(maxSpill, "maxSpill is null").toBytes();
         this.spillSpaceTracker = requireNonNull(spillSpaceTracker, "spillSpaceTracker is null");
-        this.queryMemoryContext = new MemoryTrackingContext(
-                newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateUserMemory, this::tryUpdateUserMemory), guaranteedMemory),
-                newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateRevocableMemory, this::tryReserveMemoryNotSupported), 0L));
+        this.guaranteedMemory = guaranteedMemory;
     }
 
     public boolean isMemoryLimitsInitialized()
@@ -150,27 +130,18 @@ public class QueryContext
     }
 
     // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
-    public synchronized void initializeMemoryLimits(boolean resourceOverCommit, long maxUserMemory, Optional<DataSize> maxTaskMemory)
+    public synchronized void initializeMemoryLimits(boolean resourceOverCommit, long maxUserMemory)
     {
         checkArgument(maxUserMemory >= 0, "maxUserMemory must be >= 0, found: %s", maxUserMemory);
-        this.resourceOverCommit = resourceOverCommit;
         if (resourceOverCommit) {
             // Allow the query to use the entire pool. This way the worker will kill the query, if it uses the entire local memory pool.
             // The coordinator will kill the query if the cluster runs out of memory.
             this.maxUserMemory = memoryPool.getMaxBytes();
-            this.maxTaskMemory = Optional.empty(); // disabled
         }
         else {
             this.maxUserMemory = maxUserMemory;
-            this.maxTaskMemory = maxTaskMemory;
         }
         memoryLimitsInitialized = true;
-    }
-
-    @VisibleForTesting
-    MemoryTrackingContext getQueryMemoryContext()
-    {
-        return queryMemoryContext;
     }
 
     @VisibleForTesting
@@ -184,33 +155,33 @@ public class QueryContext
         return queryId;
     }
 
-    private synchronized ListenableFuture<Void> updateUserMemory(String allocationTag, long delta)
+    private synchronized ListenableFuture<Void> updateUserMemory(TaskId taskId, String allocationTag, long delta)
     {
         if (delta >= 0) {
-            enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory);
-            ListenableFuture<Void> future = memoryPool.reserve(queryId, allocationTag, delta);
+            enforceUserMemoryLimit(memoryPool.getQueryMemoryReservation(queryId), delta, maxUserMemory);
+            ListenableFuture<Void> future = memoryPool.reserve(taskId, allocationTag, delta);
             if (future.isDone()) {
                 return NOT_BLOCKED;
             }
 
-            return whenAnyComplete(ImmutableList.of(future, memoryPoolMoveFuture));
+            return future;
         }
-        memoryPool.free(queryId, allocationTag, -delta);
+        memoryPool.free(taskId, allocationTag, -delta);
         return NOT_BLOCKED;
     }
 
     //TODO Add tagging support for revocable memory reservations if needed
-    private synchronized ListenableFuture<Void> updateRevocableMemory(String allocationTag, long delta)
+    private synchronized ListenableFuture<Void> updateRevocableMemory(TaskId taskId, long delta)
     {
         if (delta >= 0) {
-            ListenableFuture<Void> future = memoryPool.reserveRevocable(queryId, delta);
+            ListenableFuture<Void> future = memoryPool.reserveRevocable(taskId, delta);
             if (future.isDone()) {
                 return NOT_BLOCKED;
             }
 
-            return whenAnyComplete(ImmutableList.of(future, memoryPoolMoveFuture));
+            return future;
         }
-        memoryPool.freeRevocable(queryId, -delta);
+        memoryPool.freeRevocable(taskId, -delta);
         return NOT_BLOCKED;
     }
 
@@ -226,10 +197,10 @@ public class QueryContext
         return future;
     }
 
-    private synchronized boolean tryUpdateUserMemory(String allocationTag, long delta)
+    private synchronized boolean tryUpdateUserMemory(TaskId taskId, String allocationTag, long delta)
     {
         if (delta <= 0) {
-            ListenableFuture<Void> future = updateUserMemory(allocationTag, delta);
+            ListenableFuture<Void> future = updateUserMemory(taskId, allocationTag, delta);
             // When delta == 0 and the pool is full the future can still not be done,
             // but, for negative deltas it must always be done.
             if (delta < 0) {
@@ -237,10 +208,10 @@ public class QueryContext
             }
             return true;
         }
-        if (queryMemoryContext.getUserMemory() + delta > maxUserMemory) {
+        if (memoryPool.getQueryMemoryReservation(queryId) + delta > maxUserMemory) {
             return false;
         }
-        return memoryPool.tryReserve(queryId, allocationTag, delta);
+        return memoryPool.tryReserve(taskId, allocationTag, delta);
     }
 
     public synchronized void freeSpill(long bytes)
@@ -248,42 +219,6 @@ public class QueryContext
         checkArgument(spillUsed - bytes >= 0, "tried to free more memory than is reserved");
         spillUsed -= bytes;
         spillSpaceTracker.free(bytes);
-    }
-
-    public synchronized void setMemoryPool(MemoryPool newMemoryPool)
-    {
-        // This method first acquires the monitor of this instance.
-        // After that in this method if we acquire the monitors of the
-        // user/revocable memory contexts in the queryMemoryContext instance
-        // (say, by calling queryMemoryContext.getUserMemory()) it's possible
-        // to have a deadlock. Because, the driver threads running the operators
-        // will allocate memory concurrently through the child memory context -> ... ->
-        // root memory context -> this.updateUserMemory() calls, and will acquire
-        // the monitors of the user/revocable memory contexts in the queryMemoryContext instance
-        // first, and then the monitor of this, which may cause deadlocks.
-        // That's why instead of calling methods on queryMemoryContext to get the
-        // user/revocable memory reservations, we call the MemoryPool to get the same
-        // information.
-        requireNonNull(newMemoryPool, "newMemoryPool is null");
-        if (memoryPool == newMemoryPool) {
-            // Don't unblock our tasks and thrash the pools, if this is a no-op
-            return;
-        }
-        ListenableFuture<Void> future = memoryPool.moveQuery(queryId, newMemoryPool);
-        memoryPool = newMemoryPool;
-        if (resourceOverCommit) {
-            // Reset the memory limits based on the new pool assignment
-            maxUserMemory = memoryPool.getMaxBytes();
-        }
-
-        // Create a new move future for allocations in new memory pool
-        SettableFuture<Void> oldPoolMoveFuture = this.memoryPoolMoveFuture;
-        this.memoryPoolMoveFuture = SettableFuture.create();
-
-        future.addListener(() -> {
-            // Unblock allocations in old memory pool as all memory is now accounted for in new pool
-            oldPoolMoveFuture.set(null);
-        }, directExecutor());
     }
 
     public synchronized MemoryPool getMemoryPool()
@@ -298,6 +233,20 @@ public class QueryContext
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled)
     {
+        TaskId taskId = taskStateMachine.getTaskId();
+
+        MemoryTrackingContext taskMemoryContext = new MemoryTrackingContext(
+                newRootAggregatedMemoryContext(
+                        new QueryMemoryReservationHandler(
+                                (tag, delta) -> updateUserMemory(taskId, tag, delta),
+                                (tag, delta) -> tryUpdateUserMemory(taskId, tag, delta)),
+                        guaranteedMemory),
+                newRootAggregatedMemoryContext(
+                        new QueryMemoryReservationHandler(
+                                (tag, delta) -> updateRevocableMemory(taskId, delta),
+                                (tag, delta) -> tryReserveMemoryNotSupported()),
+                        0L));
+
         TaskContext taskContext = createTaskContext(
                 this,
                 taskStateMachine,
@@ -305,12 +254,11 @@ public class QueryContext
                 notificationExecutor,
                 yieldExecutor,
                 session,
-                queryMemoryContext.newMemoryTrackingContext(),
+                taskMemoryContext,
                 notifyStatusChanged,
                 perOperatorCpuTimerEnabled,
-                cpuTimerEnabled,
-                maxTaskMemory);
-        taskContexts.put(taskStateMachine.getTaskId(), taskContext);
+                cpuTimerEnabled);
+        taskContexts.put(taskId, taskContext);
         return taskContext;
     }
 
@@ -360,7 +308,7 @@ public class QueryContext
         }
     }
 
-    private boolean tryReserveMemoryNotSupported(String allocationTag, long bytes)
+    private boolean tryReserveMemoryNotSupported()
     {
         throw new UnsupportedOperationException("tryReserveMemory is not supported");
     }

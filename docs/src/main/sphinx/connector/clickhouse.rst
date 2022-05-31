@@ -2,6 +2,10 @@
 ClickHouse connector
 ====================
 
+.. raw:: html
+
+  <img src="../_static/img/clickhouse.png" class="connector-logo">
+
 The ClickHouse connector allows querying tables in an external
 `Yandex ClickHouse <https://clickhouse.tech/>`_ server. This can be used to
 query data in the databases on that server, or combine it with other data
@@ -160,47 +164,32 @@ Type mapping
 
 The data type mappings are as follows:
 
-================= =============== ===================================================================================================
-ClickHouse        Trino           Notes
-================= =============== ===================================================================================================
-``Int8``          ``TINYINT``     ``TINYINT``, ``BOOL``, ``BOOLEAN`` and ``INT1`` are aliases of ``Int8``
-``Int16``         ``SMALLINT``    ``SMALLINT`` and ``INT2`` are aliases of ``Int16``
-``Int32``         ``INTEGER``     ``INT``, ``INT4`` and ``INTEGER`` are aliases of ``Int32``
-``Int64``         ``BIGINT``      ``BIGINT`` is an alias of ``Int64``
-``Float32``       ``REAL``        ``FLOAT`` is an alias of ``Float32``
-``Float64``       ``DOUBLE``      ``DOUBLE`` is an alias of ``Float64``
+================= ================= ===================================================================================================
+ClickHouse        Trino             Notes
+================= ================= ===================================================================================================
+``Int8``          ``TINYINT``       ``TINYINT``, ``BOOL``, ``BOOLEAN`` and ``INT1`` are aliases of ``Int8``
+``Int16``         ``SMALLINT``      ``SMALLINT`` and ``INT2`` are aliases of ``Int16``
+``Int32``         ``INTEGER``       ``INT``, ``INT4`` and ``INTEGER`` are aliases of ``Int32``
+``Int64``         ``BIGINT``        ``BIGINT`` is an alias of ``Int64``
+``UInt8``         ``SMALLINT``
+``UInt16``        ``INTEGER``
+``UInt32``        ``BIGINT``
+``UInt64``        ``DECIMAL(20,0)``
+``Float32``       ``REAL``          ``FLOAT`` is an alias of ``Float32``
+``Float64``       ``DOUBLE``        ``DOUBLE`` is an alias of ``Float64``
 ``Decimal``       ``DECIMAL``
-``FixedString``   ``VARBINARY``   Enabling ``clickhouse.map-string-as-varchar`` config property changes the mapping to ``VARCHAR``
-``String``        ``VARBINARY``   Enabling ``clickhouse.map-string-as-varchar`` config property changes the mapping to ``VARCHAR``
+``FixedString``   ``VARBINARY``     Enabling ``clickhouse.map-string-as-varchar`` config property changes the mapping to ``VARCHAR``
+``String``        ``VARBINARY``     Enabling ``clickhouse.map-string-as-varchar`` config property changes the mapping to ``VARCHAR``
 ``Date``          ``DATE``
 ``DateTime``      ``TIMESTAMP``
 ``IPv4``          ``IPADDRESS``
 ``IPv6``          ``IPADDRESS``
 ``Enum8``         ``VARCHAR``
 ``Enum16``        ``VARCHAR``
-``UUID``           ``UUID``
-================= =============== ===================================================================================================
+``UUID``          ``UUID``
+================= ================= ===================================================================================================
 
 .. include:: jdbc-type-mapping.fragment
-
-.. _clickhouse-pushdown:
-
-Pushdown
---------
-
-The connector supports pushdown for a number of operations:
-
-* :ref:`limit-pushdown`
-
-:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
-
-* :func:`avg`
-* :func:`count`
-* :func:`max`
-* :func:`min`
-* :func:`sum`
-
-.. include:: no-pushdown-text-type.fragment
 
 .. _clickhouse-sql-support:
 
@@ -217,3 +206,28 @@ statements, the connector supports the following features:
 * :ref:`sql-schema-table-management`
 
 .. include:: alter-schema-limitation.fragment
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+.. _clickhouse-pushdown:
+
+Pushdown
+^^^^^^^^
+
+The connector supports pushdown for a number of operations:
+
+* :ref:`limit-pushdown`
+
+:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
+
+* :func:`avg`
+* :func:`count`
+* :func:`max`
+* :func:`min`
+* :func:`sum`
+
+.. include:: no-pushdown-text-type.fragment

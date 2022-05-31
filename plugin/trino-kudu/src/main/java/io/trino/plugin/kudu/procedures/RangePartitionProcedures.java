@@ -50,9 +50,9 @@ public class RangePartitionProcedures
                 "system",
                 "add_range_partition",
                 ImmutableList.of(
-                        new Argument("schema", VARCHAR),
-                        new Argument("table", VARCHAR),
-                        new Argument("range_bounds", VARCHAR)),
+                        new Argument("SCHEMA", VARCHAR),
+                        new Argument("TABLE", VARCHAR),
+                        new Argument("RANGE_BOUNDS", VARCHAR)),
                 ADD.bindTo(this));
     }
 
@@ -62,9 +62,9 @@ public class RangePartitionProcedures
                 "system",
                 "drop_range_partition",
                 ImmutableList.of(
-                        new Argument("schema", VARCHAR),
-                        new Argument("table", VARCHAR),
-                        new Argument("range_bounds", VARCHAR)),
+                        new Argument("SCHEMA", VARCHAR),
+                        new Argument("TABLE", VARCHAR),
+                        new Argument("RANGE_BOUNDS", VARCHAR)),
                 DROP.bindTo(this));
     }
 

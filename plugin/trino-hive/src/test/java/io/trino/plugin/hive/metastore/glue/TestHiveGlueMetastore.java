@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
+import com.amazonaws.services.glue.model.CreateTableRequest;
 import com.amazonaws.services.glue.model.Database;
 import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
+import com.amazonaws.services.glue.model.DeleteTableRequest;
 import com.amazonaws.services.glue.model.EntityNotFoundException;
 import com.amazonaws.services.glue.model.GetDatabasesRequest;
 import com.amazonaws.services.glue.model.GetDatabasesResult;
@@ -89,6 +92,12 @@ import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerC
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.decimalOf;
+import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
+import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_NAME;
+import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_VALUE;
+import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
+import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
+import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
@@ -96,12 +105,14 @@ import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VAL
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
+import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -208,8 +219,9 @@ public class TestHiveGlueMetastore
         return new GlueHiveMetastore(
                 HDFS_ENVIRONMENT,
                 glueConfig,
+                DefaultAWSCredentialsProviderChain.getInstance(),
                 executor,
-                new DefaultGlueColumnStatisticsProviderFactory(glueConfig, executor, executor),
+                new DefaultGlueColumnStatisticsProviderFactory(executor, executor),
                 Optional.empty(),
                 new DefaultGlueMetastoreTableFilterProvider(
                         new MetastoreConfig()
@@ -220,11 +232,14 @@ public class TestHiveGlueMetastore
     public void cleanupOrphanedDatabases()
     {
         long creationTimeMillisThreshold = currentTimeMillis() - DAYS.toMillis(1);
+        GlueHiveMetastore metastore = (GlueHiveMetastore) getMetastoreClient();
+        GlueMetastoreStats stats = metastore.getStats();
         List<String> orphanedDatabases = getPaginatedResults(
                 glueClient::getDatabases,
                 new GetDatabasesRequest(),
                 GetDatabasesRequest::setNextToken,
-                GetDatabasesResult::getNextToken)
+                GetDatabasesResult::getNextToken,
+                stats.getGetDatabases())
                 .map(GetDatabasesResult::getDatabaseList)
                 .flatMap(List::stream)
                 .filter(database -> database.getName().startsWith(TEST_DATABASE_NAME_PREFIX) &&
@@ -299,16 +314,71 @@ public class TestHiveGlueMetastore
     }
 
     @Test
+    public void testGetPartitionsWithFilterUsingReservedKeywordsAsColumnName()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("get_partitions_with_filter_using_reserved_keyword_column_name");
+        try {
+            String reservedKeywordPartitionColumnName = "key";
+            String regularColumnPartitionName = "int_partition";
+            List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
+                    .add(new ColumnMetadata("t_string", createUnboundedVarcharType()))
+                    .add(new ColumnMetadata(reservedKeywordPartitionColumnName, createUnboundedVarcharType()))
+                    .add(new ColumnMetadata(regularColumnPartitionName, BIGINT))
+                    .build();
+            List<String> partitionedBy = ImmutableList.of(reservedKeywordPartitionColumnName, regularColumnPartitionName);
+
+            doCreateEmptyTable(tableName, ORC, columns, partitionedBy);
+
+            HiveMetastoreClosure metastoreClient = new HiveMetastoreClosure(getMetastoreClient());
+            Table table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName())
+                    .orElseThrow(() -> new TableNotFoundException(tableName));
+
+            String partitionName1 = makePartName(ImmutableList.of(reservedKeywordPartitionColumnName, regularColumnPartitionName), ImmutableList.of("value1", "1"));
+            String partitionName2 = makePartName(ImmutableList.of(reservedKeywordPartitionColumnName, regularColumnPartitionName), ImmutableList.of("value2", "2"));
+
+            List<PartitionWithStatistics> partitions = ImmutableList.of(partitionName1, partitionName2)
+                    .stream()
+                    .map(partitionName -> new PartitionWithStatistics(createDummyPartition(table, partitionName), partitionName, PartitionStatistics.empty()))
+                    .collect(toImmutableList());
+            metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), partitions);
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName1, currentStatistics -> EMPTY_TABLE_STATISTICS);
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName2, currentStatistics -> EMPTY_TABLE_STATISTICS);
+
+            Optional<List<String>> partitionNames = metastoreClient.getPartitionNamesByFilter(
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    ImmutableList.of(reservedKeywordPartitionColumnName, regularColumnPartitionName),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnPartitionName, Domain.singleValue(BIGINT, 2L))));
+            assertTrue(partitionNames.isPresent());
+            assertEquals(partitionNames.get(), ImmutableList.of("key=value2/int_partition=2"));
+
+            // KEY is a reserved keyword in the grammar of the SQL parser used internally by Glue API
+            // and therefore should not be used in the partition filter
+            partitionNames = metastoreClient.getPartitionNamesByFilter(
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    ImmutableList.of(reservedKeywordPartitionColumnName, regularColumnPartitionName),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(reservedKeywordPartitionColumnName, Domain.singleValue(VARCHAR, utf8Slice("value1")))));
+            assertTrue(partitionNames.isPresent());
+            assertEquals(partitionNames.get(), ImmutableList.of("key=value1/int_partition=1", "key=value2/int_partition=2"));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
     public void testGetDatabasesLogsStats()
     {
         GlueHiveMetastore metastore = (GlueHiveMetastore) getMetastoreClient();
         GlueMetastoreStats stats = metastore.getStats();
-        double initialCallCount = stats.getGetAllDatabases().getTime().getAllTime().getCount();
-        long initialFailureCount = stats.getGetAllDatabases().getTotalFailures().getTotalCount();
+        double initialCallCount = stats.getGetDatabases().getTime().getAllTime().getCount();
+        long initialFailureCount = stats.getGetDatabases().getTotalFailures().getTotalCount();
         getMetastoreClient().getAllDatabases();
-        assertEquals(stats.getGetAllDatabases().getTime().getAllTime().getCount(), initialCallCount + 1.0);
-        assertTrue(stats.getGetAllDatabases().getTime().getAllTime().getAvg() > 0.0);
-        assertEquals(stats.getGetAllDatabases().getTotalFailures().getTotalCount(), initialFailureCount);
+        assertThat(stats.getGetDatabases().getTime().getAllTime().getCount()).isGreaterThan(initialCallCount);
+        assertThat(stats.getGetDatabases().getTime().getAllTime().getAvg()).isGreaterThan(0.0);
+        assertEquals(stats.getGetDatabases().getTotalFailures().getTotalCount(), initialFailureCount);
     }
 
     @Test
@@ -1009,8 +1079,12 @@ public class TestHiveGlueMetastore
                     .setColumnStatistics(columnStatistics).build();
 
             createDummyPartitionedTable(tableName, columns);
+            GlueHiveMetastore metastoreClient = (GlueHiveMetastore) getMetastoreClient();
+            double countBefore = metastoreClient.getStats().getBatchUpdatePartition().getTime().getAllTime().getCount();
+
             metastore.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-01", actualStatistics -> partitionStatistics);
 
+            assertThat(metastoreClient.getStats().getBatchUpdatePartition().getTime().getAllTime().getCount()).isEqualTo(countBefore + 1);
             PartitionStatistics tableStatistics = new PartitionStatistics(createEmptyStatistics(), Map.of());
             assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
                     .isEqualTo(tableStatistics);
@@ -1078,6 +1152,49 @@ public class TestHiveGlueMetastore
         }
         finally {
             dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testTableWithoutStorageDescriptor()
+    {
+        // StorageDescriptor is an Optional field for Glue tables. Iceberg and Delta Lake tables may not have it set.
+        SchemaTableName table = temporaryTable("test_missing_storage_descriptor");
+        DeleteTableRequest deleteTableRequest = new DeleteTableRequest()
+                .withDatabaseName(table.getSchemaName())
+                .withName(table.getTableName());
+        try {
+            TableInput tableInput = new TableInput()
+                    .withName(table.getTableName())
+                    .withTableType(EXTERNAL_TABLE.name());
+            glueClient.createTable(new CreateTableRequest()
+                    .withDatabaseName(database)
+                    .withTableInput(tableInput));
+
+            assertThatThrownBy(() -> metastore.getTable(table.getSchemaName(), table.getTableName()))
+                    .hasMessageStartingWith("Table StorageDescriptor is null for table");
+            glueClient.deleteTable(deleteTableRequest);
+
+            // Iceberg table
+            tableInput = tableInput.withParameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE));
+            glueClient.createTable(new CreateTableRequest()
+                    .withDatabaseName(database)
+                    .withTableInput(tableInput));
+            assertTrue(isIcebergTable(metastore.getTable(table.getSchemaName(), table.getTableName()).orElseThrow()));
+            glueClient.deleteTable(deleteTableRequest);
+
+            // Delta Lake table
+            tableInput = tableInput.withParameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER));
+            glueClient.createTable(new CreateTableRequest()
+                    .withDatabaseName(database)
+                    .withTableInput(tableInput));
+            assertTrue(isDeltaLakeTable(metastore.getTable(table.getSchemaName(), table.getTableName()).orElseThrow()));
+        }
+        finally {
+            // Table cannot be dropped through HiveMetastore since a TableHandle cannot be created
+            glueClient.deleteTable(new DeleteTableRequest()
+                    .withDatabaseName(table.getSchemaName())
+                    .withName(table.getTableName()));
         }
     }
 

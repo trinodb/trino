@@ -33,16 +33,13 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.net.MediaType.JSON_UTF_8;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpStatus.OK;
-import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
-import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 
 @ThreadSafe
 public class RemoteNodeMemory
@@ -53,30 +50,21 @@ public class RemoteNodeMemory
     private final HttpClient httpClient;
     private final URI memoryInfoUri;
     private final JsonCodec<MemoryInfo> memoryInfoCodec;
-    private final JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec;
     private final AtomicReference<Optional<MemoryInfo>> memoryInfo = new AtomicReference<>(Optional.empty());
     private final AtomicReference<Future<?>> future = new AtomicReference<>();
     private final AtomicLong lastUpdateNanos = new AtomicLong();
     private final AtomicLong lastWarningLogged = new AtomicLong();
-    private final AtomicLong currentAssignmentVersion = new AtomicLong(-1);
 
     public RemoteNodeMemory(
             InternalNode node,
             HttpClient httpClient,
             JsonCodec<MemoryInfo> memoryInfoCodec,
-            JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec,
             URI memoryInfoUri)
     {
         this.node = requireNonNull(node, "node is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.memoryInfoUri = requireNonNull(memoryInfoUri, "memoryInfoUri is null");
         this.memoryInfoCodec = requireNonNull(memoryInfoCodec, "memoryInfoCodec is null");
-        this.assignmentsRequestJsonCodec = requireNonNull(assignmentsRequestJsonCodec, "assignmentsRequestJsonCodec is null");
-    }
-
-    public long getCurrentAssignmentVersion()
-    {
-        return currentAssignmentVersion.get();
     }
 
     public Optional<MemoryInfo> getInfo()
@@ -89,7 +77,7 @@ public class RemoteNodeMemory
         return node;
     }
 
-    public void asyncRefresh(MemoryPoolAssignmentsRequest assignments)
+    public void asyncRefresh()
     {
         Duration sinceUpdate = nanosSince(lastUpdateNanos.get());
         if (nanosSince(lastWarningLogged.get()).toMillis() > 1_000 &&
@@ -99,10 +87,8 @@ public class RemoteNodeMemory
             lastWarningLogged.set(System.nanoTime());
         }
         if (sinceUpdate.toMillis() > 1_000 && future.get() == null) {
-            Request request = preparePost()
+            Request request = prepareGet()
                     .setUri(memoryInfoUri)
-                    .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                    .setBodyGenerator(jsonBodyGenerator(assignmentsRequestJsonCodec, assignments))
                     .build();
             HttpResponseFuture<JsonResponse<MemoryInfo>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(memoryInfoCodec));
             future.compareAndSet(null, responseFuture);
@@ -114,17 +100,14 @@ public class RemoteNodeMemory
                 {
                     lastUpdateNanos.set(System.nanoTime());
                     future.compareAndSet(responseFuture, null);
-                    long version = currentAssignmentVersion.get();
                     if (result != null) {
                         if (result.hasValue()) {
                             memoryInfo.set(Optional.ofNullable(result.getValue()));
                         }
                         if (result.getStatusCode() != OK.code()) {
                             log.warn("Error fetching memory info from %s returned status %d", memoryInfoUri, result.getStatusCode());
-                            return;
                         }
                     }
-                    currentAssignmentVersion.compareAndSet(version, assignments.getVersion());
                 }
 
                 @Override

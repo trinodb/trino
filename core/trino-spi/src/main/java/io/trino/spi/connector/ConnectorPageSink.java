@@ -33,7 +33,7 @@ public interface ConnectorPageSink
     }
 
     /**
-     * Get the total memory that needs to be reserved in the general memory pool.
+     * Get the total memory that needs to be reserved in the memory pool.
      * This memory should include any buffers, etc. that are used for reading data.
      *
      * @return the memory used so far in table read

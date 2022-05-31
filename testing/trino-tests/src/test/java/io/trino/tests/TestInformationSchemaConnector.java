@@ -39,7 +39,8 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns", "VALUES 589");
         assertQuery("SELECT * FROM tpch.information_schema.schemata ORDER BY 1 DESC, 2 DESC LIMIT 1", "VALUES ('tpch', 'tiny')");
         assertQuery("SELECT * FROM tpch.information_schema.tables ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'BASE TABLE')");
-        assertQuery("SELECT * FROM tpch.information_schema.columns ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'suppkey', 1, NULL, 'YES', 'bigint')");
+        assertQuery("SELECT * FROM tpch.information_schema.columns ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'suppkey', 1, NULL, 'NO', 'bigint')");
+        assertQuery("SELECT * FROM test_catalog.information_schema.columns ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('test_catalog', 'test_schema2', 'test_table999', 'column_99', 100, NULL, 'YES', 'varchar')");
         assertQuery("SELECT count(*) FROM test_catalog.information_schema.columns", "VALUES 300040");
     }
 

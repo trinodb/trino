@@ -13,14 +13,15 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.plugin.exchange.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
+import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.testing.AbstractTestFaultTolerantExecutionOrderByQueries;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 
 import java.util.Map;
 
-import static io.trino.plugin.exchange.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.getTables;
 
@@ -38,7 +39,10 @@ public class TestHiveFaultTolerantExecutionOrderByQueries
 
         return HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
-                .setExchangeManagerProperties(getExchangeManagerProperties(minioStorage))
+                .setAdditionalSetup(runner -> {
+                    runner.installPlugin(new FileSystemExchangePlugin());
+                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
+                })
                 .setInitialTables(getTables())
                 .build();
     }

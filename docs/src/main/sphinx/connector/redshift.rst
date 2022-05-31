@@ -2,6 +2,10 @@
 Redshift connector
 ==================
 
+.. raw:: html
+
+  <img src="../_static/img/redshift.png" class="connector-logo">
+
 The Redshift connector allows querying and creating tables in an
 external `Amazon Redshift <https://aws.amazon.com/redshift/>`_ cluster. This can be used to join data between
 different systems like Redshift and Hive, or between two different

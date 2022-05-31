@@ -44,7 +44,7 @@ public class TestKuduClientConfig
     @Test
     public void testExplicitPropertyMappingsWithCredentialsKey()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kudu.client.master-addresses", "localhost")
                 .put("kudu.client.default-admin-operation-timeout", "1m")
                 .put("kudu.client.default-operation-timeout", "5m")

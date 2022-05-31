@@ -29,7 +29,7 @@ public final class ResolvedFunctionCallRewriter
 {
     private ResolvedFunctionCallRewriter() {}
 
-    public static Expression rewriteResolvedFunctions(Expression expression, Map<NodeRef<FunctionCall>, ResolvedFunction> resolvedFunctions)
+    public static Expression rewriteResolvedFunctions(Expression expression, Map<NodeRef<Expression>, ResolvedFunction> resolvedFunctions)
     {
         return ExpressionTreeRewriter.rewriteWith(new Visitor(resolvedFunctions), expression);
     }
@@ -37,9 +37,9 @@ public final class ResolvedFunctionCallRewriter
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
-        private final Map<NodeRef<FunctionCall>, ResolvedFunction> resolvedFunctions;
+        private final Map<NodeRef<Expression>, ResolvedFunction> resolvedFunctions;
 
-        public Visitor(Map<NodeRef<FunctionCall>, ResolvedFunction> resolvedFunctions)
+        public Visitor(Map<NodeRef<Expression>, ResolvedFunction> resolvedFunctions)
         {
             this.resolvedFunctions = requireNonNull(resolvedFunctions, "resolvedFunctions is null");
         }

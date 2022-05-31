@@ -15,7 +15,13 @@ package io.trino.operator.aggregation.arrayagg;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
+@AccumulatorStateMetadata(
+        stateFactoryClass = ArrayAggregationStateFactory.class,
+        stateSerializerClass = ArrayAggregationStateSerializer.class,
+        typeParameters = "T",
+        serializedType = "ARRAY(T)")
 public interface ArrayAggregationState
         extends AccumulatorState
 {

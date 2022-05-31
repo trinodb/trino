@@ -33,9 +33,7 @@ import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.memory.QueryContext;
 import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.memory.context.MemoryAllocationValidator;
 import io.trino.memory.context.MemoryTrackingContext;
-import io.trino.memory.context.ValidatingAggregateContext;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.LocalDynamicFiltersCollector;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -46,7 +44,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -83,6 +80,8 @@ public class TaskContext
     private final AtomicLong endNanos = new AtomicLong();
     private final AtomicLong endFullGcCount = new AtomicLong(-1);
     private final AtomicLong endFullGcTimeNanos = new AtomicLong(-1);
+
+    private final AtomicLong currentPeakUserMemoryReservation = new AtomicLong(0);
 
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
@@ -122,8 +121,7 @@ public class TaskContext
             MemoryTrackingContext taskMemoryContext,
             Runnable notifyStatusChanged,
             boolean perOperatorCpuTimerEnabled,
-            boolean cpuTimerEnabled,
-            Optional<DataSize> maxMemory)
+            boolean cpuTimerEnabled)
     {
         TaskContext taskContext = new TaskContext(
                 queryContext,
@@ -135,8 +133,7 @@ public class TaskContext
                 taskMemoryContext,
                 notifyStatusChanged,
                 perOperatorCpuTimerEnabled,
-                cpuTimerEnabled,
-                maxMemory);
+                cpuTimerEnabled);
         taskContext.initialize();
         return taskContext;
     }
@@ -151,8 +148,7 @@ public class TaskContext
             MemoryTrackingContext taskMemoryContext,
             Runnable notifyStatusChanged,
             boolean perOperatorCpuTimerEnabled,
-            boolean cpuTimerEnabled,
-            Optional<DataSize> maxMemory)
+            boolean cpuTimerEnabled)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
@@ -160,17 +156,7 @@ public class TaskContext
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.session = session;
-
-        requireNonNull(taskMemoryContext, "taskMemoryContext is null");
-        if (maxMemory.isPresent()) {
-            MemoryAllocationValidator memoryValidator = new TaskAllocationValidator(maxMemory.get());
-            this.taskMemoryContext = new MemoryTrackingContext(
-                    new ValidatingAggregateContext(taskMemoryContext.aggregateUserMemoryContext(), memoryValidator),
-                    taskMemoryContext.aggregateRevocableMemoryContext());
-        }
-        else {
-            this.taskMemoryContext = taskMemoryContext;
-        }
+        this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
 
         // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
         this.taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
@@ -446,8 +432,12 @@ public class TaskContext
         long processedInputDataSize = 0;
         long processedInputPositions = 0;
 
+        long inputBlockedTime = 0;
+
         long outputDataSize = 0;
         long outputPositions = 0;
+
+        long outputBlockedTime = 0;
 
         long physicalWrittenDataSize = 0;
 
@@ -493,11 +483,15 @@ public class TaskContext
 
                 processedInputDataSize += pipeline.getProcessedInputDataSize().toBytes();
                 processedInputPositions += pipeline.getProcessedInputPositions();
+
+                inputBlockedTime += pipeline.getInputBlockedTime().roundTo(NANOSECONDS);
             }
 
             if (pipeline.isOutputPipeline()) {
                 outputDataSize += pipeline.getOutputDataSize().toBytes();
                 outputPositions += pipeline.getOutputPositions();
+
+                outputBlockedTime += pipeline.getOutputBlockedTime().roundTo(NANOSECONDS);
             }
 
             physicalWrittenDataSize += pipeline.getPhysicalWrittenDataSize().toBytes();
@@ -522,6 +516,7 @@ public class TaskContext
         Duration fullGcTime = getFullGcTime();
 
         long userMemory = taskMemoryContext.getUserMemory();
+        currentPeakUserMemoryReservation.updateAndGet(oldValue -> max(oldValue, userMemory));
 
         synchronized (cumulativeMemoryLock) {
             long currentTimeNanos = System.nanoTime();
@@ -554,6 +549,7 @@ public class TaskContext
                 completedDrivers,
                 cumulativeUserMemory.get(),
                 succinctBytes(userMemory),
+                succinctBytes(currentPeakUserMemoryReservation.get()),
                 succinctBytes(taskMemoryContext.getRevocableMemory()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -569,8 +565,10 @@ public class TaskContext
                 rawInputPositions,
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
+                new Duration(inputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(outputDataSize),
                 outputPositions,
+                new Duration(outputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(physicalWrittenDataSize),
                 fullGcCount,
                 fullGcTime,

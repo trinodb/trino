@@ -15,7 +15,6 @@ package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -83,8 +82,6 @@ public final class PostgreSqlQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         DistributedQueryRunner queryRunner = createPostgreSqlQueryRunner(
                 new TestingPostgreSqlServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),

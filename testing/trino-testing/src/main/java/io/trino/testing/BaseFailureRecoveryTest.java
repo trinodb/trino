@@ -48,8 +48,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
-import static io.trino.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static io.trino.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -61,6 +59,8 @@ import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGE
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
+import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.CUSTOMER;
@@ -102,13 +102,15 @@ public abstract class BaseFailureRecoveryTest
                         .put("exchange.max-error-duration", MAX_ERROR_DURATION.toString())
                         .put("retry-policy", retryPolicy.toString())
                         .put("retry-initial-delay", "0s")
-                        .put("retry-attempts", "1")
+                        .put("query-retry-attempts", "1")
+                        .put("task-retry-attempts-overall", "1")
                         .put("failure-injection.request-timeout", new Duration(REQUEST_TIMEOUT.toMillis() * 2, MILLISECONDS).toString())
                         // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
                         .put("exchange.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
-                        .put("query.initial-hash-partitions", "5")
+                        .put("fault-tolerant-execution-partition-count", "5")
                         // to trigger spilling
                         .put("exchange.deduplication-buffer-size", "1kB")
+                        .put("fault-tolerant-execution-task-memory", "1GB")
                         .buildOrThrow(),
                 ImmutableMap.<String, String>builder()
                         // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
@@ -164,7 +166,9 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of(enableDynamicFiltering(true)),
                 queryId -> {
                     DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(queryId);
-                    assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1);
+                    assertThat(dynamicFiltersStats.getLazyDynamicFilters())
+                            .as("Dynamic filter is missing")
+                            .isEqualTo(1);
                     DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
                     assertThat(domainStats.getSimplifiedDomain())
                             .isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
@@ -225,7 +229,7 @@ public abstract class BaseFailureRecoveryTest
                 .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                 // using boundary stage so we observe task failures
                 .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer.*3 failures"))
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
     }
 
@@ -264,7 +268,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "DELETE FROM orders WHERE orderkey = 1",
+                "DELETE FROM <table> WHERE orderkey = 1",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -273,7 +277,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "DELETE FROM orders WHERE custkey IN (SELECT custkey FROM customer WHERE nationkey = 1)",
+                "DELETE FROM <table> WHERE custkey IN (SELECT custkey FROM customer WHERE nationkey = 1)",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -282,7 +286,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "UPDATE orders SET shippriority = 101 WHERE custkey = 1",
+                "UPDATE <table> SET shippriority = 101 WHERE custkey = 1",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -291,7 +295,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "UPDATE orders SET shippriority = 101 WHERE custkey = (SELECT min(custkey) FROM customer)",
+                "UPDATE <table> SET shippriority = 101 WHERE custkey = (SELECT min(custkey) FROM customer)",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -348,7 +352,7 @@ public abstract class BaseFailureRecoveryTest
                     .withCleanupQuery(Optional.of("DROP TABLE <table>"))
                     .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                     .at(leafStage())
-                    .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                     // get results timeout for leaf stage will not result in accounted task failure if failure recovery is enabled
                     .finishesSuccessfullyWithoutTaskFailures();
         }
@@ -450,11 +454,11 @@ public abstract class BaseFailureRecoveryTest
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
     }
 
-    private FailureRecoveryAssert assertThatQuery(String query)
+    protected FailureRecoveryAssert assertThatQuery(String query)
     {
         return new FailureRecoveryAssert(query);
     }
@@ -649,14 +653,14 @@ public abstract class BaseFailureRecoveryTest
             queryAssertion.accept(actual.getQueryId());
         }
 
-        public FailureRecoveryAssert failsAlways(Consumer<AbstractThrowableAssert> failureAssertion)
+        public FailureRecoveryAssert failsAlways(Consumer<AbstractThrowableAssert<?, ? extends Throwable>> failureAssertion)
         {
             failsWithoutRetries(failureAssertion);
             failsDespiteRetries(failureAssertion);
             return this;
         }
 
-        public FailureRecoveryAssert failsWithoutRetries(Consumer<AbstractThrowableAssert> failureAssertion)
+        public FailureRecoveryAssert failsWithoutRetries(Consumer<AbstractThrowableAssert<?, ? extends Throwable>> failureAssertion)
         {
             verifyFailureTypeAndStageSelector();
             OptionalInt failureStageId = getFailureStageId(() -> executeExpected().getQueryResult());
@@ -664,7 +668,7 @@ public abstract class BaseFailureRecoveryTest
             return this;
         }
 
-        public FailureRecoveryAssert failsDespiteRetries(Consumer<AbstractThrowableAssert> failureAssertion)
+        public FailureRecoveryAssert failsDespiteRetries(Consumer<AbstractThrowableAssert<?, ? extends Throwable>> failureAssertion)
         {
             verifyFailureTypeAndStageSelector();
             OptionalInt failureStageId = getFailureStageId(() -> executeExpected().getQueryResult());
@@ -817,6 +821,7 @@ public abstract class BaseFailureRecoveryTest
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.toString(enabled))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
+                // Ensure probe side scan wait until DF is collected
                 .setCatalogSessionProperty(defaultSession.getCatalog().orElseThrow(), "dynamic_filtering_wait_timeout", "1h")
                 .build();
     }

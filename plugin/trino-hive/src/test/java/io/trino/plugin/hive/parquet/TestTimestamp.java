@@ -58,8 +58,8 @@ public class TestTimestamp
     {
         MessageType parquetSchema = parseMessageType("message hive_timestamp { optional int64 test (TIMESTAMP_MILLIS); }");
         ContiguousSet<Long> epochMillisValues = ContiguousSet.create(Range.closedOpen((long) -1_000, (long) 1_000), DiscreteDomain.longs());
-        ImmutableList.Builder<SqlTimestamp> timestampsMillis = new ImmutableList.Builder<>();
-        ImmutableList.Builder<Long> bigints = new ImmutableList.Builder<>();
+        ImmutableList.Builder<SqlTimestamp> timestampsMillis = ImmutableList.builder();
+        ImmutableList.Builder<Long> bigints = ImmutableList.builder();
         for (long value : epochMillisValues) {
             timestampsMillis.add(SqlTimestamp.fromMillis(3, value));
             bigints.add(value);

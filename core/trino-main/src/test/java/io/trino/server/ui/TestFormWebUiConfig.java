@@ -37,7 +37,7 @@ public class TestFormWebUiConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("web-ui.session-timeout", "33s")
                 .put("web-ui.shared-secret", "test-secret")
                 .buildOrThrow();

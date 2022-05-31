@@ -14,6 +14,7 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.trino.connector.CatalogName;
 import io.trino.spi.HostAddress;
 import org.openjdk.jol.info.ClassLayout;
@@ -33,11 +34,13 @@ public class NodeRequirements
 
     private final Optional<CatalogName> catalogName;
     private final Set<HostAddress> addresses;
+    private final DataSize memory;
 
-    public NodeRequirements(Optional<CatalogName> catalogName, Set<HostAddress> addresses)
+    public NodeRequirements(Optional<CatalogName> catalogName, Set<HostAddress> addresses, DataSize memory)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.addresses = ImmutableSet.copyOf(requireNonNull(addresses, "addresses is null"));
+        this.memory = requireNonNull(memory, "memory is null");
     }
 
     /*
@@ -56,6 +59,16 @@ public class NodeRequirements
         return addresses;
     }
 
+    public DataSize getMemory()
+    {
+        return memory;
+    }
+
+    public NodeRequirements withMemory(DataSize memory)
+    {
+        return new NodeRequirements(catalogName, addresses, memory);
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -66,13 +79,13 @@ public class NodeRequirements
             return false;
         }
         NodeRequirements that = (NodeRequirements) o;
-        return Objects.equals(catalogName, that.catalogName) && Objects.equals(addresses, that.addresses);
+        return Objects.equals(catalogName, that.catalogName) && Objects.equals(addresses, that.addresses) && Objects.equals(memory, that.memory);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, addresses);
+        return Objects.hash(catalogName, addresses, memory);
     }
 
     @Override
@@ -81,6 +94,7 @@ public class NodeRequirements
         return toStringHelper(this)
                 .add("catalogName", catalogName)
                 .add("addresses", addresses)
+                .add("memory", memory)
                 .toString();
     }
 

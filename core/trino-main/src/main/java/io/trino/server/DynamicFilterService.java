@@ -31,6 +31,7 @@ import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.SqlQueryExecution;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.operator.join.JoinUtils;
 import io.trino.spi.QueryId;
@@ -93,7 +94,6 @@ import static io.trino.sql.DynamicFilters.extractSourceSymbols;
 import static io.trino.sql.planner.DomainCoercer.applySaturatedCasts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static io.trino.util.MorePredicates.isInstanceOfAny;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -102,23 +102,26 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 public class DynamicFilterService
 {
     private final Metadata metadata;
+    private final FunctionManager functionManager;
     private final TypeOperators typeOperators;
     private final ExecutorService executor;
     private final Map<QueryId, DynamicFilterContext> dynamicFilterContexts = new ConcurrentHashMap<>();
 
     @Inject
-    public DynamicFilterService(Metadata metadata, TypeOperators typeOperators, DynamicFilterConfig dynamicFilterConfig)
+    public DynamicFilterService(Metadata metadata, FunctionManager functionManager, TypeOperators typeOperators, DynamicFilterConfig dynamicFilterConfig)
     {
         this(
                 metadata,
+                functionManager,
                 typeOperators,
                 newFixedThreadPool(dynamicFilterConfig.getServiceThreadCount(), daemonThreadsNamed("DynamicFilterService")));
     }
 
     @VisibleForTesting
-    public DynamicFilterService(Metadata metadata, TypeOperators typeOperators, ExecutorService executor)
+    public DynamicFilterService(Metadata metadata, FunctionManager functionManager, TypeOperators typeOperators, ExecutorService executor)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.executor = requireNonNull(executor, "executor is null");
     }
@@ -478,7 +481,7 @@ public class DynamicFilterService
                             Type targetType = typeProvider.get(Symbol.from(descriptor.getInput()));
                             Domain updatedSummary = descriptor.applyComparison(summary);
                             if (!updatedSummary.getType().equals(targetType)) {
-                                return applySaturatedCasts(metadata, typeOperators, dynamicFilterContext.getSession(), updatedSummary, targetType);
+                                return applySaturatedCasts(metadata, functionManager, typeOperators, dynamicFilterContext.getSession(), updatedSummary, targetType);
                             }
                             return updatedSummary;
                         })));
@@ -513,7 +516,7 @@ public class DynamicFilterService
     private static Set<DynamicFilterId> getReplicatedDynamicFilters(PlanNode planNode)
     {
         return PlanNodeSearcher.searchFrom(planNode)
-                .where(isInstanceOfAny(JoinNode.class, SemiJoinNode.class))
+                .whereIsInstanceOfAny(JoinNode.class, SemiJoinNode.class)
                 .findAll().stream()
                 .filter(JoinUtils::isBuildSideReplicated)
                 .flatMap(node -> getDynamicFiltersProducedInPlanNode(node).stream())
@@ -523,7 +526,7 @@ public class DynamicFilterService
     private static Set<DynamicFilterId> getProducedDynamicFilters(PlanNode planNode)
     {
         return PlanNodeSearcher.searchFrom(planNode)
-                .where(isInstanceOfAny(JoinNode.class, SemiJoinNode.class))
+                .whereIsInstanceOfAny(JoinNode.class, SemiJoinNode.class)
                 .findAll().stream()
                 .flatMap(node -> getDynamicFiltersProducedInPlanNode(node).stream())
                 .collect(toImmutableSet());
@@ -812,9 +815,9 @@ public class DynamicFilterService
                     // filter has been collected concurrently
                     return;
                 }
+                dynamicFilterCollectionTime.put(filter, System.nanoTime());
                 dynamicFilterSummaries.put(filter, union(domain));
                 Optional.ofNullable(lazyDynamicFilters.get(filter)).ifPresent(future -> future.set(null));
-                dynamicFilterCollectionTime.put(filter, System.nanoTime());
                 List<Consumer<Map<DynamicFilterId, Domain>>> consumers;
                 synchronized (dynamicFilterConsumers) {
                     // this section is executed only once due to the earlier null check on taskDynamicFilters.remove(filter)

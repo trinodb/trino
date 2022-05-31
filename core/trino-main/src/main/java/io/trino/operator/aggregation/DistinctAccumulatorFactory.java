@@ -29,6 +29,7 @@ import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -60,10 +61,16 @@ public class DistinctAccumulatorFactory
     }
 
     @Override
-    public Accumulator createAccumulator()
+    public List<Class<?>> getLambdaInterfaces()
+    {
+        return delegate.getLambdaInterfaces();
+    }
+
+    @Override
+    public Accumulator createAccumulator(List<Supplier<Object>> lambdaProviders)
     {
         return new DistinctAccumulator(
-                delegate.createAccumulator(),
+                delegate.createAccumulator(lambdaProviders),
                 argumentTypes,
                 session,
                 joinCompiler,
@@ -71,16 +78,16 @@ public class DistinctAccumulatorFactory
     }
 
     @Override
-    public Accumulator createIntermediateAccumulator()
+    public Accumulator createIntermediateAccumulator(List<Supplier<Object>> lambdaProviders)
     {
-        return delegate.createIntermediateAccumulator();
+        return delegate.createIntermediateAccumulator(lambdaProviders);
     }
 
     @Override
-    public GroupedAccumulator createGroupedAccumulator()
+    public GroupedAccumulator createGroupedAccumulator(List<Supplier<Object>> lambdaProviders)
     {
         return new DistinctGroupedAccumulator(
-                delegate.createGroupedAccumulator(),
+                delegate.createGroupedAccumulator(lambdaProviders),
                 argumentTypes,
                 session,
                 joinCompiler,
@@ -88,9 +95,9 @@ public class DistinctAccumulatorFactory
     }
 
     @Override
-    public GroupedAccumulator createGroupedIntermediateAccumulator()
+    public GroupedAccumulator createGroupedIntermediateAccumulator(List<Supplier<Object>> lambdaProviders)
     {
-        return delegate.createGroupedIntermediateAccumulator();
+        return delegate.createGroupedIntermediateAccumulator(lambdaProviders);
     }
 
     private static class DistinctAccumulator

@@ -49,5 +49,6 @@ public final class EnvMultinodePhoenix5
                 container.withCopyFileToContainer(forHostPath(configDir.getPath("phoenix.properties")), CONTAINER_PRESTO_ETC + "/catalog/phoenix.properties");
             }
         });
+        builder.addConnector("phoenix5");
     }
 }

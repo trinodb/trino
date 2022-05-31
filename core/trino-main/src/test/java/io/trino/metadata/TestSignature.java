@@ -13,7 +13,6 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -42,10 +41,13 @@ public class TestSignature
                 TypeSignature.class, new TypeSignatureDeserializer()));
         JsonCodec<Signature> codec = new JsonCodecFactory(objectMapperProvider, true).jsonCodec(Signature.class);
 
-        Signature expected = new Signature(
-                "function",
-                BIGINT.getTypeSignature(),
-                ImmutableList.of(BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), VARCHAR.getTypeSignature()));
+        Signature expected = Signature.builder()
+                .name("function")
+                .returnType(BIGINT)
+                .argumentType(BOOLEAN)
+                .argumentType(DOUBLE)
+                .argumentType(VARCHAR)
+                .build();
 
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);

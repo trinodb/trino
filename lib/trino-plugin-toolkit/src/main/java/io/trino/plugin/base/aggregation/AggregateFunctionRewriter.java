@@ -16,35 +16,36 @@ package io.trino.plugin.base.aggregation;
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Match;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule.RewriteContext;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.expression.ConnectorExpression;
 
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
-public final class AggregateFunctionRewriter<Result>
+public final class AggregateFunctionRewriter<AggregationResult, ExpressionResult>
 {
-    private final Function<String, String> identifierQuote;
-    private final Set<AggregateFunctionRule<Result>> rules;
+    private final ConnectorExpressionRewriter<ExpressionResult> connectorExpressionRewriter;
+    private final Set<AggregateFunctionRule<AggregationResult, ExpressionResult>> rules;
 
-    public AggregateFunctionRewriter(Function<String, String> identifierQuote, Set<AggregateFunctionRule<Result>> rules)
+    public AggregateFunctionRewriter(ConnectorExpressionRewriter<ExpressionResult> connectorExpressionRewriter, Set<AggregateFunctionRule<AggregationResult, ExpressionResult>> rules)
     {
-        this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
+        this.connectorExpressionRewriter = requireNonNull(connectorExpressionRewriter, "connectorExpressionRewriter is null");
         this.rules = ImmutableSet.copyOf(requireNonNull(rules, "rules is null"));
     }
 
-    public Optional<Result> rewrite(ConnectorSession session, AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments)
+    public Optional<AggregationResult> rewrite(ConnectorSession session, AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments)
     {
         requireNonNull(aggregateFunction, "aggregateFunction is null");
         requireNonNull(assignments, "assignments is null");
 
-        RewriteContext context = new RewriteContext()
+        RewriteContext<ExpressionResult> context = new RewriteContext<>()
         {
             @Override
             public Map<String, ColumnHandle> getAssignments()
@@ -53,23 +54,23 @@ public final class AggregateFunctionRewriter<Result>
             }
 
             @Override
-            public Function<String, String> getIdentifierQuote()
-            {
-                return identifierQuote;
-            }
-
-            @Override
             public ConnectorSession getSession()
             {
                 return session;
             }
+
+            @Override
+            public Optional<ExpressionResult> rewriteExpression(ConnectorExpression expression)
+            {
+                return connectorExpressionRewriter.rewrite(session, expression, assignments);
+            }
         };
 
-        for (AggregateFunctionRule<Result> rule : rules) {
+        for (AggregateFunctionRule<AggregationResult, ExpressionResult> rule : rules) {
             Iterator<Match> matches = rule.getPattern().match(aggregateFunction, context).iterator();
             while (matches.hasNext()) {
                 Match match = matches.next();
-                Optional<Result> rewritten = rule.rewrite(aggregateFunction, match.captures(), context);
+                Optional<AggregationResult> rewritten = rule.rewrite(aggregateFunction, match.captures(), context);
                 if (rewritten.isPresent()) {
                     return rewritten;
                 }

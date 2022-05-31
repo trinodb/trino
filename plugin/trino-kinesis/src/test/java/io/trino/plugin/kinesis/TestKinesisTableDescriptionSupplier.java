@@ -41,7 +41,7 @@ public class TestKinesisTableDescriptionSupplier
     public void start()
     {
         // Create dependent objects, including the minimal config needed for this test
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kinesis.table-description-location", "etc/kinesis")
                 .put("kinesis.default-schema", "kinesis")
                 .put("kinesis.hide-internal-columns", "true")

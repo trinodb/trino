@@ -49,7 +49,7 @@ public class TestAtopConnectorConfig
     {
         Path atopExecutable = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("atop.executable-path", atopExecutable.toString())
                 .put("atop.concurrent-readers-per-node", "10")
                 .put("atop.executable-read-timeout", "1m")

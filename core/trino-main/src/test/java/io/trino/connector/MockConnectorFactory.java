@@ -105,6 +105,7 @@ public class MockConnectorFactory
     // access control
     private final ListRoleGrants roleGrants;
     private final Optional<ConnectorAccessControl> accessControl;
+    private final boolean supportsReportingWrittenBytes;
 
     private MockConnectorFactory(
             String name,
@@ -136,6 +137,7 @@ public class MockConnectorFactory
             Supplier<List<PropertyMetadata<?>>> tableProperties,
             Optional<ConnectorNodePartitioningProvider> partitioningProvider,
             ListRoleGrants roleGrants,
+            boolean supportsReportingWrittenBytes,
             Optional<ConnectorAccessControl> accessControl,
             boolean allowMissingColumnsOnInsert)
     {
@@ -170,6 +172,7 @@ public class MockConnectorFactory
         this.data = requireNonNull(data, "data is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
         this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
+        this.supportsReportingWrittenBytes = supportsReportingWrittenBytes;
     }
 
     @Override
@@ -211,7 +214,8 @@ public class MockConnectorFactory
                 procedures,
                 allowMissingColumnsOnInsert,
                 schemaProperties,
-                tableProperties);
+                tableProperties,
+                supportsReportingWrittenBytes);
     }
 
     public static MockConnectorFactory create()
@@ -330,6 +334,7 @@ public class MockConnectorFactory
         private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
         private Function<SchemaTableName, ViewExpression> rowFilter = tableName -> null;
         private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (tableName, columnName) -> null;
+        private boolean supportsReportingWrittenBytes;
         private boolean allowMissingColumnsOnInsert;
 
         private Builder() {}
@@ -555,6 +560,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withSupportsReportingWrittenBytes(boolean supportsReportingWrittenBytes)
+        {
+            this.supportsReportingWrittenBytes = supportsReportingWrittenBytes;
+            return this;
+        }
+
         public Builder withAllowMissingColumnsOnInsert(boolean allowMissingColumnsOnInsert)
         {
             this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
@@ -597,6 +608,7 @@ public class MockConnectorFactory
                     tableProperties,
                     partitioningProvider,
                     roleGrants,
+                    supportsReportingWrittenBytes,
                     accessControl,
                     allowMissingColumnsOnInsert);
         }

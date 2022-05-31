@@ -23,7 +23,7 @@ Resource groups
 ---------------
 
 * Change configuration check for weights in resource group policy to validate that
-  either all of the subgroups or none of the subgroups have a scheduling weight configured.
+  either all of the sub-groups or none of the sub-groups have a scheduling weight configured.
 * Add support for named variables in source and user regular expressions that can be
   used to parameterize resource group names.
 * Add support for optional fields in DB resource group exact match selectors.

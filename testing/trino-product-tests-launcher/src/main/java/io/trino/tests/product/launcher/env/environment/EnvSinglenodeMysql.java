@@ -26,8 +26,6 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -52,11 +50,7 @@ public final class EnvSinglenodeMysql
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(COORDINATOR, container -> container
-                .withCopyFileToContainer(
-                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-mysql/mysql.properties")),
-                        CONTAINER_PRESTO_ETC + "/catalog/mysql.properties"));
-
+        builder.addConnector("mysql", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-mysql/mysql.properties")));
         builder.addContainer(createMySql());
     }
 

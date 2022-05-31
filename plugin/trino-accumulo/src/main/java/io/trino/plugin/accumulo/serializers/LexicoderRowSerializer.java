@@ -50,7 +50,6 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -189,13 +188,13 @@ public class LexicoderRowSerializer
     }
 
     @Override
-    public Date getDate(String name)
+    public long getDate(String name)
     {
-        return new Date(DAYS.toMillis(decode(BIGINT, getFieldValue(name))));
+        return decode(BIGINT, getFieldValue(name));
     }
 
     @Override
-    public void setDate(Text text, Date value)
+    public void setDate(Text text, long value)
     {
         text.set(encode(DATE, value));
     }

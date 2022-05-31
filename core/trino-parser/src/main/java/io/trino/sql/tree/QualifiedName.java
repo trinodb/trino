@@ -15,7 +15,6 @@ package io.trino.sql.tree;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import java.util.List;
@@ -30,8 +29,14 @@ import static java.util.Objects.requireNonNull;
 
 public class QualifiedName
 {
-    private final List<String> parts;
     private final List<Identifier> originalParts;
+    private final List<String> parts;
+
+    // Following fields are not part of the equals/hashCode methods as
+    // they are exist solely to speed-up certain method calls.
+    private final String name;
+    private final Optional<QualifiedName> prefix;
+    private final String suffix;
 
     public static QualifiedName of(String first, String... rest)
     {
@@ -56,7 +61,25 @@ public class QualifiedName
     private QualifiedName(List<Identifier> originalParts)
     {
         this.originalParts = originalParts;
-        this.parts = originalParts.stream().map(identifier -> identifier.getValue().toLowerCase(ENGLISH)).collect(toImmutableList());
+        this.parts = originalParts.stream()
+                .map(QualifiedName::mapIdentifier)
+                .collect(toImmutableList());
+        this.name = Joiner.on(".").join(parts);
+
+        if (originalParts.size() == 1) {
+            this.prefix = Optional.empty();
+            this.suffix = mapIdentifier(originalParts.get(0));
+        }
+        else {
+            List<Identifier> subList = originalParts.subList(0, originalParts.size() - 1);
+            this.prefix = Optional.of(new QualifiedName(subList));
+            this.suffix = mapIdentifier(originalParts.get(originalParts.size() - 1));
+        }
+    }
+
+    private static String mapIdentifier(Identifier identifier)
+    {
+        return identifier.getValue().toLowerCase(ENGLISH);
     }
 
     public List<String> getParts()
@@ -69,24 +92,13 @@ public class QualifiedName
         return originalParts;
     }
 
-    @Override
-    public String toString()
-    {
-        return Joiner.on('.').join(parts);
-    }
-
     /**
      * For an identifier of the form "a.b.c.d", returns "a.b.c"
      * For an identifier of the form "a", returns absent
      */
     public Optional<QualifiedName> getPrefix()
     {
-        if (parts.size() == 1) {
-            return Optional.empty();
-        }
-
-        List<Identifier> subList = originalParts.subList(0, originalParts.size() - 1);
-        return Optional.of(new QualifiedName(subList));
+        return this.prefix;
     }
 
     public boolean hasSuffix(QualifiedName suffix)
@@ -96,13 +108,12 @@ public class QualifiedName
         }
 
         int start = parts.size() - suffix.getParts().size();
-
         return parts.subList(start, parts.size()).equals(suffix.getParts());
     }
 
     public String getSuffix()
     {
-        return Iterables.getLast(parts);
+        return this.suffix;
     }
 
     @Override
@@ -121,5 +132,11 @@ public class QualifiedName
     public int hashCode()
     {
         return parts.hashCode();
+    }
+
+    @Override
+    public String toString()
+    {
+        return name;
     }
 }

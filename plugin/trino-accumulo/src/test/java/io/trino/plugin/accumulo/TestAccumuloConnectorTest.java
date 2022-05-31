@@ -29,6 +29,7 @@ import java.util.Optional;
 import static io.trino.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -58,7 +59,7 @@ public class TestAccumuloConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_CREATE_SCHEMA:
+            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
@@ -66,6 +67,9 @@ public class TestAccumuloConnectorTest
 
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_DROP_COLUMN:
+                return false;
+
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -81,6 +85,9 @@ public class TestAccumuloConnectorTest
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
+            case SUPPORTS_ROW_TYPE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -90,6 +97,22 @@ public class TestAccumuloConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Accumulo connector does not support column default values");
+    }
+
+    @Override
+    public void testCreateTableWithColumnComment()
+    {
+        // TODO Avoid setting hard-coded column comment
+        // Accumulo connector ignores specified comment and sets column comments as
+        // "Accumulo row ID" for the first column when "row_id" table property isn't specified
+        // "Accumulo column %s:%s. Indexed: boolean" for other columns
+        String tableName = "test_create_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint COMMENT 'test comment a', b bigint COMMENT 'test comment b')");
+
+        assertEquals(getColumnComment(tableName, "a"), "Accumulo row ID");
+        assertEquals(getColumnComment(tableName, "b"), "Accumulo column b:b. Indexed: false");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Override
@@ -191,30 +214,6 @@ public class TestAccumuloConnectorTest
         finally {
             assertUpdate("DROP TABLE test_insert_duplicate");
         }
-    }
-
-    @Test
-    @Override
-    public void testCreateTableAsSelectNegativeDate()
-    {
-        // TODO (https://github.com/trinodb/trino/issues/10208) Fix negative date handling.
-        assertThatThrownBy(super::testCreateTableAsSelectNegativeDate)
-                .isInstanceOf(AssertionError.class)
-                .hasMessageContaining("" +
-                        "Actual rows (up to 100 of 1 extra rows shown, 1 rows in total):\n" +
-                        "    [-0002-12-31]");
-    }
-
-    @Test
-    @Override
-    public void testInsertNegativeDate()
-    {
-        // TODO (https://github.com/trinodb/trino/issues/10208) Fix negative date handling.
-        assertThatThrownBy(super::testInsertNegativeDate)
-                .isInstanceOf(AssertionError.class)
-                .hasMessageContaining("" +
-                        "Actual rows (up to 100 of 1 extra rows shown, 1 rows in total):\n" +
-                        "    [-0002-12-31]");
     }
 
     @Override
@@ -321,15 +320,6 @@ public class TestAccumuloConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("date")) {
-            // TODO (https://github.com/trinodb/trino/issues/10074) Investigate why this test case fails
-            if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '0001-01-01'")
-                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-04'")
-                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'")
-                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-14'")) {
-                return Optional.empty();
-            }
-        }
         if (typeName.startsWith("decimal(")
                 || typeName.equals("timestamp(3) with time zone")
                 || typeName.startsWith("char(")) {

@@ -124,7 +124,7 @@ public class FileTableDescriptionSupplier
             return builder.buildOrThrow();
         }
         catch (IOException e) {
-            log.warn(e, "Error: ");
+            log.warn(e, "Failed to get table description files for Kafka");
             throw new UncheckedIOException(e);
         }
     }

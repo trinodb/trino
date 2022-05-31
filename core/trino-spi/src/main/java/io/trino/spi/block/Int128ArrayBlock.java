@@ -20,19 +20,20 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.BlockUtil.countUsedPositions;
 
 public class Int128ArrayBlock
         implements Block
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int128ArrayBlock.class).instanceSize();
     public static final int INT128_BYTES = Long.BYTES + Long.BYTES;
+    public static final int SIZE_IN_BYTES_PER_POSITION = INT128_BYTES + Byte.BYTES;
 
     private final int positionOffset;
     private final int positionCount;
@@ -40,7 +41,6 @@ public class Int128ArrayBlock
     private final boolean[] valueIsNull;
     private final long[] values;
 
-    private final long sizeInBytes;
     private final long retainedSizeInBytes;
 
     public Int128ArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, long[] values)
@@ -69,32 +69,31 @@ public class Int128ArrayBlock
         }
         this.valueIsNull = valueIsNull;
 
-        sizeInBytes = (INT128_BYTES + Byte.BYTES) * (long) positionCount;
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.of(SIZE_IN_BYTES_PER_POSITION);
     }
 
     @Override
     public long getSizeInBytes()
     {
-        return sizeInBytes;
+        return SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
     }
 
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
-        return (INT128_BYTES + Byte.BYTES) * (long) length;
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
-    {
-        return getPositionsSizeInBytes(positions, countUsedPositions(positions));
+        return SIZE_IN_BYTES_PER_POSITION * (long) length;
     }
 
     @Override
     public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
     {
-        return (long) (INT128_BYTES + Byte.BYTES) * selectedPositionsCount;
+        return (long) SIZE_IN_BYTES_PER_POSITION * selectedPositionsCount;
     }
 
     @Override
@@ -110,7 +109,7 @@ public class Int128ArrayBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(values, sizeOf(values));
         if (valueIsNull != null) {

@@ -16,7 +16,6 @@ package io.trino.plugin.hive;
 import io.trino.Session;
 import io.trino.operator.RetryPolicy;
 import io.trino.testing.BaseFailureRecoveryTest;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -42,7 +41,7 @@ public abstract class BaseHiveFailureRecoveryTest
     @Override
     protected void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn)
     {
-        @Language("SQL") String sql = format(
+        String sql = format(
                 "CREATE TABLE %s WITH (format = 'TEXTFILE', partitioned_by=array['%s']) AS SELECT %s FROM tpch.tiny.lineitem",
                 tableName,
                 partitionColumn,

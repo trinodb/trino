@@ -122,8 +122,14 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/memsql">
-        <artifact id="${project.groupId}:trino-memsql:zip:${project.version}">
+    <artifactSet to="plugin/singlestore">
+        <artifact id="${project.groupId}:trino-singlestore:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/mariadb">
+        <artifact id="${project.groupId}:trino-mariadb:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -271,8 +277,14 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/exchange">
-        <artifact id="${project.groupId}:trino-exchange:zip:${project.version}">
+    <artifactSet to="plugin/delta-lake">
+        <artifact id="${project.groupId}:trino-delta-lake:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/exchange-filesystem">
+        <artifact id="${project.groupId}:trino-exchange-filesystem:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

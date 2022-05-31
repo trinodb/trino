@@ -35,6 +35,9 @@ public class TestingKuduServer
         implements Closeable
 {
     private static final String KUDU_IMAGE = "apache/kudu";
+    public static final String EARLIEST_TAG = "1.13.0";
+    public static final String LATEST_TAG = "1.15.0";
+
     private static final Integer KUDU_MASTER_PORT = 7051;
     private static final Integer KUDU_TSERVER_PORT = 7050;
     private static final Integer NUMBER_OF_REPLICA = 3;
@@ -49,8 +52,7 @@ public class TestingKuduServer
 
     public TestingKuduServer()
     {
-        // This version should match the kudu client version
-        this("1.15.0");
+        this(LATEST_TAG);
     }
 
     /**
@@ -100,7 +102,10 @@ public class TestingKuduServer
 
     public HostAndPort getMasterAddress()
     {
-        return HostAndPort.fromParts(master.getContainerIpAddress(), master.getMappedPort(KUDU_MASTER_PORT));
+        // Do not use master.getContainerIpAddress(), it returns "localhost" which the kudu client resolves to:
+        // localhost/127.0.0.1, localhost/0:0:0:0:0:0:0:1
+        // Instead explicitly list only the ipv4 loopback address 127.0.0.1
+        return HostAndPort.fromParts("127.0.0.1", master.getMappedPort(KUDU_MASTER_PORT));
     }
 
     @Override

@@ -25,6 +25,7 @@ import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 
 import static io.trino.plugin.ml.type.RegressorType.REGRESSOR;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class SvmRegressor
@@ -50,7 +51,8 @@ public class SvmRegressor
     {
         // TODO do something with the hyperparameters
         try {
-            svm_model model = svm.svm_load_model(new BufferedReader(new InputStreamReader(new ByteArrayInputStream(modelData))));
+            // UTF-8 should work, though the only thing we can say about the charset is that it's guaranteed to be 8-bits
+            svm_model model = svm.svm_load_model(new BufferedReader(new InputStreamReader(new ByteArrayInputStream(modelData), UTF_8)));
             return new SvmRegressor(model);
         }
         catch (IOException e) {

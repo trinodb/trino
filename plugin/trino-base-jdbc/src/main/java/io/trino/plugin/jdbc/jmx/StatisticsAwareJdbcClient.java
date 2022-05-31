@@ -38,6 +38,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
@@ -112,7 +113,7 @@ public final class StatisticsAwareJdbcClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        return stats.getToPrestoType().wrap(() -> delegate().toColumnMapping(session, connection, typeHandle));
+        return stats.getToTrinoType().wrap(() -> delegate().toColumnMapping(session, connection, typeHandle));
     }
 
     @Override
@@ -137,6 +138,12 @@ public final class StatisticsAwareJdbcClient
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         return stats.getImplementAggregation().wrap(() -> delegate().implementAggregation(session, aggregate, assignments));
+    }
+
+    @Override
+    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return stats.getConvertPredicate().wrap(() -> delegate().convertPredicate(session, expression, assignments));
     }
 
     @Override
@@ -188,6 +195,19 @@ public final class StatisticsAwareJdbcClient
             JoinStatistics statistics)
     {
         return stats.getImplementJoin().wrap(() -> delegate().implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
+    }
+
+    @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+            throws SQLException
+    {
+        return stats.getGetTableComment().wrap(() -> delegate().getTableComment(resultSet));
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
+    {
+        stats.getSetTableComment().wrap(() -> delegate().setTableComment(session, handle, comment));
     }
 
     @Override

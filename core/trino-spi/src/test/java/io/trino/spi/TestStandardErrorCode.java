@@ -23,6 +23,7 @@ import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -61,7 +62,7 @@ public class TestStandardErrorCode
             StandardErrorCode code = iterator.next();
             int current = code(code);
             assertGreaterThan(current, previous, "Code is out of order: " + code);
-            if ((code != GENERIC_INTERNAL_ERROR) && (code != GENERIC_INSUFFICIENT_RESOURCES)) {
+            if (code != GENERIC_INTERNAL_ERROR && code != GENERIC_INSUFFICIENT_RESOURCES && code != UNSUPPORTED_TABLE_TYPE) {
                 assertEquals(current, previous + 1, "Code is not sequential: " + code);
             }
             previous = current;

@@ -36,6 +36,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
@@ -71,6 +72,7 @@ import java.util.stream.Collectors;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static io.trino.plugin.accumulo.metadata.ZooKeeperMetadataManager.DEFAULT_SCHEMA;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -111,6 +113,23 @@ public class AccumuloClient
         this.indexLookup = requireNonNull(indexLookup, "indexLookup is null");
 
         this.auths = connector.securityOperations().getUserAuthorizations(username);
+
+        // The default namespace is created in ZooKeeperMetadataManager's constructor
+        if (!tableManager.namespaceExists(DEFAULT_SCHEMA)) {
+            tableManager.createNamespace(DEFAULT_SCHEMA);
+        }
+    }
+
+    public void createSchema(String schemaName)
+    {
+        metaManager.createSchema(schemaName);
+        tableManager.createNamespace(schemaName);
+    }
+
+    public void dropSchema(String schemaName)
+    {
+        metaManager.dropSchema(schemaName);
+        tableManager.dropNamespace(schemaName);
     }
 
     public AccumuloTable createTable(ConnectorTableMetadata meta)
@@ -134,11 +153,13 @@ public class AccumuloClient
                 AccumuloTableProperties.getSerializerClass(tableProperties),
                 AccumuloTableProperties.getScanAuthorizations(tableProperties));
 
+        // Make sure the namespace exists
+        if (!tableManager.namespaceExists(table.getSchema())) {
+            throw new SchemaNotFoundException(table.getSchema());
+        }
+
         // First, create the metadata
         metaManager.createTableMetadata(table);
-
-        // Make sure the namespace exists
-        tableManager.ensureNamespace(table.getSchema());
 
         // Create the Accumulo table if it does not exist (for 'external' table)
         if (!tableManager.exists(table.getFullTableName())) {

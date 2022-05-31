@@ -32,6 +32,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.MANIFEST;
@@ -81,7 +82,7 @@ public class TestIcebergMetadataFileOperations
         HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
 
         trackingFileIoProvider = new TrackingFileIoProvider(new HdfsFileIoProvider(HDFS_ENVIRONMENT));
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.of(trackingFileIoProvider)));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.of(trackingFileIoProvider), EMPTY_MODULE));
         queryRunner.createCatalog("iceberg", "iceberg");
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -158,8 +159,8 @@ public class TestIcebergMetadataFileOperations
 
         assertFileSystemAccesses("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
                 ImmutableMultiset.builder()
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 12)
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 12)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 10)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 10)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 2)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 2)
@@ -176,8 +177,8 @@ public class TestIcebergMetadataFileOperations
 
         assertFileSystemAccesses("SELECT count(*) FROM test_join_partitioned_t1 t1 join test_join_partitioned_t2 t2 on t1.a = t2.foo",
                 ImmutableMultiset.builder()
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 12)
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 12)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 10)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 10)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 2)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 2)

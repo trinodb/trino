@@ -37,7 +37,7 @@ public class TestBucketBalancerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("storage.balancer-enabled", "false")
                 .put("storage.balancer-interval", "5h")
                 .buildOrThrow();

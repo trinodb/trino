@@ -69,6 +69,7 @@ public class QueryRunner
             Optional<String> truststorePath,
             Optional<String> truststorePassword,
             Optional<String> truststoreType,
+            boolean useSystemTruststore,
             boolean insecureSsl,
             Optional<String> accessToken,
             Optional<String> user,
@@ -91,7 +92,7 @@ public class QueryRunner
             this.sslSetup = OkHttpUtil::setupInsecureSsl;
         }
         else {
-            this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, keystoreType, truststorePath, truststorePassword, truststoreType);
+            this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, keystoreType, truststorePath, truststorePassword, truststoreType, useSystemTruststore);
         }
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();

@@ -16,6 +16,7 @@ package io.trino.sql.query;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.FunctionBundle;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
@@ -95,6 +96,11 @@ public class QueryAssertions
         return runner.getDefaultSession();
     }
 
+    public void addFunctions(FunctionBundle functionBundle)
+    {
+        runner.addFunctions(functionBundle);
+    }
+
     public AssertProvider<QueryAssert> query(@Language("SQL") String query)
     {
         return query(runner.getDefaultSession(), query);
@@ -123,7 +129,7 @@ public class QueryAssertions
         assertQuery(runner.getDefaultSession(), actual, expected, false);
 
         Plan plan = runner.executeWithPlan(runner.getDefaultSession(), actual, WarningCollector.NOOP).getQueryPlan();
-        PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getStatsCalculator(), plan, pattern);
+        PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getFunctionManager(), runner.getStatsCalculator(), plan, pattern);
     }
 
     private void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
@@ -356,6 +362,7 @@ public class QueryAssertions
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
+                                runner.getFunctionManager(),
                                 noopStatsCalculator(),
                                 plan,
                                 expectedPlan);
@@ -426,6 +433,7 @@ public class QueryAssertions
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
+                                runner.getFunctionManager(),
                                 noopStatsCalculator(),
                                 plan,
                                 PlanMatchPattern.output(
@@ -473,6 +481,7 @@ public class QueryAssertions
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
+                                runner.getFunctionManager(),
                                 noopStatsCalculator(),
                                 plan,
                                 expectedPlan);

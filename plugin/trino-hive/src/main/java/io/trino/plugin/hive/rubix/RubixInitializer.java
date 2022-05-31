@@ -19,6 +19,7 @@ import com.google.common.io.Closer;
 import com.qubole.rubix.bookkeeper.BookKeeper;
 import com.qubole.rubix.bookkeeper.BookKeeperServer;
 import com.qubole.rubix.bookkeeper.LocalDataTransferServer;
+import com.qubole.rubix.common.metrics.MetricsReporterType;
 import com.qubole.rubix.core.CachingFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoAdlFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoAzureBlobFileSystem;
@@ -58,6 +59,7 @@ import static com.qubole.rubix.spi.CacheConfig.setCoordinatorHostName;
 import static com.qubole.rubix.spi.CacheConfig.setDataTransferServerPort;
 import static com.qubole.rubix.spi.CacheConfig.setEmbeddedMode;
 import static com.qubole.rubix.spi.CacheConfig.setIsParallelWarmupEnabled;
+import static com.qubole.rubix.spi.CacheConfig.setMetricsReporters;
 import static com.qubole.rubix.spi.CacheConfig.setOnMaster;
 import static com.qubole.rubix.spi.CacheConfig.setPrestoClusterManager;
 import static io.trino.plugin.hive.DynamicConfigurationProvider.setCacheKey;
@@ -299,6 +301,7 @@ public class RubixInitializer
         setCacheDataFullnessPercentage(config, diskUsagePercentage);
         setBookKeeperServerPort(config, bookKeeperServerPort);
         setDataTransferServerPort(config, dataTransferServerPort);
+        setMetricsReporters(config, MetricsReporterType.JMX.name());
 
         setEmbeddedMode(config, true);
         enableHeartbeat(config, false);

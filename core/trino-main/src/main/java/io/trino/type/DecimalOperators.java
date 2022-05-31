@@ -18,7 +18,6 @@ import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
 import io.trino.metadata.Signature;
-import io.trino.metadata.SignatureBuilder;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
@@ -31,7 +30,6 @@ import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 
-import static io.trino.metadata.Signature.longVariableExpression;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
@@ -75,10 +73,10 @@ public final class DecimalOperators
 
         Signature signature = Signature.builder()
                 .operatorType(ADD)
-                .longVariableConstraints(
-                        longVariableExpression("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)"),
-                        longVariableExpression("r_scale", "max(a_scale, b_scale)"))
-                .argumentTypes(decimalLeftSignature, decimalRightSignature)
+                .longVariable("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)")
+                .longVariable("r_scale", "max(a_scale, b_scale)")
+                .argumentType(decimalLeftSignature)
+                .argumentType(decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
         return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
@@ -157,10 +155,10 @@ public final class DecimalOperators
 
         Signature signature = Signature.builder()
                 .operatorType(SUBTRACT)
-                .longVariableConstraints(
-                        longVariableExpression("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)"),
-                        longVariableExpression("r_scale", "max(a_scale, b_scale)"))
-                .argumentTypes(decimalLeftSignature, decimalRightSignature)
+                .longVariable("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)")
+                .longVariable("r_scale", "max(a_scale, b_scale)")
+                .argumentType(decimalLeftSignature)
+                .argumentType(decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
         return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
@@ -238,10 +236,10 @@ public final class DecimalOperators
 
         Signature signature = Signature.builder()
                 .operatorType(MULTIPLY)
-                .longVariableConstraints(
-                        longVariableExpression("r_precision", "min(38, a_precision + b_precision)"),
-                        longVariableExpression("r_scale", "a_scale + b_scale"))
-                .argumentTypes(decimalLeftSignature, decimalRightSignature)
+                .longVariable("r_precision", "min(38, a_precision + b_precision)")
+                .longVariable("r_scale", "a_scale + b_scale")
+                .argumentType(decimalLeftSignature)
+                .argumentType(decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
         return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
@@ -322,10 +320,10 @@ public final class DecimalOperators
         // want result scale to be maximum of scales of divisor and dividend.
         Signature signature = Signature.builder()
                 .operatorType(DIVIDE)
-                .longVariableConstraints(
-                        longVariableExpression("r_precision", "min(38, a_precision + b_scale + max(b_scale - a_scale, 0))"),
-                        longVariableExpression("r_scale", "max(a_scale, b_scale)"))
-                .argumentTypes(decimalLeftSignature, decimalRightSignature)
+                .longVariable("r_precision", "min(38, a_precision + b_scale + max(b_scale - a_scale, 0))")
+                .longVariable("r_scale", "max(a_scale, b_scale)")
+                .argumentType(decimalLeftSignature)
+                .argumentType(decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
         return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
@@ -495,17 +493,17 @@ public final class DecimalOperators
                 .build();
     }
 
-    public static SignatureBuilder modulusSignatureBuilder()
+    public static Signature.Builder modulusSignatureBuilder()
     {
         TypeSignature decimalLeftSignature = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
         TypeSignature decimalRightSignature = new TypeSignature("decimal", typeVariable("b_precision"), typeVariable("b_scale"));
         TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
 
         return Signature.builder()
-                .longVariableConstraints(
-                        longVariableExpression("r_precision", "min(b_precision - b_scale, a_precision - a_scale) + max(a_scale, b_scale)"),
-                        longVariableExpression("r_scale", "max(a_scale, b_scale)"))
-                .argumentTypes(decimalLeftSignature, decimalRightSignature)
+                .longVariable("r_precision", "min(b_precision - b_scale, a_precision - a_scale) + max(a_scale, b_scale)")
+                .longVariable("r_scale", "max(a_scale, b_scale)")
+                .argumentType(decimalLeftSignature)
+                .argumentType(decimalRightSignature)
                 .returnType(decimalResultSignature);
     }
 

@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>119</version>
+        <version>123</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>372-SNAPSHOT</version>
+    <version>383-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -48,25 +48,27 @@
 
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
-        <dep.antlr.version>4.9.2</dep.antlr.version>
-        <dep.airlift.version>214</dep.airlift.version>
+        <dep.antlr.version>4.9.3</dep.antlr.version>
+        <dep.airlift.version>215</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.aws-sdk.version>1.12.85</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.172</dep.aws-sdk.version>
         <dep.okhttp.version>3.14.9</dep.okhttp.version>
         <dep.joda.version>2.10.13</dep.joda.version>
         <dep.jsonwebtoken.version>0.11.2</dep.jsonwebtoken.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.scribejava.version>6.9.0</dep.scribejava.version>
-        <dep.tempto.version>187</dep.tempto.version>
+        <dep.tempto.version>188</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
-        <dep.errorprone.version>2.11.0</dep.errorprone.version>
+        <dep.errorprone.version>2.14.0</dep.errorprone.version>
         <dep.testcontainers.version>1.16.3</dep.testcontainers.version>
+        <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
-        <dep.coral.version>1.0.121</dep.coral.version>
+        <dep.coral.version>2.0.77</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
+        <dep.casandra.version>4.14.0</dep.casandra.version>
+        <dep.minio.version>7.1.4</dep.minio.version>
 
-        <dep.docker.images.version>53</dep.docker.images.version>
+        <dep.docker.images.version>57</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -113,10 +115,11 @@
         <module>plugin/trino-blackhole</module>
         <module>plugin/trino-cassandra</module>
         <module>plugin/trino-clickhouse</module>
+        <module>plugin/trino-delta-lake</module>
         <module>plugin/trino-druid</module>
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>
-        <module>plugin/trino-exchange</module>
+        <module>plugin/trino-exchange-filesystem</module>
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
@@ -128,8 +131,8 @@
         <module>plugin/trino-kinesis</module>
         <module>plugin/trino-kudu</module>
         <module>plugin/trino-local-file</module>
+        <module>plugin/trino-mariadb</module>
         <module>plugin/trino-memory</module>
-        <module>plugin/trino-memsql</module>
         <module>plugin/trino-ml</module>
         <module>plugin/trino-mongodb</module>
         <module>plugin/trino-mysql</module>
@@ -145,6 +148,7 @@
         <module>plugin/trino-redshift</module>
         <module>plugin/trino-resource-group-managers</module>
         <module>plugin/trino-session-property-managers</module>
+        <module>plugin/trino-singlestore</module>
         <module>plugin/trino-sqlserver</module>
         <module>plugin/trino-teradata-functions</module>
         <module>plugin/trino-thrift</module>
@@ -156,6 +160,7 @@
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark</module>
         <module>testing/trino-benchto-benchmarks</module>
+        <module>testing/trino-plugin-reader</module>
         <module>testing/trino-product-tests</module>
         <module>testing/trino-product-tests-launcher</module>
         <module>testing/trino-server-dev</module>
@@ -164,19 +169,10 @@
         <module>testing/trino-testing</module>
         <module>testing/trino-testing-containers</module>
         <module>testing/trino-testing-kafka</module>
+        <module>testing/trino-testing-resources</module>
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
     </modules>
-
-    <repositories>
-        <repository>
-            <id>confluent</id>
-            <url>https://packages.confluent.io/maven/</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
 
     <dependencyManagement>
         <dependencies>
@@ -245,6 +241,19 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-delta-lake</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-delta-lake</artifactId>
+                <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-elasticsearch</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -258,13 +267,13 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-exchange</artifactId>
+                <artifactId>trino-exchange-filesystem</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-exchange</artifactId>
+                <artifactId>trino-exchange-filesystem</artifactId>
                 <type>test-jar</type>
                 <version>${project.version}</version>
             </dependency>
@@ -334,6 +343,12 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-main</artifactId>
                 <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-mariadb</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -525,6 +540,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-testing-resources</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-testing-services</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -581,12 +602,6 @@
             </dependency>
 
             <dependency>
-                <groupId>io.trino.cassandra</groupId>
-                <artifactId>cassandra-driver</artifactId>
-                <version>3.1.4-3</version>
-            </dependency>
-
-            <dependency>
                 <groupId>io.trino.hadoop</groupId>
                 <artifactId>hadoop-apache</artifactId>
                 <version>3.2.0-16</version>
@@ -595,7 +610,7 @@
             <dependency>
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-17</version>
+                <version>3.1.2-19</version>
             </dependency>
 
             <dependency>
@@ -607,7 +622,7 @@
             <dependency>
                 <groupId>io.trino.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>11</version>
+                <version>13</version>
             </dependency>
 
             <dependency>
@@ -615,10 +630,6 @@
                 <artifactId>tempto-core</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
-                    <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
                     <exclusion>
                         <groupId>com.google.code.findbugs</groupId>
                         <artifactId>annotations</artifactId>
@@ -632,10 +643,6 @@
                 <version>${dep.tempto.version}</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                    <exclusion>
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-log4j12</artifactId>
                     </exclusion>
@@ -646,24 +653,12 @@
                 <groupId>io.trino.tempto</groupId>
                 <artifactId>tempto-ldap</artifactId>
                 <version>${dep.tempto.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>io.trino.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
                 <version>${dep.tempto.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -694,7 +689,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>bytecode</artifactId>
-                <version>1.2</version>
+                <version>1.4</version>
             </dependency>
 
             <dependency>
@@ -1016,6 +1011,24 @@
             </dependency>
 
             <dependency>
+                <groupId>com.databricks</groupId>
+                <artifactId>databricks-jdbc</artifactId>
+                <version>2.6.25-1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.datastax.oss</groupId>
+                <artifactId>java-driver-core</artifactId>
+                <version>${dep.casandra.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-analysis</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
                 <groupId>com.esri.geometry</groupId>
                 <artifactId>esri-geometry-api</artifactId>
                 <version>2.2.4</version>
@@ -1043,18 +1056,6 @@
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
                 <version>5.8.5</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.github.scribejava</groupId>
-                <artifactId>scribejava-apis</artifactId>
-                <version>${dep.scribejava.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.github.scribejava</groupId>
-                <artifactId>scribejava-core</artifactId>
-                <version>${dep.scribejava.version}</version>
             </dependency>
 
             <dependency>
@@ -1125,7 +1126,7 @@
 
             <dependency>
                 <groupId>com.linkedin.coral</groupId>
-                <artifactId>coral-hive</artifactId>
+                <artifactId>coral-common</artifactId>
                 <version>${dep.coral.version}</version>
                 <exclusions>
                     <exclusion>
@@ -1141,14 +1142,49 @@
 
             <dependency>
                 <groupId>com.linkedin.coral</groupId>
+                <artifactId>coral-hive</artifactId>
+                <version>${dep.coral.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.linkedin.coral</groupId>
                 <artifactId>coral-trino</artifactId>
                 <version>${dep.coral.version}</version>
+                <exclusions>
+                    <!--
+                        The `trino-parser` library is being used internally within the `coral-trino` library for
+                        parsing Trino SQL statements. This functionality is irrelevant in the context of
+                        using Coral for Hive view translations within Trino.
+                        This dependency is excluded because `trino-parser` does not guarantee API or behavioral
+                        backwards compatibility.
+                        Trino cannot provide the version on which `coral-trino` library depends on, because the
+                        current version of `trino-parser` is used in tests of this module.
+                        The dependency is therefore intentionally excluded to avoid breaking in an unexpected way,
+                        or silent correctness issues.
+                    -->
+                    <exclusion>
+                        <groupId>io.trino</groupId>
+                        <artifactId>trino-parser</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>9.4.1.jre11</version>
+                <version>10.2.0.jre11</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>nimbus-jose-jwt</artifactId>
+                <version>9.14</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>oauth2-oidc-sdk</artifactId>
+                <version>9.18</version>
             </dependency>
 
             <dependency>
@@ -1329,6 +1365,12 @@
                 <version>${dep.jsonwebtoken.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>io.minio</groupId>
+                <artifactId>minio</artifactId>
+                <version>${dep.minio.version}</version>
+            </dependency>
+
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
             <dependency>
                 <groupId>io.swagger</groupId>
@@ -1367,13 +1409,6 @@
                 <version>8.0.22</version>
             </dependency>
 
-            <!-- force newer version to be used for dependencies -->
-            <dependency>
-                <groupId>net.bytebuddy</groupId>
-                <artifactId>byte-buddy</artifactId>
-                <version>1.10.22</version>
-            </dependency>
-
             <dependency>
                 <!-- org.testcontainers:testcontainer's dependencies pull two different versions of this artifact and this is to negotiate the version -->
                 <groupId>net.java.dev.jna</groupId>
@@ -1396,7 +1431,7 @@
             <dependency>
                 <groupId>org.alluxio</groupId>
                 <artifactId>alluxio-shaded-client</artifactId>
-                <version>2.6.2</version>
+                <version>2.7.3</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.slf4j</groupId>
@@ -1445,6 +1480,12 @@
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
                 <version>2.4.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven</groupId>
+                <artifactId>maven-model</artifactId>
+                <version>3.8.4</version>
             </dependency>
 
             <dependency>
@@ -1499,6 +1540,12 @@
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
                 <version>3.20.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.codehaus.plexus</groupId>
+                <artifactId>plexus-utils</artifactId>
+                <version>3.4.1</version>
             </dependency>
 
             <dependency>
@@ -1560,6 +1607,13 @@
             </dependency>
 
             <dependency>
+                <groupId>org.mariadb.jdbc</groupId>
+                <artifactId>mariadb-java-client</artifactId>
+                <!-- Client 3.0.3 against MariaDB server 10.2 causes syntax error when accessing metadata-->
+                <version>2.7.5</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.openjdk.jol</groupId>
                 <artifactId>jol-core</artifactId>
                 <version>0.2</version>
@@ -1568,7 +1622,7 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm</artifactId>
-                <version>9.1</version>
+                <version>9.2</version>
             </dependency>
 
             <dependency>
@@ -1580,7 +1634,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.3.1</version>
+                <version>42.3.4</version>
             </dependency>
 
             <dependency>
@@ -1621,11 +1675,11 @@
                 </exclusions>
             </dependency>
 
-            <!-- Transitive dependency. Avoid different versions being used -->
+            <!-- Transitive dependency from jackson-dataformat-yaml. Avoid different versions being used -->
             <dependency>
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
-                <version>1.26</version>
+                <version>1.28</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -1662,9 +1716,9 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-antrun-plugin</artifactId>
-                    <version>1.8</version>
+                    <groupId>org.codehaus.gmaven</groupId>
+                    <artifactId>groovy-maven-plugin</artifactId>
+                    <version>2.1.1</version>
                 </plugin>
 
                 <plugin>
@@ -1771,6 +1825,8 @@
                         <runOnlyOnce>true</runOnlyOnce>
                         <injectAllReactorProjects>true</injectAllReactorProjects>
                         <offline>true</offline>
+                        <!-- A workaround to make build work in a Git worktree, see https://github.com/git-commit-id/git-commit-id-maven-plugin/issues/215 -->
+                        <useNativeGit>true</useNativeGit>
                     </configuration>
                 </plugin>
             </plugins>
@@ -1837,7 +1893,7 @@
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
                                     -Xep:ClassCanBeStatic:ERROR \
                                     -Xep:CompareToZero:ERROR \
-                                    -Xep:DoubleBraceInitialization:ERROR \
+                                    -Xep:DefaultCharset:ERROR \
                                     -Xep:EqualsGetClass:OFF <!-- we would rather want the opposite check --> \
                                     -Xep:EqualsIncompatibleType:ERROR \
                                     -Xep:FallThrough:ERROR \
@@ -1854,6 +1910,7 @@
                                     -Xep:ObjectToString:ERROR \
                                     -Xep:PreferredInterfaceType:OFF <!-- flags List fields even if initialized with ImmutableList --> \
                                     -Xep:StreamResourceLeak:ERROR \
+                                    -Xep:UnnecessaryLambda:OFF <!-- we deliberately use it in a couple of places --> \
                                     -Xep:UnnecessaryMethodReference:ERROR \
                                     -Xep:UnnecessaryOptionalGet:ERROR \
                                     -Xep:UnusedVariable:ERROR \
@@ -1868,6 +1925,59 @@
                                     <version>${dep.errorprone.version}</version>
                                 </path>
                             </annotationProcessorPaths>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <!-- Allow to run goals with an empty local Maven repository -->
+            <id>disable-check-spi-dependencies</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>io.trino</groupId>
+                        <artifactId>trino-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>default-check-spi-dependencies</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>gib</id>
+            <properties>
+                <!-- the *local* master, not refs/remotes/... -->
+                <gib.referenceBranch>master</gib.referenceBranch>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>io.github.gitflow-incremental-builder</groupId>
+                        <artifactId>gitflow-incremental-builder</artifactId>
+                        <version>4.0.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <disableIfBranchMatches>master</disableIfBranchMatches>
+                            <compareToMergeBase>true</compareToMergeBase>
+                            <uncommitted>true</uncommitted>
+                            <untracked>true</untracked>
+                            <buildDownstream>true</buildDownstream>
+                            <buildUpstream>true</buildUpstream>
+                            <buildUpstreamMode>impacted</buildUpstreamMode>
+                            <!-- Skip tests and checks for upstream modules since they have not been modified but are still required to be built -->
+                            <skipTestsForUpstreamModules>true</skipTestsForUpstreamModules>
+                            <argsForUpstreamModules>-Dmaven.source.skip=true -Dair.check.skip-all</argsForUpstreamModules>
+                            <!-- Any modules selected with -pl will be built fully (with tests etc.) if the selected module itself is changed
+                            or one of its (non-selected) upstream modules -->
+                            <disableSelectedProjectsHandling>true</disableSelectedProjectsHandling>
+                            <failOnMissingGitDir>true</failOnMissingGitDir>
+                            <failOnError>true</failOnError>
+                            <logImpactedTo>gib-impacted.log</logImpactedTo>
                         </configuration>
                     </plugin>
                 </plugins>

@@ -52,6 +52,7 @@ public final class EnvMultinodePhoenix4
                 container.withCopyFileToContainer(forHostPath(configDir.getPath("phoenix.properties")), CONTAINER_PRESTO_ETC + "/catalog/phoenix.properties");
             }
         });
+        builder.addConnector("phoenix");
         builder.configureContainer("phoenix", container -> container.setDockerImageName(phoenixDockerImageName));
     }
 }

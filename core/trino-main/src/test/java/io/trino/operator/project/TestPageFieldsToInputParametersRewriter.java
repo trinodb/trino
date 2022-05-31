@@ -15,7 +15,6 @@ package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LazyBlock;
@@ -40,7 +39,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.Result;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -51,7 +49,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPageFieldsToInputParametersRewriter
 {
-    private static final Metadata METADATA = createTestMetadataManager();
     private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder()
             .setTransactionId(TransactionId.create())
@@ -147,7 +144,8 @@ public class TestPageFieldsToInputParametersRewriter
                     expression,
                     TYPE_ANALYZER.getTypes(TEST_SESSION, TypeProvider.copyOf(symbolTypes), expression),
                     sourceLayout,
-                    METADATA,
+                    PLANNER_CONTEXT.getMetadata(),
+                    PLANNER_CONTEXT.getFunctionManager(),
                     TEST_SESSION,
                     true);
         }

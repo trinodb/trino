@@ -18,7 +18,6 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcClient;
-import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.spi.connector.AggregateFunction;
@@ -31,7 +30,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
@@ -41,9 +40,9 @@ import static java.util.Objects.requireNonNull;
  * Implements {@code count(x)}.
  */
 public class ImplementCount
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
-    private static final Capture<Variable> INPUT = newCapture();
+    private static final Capture<Variable> ARGUMENT = newCapture();
 
     private final JdbcTypeHandle bigintTypeHandle;
 
@@ -60,18 +59,17 @@ public class ImplementCount
     {
         return basicAggregation()
                 .with(functionName().equalTo("count"))
-                .with(singleInput().matching(variable().capturedAs(INPUT)));
+                .with(singleArgument().matching(variable().capturedAs(ARGUMENT)));
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
-        Variable input = captures.get(INPUT);
-        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
+        Variable argument = captures.get(ARGUMENT);
         verify(aggregateFunction.getOutputType() == BIGINT);
 
         return Optional.of(new JdbcExpression(
-                format("count(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
+                format("count(%s)", context.rewriteExpression(argument).orElseThrow()),
                 bigintTypeHandle));
     }
 }

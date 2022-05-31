@@ -15,6 +15,7 @@ package io.trino.spi.connector;
 
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
@@ -67,6 +68,7 @@ public interface Connector
     /**
      * Guaranteed to be called at most once per transaction. The returned metadata will only be accessed
      * in a single threaded context.
+     *
      * @deprecated use {@link #getMetadata(ConnectorSession, ConnectorTransactionHandle)}
      */
     @Deprecated
@@ -140,6 +142,14 @@ public interface Connector
     }
 
     default Set<TableProcedureMetadata> getTableProcedures()
+    {
+        return emptySet();
+    }
+
+    /**
+     * @return the set of table functions provided by this connector
+     */
+    default Set<ConnectorTableFunction> getTableFunctions()
     {
         return emptySet();
     }

@@ -280,7 +280,7 @@ public class InMemoryHashAggregationBuilder
             while (!pageBuilder.isFull() && groupIds.hasNext()) {
                 int groupId = groupIds.nextInt();
 
-                groupByHash.appendValuesTo(groupId, pageBuilder, 0);
+                groupByHash.appendValuesTo(groupId, pageBuilder);
 
                 pageBuilder.declarePosition();
                 for (int i = 0; i < groupedAggregators.size(); i++) {

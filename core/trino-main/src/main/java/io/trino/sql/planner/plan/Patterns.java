@@ -205,6 +205,11 @@ public final class Patterns
         return typeOf(PatternRecognitionNode.class);
     }
 
+    public static Pattern<TableFunctionNode> tableFunction()
+    {
+        return typeOf(TableFunctionNode.class);
+    }
+
     public static Pattern<RowNumberNode> rowNumber()
     {
         return typeOf(RowNumberNode.class);

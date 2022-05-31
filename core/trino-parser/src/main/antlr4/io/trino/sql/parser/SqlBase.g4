@@ -98,7 +98,7 @@ statement
     | CREATE ROLE name=identifier
         (WITH ADMIN grantor)?
         (IN catalog=identifier)?                                       #createRole
-    | DROP ROLE name=identifier (IN catalog=identifier)?            #dropRole
+    | DROP ROLE name=identifier (IN catalog=identifier)?               #dropRole
     | GRANT
         roles
         TO principal (',' principal)*
@@ -328,6 +328,12 @@ sampleType
     | SYSTEM
     ;
 
+trimsSpecification
+    : LEADING
+    | TRAILING
+    | BOTH
+    ;
+
 listAggOverflowBehavior
     : ERROR
     | TRUNCATE string? listaggCountIndication
@@ -399,7 +405,42 @@ relationPrimary
     | '(' query ')'                                                   #subqueryRelation
     | UNNEST '(' expression (',' expression)* ')' (WITH ORDINALITY)?  #unnest
     | LATERAL '(' query ')'                                           #lateral
+    | TABLE '(' tableFunctionCall ')'                                 #tableFunctionInvocation
     | '(' relation ')'                                                #parenthesizedRelation
+    ;
+
+tableFunctionCall
+    : qualifiedName '(' (tableFunctionArgument (',' tableFunctionArgument)*)?
+      (COPARTITION copartitionTables (',' copartitionTables)*)? ')'
+    ;
+
+tableFunctionArgument
+    : (identifier '=>')? (tableArgument | descriptorArgument | expression) // descriptor before expression to avoid parsing descriptor as a function call
+    ;
+
+tableArgument
+    : tableArgumentRelation
+        (PARTITION BY ('(' (expression (',' expression)*)? ')' | expression))?
+        (PRUNE WHEN EMPTY | KEEP WHEN EMPTY)?
+        (ORDER BY ('(' sortItem (',' sortItem)* ')' | sortItem))?
+    ;
+
+tableArgumentRelation
+    : TABLE '(' qualifiedName ')' (AS? identifier columnAliases?)?  #tableArgumentTable
+    | TABLE '(' query ')' (AS? identifier columnAliases?)?          #tableArgumentQuery
+    ;
+
+descriptorArgument
+    : DESCRIPTOR '(' descriptorField (',' descriptorField)* ')'
+    | CAST '(' NULL AS DESCRIPTOR ')'
+    ;
+
+descriptorField
+    : identifier type?
+    ;
+
+copartitionTables
+    : '(' qualifiedName ',' qualifiedName (',' qualifiedName)* ')'
     ;
 
 expression
@@ -477,11 +518,71 @@ primaryExpression
     | name=CURRENT_CATALOG                                                                #currentCatalog
     | name=CURRENT_SCHEMA                                                                 #currentSchema
     | name=CURRENT_PATH                                                                   #currentPath
+    | TRIM '(' (trimsSpecification? trimChar=valueExpression? FROM)?
+        trimSource=valueExpression ')'                                                    #trim
+    | TRIM '(' trimSource=valueExpression ',' trimChar=valueExpression ')'                #trim
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
     | '(' expression ')'                                                                  #parenthesizedExpression
     | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                              #groupingOperation
+    | JSON_EXISTS '(' jsonPathInvocation (jsonExistsErrorBehavior ON ERROR)? ')'          #jsonExists
+    | JSON_VALUE '('
+        jsonPathInvocation
+        (RETURNING type)?
+        (emptyBehavior=jsonValueBehavior ON EMPTY)?
+        (errorBehavior=jsonValueBehavior ON ERROR)?
+      ')'                                                                                 #jsonValue
+    | JSON_QUERY '('
+        jsonPathInvocation
+        (RETURNING type (FORMAT jsonRepresentation)?)?
+        (jsonQueryWrapperBehavior WRAPPER)?
+        ((KEEP | OMIT) QUOTES (ON SCALAR TEXT_STRING)?)?
+        (emptyBehavior=jsonQueryBehavior ON EMPTY)?
+        (errorBehavior=jsonQueryBehavior ON ERROR)?
+      ')'                                                                                 #jsonQuery
+    ;
+
+jsonPathInvocation
+    : jsonValueExpression ',' path=string
+        (PASSING jsonArgument (',' jsonArgument)*)?
+    ;
+
+jsonValueExpression
+    : expression (FORMAT jsonRepresentation)?
+    ;
+
+jsonRepresentation
+    : JSON (ENCODING (UTF8 | UTF16 | UTF32))? // TODO add implementation-defined JSON representation option
+    ;
+
+jsonArgument
+    : jsonValueExpression AS identifier
+    ;
+
+jsonExistsErrorBehavior
+    : TRUE
+    | FALSE
+    | UNKNOWN
+    | ERROR
+    ;
+
+jsonValueBehavior
+    : ERROR
+    | NULL
+    | DEFAULT expression
+    ;
+
+jsonQueryWrapperBehavior
+    : WITHOUT ARRAY?
+    | WITH (CONDITIONAL | UNCONDITIONAL)? ARRAY?
+    ;
+
+jsonQueryBehavior
+    : ERROR
+    | NULL
+    | EMPTY ARRAY
+    | EMPTY OBJECT
     ;
 
 processingMode
@@ -707,27 +808,29 @@ number
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
-    | BERNOULLI
-    | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | COUNT | CURRENT
-    | DATA | DATE | DAY | DEFAULT | DEFINE | DEFINER | DESC | DISTRIBUTED | DOUBLE
-    | EMPTY | ERROR | EXCLUDING | EXPLAIN
+    | BERNOULLI | BOTH
+    | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
+    | DATA | DATE | DAY | DEFAULT | DEFINE | DEFINER | DESC | DESCRIPTOR | DISTRIBUTED | DOUBLE
+    | EMPTY | ENCODING | ERROR | EXCLUDING | EXPLAIN
     | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTIONS
     | GRANT | DENY | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
     | IF | IGNORE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
-    | LAST | LATERAL | LEVEL | LIMIT | LOCAL | LOGICAL
+    | KEEP
+    | LAST | LATERAL | LEADING | LEVEL | LIMIT | LOCAL | LOGICAL
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
     | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
-    | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW
-    | PARTITION | PARTITIONS | PAST | PATH | PATTERN | PER | PERMUTE | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES
-    | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
-    | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
+    | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW
+    | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERMUTE | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
+    | QUOTES
+    | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURNING | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
+    | SCALAR | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
     | SHOW | SOME | START | STATS | SUBSET | SUBSTRING | SYSTEM
-    | TABLES | TABLESAMPLE | TEXT | TIES | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
-    | UNBOUNDED | UNCOMMITTED | UNMATCHED | UPDATE | USE | USER
+    | TABLES | TABLESAMPLE | TEXT | TEXT_STRING | TIES | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
+    | UNBOUNDED | UNCOMMITTED | UNCONDITIONAL | UNKNOWN | UNMATCHED | UPDATE | USE | USER | UTF16 | UTF32 | UTF8
     | VALIDATE | VERBOSE | VERSION | VIEW
-    | WINDOW | WITHIN | WITHOUT | WORK | WRITE
+    | WINDOW | WITHIN | WITHOUT | WORK | WRAPPER | WRITE
     | YEAR
     | ZONE
     ;
@@ -747,6 +850,7 @@ AT: 'AT';
 AUTHORIZATION: 'AUTHORIZATION';
 BERNOULLI: 'BERNOULLI';
 BETWEEN: 'BETWEEN';
+BOTH: 'BOTH';
 BY: 'BY';
 CALL: 'CALL';
 CASCADE: 'CASCADE';
@@ -758,8 +862,10 @@ COLUMNS: 'COLUMNS';
 COMMENT: 'COMMENT';
 COMMIT: 'COMMIT';
 COMMITTED: 'COMMITTED';
+CONDITIONAL: 'CONDITIONAL';
 CONSTRAINT: 'CONSTRAINT';
 COUNT: 'COUNT';
+COPARTITION: 'COPARTITION';
 CREATE: 'CREATE';
 CROSS: 'CROSS';
 CUBE: 'CUBE';
@@ -782,6 +888,7 @@ DELETE: 'DELETE';
 DENY: 'DENY';
 DESC: 'DESC';
 DESCRIBE: 'DESCRIBE';
+DESCRIPTOR: 'DESCRIPTOR';
 DEFINE: 'DEFINE';
 DISTINCT: 'DISTINCT';
 DISTRIBUTED: 'DISTRIBUTED';
@@ -789,6 +896,7 @@ DOUBLE: 'DOUBLE';
 DROP: 'DROP';
 ELSE: 'ELSE';
 EMPTY: 'EMPTY';
+ENCODING: 'ENCODING';
 END: 'END';
 ERROR: 'ERROR';
 ESCAPE: 'ESCAPE';
@@ -835,8 +943,13 @@ IS: 'IS';
 ISOLATION: 'ISOLATION';
 JOIN: 'JOIN';
 JSON: 'JSON';
+JSON_EXISTS: 'JSON_EXISTS';
+JSON_QUERY: 'JSON_QUERY';
+JSON_VALUE: 'JSON_VALUE';
+KEEP: 'KEEP';
 LAST: 'LAST';
 LATERAL: 'LATERAL';
+LEADING: 'LEADING';
 LEFT: 'LEFT';
 LEVEL: 'LEVEL';
 LIKE: 'LIKE';
@@ -869,6 +982,7 @@ NOT: 'NOT';
 NULL: 'NULL';
 NULLIF: 'NULLIF';
 NULLS: 'NULLS';
+OBJECT: 'OBJECT';
 OFFSET: 'OFFSET';
 OMIT: 'OMIT';
 OF: 'OF';
@@ -885,6 +999,7 @@ OVER: 'OVER';
 OVERFLOW: 'OVERFLOW';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
+PASSING: 'PASSING';
 PAST: 'PAST';
 PATH: 'PATH';
 PATTERN: 'PATTERN';
@@ -896,6 +1011,8 @@ PRECISION: 'PRECISION';
 PREPARE: 'PREPARE';
 PRIVILEGES: 'PRIVILEGES';
 PROPERTIES: 'PROPERTIES';
+PRUNE: 'PRUNE';
+QUOTES: 'QUOTES';
 RANGE: 'RANGE';
 READ: 'READ';
 RECURSIVE: 'RECURSIVE';
@@ -906,6 +1023,7 @@ REPLACE: 'REPLACE';
 RESET: 'RESET';
 RESPECT: 'RESPECT';
 RESTRICT: 'RESTRICT';
+RETURNING: 'RETURNING';
 REVOKE: 'REVOKE';
 RIGHT: 'RIGHT';
 ROLE: 'ROLE';
@@ -915,6 +1033,7 @@ ROLLUP: 'ROLLUP';
 ROW: 'ROW';
 ROWS: 'ROWS';
 RUNNING: 'RUNNING';
+SCALAR: 'SCALAR';
 SCHEMA: 'SCHEMA';
 SCHEMAS: 'SCHEMAS';
 SECOND: 'SECOND';
@@ -936,12 +1055,15 @@ TABLE: 'TABLE';
 TABLES: 'TABLES';
 TABLESAMPLE: 'TABLESAMPLE';
 TEXT: 'TEXT';
+TEXT_STRING: 'STRING';
 THEN: 'THEN';
 TIES: 'TIES';
 TIME: 'TIME';
 TIMESTAMP: 'TIMESTAMP';
 TO: 'TO';
+TRAILING: 'TRAILING';
 TRANSACTION: 'TRANSACTION';
+TRIM: 'TRIM';
 TRUE: 'TRUE';
 TRUNCATE: 'TRUNCATE';
 TRY_CAST: 'TRY_CAST';
@@ -949,13 +1071,18 @@ TYPE: 'TYPE';
 UESCAPE: 'UESCAPE';
 UNBOUNDED: 'UNBOUNDED';
 UNCOMMITTED: 'UNCOMMITTED';
+UNCONDITIONAL: 'UNCONDITIONAL';
 UNION: 'UNION';
+UNKNOWN: 'UNKNOWN';
 UNMATCHED: 'UNMATCHED';
 UNNEST: 'UNNEST';
 UPDATE: 'UPDATE';
 USE: 'USE';
 USER: 'USER';
 USING: 'USING';
+UTF16: 'UTF16';
+UTF32: 'UTF32';
+UTF8: 'UTF8';
 VALIDATE: 'VALIDATE';
 VALUES: 'VALUES';
 VERBOSE: 'VERBOSE';
@@ -968,6 +1095,7 @@ WITH: 'WITH';
 WITHIN: 'WITHIN';
 WITHOUT: 'WITHOUT';
 WORK: 'WORK';
+WRAPPER: 'WRAPPER';
 WRITE: 'WRITE';
 YEAR: 'YEAR';
 ZONE: 'ZONE';

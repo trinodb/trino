@@ -42,8 +42,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.collect.cache.CacheStatsAssertions.assertCacheStats;
@@ -58,6 +61,7 @@ import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -407,6 +411,7 @@ public class TestCachingJdbcClient
         JdbcTableHandle queryOnFirst = new JdbcTableHandle(
                 new JdbcQueryRelationHandle(new PreparedQuery("SELECT * FROM first", List.of())),
                 TupleDomain.all(),
+                ImmutableList.of(),
                 Optional.empty(),
                 OptionalLong.empty(),
                 Optional.empty(),
@@ -619,6 +624,76 @@ public class TestCachingJdbcClient
         }
 
         futures.forEach(Futures::getUnchecked);
+    }
+
+    @Test(timeOut = 60_000)
+    public void testLoadFailureNotSharedWhenDisabled()
+            throws Exception
+    {
+        AtomicBoolean first = new AtomicBoolean(true);
+        CyclicBarrier barrier = new CyclicBarrier(2);
+
+        CachingJdbcClient cachingJdbcClient = new CachingJdbcClient(
+                new ForwardingJdbcClient()
+                {
+                    private final JdbcClient delegate = database.getJdbcClient();
+
+                    @Override
+                    protected JdbcClient delegate()
+                    {
+                        return delegate;
+                    }
+
+                    @Override
+                    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+                    {
+                        if (first.compareAndSet(true, false)) {
+                            // first
+                            try {
+                                // increase chances that second thread calls cache.get before we return
+                                Thread.sleep(5);
+                            }
+                            catch (InterruptedException e1) {
+                                throw new RuntimeException(e1);
+                            }
+                            throw new RuntimeException("first attempt is poised to fail");
+                        }
+                        return super.getTableHandle(session, schemaTableName);
+                    }
+                },
+                SESSION_PROPERTIES_PROVIDERS,
+                new SingletonIdentityCacheMapping(),
+                // ttl is 0, cache is disabled
+                new Duration(0, DAYS),
+                true,
+                10);
+
+        SchemaTableName tableName = new SchemaTableName(schema, "test_load_failure_not_shared");
+        createTable(tableName);
+        ConnectorSession session = createSession("session");
+
+        List<Future<JdbcTableHandle>> futures = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            futures.add(executor.submit(() -> {
+                barrier.await(10, SECONDS);
+                return cachingJdbcClient.getTableHandle(session, tableName).orElseThrow();
+            }));
+        }
+
+        List<String> results = new ArrayList<>();
+        for (Future<JdbcTableHandle> future : futures) {
+            try {
+                results.add(future.get().toString());
+            }
+            catch (ExecutionException e) {
+                results.add(e.getCause().toString());
+            }
+        }
+
+        assertThat(results)
+                .containsExactlyInAnyOrder(
+                        "example.test_load_failure_not_shared " + database.getDatabaseName() + ".EXAMPLE.TEST_LOAD_FAILURE_NOT_SHARED",
+                        "com.google.common.util.concurrent.UncheckedExecutionException: java.lang.RuntimeException: first attempt is poised to fail");
     }
 
     private JdbcTableHandle getAnyTable(String schema)

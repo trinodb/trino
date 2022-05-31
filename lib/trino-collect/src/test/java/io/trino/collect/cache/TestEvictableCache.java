@@ -16,28 +16,38 @@ package io.trino.collect.cache;
 import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheStats;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.collect.cache.CacheStatsAssertions.assertCacheStats;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotSame;
@@ -131,13 +141,32 @@ public class TestEvictableCache
         assertEquals(cache.asMap().keySet(), ImmutableSet.of(key));
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
-    public void testDisabledCache()
+    @Test(timeOut = TEST_TIMEOUT_MILLIS, dataProvider = "testDisabledCacheDataProvider")
+    public void testDisabledCache(String behavior)
             throws Exception
     {
-        Cache<Integer, Integer> cache = EvictableCacheBuilder.newBuilder()
-                .maximumSize(0)
-                .build();
+        EvictableCacheBuilder<Object, Object> builder = EvictableCacheBuilder.newBuilder()
+                .maximumSize(0);
+
+        switch (behavior) {
+            case "share-nothing":
+                builder.shareNothingWhenDisabled();
+                break;
+            case "guava":
+                builder.shareResultsAndFailuresEvenIfDisabled();
+                break;
+            case "none":
+                assertThatThrownBy(builder::build)
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessage("Even when cache is disabled, the loads are synchronized and both load results and failures are shared between threads. " +
+                                "This is rarely desired, thus builder caller is expected to either opt-in into this behavior with shareResultsAndFailuresEvenIfDisabled(), " +
+                                "or choose not to share results (and failures) between concurrent invocations with shareNothingWhenDisabled().");
+                return;
+            default:
+                throw new UnsupportedOperationException("Unsupported: " + behavior);
+        }
+
+        Cache<Integer, Integer> cache = builder.build();
 
         for (int i = 0; i < 10; i++) {
             int value = i * 10;
@@ -147,6 +176,16 @@ public class TestEvictableCache
         assertEquals(cache.size(), 0);
         assertThat(cache.asMap().keySet()).as("keySet").isEmpty();
         assertThat(cache.asMap().values()).as("values").isEmpty();
+    }
+
+    @DataProvider
+    public static Object[][] testDisabledCacheDataProvider()
+    {
+        return new Object[][] {
+                {"share-nothing"},
+                {"guava"},
+                {"none"},
+        };
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS)
@@ -178,6 +217,58 @@ public class TestEvictableCache
         assertEquals(value, "abc");
     }
 
+    @Test(timeOut = TEST_TIMEOUT_MILLIS, invocationCount = 10, successPercentage = 50)
+    public void testLoadFailure()
+            throws Exception
+    {
+        Cache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(0)
+                .expireAfterWrite(0, DAYS)
+                .shareResultsAndFailuresEvenIfDisabled()
+                .build();
+        int key = 10;
+
+        ExecutorService executor = newFixedThreadPool(2);
+        try {
+            AtomicBoolean first = new AtomicBoolean(true);
+            CyclicBarrier barrier = new CyclicBarrier(2);
+
+            List<Future<String>> futures = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                futures.add(executor.submit(() -> {
+                    barrier.await(10, SECONDS);
+                    return cache.get(key, () -> {
+                        if (first.compareAndSet(true, false)) {
+                            // first
+                            Thread.sleep(1); // increase chances that second thread calls cache.get before we return
+                            throw new RuntimeException("first attempt is poised to fail");
+                        }
+                        return "success";
+                    });
+                }));
+            }
+
+            List<String> results = new ArrayList<>();
+            for (Future<String> future : futures) {
+                try {
+                    results.add(future.get());
+                }
+                catch (ExecutionException e) {
+                    results.add(e.getCause().toString());
+                }
+            }
+
+            // Note: if this starts to fail, that suggests that Guava implementation changed and NoopCache may be redundant now.
+            assertThat(results).containsExactly(
+                    "com.google.common.util.concurrent.UncheckedExecutionException: java.lang.RuntimeException: first attempt is poised to fail",
+                    "com.google.common.util.concurrent.UncheckedExecutionException: java.lang.RuntimeException: first attempt is poised to fail");
+        }
+        finally {
+            executor.shutdownNow();
+            executor.awaitTermination(10, SECONDS);
+        }
+    }
+
     @SuppressModernizer
     private static Integer newInteger(int value)
     {
@@ -186,6 +277,60 @@ public class TestEvictableCache
         Integer newInteger = new Integer(value);
         assertNotSame(integer, newInteger);
         return newInteger;
+    }
+
+    /**
+     * Test that the loader is invoked only once for concurrent invocations of {{@link LoadingCache#get(Object, Callable)} with equal keys.
+     * This is a behavior of Guava Cache as well. While this is necessarily desirable behavior (see
+     * <a href="https://github.com/trinodb/trino/issues/11067">https://github.com/trinodb/trino/issues/11067</a>),
+     * the test exists primarily to document current state and support discussion, should the current state change.
+     */
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testConcurrentGetWithCallableShareLoad()
+            throws Exception
+    {
+        AtomicInteger loads = new AtomicInteger();
+        AtomicInteger concurrentInvocations = new AtomicInteger();
+
+        Cache<Integer, Integer> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10_000)
+                .build();
+
+        int threads = 2;
+        int invocationsPerThread = 100;
+        ExecutorService executor = newFixedThreadPool(threads);
+        try {
+            CyclicBarrier barrier = new CyclicBarrier(threads);
+            List<Future<?>> futures = new ArrayList<>();
+            for (int i = 0; i < threads; i++) {
+                futures.add(executor.submit(() -> {
+                    for (int invocation = 0; invocation < invocationsPerThread; invocation++) {
+                        int key = invocation;
+                        barrier.await(10, SECONDS);
+                        int value = cache.get(key, () -> {
+                            loads.incrementAndGet();
+                            int invocations = concurrentInvocations.incrementAndGet();
+                            checkState(invocations == 1, "There should be no concurrent invocations, cache should do load sharing when get() invoked for same key");
+                            Thread.sleep(1);
+                            concurrentInvocations.decrementAndGet();
+                            return -key;
+                        });
+                        assertEquals(value, -invocation);
+                    }
+                    return null;
+                }));
+            }
+
+            for (Future<?> future : futures) {
+                future.get(10, SECONDS);
+            }
+            assertThat(loads).as("loads")
+                    .hasValueBetween(invocationsPerThread, threads * invocationsPerThread - 1 /* inclusive */);
+        }
+        finally {
+            executor.shutdownNow();
+            executor.awaitTermination(10, SECONDS);
+        }
     }
 
     /**
@@ -306,7 +451,7 @@ public class TestEvictableCache
                         // read through cache
                         long current = cache.get(key, remoteState::get);
                         if (current % prime != 0) {
-                            fail(format("The value read through cache (%s) in thread (%s) is not divisable by (%s)", current, threadNumber, prime));
+                            fail(format("The value read through cache (%s) in thread (%s) is not divisible by (%s)", current, threadNumber, prime));
                         }
 
                         return (Void) null;

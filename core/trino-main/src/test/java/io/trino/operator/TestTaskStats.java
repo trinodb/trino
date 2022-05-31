@@ -49,6 +49,7 @@ public class TestTaskStats
 
             11.0,
             DataSize.ofBytes(12),
+            DataSize.ofBytes(120),
             DataSize.ofBytes(13),
             new Duration(15, NANOSECONDS),
             new Duration(16, NANOSECONDS),
@@ -69,8 +70,12 @@ public class TestTaskStats
             DataSize.ofBytes(21),
             22,
 
+            new Duration(271, NANOSECONDS),
+
             DataSize.ofBytes(23),
             24,
+
+            new Duration(272, NANOSECONDS),
 
             DataSize.ofBytes(25),
 
@@ -112,6 +117,7 @@ public class TestTaskStats
 
         assertEquals(actual.getCumulativeUserMemory(), 11.0);
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(12));
+        assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(120));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(13));
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(15, NANOSECONDS));
@@ -130,8 +136,12 @@ public class TestTaskStats
         assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(21));
         assertEquals(actual.getProcessedInputPositions(), 22);
 
+        assertEquals(actual.getInputBlockedTime(), new Duration(271, NANOSECONDS));
+
         assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(23));
         assertEquals(actual.getOutputPositions(), 24);
+
+        assertEquals(actual.getOutputBlockedTime(), new Duration(272, NANOSECONDS));
 
         assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(25));
 

@@ -238,7 +238,7 @@ public class TestCreateTableTask
     @Test
     public void testCreateLike()
     {
-        CreateTable statement = getCreatleLikeStatement(false);
+        CreateTable statement = getCreateLikeStatement(false);
 
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
@@ -252,7 +252,7 @@ public class TestCreateTableTask
     @Test
     public void testCreateLikeWithProperties()
     {
-        CreateTable statement = getCreatleLikeStatement(true);
+        CreateTable statement = getCreateLikeStatement(true);
 
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
@@ -267,7 +267,7 @@ public class TestCreateTableTask
     @Test
     public void testCreateLikeDenyPermission()
     {
-        CreateTable statement = getCreatleLikeStatement(false);
+        CreateTable statement = getCreateLikeStatement(false);
 
         TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, new EventListenerManager(new EventListenerConfig()));
         accessControl.deny(privilege("parent_table", SELECT_COLUMN));
@@ -281,7 +281,7 @@ public class TestCreateTableTask
     @Test
     public void testCreateLikeWithPropertiesDenyPermission()
     {
-        CreateTable statement = getCreatleLikeStatement(true);
+        CreateTable statement = getCreateLikeStatement(true);
 
         TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, new EventListenerManager(new EventListenerConfig()));
         accessControl.deny(privilege("parent_table", SHOW_CREATE_TABLE));
@@ -292,7 +292,7 @@ public class TestCreateTableTask
                 .hasMessageContaining("Cannot reference properties of table");
     }
 
-    private CreateTable getCreatleLikeStatement(boolean includingProperties)
+    private CreateTable getCreateLikeStatement(boolean includingProperties)
     {
         return new CreateTable(
                 QualifiedName.of("test_table"),

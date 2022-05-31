@@ -127,11 +127,11 @@ public class PushPartialAggregationThroughJoin
     private Set<Symbol> getJoinRequiredSymbols(JoinNode node)
     {
         return Streams.concat(
-                node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
-                node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
-                node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream(),
-                node.getLeftHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
-                node.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
+                        node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
+                        node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
+                        node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream(),
+                        node.getLeftHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
+                        node.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
                 .collect(toImmutableSet());
     }
 
@@ -158,15 +158,11 @@ public class PushPartialAggregationThroughJoin
             PlanNode source,
             List<Symbol> groupingKeys)
     {
-        return new AggregationNode(
-                aggregation.getId(),
-                source,
-                aggregation.getAggregations(),
-                singleGroupingSet(groupingKeys),
-                ImmutableList.of(),
-                aggregation.getStep(),
-                aggregation.getHashSymbol(),
-                aggregation.getGroupIdSymbol());
+        return AggregationNode.builderFrom(aggregation)
+                .setSource(source)
+                .setGroupingSets(singleGroupingSet(groupingKeys))
+                .setPreGroupedSymbols(ImmutableList.of())
+                .build();
     }
 
     private PlanNode pushPartialToJoin(

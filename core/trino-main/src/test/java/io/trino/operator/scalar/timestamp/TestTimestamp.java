@@ -2671,6 +2671,36 @@ public class TestTimestamp
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456789123' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56.123456789123 +10:00'");
     }
 
+    @Test
+    public void testCastInvalidTimestamp()
+    {
+        assertThatThrownBy(() -> assertions.expression("CAST('ABC' AS TIMESTAMP)"))
+                .hasMessage("Value cannot be cast to timestamp: ABC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-00 00:00:00' AS TIMESTAMP)"))
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-00 00:00:00");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-00-01 00:00:00' AS TIMESTAMP)"))
+                .hasMessage("Value cannot be cast to timestamp: 2022-00-01 00:00:00");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 25:00:00' AS TIMESTAMP)"))
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 25:00:00");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:61:00' AS TIMESTAMP)"))
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:61:00");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:61' AS TIMESTAMP)"))
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:61");
+
+        assertThatThrownBy(() -> assertions.expression("CAST('ABC' AS TIMESTAMP(12))"))
+                .hasMessage("Value cannot be cast to timestamp: ABC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-00 00:00:00' AS TIMESTAMP(12))"))
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-00 00:00:00");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-00-01 00:00:00' AS TIMESTAMP(12))"))
+                .hasMessage("Value cannot be cast to timestamp: 2022-00-01 00:00:00");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 25:00:00' AS TIMESTAMP(12))"))
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 25:00:00");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:61:00' AS TIMESTAMP(12))"))
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:61:00");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:61' AS TIMESTAMP(12))"))
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:61");
+    }
+
     private static BiFunction<Session, QueryRunner, Object> timestamp(int precision, int year, int month, int day, int hour, int minute, int second, long picoOfSecond)
     {
         return (session, queryRunner) -> {

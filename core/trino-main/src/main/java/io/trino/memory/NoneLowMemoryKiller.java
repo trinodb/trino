@@ -14,8 +14,6 @@
 
 package io.trino.memory;
 
-import io.trino.spi.QueryId;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -23,7 +21,7 @@ public class NoneLowMemoryKiller
         implements LowMemoryKiller
 {
     @Override
-    public Optional<QueryId> chooseQueryToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
+    public Optional<KillTarget> chooseTargetToKill(List<RunningQueryInfo> runningQueries, List<MemoryInfo> nodes)
     {
         return Optional.empty();
     }

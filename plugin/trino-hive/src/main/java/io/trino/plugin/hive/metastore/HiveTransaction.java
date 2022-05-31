@@ -60,7 +60,10 @@ public class HiveTransaction
         return transaction;
     }
 
-    public ValidTxnWriteIdList getValidWriteIds(HiveMetastoreClosure metastore, HiveTableHandle tableHandle)
+    public ValidTxnWriteIdList getValidWriteIds(
+            AcidTransactionOwner transactionOwner,
+            HiveMetastoreClosure metastore,
+            HiveTableHandle tableHandle)
     {
         List<SchemaTableName> lockedTables;
         List<HivePartition> lockedPartitions;
@@ -76,6 +79,7 @@ public class HiveTransaction
 
         // Different calls for same table might need to lock different partitions so acquire locks every time
         metastore.acquireSharedReadLock(
+                transactionOwner,
                 queryId,
                 transactionId,
                 lockedTables,

@@ -199,7 +199,7 @@ public class TestPartialTopNWithPresortedInput
         LocalQueryRunner queryRunner = getQueryRunner();
         queryRunner.inTransaction(queryRunner.getDefaultSession(), transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             PlannerContext plannerContext = queryRunner.getPlannerContext();
             new ValidateLimitWithPresortedInput().validate(actualPlan.getRoot(), transactionSession, plannerContext, createTestingTypeAnalyzer(plannerContext), actualPlan.getTypes(), WarningCollector.NOOP);
             return null;

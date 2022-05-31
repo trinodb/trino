@@ -39,10 +39,13 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
@@ -56,8 +59,10 @@ import java.util.Optional;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
@@ -217,13 +222,16 @@ public class TestPushPredicateIntoTableScan
                                                         .functionCallBuilder(QualifiedName.of("rand"))
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
-                                        new ComparisonExpression(
-                                                EQUAL,
-                                                new ArithmeticBinaryExpression(
-                                                        MODULUS,
-                                                        new SymbolReference("nationkey"),
-                                                        new GenericLiteral("BIGINT", "17")),
-                                                new GenericLiteral("BIGINT", "44")),
+                                        // non-translatable to connector expression
+                                        new CoalesceExpression(
+                                                new Cast(new NullLiteral(), toSqlType(BOOLEAN)),
+                                                new ComparisonExpression(
+                                                        EQUAL,
+                                                        new ArithmeticBinaryExpression(
+                                                                MODULUS,
+                                                                new SymbolReference("nationkey"),
+                                                                new GenericLiteral("BIGINT", "17")),
+                                                        new GenericLiteral("BIGINT", "44"))),
                                         LogicalExpression.or(
                                                 new ComparisonExpression(
                                                         EQUAL,

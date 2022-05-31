@@ -20,11 +20,13 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.annotation.PostConstruct;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -38,12 +40,15 @@ public class BigQueryConfig
     private Optional<String> parentProjectId = Optional.empty();
     private Optional<Integer> parallelism = Optional.empty();
     private boolean viewsEnabled;
+    private Duration viewExpireDuration = new Duration(24, HOURS);
+    private boolean skipViewMaterialization;
     private Optional<String> viewMaterializationProject = Optional.empty();
     private Optional<String> viewMaterializationDataset = Optional.empty();
     private int maxReadRowsRetries = DEFAULT_MAX_READ_ROWS_RETRIES;
     private boolean caseInsensitiveNameMatching;
     private Duration viewsCacheTtl = new Duration(15, MINUTES);
     private Duration serviceCacheTtl = new Duration(3, MINUTES);
+    private boolean queryResultsCacheEnabled;
 
     public Optional<String> getProjectId()
     {
@@ -98,9 +103,30 @@ public class BigQueryConfig
         return this;
     }
 
-    public Duration getViewExpiration()
+    @NotNull
+    public Duration getViewExpireDuration()
     {
-        return new Duration(24, HOURS);
+        return viewExpireDuration;
+    }
+
+    @Config("bigquery.view-expire-duration")
+    public BigQueryConfig setViewExpireDuration(Duration viewExpireDuration)
+    {
+        this.viewExpireDuration = viewExpireDuration;
+        return this;
+    }
+
+    public boolean isSkipViewMaterialization()
+    {
+        return skipViewMaterialization;
+    }
+
+    @Config("bigquery.skip-view-materialization")
+    @ConfigDescription("Skip materializing views")
+    public BigQueryConfig setSkipViewMaterialization(boolean skipViewMaterialization)
+    {
+        this.skipViewMaterialization = skipViewMaterialization;
+        return this;
     }
 
     public Optional<String> getViewMaterializationProject()
@@ -185,5 +211,27 @@ public class BigQueryConfig
     {
         this.serviceCacheTtl = serviceCacheTtl;
         return this;
+    }
+
+    public boolean isQueryResultsCacheEnabled()
+    {
+        return queryResultsCacheEnabled;
+    }
+
+    @Config("bigquery.query-results-cache.enabled")
+    public BigQueryConfig setQueryResultsCacheEnabled(boolean queryResultsCacheEnabled)
+    {
+        this.queryResultsCacheEnabled = queryResultsCacheEnabled;
+        return this;
+    }
+
+    @PostConstruct
+    public void validate()
+    {
+        checkState(viewExpireDuration.toMillis() > viewsCacheTtl.toMillis(), "View expiration duration must be longer than view cache TTL");
+
+        if (skipViewMaterialization) {
+            checkState(viewsEnabled, "%s config property must be enabled when skipping view materialization", VIEWS_ENABLED);
+        }
     }
 }

@@ -20,11 +20,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.sql.SqlEnvironmentConfig;
@@ -45,6 +45,7 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.MetadataManager.testMetadataManagerBuilder;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -67,7 +68,11 @@ public class TestQuerySessionSupplier
             .put(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
             .put(TRINO_HEADERS.requestPreparedStatement(), "query1=select * from foo,query2=select * from bar")
             .build());
-    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, new AllowAllAccessControl());
+    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(
+            new PreparedStatementEncoder(new ProtocolConfig()),
+            createTestMetadataManager(),
+            ImmutableSet::of,
+            new AllowAllAccessControl());
 
     @Test
     public void testCreateSession()
@@ -248,7 +253,9 @@ public class TestQuerySessionSupplier
     private static QuerySessionSupplier createSessionSupplier(SqlEnvironmentConfig config)
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        Metadata metadata = testMetadataManagerBuilder()
+                .withTransactionManager(transactionManager)
+                .build();
         return new QuerySessionSupplier(
                 metadata,
                 new AllowAllAccessControl(),

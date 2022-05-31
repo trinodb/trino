@@ -182,7 +182,7 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
     {
         throw new UnsupportedOperationException();
     }

@@ -23,10 +23,7 @@ public class LongVariableConstraint
     private final String name;
     private final String expression;
 
-    @JsonCreator
-    public LongVariableConstraint(
-            @JsonProperty("name") String name,
-            @JsonProperty("expression") String expression)
+    LongVariableConstraint(String name, String expression)
     {
         this.name = name;
         this.expression = expression;
@@ -68,5 +65,18 @@ public class LongVariableConstraint
     public int hashCode()
     {
         return Objects.hash(name, expression);
+    }
+
+    /**
+     * This method is only visible for JSON deserialization.
+     * @deprecated use builder
+     */
+    @Deprecated
+    @JsonCreator
+    public static LongVariableConstraint fromJson(
+            @JsonProperty("name") String name,
+            @JsonProperty("expression") String expression)
+    {
+        return new LongVariableConstraint(name, expression);
     }
 }

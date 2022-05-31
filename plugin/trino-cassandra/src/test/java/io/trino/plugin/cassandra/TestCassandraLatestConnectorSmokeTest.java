@@ -31,6 +31,6 @@ public class TestCassandraLatestConnectorSmokeTest
         CassandraServer server = closeAfterClass(new CassandraServer("3.11.10"));
         CassandraSession session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
-        return createCassandraQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 }
