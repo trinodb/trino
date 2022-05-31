@@ -16,3 +16,6 @@ docs:
 release-notes:
   - docs/src/main/sphinx/release/**
   - docs/src/main/sphinx/release.rst
+
+ui:
+  - core/trino-main/src/main/resources/webapp/**
