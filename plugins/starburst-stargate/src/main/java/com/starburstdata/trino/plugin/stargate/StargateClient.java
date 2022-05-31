@@ -211,6 +211,10 @@ public class StargateClient
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
+        if (!enableWrites) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns");
+        }
+
         String sql = format(
                 "ALTER TABLE %s ADD COLUMN %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
