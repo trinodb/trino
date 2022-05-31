@@ -63,7 +63,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.trino.plugin.hive.HiveCompressionCodec.NONE;
+import static io.trino.plugin.hive.HiveCompressionOption.NONE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
@@ -113,15 +113,15 @@ public class TestHivePageSink
                     continue;
                 }
                 config.setHiveStorageFormat(format);
-                config.setHiveCompressionCodec(NONE);
+                config.setHiveCompressionOption(NONE);
                 long uncompressedLength = writeTestFile(config, metastore, makeFileName(tempDir, config));
                 assertGreaterThan(uncompressedLength, 0L);
 
-                for (HiveCompressionCodec codec : HiveCompressionCodec.values()) {
+                for (HiveCompressionOption codec : HiveCompressionOption.values()) {
                     if (codec == NONE) {
                         continue;
                     }
-                    config.setHiveCompressionCodec(codec);
+                    config.setHiveCompressionOption(codec);
                     long length = writeTestFile(config, metastore, makeFileName(tempDir, config));
                     assertTrue(uncompressedLength > length, format("%s with %s compressed to %s which is not less than %s", format, codec, length, uncompressedLength));
                 }
@@ -134,7 +134,7 @@ public class TestHivePageSink
 
     private static String makeFileName(File tempDir, HiveConfig config)
     {
-        return tempDir.getAbsolutePath() + "/" + config.getHiveStorageFormat().name() + "." + config.getHiveCompressionCodec().name();
+        return tempDir.getAbsolutePath() + "/" + config.getHiveStorageFormat().name() + "." + config.getHiveCompressionOption().name();
     }
 
     private static long writeTestFile(HiveConfig config, HiveMetastore metastore, String outputPath)

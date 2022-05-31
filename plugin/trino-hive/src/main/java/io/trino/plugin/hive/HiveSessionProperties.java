@@ -290,8 +290,8 @@ public final class HiveSessionProperties
                 enumProperty(
                         COMPRESSION_CODEC,
                         "Compression codec to use when writing files",
-                        HiveCompressionCodec.class,
-                        hiveConfig.getHiveCompressionCodec(),
+                        HiveCompressionOption.class,
+                        hiveConfig.getHiveCompressionOption(),
                         false),
                 booleanProperty(
                         RESPECT_TABLE_FORMAT,
@@ -635,9 +635,9 @@ public final class HiveSessionProperties
         return session.getProperty(HIVE_STORAGE_FORMAT, HiveStorageFormat.class);
     }
 
-    public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
+    public static HiveCompressionOption getCompressionOption(ConnectorSession session)
     {
-        return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
+        return session.getProperty(COMPRESSION_CODEC, HiveCompressionOption.class);
     }
 
     public static boolean isRespectTableFormat(ConnectorSession session)
