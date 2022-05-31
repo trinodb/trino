@@ -186,7 +186,7 @@ public class TestDeltaLakeSchemaSupport
         URL expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/nested_schema.json");
         ObjectMapper objectMapper = new ObjectMapper();
 
-        String jsonEncoding = serializeSchemaAsJson(ImmutableList.of(arrayColumn, structColumn, mapColumn));
+        String jsonEncoding = serializeSchemaAsJson(ImmutableList.of(arrayColumn, structColumn, mapColumn), ImmutableMap.of());
         assertEquals(objectMapper.readTree(jsonEncoding), objectMapper.readTree(expected));
     }
 
@@ -202,7 +202,7 @@ public class TestDeltaLakeSchemaSupport
                 .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), REGULAR))
                 .collect(toImmutableList());
         ObjectMapper objectMapper = new ObjectMapper();
-        assertEquals(objectMapper.readTree(serializeSchemaAsJson(columnHandles)), objectMapper.readTree(json));
+        assertEquals(objectMapper.readTree(serializeSchemaAsJson(columnHandles, ImmutableMap.of())), objectMapper.readTree(json));
     }
 
     @Test(dataProvider = "supportedTypes")
