@@ -211,13 +211,21 @@ public class TestSnowflakeTypeMapping
     public void testParameterizedChar()
     {
         SqlDataTypeTest.create()
+                .addRoundTrip("char", "''", createVarcharType(1), "CAST(' ' AS varchar(1))")
+                .addRoundTrip("char", "'a'", createVarcharType(1), "CAST('a' AS varchar(1))")
+                .addRoundTrip("char(1)", "''", createVarcharType(1), "CAST(' ' AS varchar(1))")
+                .addRoundTrip("char(1)", "'a'", createVarcharType(1), "CAST('a' AS varchar(1))")
+                .addRoundTrip("char(8)", "'abc'", createVarcharType(8), "CAST('abc     ' AS varchar(8))")
+                .addRoundTrip("char(8)", "'12345678'", createVarcharType(8), "CAST('12345678' AS varchar(8))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("snowflake_test_parameterized_char"));
+
+        SqlDataTypeTest.create()
                 .addRoundTrip("char", "''", createVarcharType(1), "CAST('' AS varchar(1))")
                 .addRoundTrip("char", "'a'", createVarcharType(1), "CAST('a' AS varchar(1))")
                 .addRoundTrip("char(1)", "''", createVarcharType(1), "CAST('' AS varchar(1))")
                 .addRoundTrip("char(1)", "'a'", createVarcharType(1), "CAST('a' AS varchar(1))")
                 .addRoundTrip("char(8)", "'abc'", createVarcharType(8), "CAST('abc' AS varchar(8))")
                 .addRoundTrip("char(8)", "'12345678'", createVarcharType(8), "CAST('12345678' AS varchar(8))")
-                .execute(getQueryRunner(), trinoCreateAsSelect("snowflake_test_parameterized_char"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("snowflake_test_parameterized_char"))
                 .execute(getQueryRunner(), snowflakeCreateAndInsert("tpch.snowflake_test_parameterized_char"));
     }
