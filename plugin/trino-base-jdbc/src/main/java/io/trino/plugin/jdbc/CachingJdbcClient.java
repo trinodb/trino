@@ -61,6 +61,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -354,7 +355,14 @@ public class CachingJdbcClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        TableStatisticsCacheKey key = new TableStatisticsCacheKey(handle, tupleDomain);
+        checkArgument(tupleDomain.isAll(), "Unexpected non-ALL constraint: %s", tupleDomain);
+        return getTableStatistics(session, handle);
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+    {
+        TableStatisticsCacheKey key = new TableStatisticsCacheKey(handle);
 
         TableStatistics cachedStatistics = statisticsCache.getIfPresent(key);
         if (cachedStatistics != null) {
@@ -363,7 +371,7 @@ public class CachingJdbcClient
             }
             statisticsCache.invalidate(key);
         }
-        return get(statisticsCache, key, () -> delegate.getTableStatistics(session, handle, tupleDomain));
+        return get(statisticsCache, key, () -> delegate.getTableStatistics(session, handle));
     }
 
     @Override
@@ -758,12 +766,10 @@ public class CachingJdbcClient
     {
         // TODO depend on Identity when needed
         private final JdbcTableHandle tableHandle;
-        private final TupleDomain<ColumnHandle> tupleDomain;
 
-        private TableStatisticsCacheKey(JdbcTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+        private TableStatisticsCacheKey(JdbcTableHandle tableHandle)
         {
             this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-            this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         }
 
         @Override
@@ -776,14 +782,13 @@ public class CachingJdbcClient
                 return false;
             }
             TableStatisticsCacheKey that = (TableStatisticsCacheKey) o;
-            return tableHandle.equals(that.tableHandle)
-                    && tupleDomain.equals(that.tupleDomain);
+            return tableHandle.equals(that.tableHandle);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(tableHandle, tupleDomain);
+            return Objects.hash(tableHandle);
         }
 
         @Override
@@ -791,7 +796,6 @@ public class CachingJdbcClient
         {
             return toStringHelper(this)
                     .add("tableHandle", tableHandle)
-                    .add("tupleDomain", tupleDomain)
                     .toString();
         }
     }

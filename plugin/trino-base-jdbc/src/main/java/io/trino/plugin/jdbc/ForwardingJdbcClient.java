@@ -247,6 +247,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return delegate().getTableStatistics(session, handle);
+    }
+
+    @Override
     public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
         return delegate().supportsTopN(session, handle, sortOrder);
