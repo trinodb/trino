@@ -289,7 +289,7 @@ public class DefaultJdbcMetadata
             return Optional.empty();
         }
 
-        JdbcTableHandle handle = (JdbcTableHandle) table ;
+        JdbcTableHandle handle = (JdbcTableHandle) table;
 
         // Global aggregation is represented by [[]]
         verify(!groupingSets.isEmpty(), "No grouping sets provided");
