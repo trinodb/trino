@@ -63,7 +63,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.trino.plugin.hive.HiveCompressionCodec.NONE;
+import static io.trino.plugin.hive.HiveCompressionOption.NONE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
@@ -117,7 +117,7 @@ public class TestHivePageSink
                 long uncompressedLength = writeTestFile(config, metastore, makeFileName(tempDir, config));
                 assertGreaterThan(uncompressedLength, 0L);
 
-                for (HiveCompressionCodec codec : HiveCompressionCodec.values()) {
+                for (HiveCompressionOption codec : HiveCompressionOption.values()) {
                     if (codec == NONE) {
                         continue;
                     }

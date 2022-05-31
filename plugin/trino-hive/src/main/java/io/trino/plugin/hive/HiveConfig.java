@@ -91,7 +91,7 @@ public class HiveConfig
     private long perTransactionMetastoreCacheMaximumSize = 1000;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.ORC;
-    private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
+    private HiveCompressionOption hiveCompressionCodec = HiveCompressionOption.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
     private Optional<InsertExistingPartitionsBehavior> insertExistingPartitionsBehavior = Optional.empty();
@@ -475,13 +475,13 @@ public class HiveConfig
         return this;
     }
 
-    public HiveCompressionCodec getHiveCompressionCodec()
+    public HiveCompressionOption getHiveCompressionCodec()
     {
         return hiveCompressionCodec;
     }
 
     @Config("hive.compression-codec")
-    public HiveConfig setHiveCompressionCodec(HiveCompressionCodec hiveCompressionCodec)
+    public HiveConfig setHiveCompressionCodec(HiveCompressionOption hiveCompressionCodec)
     {
         this.hiveCompressionCodec = hiveCompressionCodec;
         return this;
