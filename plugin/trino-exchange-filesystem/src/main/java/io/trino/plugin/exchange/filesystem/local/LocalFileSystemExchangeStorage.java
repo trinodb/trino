@@ -52,11 +52,12 @@ import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -89,12 +90,6 @@ public class LocalFileSystemExchangeStorage
     }
 
     @Override
-    public boolean exists(URI file)
-    {
-        return Files.exists(Paths.get(file.getPath()));
-    }
-
-    @Override
     public ListenableFuture<Void> createEmptyFile(URI file)
     {
         try {
@@ -121,25 +116,20 @@ public class LocalFileSystemExchangeStorage
     }
 
     @Override
-    public List<FileStatus> listFiles(URI dir)
-            throws IOException
+    public ListenableFuture<List<FileStatus>> listFilesRecursively(URI dir)
     {
         ImmutableList.Builder<FileStatus> builder = ImmutableList.builder();
-        for (Path file : listPaths(dir, Files::isRegularFile)) {
-            builder.add(new FileStatus(file.toUri().toString(), Files.size(file)));
+        try {
+            try (Stream<Path> paths = Files.walk(Paths.get(dir.getPath()))) {
+                for (Path file : paths.filter(Files::isRegularFile).collect(toImmutableList())) {
+                    builder.add(new FileStatus(file.toUri().toString(), Files.size(file)));
+                }
+            }
         }
-        return builder.build();
-    }
-
-    @Override
-    public List<URI> listDirectories(URI dir)
-            throws IOException
-    {
-        ImmutableList.Builder<URI> builder = ImmutableList.builder();
-        for (Path subDir : listPaths(dir, Files::isDirectory)) {
-            builder.add(subDir.toUri());
+        catch (IOException e) {
+            return immediateFailedFuture(e);
         }
-        return builder.build();
+        return immediateFuture(builder.build());
     }
 
     @Override
@@ -151,16 +141,6 @@ public class LocalFileSystemExchangeStorage
     @Override
     public void close()
     {
-    }
-
-    private static List<Path> listPaths(URI directory, Predicate<Path> predicate)
-            throws IOException
-    {
-        ImmutableList.Builder<Path> builder = ImmutableList.builder();
-        try (Stream<Path> dir = Files.list(Paths.get(directory.getPath()))) {
-            dir.filter(predicate).forEach(builder::add);
-        }
-        return builder.build();
     }
 
     @ThreadSafe
