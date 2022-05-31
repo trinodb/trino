@@ -422,20 +422,6 @@ specified by the ``hive.metastore.client.principal`` property must be allowed to
 impersonate the current Trino user, as discussed in the section
 :ref:`configuring-hadoop-impersonation`.
 
-The impersonation is applied when:
-
-* modifying (creating or deleting) a database (schema),
-* getting information about a single table,
-* creating or modifying a table.
-
-Impersonation is not applied when for the following operations. In case of the following operations,
-Trino is fully responsible for doing all relevant security checks.
-
-* listing databases (schemas),
-* listing tables,
-* listing roles, grants,
-* changing roles, grants.
-
 .. _configuring-hadoop-impersonation:
 
 Impersonation in Hadoop
