@@ -116,11 +116,17 @@ public abstract class BaseMariaDbConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("timestamp") ||
-                typeName.equals("timestamp(6)") ||
-                typeName.equals("timestamp(3) with time zone") ||
+        if (typeName.equals("timestamp(3) with time zone") ||
                 typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        // MariaDB can hold values between '1970-01-01 00:00:01' and '2038-01-19 03:14:07' in TIMESTAMP data type https://mariadb.com/kb/en/timestamp/#supported-values
+        if (typeName.equals("timestamp")) {
+            return Optional.of(new DataMappingTestSetup("timestamp", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2038-01-19 03:14:07'"));
+        }
+        if (typeName.equals("timestamp(6)")) {
+            return Optional.of(new DataMappingTestSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2038-01-19 03:14:07.000000'"));
         }
 
         if (typeName.equals("boolean")) {
@@ -256,12 +262,13 @@ public abstract class BaseMariaDbConnectorTest
     }
 
     @Override
-    public void testNativeQueryInsertStatementTableDoesNotExist()
+    public void testNativeQueryCreateStatement()
     {
-        // override because MariaDB succeeds in preparing query, and then fails because of no metadata available
-        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
-                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
+        // Override because MariaDB returns a ResultSet metadata with no columns for CREATE statement.
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE tpch.numbers(n INTEGER)'))"))
+                .hasMessageContaining("descriptor has no fields");
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
     }
 
     @Override
@@ -279,28 +286,20 @@ public abstract class BaseMariaDbConnectorTest
     }
 
     @Override
-    public void testNativeQueryIncorrectSyntax()
-    {
-        // override because MariaDB succeeds in preparing query, and then fails because of no metadata available
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
-    }
-
-    @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Incorrect date value: '%s'.*", date);
+        return format("Failed to insert data: .* \\(conn=.*\\) Incorrect date value: '%s'.*", date);
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Incorrect date value: '%s'.*", date);
+        return format("Failed to insert data: .* \\(conn=.*\\) Incorrect date value: '%s'.*", date);
     }
 
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Field '%s' doesn't have a default value", columnName);
+        return format("Failed to insert data: .* \\(conn=.*\\) Field '%s' doesn't have a default value", columnName);
     }
 }

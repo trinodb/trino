@@ -1609,8 +1609,7 @@
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
-                <!-- Client 3.0.3 against MariaDB server 10.2 causes syntax error when accessing metadata-->
-                <version>2.7.5</version>
+                <version>3.0.5</version>
             </dependency>
 
             <dependency>
