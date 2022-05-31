@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Enums;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
@@ -62,12 +63,22 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.util.Locale.ENGLISH;
 
 public final class DeltaLakeSchemaSupport
 {
     private DeltaLakeSchemaSupport() {}
 
     public static final String APPEND_ONLY_CONFIGURATION_KEY = "delta.appendOnly";
+    public static final String COLUMN_MAPPING_MODE_CONFIGURATION_KEY = "delta.columnMapping.mode";
+
+    public enum ColumnMappingMode
+    {
+        NONE,
+        UNKNOWN,
+        /**/;
+    }
+
     // only non-parametrized types are stored here
     private static final Map<Type, String> PRIMITIVE_TYPE_MAPPING = ImmutableMap.<Type, String>builder()
             .put(BIGINT, "long")
@@ -86,6 +97,12 @@ public final class DeltaLakeSchemaSupport
     public static boolean isAppendOnly(MetadataEntry metadataEntry)
     {
         return Boolean.parseBoolean(metadataEntry.getConfiguration().getOrDefault(APPEND_ONLY_CONFIGURATION_KEY, "false"));
+    }
+
+    public static ColumnMappingMode getColumnMappingMode(MetadataEntry metadata)
+    {
+        String columnMappingMode = metadata.getConfiguration().getOrDefault(COLUMN_MAPPING_MODE_CONFIGURATION_KEY, "none");
+        return Enums.getIfPresent(ColumnMappingMode.class, columnMappingMode.toUpperCase(ENGLISH)).or(ColumnMappingMode.UNKNOWN);
     }
 
     public static List<DeltaLakeColumnHandle> extractPartitionColumns(MetadataEntry metadataEntry, TypeManager typeManager)
