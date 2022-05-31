@@ -3815,7 +3815,7 @@ public abstract class BaseHiveConnectorTest
                         "   bucketed_by = ARRAY['c1','c 2'],\n" +
                         "   bucketing_version = 1,\n" +
                         "   format = 'ORC',\n" +
-                        "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
+                        "   orc_bloom_filter_columns = ARRAY['c1','c 2'],\n" +
                         "   orc_bloom_filter_fpp = 7E-1,\n" +
                         "   partitioned_by = ARRAY['c5'],\n" +
                         "   sorted_by = ARRAY['c1','c 2 DESC'],\n" +
