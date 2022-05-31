@@ -45,7 +45,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.SymbolReference;
@@ -140,8 +139,8 @@ public class PushAggregationIntoTableScan
         Session session = context.getSession();
 
         if (groupingKeys.isEmpty() && aggregations.isEmpty()) {
-            // Global aggregation with no aggregation functions
-            return Optional.of(new ValuesNode(aggregationNode.getId(), 1));
+            // Global aggregation with no aggregate functions. No point to push this down into connector.
+            return Optional.empty();
         }
 
         Map<String, ColumnHandle> assignments = tableScan.getAssignments()

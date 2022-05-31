@@ -254,7 +254,7 @@ public abstract class BaseJdbcConnectorTest
         // pruned away aggregation
         assertThat(query("SELECT -13 FROM (SELECT count(*) FROM nation)"))
                 .matches("VALUES -13")
-                .hasPlan(node(OutputNode.class, node(ProjectNode.class, node(ValuesNode.class))));
+                .hasPlan(node(OutputNode.class, node(ValuesNode.class)));
         // aggregation over aggregation
         assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation)"))
                 .matches("VALUES BIGINT '1'")
