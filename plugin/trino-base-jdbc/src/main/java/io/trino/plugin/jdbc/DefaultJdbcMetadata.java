@@ -286,7 +286,7 @@ public class DefaultJdbcMetadata
             List<List<ColumnHandle>> groupingSets)
     {
         if (!isAggregationPushdownEnabled(session)) {
-            return Optional.empty() ;
+            return Optional.empty();
         }
 
         JdbcTableHandle handle = (JdbcTableHandle) table;
