@@ -47,7 +47,7 @@ public class TestDeltaLakeConnectorSmokeTest
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
     @Override
-    QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
+    protected QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
             throws Exception
     {
         verify(!new ParquetWriterConfig().isParquetOptimizedWriterEnabled(), "This test assumes the optimized Parquet writer is disabled by default");
