@@ -39,11 +39,15 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 
+import javax.annotation.Nullable;
+
+import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
@@ -100,31 +104,36 @@ public final class DeltaLakeSchemaSupport
                 .collect(toImmutableList());
     }
 
-    public static String serializeSchemaAsJson(List<DeltaLakeColumnHandle> columns)
+    public static String serializeSchemaAsJson(List<DeltaLakeColumnHandle> columns, Map<String, String> columnComments)
     {
         try {
-            return OBJECT_MAPPER.writeValueAsString(serializeStructType(columns));
+            return OBJECT_MAPPER.writeValueAsString(serializeStructType(columns, columnComments));
         }
         catch (JsonProcessingException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to encode Delta Lake schema", e);
         }
     }
 
-    private static Map<String, Object> serializeStructType(List<DeltaLakeColumnHandle> columns)
+    private static Map<String, Object> serializeStructType(List<DeltaLakeColumnHandle> columns, Map<String, String> columnComments)
     {
         ImmutableMap.Builder<String, Object> schema = ImmutableMap.builder();
 
-        schema.put("fields", columns.stream().map(column -> serializeStructField(column.getName(), column.getType())).collect(toImmutableList()));
+        schema.put("fields", columns.stream().map(column -> serializeStructField(column.getName(), column.getType(), columnComments.get(column.getName()))).collect(toImmutableList()));
         schema.put("type", "struct");
 
         return schema.buildOrThrow();
     }
 
-    private static Map<String, Object> serializeStructField(String name, Type type)
+    private static Map<String, Object> serializeStructField(String name, Type type, @Nullable String comment)
     {
         ImmutableMap.Builder<String, Object> fieldContents = ImmutableMap.builder();
 
-        fieldContents.put("metadata", ImmutableMap.of());
+        ImmutableMap.Builder<String, Object> metadata = ImmutableMap.builder();
+        if (comment != null) {
+            metadata.put("comment", comment);
+        }
+
+        fieldContents.put("metadata", metadata.buildOrThrow());
         fieldContents.put("name", name);
         fieldContents.put("nullable", true); // TODO: Is column nullability configurable in Trino?
         fieldContents.put("type", serializeColumnType(type));
@@ -174,7 +183,7 @@ public final class DeltaLakeSchemaSupport
         ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
 
         fields.put("type", "struct");
-        fields.put("fields", rowType.getFields().stream().map(field -> serializeStructField(field.getName().orElse(null), field.getType())).collect(toImmutableList()));
+        fields.put("fields", rowType.getFields().stream().map(field -> serializeStructField(field.getName().orElse(null), field.getType(), null)).collect(toImmutableList()));
 
         return fields.buildOrThrow();
     }
@@ -282,7 +291,35 @@ public final class DeltaLakeSchemaSupport
                 .setName(fieldName)
                 .setType(buildType(typeManager, typeNode))
                 .setNullable(nullable)
+                .setComment(Optional.ofNullable(getComment(node)))
                 .build();
+    }
+
+    public static Map<String, String> getColumnComments(MetadataEntry metadataEntry)
+    {
+        return Optional.ofNullable(metadataEntry.getSchemaString())
+                .map(DeltaLakeSchemaSupport::getColumnComments)
+                .orElseThrow(() -> new IllegalStateException("Serialized schema not found in transaction log for " + metadataEntry.getName()));
+    }
+
+    private static Map<String, String> getColumnComments(String json)
+    {
+        try {
+            return stream(OBJECT_MAPPER.readTree(json).get("fields").elements())
+                    .map(field -> new AbstractMap.SimpleEntry<>(field.get("name").asText(), getComment(field)))
+                    .filter(entry -> entry.getValue() != null)
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        }
+        catch (JsonProcessingException e) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to parse serialized schema: " + json, e);
+        }
+    }
+
+    @Nullable
+    private static String getComment(JsonNode node)
+    {
+        JsonNode comment = node.get("metadata").get("comment");
+        return comment == null ? null : comment.asText();
     }
 
     private static Type buildType(TypeManager typeManager, JsonNode typeNode)

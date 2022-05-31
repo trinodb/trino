@@ -204,4 +204,60 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
                 .map(row -> row.get(1))
                 .findFirst().orElseThrow();
     }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateTableWithColumnCommentOnTrino()
+    {
+        String tableName = "test_dl_create_column_comment_" + randomTableSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT COMMENT 'test comment') WITH (location = 's3://%s/%s')",
+                tableName,
+                bucketName,
+                tableDirectory));
+
+        try {
+            assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test comment");
+            assertEquals(getColumnCommentOnDelta("default", tableName, "col"), "test comment");
+
+            // Verify that adding a new column doesn't remove existing column comments
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col INT");
+            assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test comment");
+            assertEquals(getColumnCommentOnDelta("default", tableName, "col"), "test comment");
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateTableWithColumnCommentOnDelta()
+    {
+        String tableName = "test_dl_create_column_comment_" + randomTableSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery(format("CREATE TABLE default.%s (col INT COMMENT 'test comment') USING DELTA LOCATION 's3://%s/%s'",
+                tableName,
+                bucketName,
+                tableDirectory));
+
+        try {
+            assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test comment");
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE default." + tableName);
+        }
+    }
+
+    private static String getColumnCommentOnTrino(String schemaName, String tableName, String columnName)
+    {
+        QueryResult result = onTrino().executeQuery("SELECT comment FROM information_schema.columns WHERE table_schema = '" + schemaName + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
+        return (String) result.row(0).get(0);
+    }
+
+    private static String getColumnCommentOnDelta(String schemaName, String tableName, String columnName)
+    {
+        QueryResult result = onDelta().executeQuery(format("DESCRIBE %s.%s %s", schemaName, tableName, columnName));
+        return (String) result.row(2).get(1);
+    }
 }
