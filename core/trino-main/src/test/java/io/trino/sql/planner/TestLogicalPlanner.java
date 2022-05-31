@@ -1250,6 +1250,46 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testRemoveEmptyGlobalAggregation()
+    {
+        // unused aggregation result over a table
+        assertPlan(
+                "SELECT count(*) FROM (SELECT count(*) FROM nation)",
+                output(
+                        values(List.of("c"), List.of(List.of(new GenericLiteral("BIGINT", "1"))))));
+
+        // unused aggregation result over values
+        assertPlan(
+                "SELECT count(*) FROM (SELECT count(*) FROM (VALUES 1,2,3,4,5,6,7))",
+                output(
+                        values(List.of("c"), List.of(List.of(new GenericLiteral("BIGINT", "1"))))));
+
+        // unused aggregation result over unnest
+        assertPlan(
+                "SELECT count(*) FROM (SELECT count(*) FROM UNNEST(sequence(1, 10)))",
+                output(
+                        values(List.of("c"), List.of(List.of(new GenericLiteral("BIGINT", "1"))))));
+
+        // no aggregate function at all over a table
+        assertPlan(
+                "SELECT 1 FROM nation GROUP BY GROUPING SETS (())",
+                output(
+                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
+
+        // no aggregate function at all over values
+        assertPlan(
+                "SELECT 1 FROM (VALUES 1,2,3,4,5,6,7) GROUP BY GROUPING SETS (())",
+                output(
+                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
+
+        // no aggregate function at all over unnest
+        assertPlan(
+                "SELECT 1 FROM UNNEST(sequence(1, 10)) GROUP BY GROUPING SETS (())",
+                output(
+                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
+    }
+
+    @Test
     public void testFilteringSemiJoinRewriteToInnerJoin()
     {
         assertPlan(
