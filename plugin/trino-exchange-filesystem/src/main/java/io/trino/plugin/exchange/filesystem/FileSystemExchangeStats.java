@@ -20,7 +20,6 @@ import org.weakref.jmx.Nested;
 public class FileSystemExchangeStats
 {
     private final ExecutionStats createExchangeSourceHandles = new ExecutionStats();
-    private final ExecutionStats getCommittedAttemptPath = new ExecutionStats();
     private final ExecutionStats getCommittedPartitions = new ExecutionStats();
     private final ExecutionStats closeExchange = new ExecutionStats();
     private final ExecutionStats exchangeSinkBlocked = new ExecutionStats();
@@ -34,13 +33,6 @@ public class FileSystemExchangeStats
     public ExecutionStats getCreateExchangeSourceHandles()
     {
         return createExchangeSourceHandles;
-    }
-
-    @Managed
-    @Nested
-    public ExecutionStats getGetCommittedAttemptPath()
-    {
-        return getCommittedAttemptPath;
     }
 
     @Managed

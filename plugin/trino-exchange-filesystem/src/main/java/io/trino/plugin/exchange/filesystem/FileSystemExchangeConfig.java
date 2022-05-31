@@ -43,6 +43,7 @@ public class FileSystemExchangeConfig
     private DataSize exchangeSinkMaxFileSize = DataSize.of(1, GIGABYTE);
     private int exchangeSourceConcurrentReaders = 4;
     private int maxOutputPartitionCount = 50;
+    private int exchangeFileListingParallelism = 50;
 
     @NotNull
     @NotEmpty(message = "At least one base directory needs to be configured")
@@ -159,6 +160,20 @@ public class FileSystemExchangeConfig
     public FileSystemExchangeConfig setMaxOutputPartitionCount(int maxOutputPartitionCount)
     {
         this.maxOutputPartitionCount = maxOutputPartitionCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getExchangeFileListingParallelism()
+    {
+        return exchangeFileListingParallelism;
+    }
+
+    @Config("exchange.file-listing-parallelism")
+    @ConfigDescription("Max parallelism of file listing calls when enumerating spooling files. The actual parallelism will depend on implementation")
+    public FileSystemExchangeConfig setExchangeFileListingParallelism(int exchangeFileListingParallelism)
+    {
+        this.exchangeFileListingParallelism = exchangeFileListingParallelism;
         return this;
     }
 }

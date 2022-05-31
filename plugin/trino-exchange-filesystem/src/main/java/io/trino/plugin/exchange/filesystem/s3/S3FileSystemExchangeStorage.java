@@ -54,7 +54,6 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadResponse;
-import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
@@ -66,16 +65,12 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
-import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
@@ -137,7 +132,6 @@ public class S3FileSystemExchangeStorage
     private final Optional<Region> region;
     private final Optional<String> endpoint;
     private final int multiUploadPartSize;
-    private final S3Client s3Client;
     private final S3AsyncClient s3AsyncClient;
     private final StorageClass storageClass;
     private final CompatibilityMode compatibilityMode;
@@ -167,8 +161,6 @@ public class S3FileSystemExchangeStorage
                 .putAdvancedOption(USER_AGENT_PREFIX, "")
                 .putAdvancedOption(USER_AGENT_SUFFIX, "Trino-exchange")
                 .build();
-
-        this.s3Client = createS3Client(credentialsProvider, overrideConfig);
         this.s3AsyncClient = createS3AsyncClient(
                 credentialsProvider,
                 overrideConfig,
@@ -220,14 +212,6 @@ public class S3FileSystemExchangeStorage
         String key = keyFromUri(file);
 
         return new S3ExchangeStorageWriter(stats, s3AsyncClient, bucketName, key, multiUploadPartSize, secretKey, storageClass);
-    }
-
-    @Override
-    public boolean exists(URI file)
-            throws IOException
-    {
-        // Only used for commit marker files and doesn't need secretKey
-        return headObject(file, Optional.empty()) != null;
     }
 
     @Override
@@ -290,55 +274,25 @@ public class S3FileSystemExchangeStorage
     }
 
     @Override
-    public List<FileStatus> listFiles(URI dir)
-            throws IOException
+    public ListenableFuture<List<FileStatus>> listFilesRecursively(URI dir)
     {
-        ImmutableList.Builder<FileStatus> builder = ImmutableList.builder();
-        try {
-            stats.getListFiles().record(() -> {
-                for (S3Object object : listObjects(dir).contents()) {
-                    URI uri;
-                    try {
-                        uri = new URI(dir.getScheme(), dir.getHost(), PATH_SEPARATOR + object.key(), dir.getFragment());
-                    }
-                    catch (URISyntaxException e) {
-                        throw new IllegalArgumentException(e);
-                    }
-                    builder.add(new FileStatus(uri.toString(), object.size()));
-                }
-                return null;
-            });
-        }
-        catch (RuntimeException e) {
-            throw new IOException(e);
-        }
-        return builder.build();
-    }
-
-    @Override
-    public List<URI> listDirectories(URI dir)
-            throws IOException
-    {
-        ImmutableList.Builder<URI> builder = ImmutableList.builder();
-        try {
-            stats.getListDirectories().record(() -> {
-                for (CommonPrefix prefix : listObjects(dir).commonPrefixes()) {
-                    URI uri;
-                    try {
-                        uri = new URI(dir.getScheme(), dir.getHost(), PATH_SEPARATOR + prefix.prefix(), dir.getFragment());
-                    }
-                    catch (URISyntaxException e) {
-                        throw new IllegalArgumentException(e);
-                    }
-                    builder.add(uri);
-                }
-                return null;
-            });
-        }
-        catch (RuntimeException e) {
-            throw new IOException(e);
-        }
-        return builder.build();
+        ImmutableList.Builder<FileStatus> fileStatuses = ImmutableList.builder();
+        return stats.getListFilesRecursively().record(Futures.transform(
+                toListenableFuture((listObjectsRecursively(dir)
+                        .subscribe(listObjectsV2Response -> {
+                            for (S3Object s3Object : listObjectsV2Response.contents()) {
+                                URI uri;
+                                try {
+                                    uri = new URI(dir.getScheme(), dir.getHost(), PATH_SEPARATOR + s3Object.key(), dir.getFragment());
+                                }
+                                catch (URISyntaxException e) {
+                                    throw new IllegalArgumentException(e);
+                                }
+                                fileStatuses.add(new FileStatus(uri.toString(), s3Object.size()));
+                            }
+                        }))),
+                ignored -> fileStatuses.build(),
+                directExecutor()));
     }
 
     @Override
@@ -353,47 +307,9 @@ public class S3FileSystemExchangeStorage
             throws IOException
     {
         try (Closer closer = Closer.create()) {
-            closer.register(s3Client::close);
             closer.register(s3AsyncClient::close);
             gcsDeleteExecutor.ifPresent(listeningExecutorService -> closer.register(listeningExecutorService::shutdown));
         }
-    }
-
-    private HeadObjectResponse headObject(URI uri, Optional<SecretKey> secretKey)
-            throws IOException
-    {
-        HeadObjectRequest.Builder headObjectRequestBuilder = HeadObjectRequest.builder()
-                .bucket(getBucketName(uri))
-                .key(keyFromUri(uri));
-        configureEncryption(secretKey, headObjectRequestBuilder);
-
-        try {
-            return stats.getHeadObject().record(() -> s3Client.headObject(headObjectRequestBuilder.build()));
-        }
-        catch (RuntimeException e) {
-            if (e instanceof NoSuchKeyException) {
-                return null;
-            }
-            throw new IOException(e);
-        }
-    }
-
-    private ListObjectsV2Iterable listObjects(URI dir)
-    {
-        checkArgument(isDirectory(dir), "listObjects called on file uri %s", dir);
-
-        String key = keyFromUri(dir);
-        if (!key.isEmpty()) {
-            key += PATH_SEPARATOR;
-        }
-
-        ListObjectsV2Request request = ListObjectsV2Request.builder()
-                .bucket(getBucketName(dir))
-                .prefix(key)
-                .delimiter(PATH_SEPARATOR)
-                .build();
-
-        return s3Client.listObjectsV2Paginator(request);
     }
 
     private ListObjectsV2Publisher listObjectsRecursively(URI dir)
