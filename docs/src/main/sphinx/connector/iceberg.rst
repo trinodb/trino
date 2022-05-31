@@ -113,6 +113,12 @@ is used.
   * - ``hive.orc.bloom-filters.enabled``
     - Enable bloom filters for predicate pushdown.
     - ``false``
+  * - ``iceberg.target-max-file-size``
+    - Target maximum size of written files; the actual size may be larger
+    - ``1GB``
+  * - ``iceberg.delete-schema-locations-fallback``
+    - Whether schema locations should be deleted when Trino can't determine whether they contain external files.
+    - ``false``
 
 .. _iceberg-authorization:
 
