@@ -95,6 +95,7 @@ import static org.testng.Assert.assertTrue;
 public class TestCreateTableTask
 {
     private static final String CATALOG_NAME = "catalog";
+    private static final String OTHER_CATALOG_NAME = "other_catalog";
     private static final ConnectorTableMetadata PARENT_TABLE = new ConnectorTableMetadata(
             new SchemaTableName("schema", "parent_table"),
             List.of(new ColumnMetadata("a", SMALLINT), new ColumnMetadata("b", BIGINT)),
@@ -119,13 +120,21 @@ public class TestCreateTableTask
                         .withTableProperties(() -> ImmutableList.of(stringProperty("baz", "test property", null, false)))
                         .build(),
                 ImmutableMap.of());
+        queryRunner.createCatalog(
+                OTHER_CATALOG_NAME,
+                MockConnectorFactory.builder().withName("other_mock").build(),
+                ImmutableMap.of());
 
         tablePropertyManager = queryRunner.getTablePropertyManager();
         columnPropertyManager = queryRunner.getColumnPropertyManager();
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        metadata = new MockMetadata(new CatalogName(CATALOG_NAME), emptySet());
+        metadata = new MockMetadata(
+                Map.of(
+                        CATALOG_NAME, new CatalogName(CATALOG_NAME),
+                        OTHER_CATALOG_NAME, new CatalogName(OTHER_CATALOG_NAME)),
+                emptySet());
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
     }
 
@@ -265,6 +274,30 @@ public class TestCreateTableTask
     }
 
     @Test
+    public void testCreateLikeExcludingPropertiesAcrossCatalogs()
+    {
+        CreateTable statement = getCreateLikeStatement(QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table"), false);
+
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
+        assertEquals(metadata.getCreateTableCallCount(), 1);
+
+        assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
+                .isEqualTo(PARENT_TABLE.getColumns());
+    }
+
+    @Test
+    public void testCreateLikeIncludingPropertiesAcrossCatalogs()
+    {
+        CreateTable failingStatement = getCreateLikeStatement(QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table"), true);
+
+        CreateTableTask failingCreateTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        assertThatThrownBy(() -> getFutureValue(failingCreateTableTask.internalExecute(failingStatement, testSession, List.of(), output -> {})))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("CREATE TABLE LIKE table INCLUDING PROPERTIES across catalogs is not supported");
+    }
+
+    @Test
     public void testCreateLikeDenyPermission()
     {
         CreateTable statement = getCreateLikeStatement(false);
@@ -294,8 +327,13 @@ public class TestCreateTableTask
 
     private CreateTable getCreateLikeStatement(boolean includingProperties)
     {
+        return getCreateLikeStatement(QualifiedName.of("test_table"), includingProperties);
+    }
+
+    private CreateTable getCreateLikeStatement(QualifiedName name, boolean includingProperties)
+    {
         return new CreateTable(
-                QualifiedName.of("test_table"),
+                name,
                 List.of(new LikeClause(QualifiedName.of(PARENT_TABLE.getTable().getTableName()), includingProperties ? Optional.of(INCLUDING) : Optional.empty())),
                 true,
                 ImmutableList.of(),
@@ -305,13 +343,13 @@ public class TestCreateTableTask
     private static class MockMetadata
             extends AbstractMockMetadata
     {
-        private final CatalogName catalogHandle;
+        private final Map<String, CatalogName> catalogHandles;
         private final List<ConnectorTableMetadata> tables = new CopyOnWriteArrayList<>();
         private Set<ConnectorCapabilities> connectorCapabilities;
 
-        public MockMetadata(CatalogName catalogHandle, Set<ConnectorCapabilities> connectorCapabilities)
+        public MockMetadata(Map<String, CatalogName> catalogHandles, Set<ConnectorCapabilities> connectorCapabilities)
         {
-            this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
+            this.catalogHandles = requireNonNull(catalogHandles, "catalogHandles is null");
             this.connectorCapabilities = immutableEnumSet(requireNonNull(connectorCapabilities, "connectorCapabilities is null"));
         }
 
@@ -327,10 +365,7 @@ public class TestCreateTableTask
         @Override
         public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
         {
-            if (catalogHandle.getCatalogName().equals(catalogName)) {
-                return Optional.of(catalogHandle);
-            }
-            return Optional.empty();
+            return Optional.ofNullable(catalogHandles.get(catalogName));
         }
 
         @Override
