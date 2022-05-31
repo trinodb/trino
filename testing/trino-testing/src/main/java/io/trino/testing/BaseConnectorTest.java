@@ -380,6 +380,15 @@ public abstract class BaseConnectorTest
         assertQuery(
                 "SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey",
                 "SELECT regionkey, avg(CAST(nationkey AS double)) FROM nation GROUP BY regionkey");
+
+        // pruned away aggregation (simplified regression test for https://github.com/trinodb/trino/issues/12598)
+        assertQuery(
+                "SELECT -13 FROM (SELECT count(*) FROM nation)",
+                "VALUES -13");
+        // regression test for https://github.com/trinodb/trino/issues/12598
+        assertQuery(
+                "SELECT count(*) FROM (SELECT count(*) FROM nation UNION ALL SELECT count(*) FROM region)",
+                "VALUES 2");
     }
 
     @Test
