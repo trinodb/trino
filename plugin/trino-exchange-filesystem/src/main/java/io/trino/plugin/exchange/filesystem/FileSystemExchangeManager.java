@@ -61,6 +61,7 @@ public class FileSystemExchangeManager
     private final long exchangeSinkMaxFileSizeInBytes;
     private final int exchangeSourceConcurrentReaders;
     private final int maxOutputPartitionCount;
+    private final int exchangeFileListingParallelism;
     private final ExecutorService executor;
 
     @Inject
@@ -81,6 +82,7 @@ public class FileSystemExchangeManager
         this.exchangeSinkMaxFileSizeInBytes = fileSystemExchangeConfig.getExchangeSinkMaxFileSize().toBytes();
         this.exchangeSourceConcurrentReaders = fileSystemExchangeConfig.getExchangeSourceConcurrentReaders();
         this.maxOutputPartitionCount = fileSystemExchangeConfig.getMaxOutputPartitionCount();
+        this.exchangeFileListingParallelism = fileSystemExchangeConfig.getExchangeFileListingParallelism();
         this.executor = newCachedThreadPool(daemonThreadsNamed("exchange-source-handles-creation-%s"));
     }
 
@@ -110,6 +112,7 @@ public class FileSystemExchangeManager
                 stats,
                 context,
                 outputPartitionCount,
+                exchangeFileListingParallelism,
                 secretKey,
                 executor);
     }
