@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar;
 
+import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
@@ -300,7 +301,9 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice md5(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        return computeHash(Hashing.md5(), slice);
+        @SuppressWarnings("deprecation")
+        HashFunction md5 = Hashing.md5();
+        return computeHash(md5, slice);
     }
 
     @Description("Compute sha1 hash")
@@ -308,7 +311,9 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice sha1(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        return computeHash(Hashing.sha1(), slice);
+        @SuppressWarnings("deprecation")
+        HashFunction sha1 = Hashing.sha1();
+        return computeHash(sha1, slice);
     }
 
     @Description("Compute sha256 hash")
