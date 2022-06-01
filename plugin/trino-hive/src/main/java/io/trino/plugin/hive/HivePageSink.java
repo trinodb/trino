@@ -149,7 +149,7 @@ public class HivePageSink
             BucketingVersion bucketingVersion = bucketProperty.get().getBucketingVersion();
             int bucketCount = bucketProperty.get().getBucketCount();
             bucketColumns = bucketProperty.get().getBucketedBy().stream()
-                    .mapToInt(dataColumnNameToIdMap::get)
+                    .mapToInt(dataColumnNameToIdMap::getInt)
                     .toArray();
             List<HiveType> bucketColumnTypes = bucketProperty.get().getBucketedBy().stream()
                     .map(dataColumnNameToTypeMap::get)

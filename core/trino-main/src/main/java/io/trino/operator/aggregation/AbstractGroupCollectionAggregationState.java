@@ -180,7 +180,7 @@ public abstract class AbstractGroupCollectionAggregationState<T>
 
     private long toAbsolutePosition(short blockId, int position)
     {
-        return sumPositions.get(blockId) + position;
+        return sumPositions.getLong(blockId) + position;
     }
 
     protected abstract boolean accept(T consumer, PageBuilder pageBuilder, int currentPosition);

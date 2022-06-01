@@ -111,7 +111,7 @@ public final class CharacterStringCasts
             return Slices.allocate(toIntExact(y));
         }
 
-        codePoints.set(codePoints.size() - 1, codePoints.get(codePoints.size() - 1) - 1);
+        codePoints.set(codePoints.size() - 1, codePoints.getInt(codePoints.size() - 1) - 1);
         int toAdd = toIntExact(y) - codePoints.size();
         for (int i = 0; i < toAdd; i++) {
             codePoints.add(Character.MAX_CODE_POINT);
@@ -139,7 +139,7 @@ public final class CharacterStringCasts
     private static void trimTrailing(IntList codePoints, int codePointToTrim)
     {
         int endIndex = codePoints.size();
-        while (endIndex > 0 && codePoints.get(endIndex - 1) == codePointToTrim) {
+        while (endIndex > 0 && codePoints.getInt(endIndex - 1) == codePointToTrim) {
             endIndex--;
         }
         codePoints.size(endIndex);

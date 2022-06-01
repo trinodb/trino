@@ -106,7 +106,7 @@ public class FeatureUnitNormalizer
         for (Map.Entry<Integer, Double> entry : features.getFeatures().entrySet()) {
             int key = entry.getKey();
             double value = entry.getValue();
-            if (mins.containsKey(entry.getKey())) {
+            if (mins.containsKey(entry.getKey().intValue())) {
                 double min = mins.get(key);
                 value = (value - min) / (maxs.get(key) - min);
             }

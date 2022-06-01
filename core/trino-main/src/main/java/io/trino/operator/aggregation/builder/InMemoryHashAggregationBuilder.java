@@ -36,7 +36,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.type.BlockTypeOperators;
-import it.unimi.dsi.fastutil.ints.AbstractIntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterators;
 
@@ -319,7 +318,7 @@ public class InMemoryHashAggregationBuilder
         groupIds.sort(0, groupByHash.getGroupCount(), (leftGroupId, rightGroupId) ->
                 Long.compare(groupByHash.getRawHash(leftGroupId), groupByHash.getRawHash(rightGroupId)));
 
-        return new AbstractIntIterator()
+        return new IntIterator()
         {
             private final int totalPositions = groupByHash.getGroupCount();
             private int position;
