@@ -13,19 +13,16 @@
  */
 package io.trino.sql.tree;
 
-import io.airlift.slice.Slice;
-
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 public class StringLiteral
         extends Literal
 {
     private final String value;
-    private final Slice slice;
+    private final int length;
 
     public StringLiteral(String value)
     {
@@ -42,7 +39,7 @@ public class StringLiteral
         super(location);
         requireNonNull(value, "value is null");
         this.value = value;
-        this.slice = utf8Slice(value);
+        this.length = value.codePointCount(0, value.length());
     }
 
     public String getValue()
@@ -50,9 +47,9 @@ public class StringLiteral
         return value;
     }
 
-    public Slice getSlice()
+    public int length()
     {
-        return slice;
+        return length;
     }
 
     @Override

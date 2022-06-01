@@ -71,6 +71,7 @@ import static io.trino.plugin.tpch.TpchTransactionHandle.INSTANCE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -107,7 +108,11 @@ public class TestCostCalculator
         localQueryRunner = LocalQueryRunner.create(session);
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(), ImmutableMap.of());
 
-        planFragmenter = new PlanFragmenter(localQueryRunner.getMetadata(), localQueryRunner.getNodePartitioningManager(), new QueryManagerConfig());
+        planFragmenter = new PlanFragmenter(
+                localQueryRunner.getMetadata(),
+                localQueryRunner.getFunctionManager(),
+                localQueryRunner.getNodePartitioningManager(),
+                new QueryManagerConfig());
     }
 
     @AfterClass(alwaysRun = true)
@@ -820,15 +825,11 @@ public class TestCostCalculator
                 Optional.empty(),
                 Optional.empty());
 
-        return new AggregationNode(
+        return singleAggregation(
                 new PlanNodeId(id),
                 source,
                 ImmutableMap.of(new Symbol("count"), aggregation),
-                singleGroupingSet(source.getOutputSymbols()),
-                ImmutableList.of(),
-                AggregationNode.Step.SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                singleGroupingSet(source.getOutputSymbols()));
     }
 
     /**

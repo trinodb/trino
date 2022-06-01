@@ -2,14 +2,15 @@
 Iceberg connector
 =================
 
-Overview
---------
+.. raw:: html
+
+  <img src="../_static/img/iceberg.png" class="connector-logo">
 
 Apache Iceberg is an open table format for huge analytic datasets.
 The Iceberg connector allows querying data stored in
 files written in Iceberg format, as defined in the
 `Iceberg Table Spec <https://iceberg.apache.org/spec/>`_. It supports Apache
-Iceberg table spec version 1.
+Iceberg table spec version 1 and 2.
 
 The Iceberg table state is maintained in metadata files. All changes to table state
 create a new metadata file and replace the old metadata with an atomic swap.
@@ -37,20 +38,50 @@ To use Iceberg, you need:
 
 * Network access from the Trino coordinator and workers to the distributed
   object storage.
-* Access to a Hive metastore service (HMS).
+* Access to a Hive metastore service (HMS) or AWS Glue.
 * Network access from the Trino coordinator to the HMS. Hive
   metastore access with the Thrift protocol defaults to using port 9083.
 
 Configuration
 -------------
 
-Iceberg supports the same metastore configuration properties as the Hive connector.
-At a minimum, ``hive.metastore.uri`` must be configured:
+The connector supports two Iceberg catalog types, you may use either a Hive
+metastore service (HMS) or AWS Glue. The catalog type is determined by the
+``iceberg.catalog.type`` property, it can be set to either ``HIVE_METASTORE``
+or ``GLUE``.
+
+Hive metastore catalog
+^^^^^^^^^^^^^^^^^^^^^^
+
+The Hive metastore catalog is the default implementation.
+When using it, the Iceberg connector supports the same metastore
+configuration properties as the Hive connector. At a minimum,
+``hive.metastore.uri`` must be configured, see
+:ref:`Thrift metastore configuration<hive-thrift-metastore>`.
 
 .. code-block:: text
 
     connector.name=iceberg
     hive.metastore.uri=thrift://localhost:9083
+
+Glue catalog
+^^^^^^^^^^^^
+
+When using the Glue catalog, the Iceberg connector supports the same
+configuration properties as the Hive connector's Glue setup. See
+:ref:`AWS Glue metastore configuration<hive-glue-metastore>`.
+
+.. code-block:: text
+
+    connector.name=iceberg
+    iceberg.catalog.type=glue
+
+
+General configuration
+^^^^^^^^^^^^^^^^^^^^^
+
+These configuration properties are independent of which catalog implementation
+is used.
 
 .. list-table:: Iceberg configuration properties
   :widths: 30, 58, 12
@@ -79,6 +110,15 @@ At a minimum, ``hive.metastore.uri`` must be configured:
   * - ``iceberg.max-partitions-per-writer``
     - Maximum number of partitions handled per writer.
     - 100
+  * - ``hive.orc.bloom-filters.enabled``
+    - Enable bloom filters for predicate pushdown.
+    - ``false``
+  * - ``iceberg.target-max-file-size``
+    - Target maximum size of written files; the actual size may be larger
+    - ``1GB``
+  * - ``iceberg.delete-schema-locations-fallback``
+    - Whether schema locations should be deleted when Trino can't determine whether they contain external files.
+    - ``false``
 
 .. _iceberg-authorization:
 
@@ -109,7 +149,7 @@ property must be one of the following values:
       configuration file whose path is specified in the ``security.config-file``
       catalog configuration property. See
       :ref:`catalog-file-based-access-control` for information on the
-      authorzation configuration file.
+      authorization configuration file.
 
 .. _iceberg-sql-support:
 
@@ -123,12 +163,118 @@ supports the following features:
 
 * :doc:`/sql/insert`
 * :doc:`/sql/delete`, see also :ref:`iceberg-delete`
+* :doc:`/sql/update`
 * :ref:`sql-schema-table-management`, see also :ref:`iceberg-tables`
-* :ref:`sql-materialized-views-management`, see also
+* :ref:`sql-materialized-view-management`, see also
   :ref:`iceberg-materialized-views`
-* :ref:`sql-views-management`
+* :ref:`sql-view-management`
 
-.. include:: alter-mv-set-properties-unsupported.fragment
+.. _iceberg-alter-table-execute:
+
+ALTER TABLE EXECUTE
+^^^^^^^^^^^^^^^^^^^
+
+The connector supports the following commands for use with
+:ref:`ALTER TABLE EXECUTE <alter-table-execute>`.
+
+optimize
+~~~~~~~~
+
+The ``optimize`` command is used for rewriting the active content
+of the specified table so that it is merged into fewer but
+larger files.
+In case that the table is partitioned, the data compaction
+acts separately on each partition selected for optimization.
+This operation improves read performance.
+
+All files with a size below the optional ``file_size_threshold``
+parameter (default value for the threshold is ``100MB``) are
+merged:
+
+.. code-block:: sql
+
+    ALTER TABLE test_table EXECUTE optimize
+
+The following statement merges the files in a table that
+are under 10 megabytes in size:
+
+.. code-block:: sql
+
+    ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
+
+You can use a ``WHERE`` clause with the columns used to partition
+the table, to apply ``optimize`` only on the partition(s) corresponding
+to the filter:
+
+.. code-block:: sql
+
+    ALTER TABLE test_partitioned_table EXECUTE optimize
+    WHERE partition_key = 1
+
+expire_snapshots
+~~~~~~~~~~~~~~~~
+
+The ``expire_snapshots`` command removes all snapshots and all related metadata and data files.
+Regularly expiring snapshots is recommended to delete data files that are no longer needed,
+and to keep the size of table metadata small.
+The procedure affects all snapshots that are older than the time period configured with the ``retention_threshold`` parameter.
+
+``expire_snapshots`` can be run as follows:
+
+.. code-block:: sql
+
+  ALTER TABLE test_table EXECUTE expire_snapshots(retention_threshold => '7d')
+
+The value for ``retention_threshold`` must be higher than or equal to ``iceberg.expire_snapshots.min-retention`` in the catalog
+otherwise the procedure will fail with similar message:
+``Retention specified (1.00d) is shorter than the minimum retention configured in the system (7.00d)``.
+The default value for this property is ``7d``.
+
+remove_orphan_files
+~~~~~~~~~~~~~~~~~~~
+
+The ``remove_orphan_files`` command removes all files from table's data directory which are
+not linked from metadata files and that are older than the value of ``retention_threshold`` parameter.
+Deleting orphan files from time to time is recommended to keep size of table's data directory under control.
+
+``remove_orphan_files`` can be run as follows:
+
+.. code-block:: sql
+
+  ALTER TABLE test_table EXECUTE remove_orphan_files(retention_threshold => '7d')
+
+The value for ``retention_threshold`` must be higher than or equal to ``iceberg.remove_orphan_files.min-retention`` in the catalog
+otherwise the procedure will fail with similar message:
+``Retention specified (1.00d) is shorter than the minimum retention configured in the system (7.00d)``.
+The default value for this property is ``7d``.
+
+.. _iceberg-alter-table-set-properties:
+
+ALTER TABLE SET PROPERTIES
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector supports modifying the properties on existing tables using
+:ref:`ALTER TABLE SET PROPERTIES <alter-table-set-properties>`.
+
+The following table properties can be updated after a table is created:
+
+* ``format``
+* ``format_version``
+* ``partitioning``
+
+For example, to update a table from v1 of the Iceberg specification to v2:
+
+.. code-block:: sql
+
+    ALTER TABLE table_name SET PROPERTIES format_version = 2;
+
+Or to set the column ``my_new_partition_column`` as a partition column on a table:
+
+.. code-block:: sql
+
+    ALTER TABLE table_name SET PROPERTIES partitioning = ARRAY[<existing partition columns>, 'my_new_partition_column'];
+
+The current values of a table's properties can be shown using :doc:`SHOW CREATE TABLE </sql/show-create-table>`.
 
 .. _iceberg-type-mapping:
 
@@ -303,12 +449,14 @@ above, this SQL will delete all partitions for which ``country`` is ``US``::
     DELETE FROM iceberg.testdb.customer_orders
     WHERE country = 'US'
 
-Currently, the Iceberg connector only supports deletion by partition.
-This SQL below will fail because the ``WHERE`` clause selects only some of the rows
-in the partition::
+Tables using either v1 or v2 of the Iceberg specification will perform a partition
+delete if the ``WHERE`` clause meets these conditions.
 
-    DELETE FROM iceberg.testdb.customer_orders
-    WHERE country = 'US' AND customer = 'Freds Foods'
+Row level deletion
+^^^^^^^^^^^^^^^^^^
+
+Tables using v2 of the Iceberg specification support deletion of individual rows
+by writing position delete files.
 
 Rolling back to a previous snapshot
 -----------------------------------
@@ -342,13 +490,6 @@ The connector can read from or write to Hive tables that have been migrated to I
 There is no Trino support for migrating Hive tables to Iceberg, so you need to either use
 the Iceberg API or Apache Spark.
 
-System tables and columns
--------------------------
-
-The connector supports queries of the table partitions.  Given a table ``customer_orders``,
-``SELECT * FROM iceberg.testdb."customer_orders$partitions"`` shows the table partitions, including the minimum
-and maximum values for the partition columns.
-
 .. _iceberg-table-properties:
 
 Iceberg table properties
@@ -367,6 +508,20 @@ Property Name                                      Description
 
 ``location``                                       Optionally specifies the file system location URI for
                                                    the table.
+
+``format_version``                                 Optionally specifies the format version of the Iceberg
+                                                   specification to use for new tables; either ``1`` or ``2``.
+                                                   Defaults to ``2``. Version ``2`` is required for row level deletes.
+
+``orc_bloom_filter_columns``                       Comma separated list of columns to use for ORC bloom filter.
+                                                   It improves the performance of queries using Equality and IN predicates
+                                                   when reading ORC file.
+                                                   Requires ORC format.
+                                                   Defaults to ``[]``.
+
+``orc_bloom_filter_fpp``                           The ORC bloom filters false positive probability.
+                                                   Requires ORC format.
+                                                   Defaults to ``0.05``.
 ================================================== ================================================================
 
 The table definition below specifies format Parquet, partitioning by columns ``c1`` and ``c2``,
@@ -380,6 +535,42 @@ and a file system location of ``/var/my_tables/test_table``::
         format = 'PARQUET',
         partitioning = ARRAY['c1', 'c2'],
         location = '/var/my_tables/test_table')
+
+The table definition below specifies format ORC, bloom filter index by columns ``c1`` and ``c2``,
+fpp is 0.05, and a file system location of ``/var/my_tables/test_table``::
+
+    CREATE TABLE test_table (
+        c1 integer,
+        c2 date,
+        c3 double)
+    WITH (
+        format = 'ORC',
+        location = '/var/my_tables/test_table',
+        orc_bloom_filter_columns = ARRAY['c1', 'c2'],
+        orc_bloom_filter_fpp = 0.05)
+
+.. _iceberg_metadata_columns:
+
+Metadata columns
+----------------
+
+In addition to the defined columns, the Iceberg connector automatically exposes
+path metadata as a hidden column in each table:
+
+* ``$path``: Full file system path name of the file for this row
+
+You can use this column in your SQL statements like any other column. This
+can be selected directly, or used in conditional statements. For example, you
+can inspect the file path for each record::
+
+    SELECT *, "$path"
+    FROM iceberg.web.page_views;
+
+Retrieve all records that belong to a specific file using ``"$path"`` filter::
+
+    SELECT *
+    FROM iceberg.web.page_views
+    WHERE "$path" = '/usr/iceberg/table/web.page_views/data/file_01.parquet'
 
 .. _iceberg-metadata-tables:
 
@@ -423,7 +614,6 @@ table ``test_table`` by using the following query::
      key                   | value    |
     -----------------------+----------+
     write.format.default   | PARQUET  |
-    format-version         | 2        |
 
 ``$history`` table
 ^^^^^^^^^^^^^^^^^^
@@ -536,8 +726,8 @@ You can retrieve the information about the manifests of the Iceberg table
 .. code-block:: text
 
      path                                                                                                           | length          | partition_spec_id    | added_snapshot_id     |  added_data_files_count  | existing_data_files_count   | deleted_data_files_count    | partitions
-    ----------------------------------------------------------------------------------------------------------------+-----------------+----------------------+-----------------------+--------------------------+-----------------------------+-----------------------------+----------------------------------------------------------------------------------------------------------------------------
-     hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/faa19903-1455-4bb8-855a-61a1bbafbaa7-m0.avro |  6277           |   0                  | 7860805980949777961   |  1                       |   0                         |  0                          |{{contains_null=false, lower_bound=1, upper_bound=1},{contains_null=false, lower_bound=2021-01-12, upper_bound=2021-01-12}}
+    ----------------------------------------------------------------------------------------------------------------+-----------------+----------------------+-----------------------+--------------------------+-----------------------------+-----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+     hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/faa19903-1455-4bb8-855a-61a1bbafbaa7-m0.avro |  6277           |   0                  | 7860805980949777961   |  1                       |   0                         |  0                          |{{contains_null=false, contains_nan= false, lower_bound=1, upper_bound=1},{contains_null=false, contains_nan= false, lower_bound=2021-01-12, upper_bound=2021-01-12}}
 
 
 The output of the query has the following columns:
@@ -571,7 +761,7 @@ The output of the query has the following columns:
     - ``integer``
     - The number of data files with status ``DELETED`` in the manifest file
   * - ``partitions``
-    - ``array(row(contains_null boolean, lower_bound varchar, upper_bound varchar))``
+    - ``array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))``
     - Partition range metadata
 
 
@@ -589,9 +779,9 @@ You can retrieve the information about the partitions of the Iceberg table
 .. code-block:: text
 
      partition             | record_count  | file_count    | total_size    |  data
-    -----------------------+---------------+---------------+---------------+--------------------------------------
-    {c1=1, c2=2021-01-12}  |  2            | 2             |  884          | {c3={min=1.0, max=2.0, null_count=0}}
-    {c1=1, c2=2021-01-13}  |  1            | 1             |  442          | {c3={min=1.0, max=1.0, null_count=0}}
+    -----------------------+---------------+---------------+---------------+------------------------------------------------------
+    {c1=1, c2=2021-01-12}  |  2            | 2             |  884          | {c3={min=1.0, max=2.0, null_count=0, nan_count=NULL}}
+    {c1=1, c2=2021-01-13}  |  1            | 1             |  442          | {c3={min=1.0, max=1.0, null_count=0, nan_count=NULL}}
 
 
 The output of the query has the following columns:
@@ -616,7 +806,7 @@ The output of the query has the following columns:
     - ``bigint``
     - The size of all the files in the partition
   * - ``data``
-    - ``row(... row (min ..., max ... , null_count bigint))``
+    - ``row(... row (min ..., max ... , null_count bigint, nan_count bigint))``
     - Partition range metadata
 
 ``$files`` table
@@ -698,7 +888,7 @@ The output of the query has the following columns:
 Materialized views
 ------------------
 
-The Iceberg connector supports :ref:`sql-materialized-views-management`. In the
+The Iceberg connector supports :ref:`sql-materialized-view-management`. In the
 underlying system each materialized view consists of a view definition and an
 Iceberg storage table. The storage table name is stored as a materialized view
 property. The data is stored in that storage table.
@@ -714,7 +904,12 @@ for the data files and partition the storage per day using the column
 Updating the data in the materialized view with
 :doc:`/sql/refresh-materialized-view` deletes the data from the storage table,
 and inserts the data that is the result of executing the materialized view
-query into the existing table.
+query into the existing table. Refreshing a materialized view also stores
+the snapshot-ids of all tables that are part of the materialized
+view's query in the materialized view metadata. When the materialized
+view is queried, the snapshot-ids are used to check if the data in the storage
+table is up to date. If the data is outdated, the materialized view behaves
+like a normal view, and the data is queried directly from the base tables.
 
 .. warning::
 

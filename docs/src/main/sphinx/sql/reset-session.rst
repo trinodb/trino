@@ -13,7 +13,8 @@ Synopsis
 Description
 -----------
 
-Reset a session property value to the default value.
+Reset a :ref:`session property <session-properties-definition>` value to the
+default value.
 
 Examples
 --------

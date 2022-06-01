@@ -15,8 +15,10 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.trino.plugin.base.expression.AggregateFunctionRewriter;
-import io.trino.plugin.jdbc.expression.ImplementCountAll;
+import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.RewriteVariable;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
@@ -32,6 +34,7 @@ import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.Types;
 import java.util.Collection;
 import java.util.List;
@@ -86,7 +89,7 @@ class TestingH2JdbcClient
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, identifierMapping);
+        super(config, "\"", connectionFactory, new DefaultQueryBuilder(), identifierMapping);
     }
 
     @Override
@@ -100,6 +103,13 @@ class TestingH2JdbcClient
     }
 
     @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+    {
+        // Don't return a comment until the connector supports creating tables with comment
+        return Optional.empty();
+    }
+
+    @Override
     public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
         // GROUP BY with GROUPING SETS is not supported
@@ -109,7 +119,11 @@ class TestingH2JdbcClient
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
-        return new AggregateFunctionRewriter<>(this::quoted, ImmutableSet.of(new ImplementCountAll(BIGINT_TYPE_HANDLE)))
+        return new AggregateFunctionRewriter<>(
+                JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                        .add(new RewriteVariable(this::quoted))
+                        .build(),
+                ImmutableSet.of(new ImplementCountAll(BIGINT_TYPE_HANDLE)))
                 .rewrite(session, aggregate, assignments);
     }
 

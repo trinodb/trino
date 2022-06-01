@@ -25,8 +25,8 @@ import io.trino.spi.connector.ConnectorSession;
 import javax.inject.Inject;
 
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -64,12 +64,7 @@ public class BigQueryClientFactory
     {
         IdentityCacheMapping.IdentityCacheKey cacheKey = identityCacheMapping.getRemoteUserCacheKey(session);
 
-        try {
-            return clientCache.get(cacheKey, () -> createBigQueryClient(session));
-        }
-        catch (ExecutionException e) {
-            return createBigQueryClient(session);
-        }
+        return uncheckedCacheGet(clientCache, cacheKey, () -> createBigQueryClient(session));
     }
 
     protected BigQueryClient createBigQueryClient(ConnectorSession session)

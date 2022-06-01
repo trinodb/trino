@@ -20,6 +20,7 @@ import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
@@ -86,7 +87,8 @@ public class TestSemiTransactionalHiveMetastore
                 false,
                 true,
                 Optional.empty(),
-                newScheduledThreadPool(1));
+                newScheduledThreadPool(1),
+                new FileSystemDirectoryLister());
     }
 
     @Test
@@ -125,7 +127,8 @@ public class TestSemiTransactionalHiveMetastore
                 false,
                 true,
                 Optional.empty(),
-                newScheduledThreadPool(1));
+                newScheduledThreadPool(1),
+                new FileSystemDirectoryLister());
     }
 
     private class TestingHiveMetastore

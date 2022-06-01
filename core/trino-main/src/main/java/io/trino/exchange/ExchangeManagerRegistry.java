@@ -67,7 +67,6 @@ public class ExchangeManagerRegistry
     public void loadExchangeManager()
     {
         if (!CONFIG_FILE.exists()) {
-            log.info("Exchange manager configuration file is not present: %s", CONFIG_FILE.getAbsoluteFile());
             return;
         }
 

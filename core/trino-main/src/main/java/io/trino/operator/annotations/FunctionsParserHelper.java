@@ -16,9 +16,10 @@ package io.trino.operator.annotations;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.LongVariableConstraint;
 import io.trino.metadata.Signature;
+import io.trino.metadata.Signature.Builder;
 import io.trino.metadata.TypeVariableConstraint;
+import io.trino.metadata.TypeVariableConstraint.TypeVariableConstraintBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.LiteralParameters;
@@ -51,7 +52,6 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static io.trino.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
@@ -146,17 +146,20 @@ public final class FunctionsParserHelper
 
         ImmutableList.Builder<TypeVariableConstraint> typeVariableConstraints = ImmutableList.builder();
         for (String name : typeParameterNames) {
-            typeVariableConstraints.add(new TypeVariableConstraint(
-                    name,
-                    comparableRequired.contains(name),
-                    orderableRequired.contains(name),
-                    null,
-                    castableTo.get(name).stream()
-                            .map(type -> parseTypeSignature(type, typeParameterNames))
-                            .collect(toImmutableSet()),
-                    castableFrom.get(name).stream()
-                            .map(type -> parseTypeSignature(type, typeParameterNames))
-                            .collect(toImmutableSet())));
+            TypeVariableConstraintBuilder builder = TypeVariableConstraint.builder(name);
+            if (comparableRequired.contains(name)) {
+                builder.comparableRequired();
+            }
+            if (orderableRequired.contains(name)) {
+                builder.orderableRequired();
+            }
+            castableTo.get(name).stream()
+                    .map(type -> parseTypeSignature(type, typeParameterNames))
+                    .forEach(builder::castableTo);
+            castableFrom.get(name).stream()
+                    .map(type -> parseTypeSignature(type, typeParameterNames))
+                    .forEach(builder::castableFrom);
+            typeVariableConstraints.add(builder.build());
         }
         return typeVariableConstraints.build();
     }
@@ -283,11 +286,10 @@ public final class FunctionsParserHelper
         return (description == null) ? Optional.empty() : Optional.of(description.value());
     }
 
-    public static List<LongVariableConstraint> parseLongVariableConstraints(Method inputFunction)
+    public static void parseLongVariableConstraints(Method inputFunction, Builder signatureBuilder)
     {
-        return Stream.of(inputFunction.getAnnotationsByType(Constraint.class))
-                .map(annotation -> new LongVariableConstraint(annotation.variable(), annotation.expression()))
-                .collect(toImmutableList());
+        Stream.of(inputFunction.getAnnotationsByType(Constraint.class))
+                .forEach(annotation -> signatureBuilder.longVariable(annotation.variable(), annotation.expression()));
     }
 
     public static Map<String, Class<?>> getDeclaredSpecializedTypeParameters(Method method, Set<TypeParameter> typeParameters)

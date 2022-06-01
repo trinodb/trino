@@ -29,6 +29,7 @@ import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.WriteFunction;
@@ -83,13 +84,14 @@ import org.apache.phoenix.schema.PName;
 import org.apache.phoenix.schema.PTable;
 import org.apache.phoenix.schema.TableProperty;
 import org.apache.phoenix.schema.types.PDataType;
+import org.apache.phoenix.schema.types.PhoenixArray;
 import org.apache.phoenix.util.SchemaUtil;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.sql.Array;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.JDBCType;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -115,6 +117,8 @@ import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
+import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -203,12 +207,13 @@ public class PhoenixClient
     private final Configuration configuration;
 
     @Inject
-    public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
+    public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
             throws SQLException
     {
         super(
                 ESCAPE_CHARACTER,
                 connectionFactory,
+                queryBuilder,
                 ImmutableSet.of(),
                 identifierMapping);
         this.configuration = new Configuration(false);
@@ -291,7 +296,7 @@ public class PhoenixClient
                 columns,
                 ImmutableMap.of(),
                 split);
-        return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
+        return queryBuilder.prepareStatement(this, session, connection, preparedQuery);
     }
 
     @Override
@@ -369,6 +374,20 @@ public class PhoenixClient
             throws SQLException
     {
         return firstNonNull(resultSet.getString("TABLE_SCHEM"), DEFAULT_SCHEMA);
+    }
+
+    @Override
+    protected ResultSet getColumns(JdbcTableHandle handle, DatabaseMetaData metadata)
+            throws SQLException
+    {
+        try {
+            return super.getColumns(handle, metadata);
+        }
+        catch (org.apache.phoenix.schema.TableNotFoundException e) {
+            // Most JDBC driver return an empty result when DatabaseMetaData.getColumns can't find objects, but Phoenix driver throws an exception
+            // Rethrow as Trino TableNotFoundException to suppress the exception during listing information_schema
+            throw new io.trino.spi.connector.TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        }
     }
 
     @Override
@@ -460,7 +479,9 @@ public class PhoenixClient
                                     .orElseThrow(() -> new TrinoException(
                                             PHOENIX_METADATA_ERROR,
                                             "Type name is missing for jdbc type: " + JDBCType.valueOf(elementTypeHandle.getJdbcType())));
-                            return arrayColumnMapping(session, trinoArrayType, jdbcTypeName);
+                            // TODO (https://github.com/trinodb/trino/issues/11132) Enable predicate pushdown on ARRAY(CHAR) type in Phoenix
+                            PredicatePushdownController pushdown = elementTypeHandle.getJdbcType() == Types.CHAR ? DISABLE_PUSHDOWN : FULL_PUSHDOWN;
+                            return arrayColumnMapping(session, trinoArrayType, jdbcTypeName, pushdown);
                         });
         }
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -542,8 +563,18 @@ public class PhoenixClient
     }
 
     @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+    {
+        // Don't return a comment until the connector supports creating tables with comment
+        return Optional.empty();
+    }
+
+    @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schema = schemaTableName.getSchemaName();
         String table = schemaTableName.getTableName();
@@ -576,6 +607,9 @@ public class PhoenixClient
                 rowkeyColumn = Optional.of(ROWKEY);
             }
             for (ColumnMetadata column : tableColumns) {
+                if (column.getComment() != null) {
+                    throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+                }
                 String columnName = getIdentifierMapping().toRemoteColumnName(connection, column.getName());
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
@@ -698,6 +732,10 @@ public class PhoenixClient
                 }
             }
         }
+        catch (org.apache.phoenix.schema.TableNotFoundException e) {
+            // Rethrow as Trino TableNotFoundException to suppress the exception during listing information_schema
+            throw new io.trino.spi.connector.TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        }
         catch (IOException | SQLException e) {
             throw new TrinoException(PHOENIX_METADATA_ERROR, "Couldn't get Phoenix table properties", e);
         }
@@ -732,12 +770,13 @@ public class PhoenixClient
         };
     }
 
-    private static ColumnMapping arrayColumnMapping(ConnectorSession session, ArrayType arrayType, String elementJdbcTypeName)
+    private static ColumnMapping arrayColumnMapping(ConnectorSession session, ArrayType arrayType, String elementJdbcTypeName, PredicatePushdownController pushdownController)
     {
         return ColumnMapping.objectMapping(
                 arrayType,
                 arrayReadFunction(session, arrayType.getElementType()),
-                arrayWriteFunction(session, arrayType.getElementType(), elementJdbcTypeName));
+                arrayWriteFunction(session, arrayType.getElementType(), elementJdbcTypeName),
+                pushdownController);
     }
 
     private static ObjectReadFunction arrayReadFunction(ConnectorSession session, Type elementType)
@@ -751,8 +790,15 @@ public class PhoenixClient
     private static ObjectWriteFunction arrayWriteFunction(ConnectorSession session, Type elementType, String elementJdbcTypeName)
     {
         return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
-            Array jdbcArray = statement.getConnection().createArrayOf(elementJdbcTypeName, getJdbcObjectArray(session, elementType, block));
-            statement.setArray(index, jdbcArray);
+            Object[] jdbcObjectArray = getJdbcObjectArray(session, elementType, block);
+            PhoenixArray phoenixArray = (PhoenixArray) statement.getConnection().createArrayOf(elementJdbcTypeName, jdbcObjectArray);
+            for (int i = 0; i < jdbcObjectArray.length; i++) {
+                if (jdbcObjectArray[i] == null && phoenixArray.getElement(i) != null) {
+                    // TODO (https://github.com/trinodb/trino/issues/6421) Prevent writing incorrect results due to Phoenix JDBC driver bug
+                    throw new TrinoException(PHOENIX_QUERY_ERROR, format("Phoenix JDBC driver replaced 'null' with '%s' at index %s in %s", phoenixArray.getElement(i), i + 1, phoenixArray));
+                }
+            }
+            statement.setArray(index, phoenixArray);
         });
     }
 

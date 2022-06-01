@@ -49,6 +49,7 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -332,13 +333,13 @@ public class AddLocalExchanges
         {
             checkState(node.getStep() == AggregationNode.Step.SINGLE, "step of aggregation is expected to be SINGLE, but it is %s", node.getStep());
 
-            if (node.hasSingleNodeExecutionPreference(plannerContext.getMetadata())) {
+            if (node.hasSingleNodeExecutionPreference(session, plannerContext.getMetadata())) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
             List<Symbol> groupingKeys = node.getGroupingKeys();
             if (node.hasDefaultOutput()) {
-                checkState(node.isDecomposable(plannerContext.getMetadata()));
+                checkState(node.isDecomposable(session, plannerContext.getMetadata()));
 
                 // Put fixed local exchange directly below final aggregation to ensure that final and partial aggregations are separated by exchange (in a local runner mode)
                 // This is required so that default outputs from multiple instances of partial aggregations are passed to a single final aggregation.
@@ -367,15 +368,10 @@ public class AddLocalExchanges
                 preGroupedSymbols = groupingKeys;
             }
 
-            AggregationNode result = new AggregationNode(
-                    node.getId(),
-                    child.getNode(),
-                    node.getAggregations(),
-                    node.getGroupingSets(),
-                    preGroupedSymbols,
-                    node.getStep(),
-                    node.getHashSymbol(),
-                    node.getGroupIdSymbol());
+            AggregationNode result = AggregationNode.builderFrom(node)
+                    .setSource(child.getNode())
+                    .setPreGroupedSymbols(preGroupedSymbols)
+                    .build();
 
             return deriveProperties(result, child.getProperties());
         }
@@ -578,6 +574,12 @@ public class AddLocalExchanges
             }
 
             return planAndEnforceChildren(node, requiredProperties, requiredProperties);
+        }
+
+        @Override
+        public PlanWithProperties visitSimpleTableExecuteNode(SimpleTableExecuteNode node, StreamPreferredProperties context)
+        {
+            return planAndEnforceChildren(node, singleStream(), singleStream());
         }
 
         //

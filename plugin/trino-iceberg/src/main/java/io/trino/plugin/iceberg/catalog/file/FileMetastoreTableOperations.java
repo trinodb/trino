@@ -13,10 +13,11 @@
  */
 package io.trino.plugin.iceberg.catalog.file;
 
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.iceberg.catalog.AbstractMetastoreTableOperations;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
+import io.trino.plugin.iceberg.catalog.hms.AbstractMetastoreTableOperations;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
@@ -27,8 +28,9 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
+import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
 
 @NotThreadSafe
 public class FileMetastoreTableOperations
@@ -36,7 +38,7 @@ public class FileMetastoreTableOperations
 {
     public FileMetastoreTableOperations(
             FileIO fileIo,
-            HiveMetastore metastore,
+            CachingHiveMetastore metastore,
             ConnectorSession session,
             String database,
             String table,
@@ -49,38 +51,32 @@ public class FileMetastoreTableOperations
     @Override
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
+        Table currentTable = getTable();
+
+        checkState(currentMetadataLocation != null, "No current metadata location for existing table");
+        String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION_PROP);
+        if (!currentMetadataLocation.equals(metadataLocation)) {
+            throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
+                    currentMetadataLocation, metadataLocation, getSchemaTableName());
+        }
+
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
 
-        Table table;
-        try {
-            Table currentTable = getTable();
-
-            checkState(currentMetadataLocation != null, "No current metadata location for existing table");
-            String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION);
-            if (!currentMetadataLocation.equals(metadataLocation)) {
-                throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
-                        currentMetadataLocation, metadataLocation, getSchemaTableName());
-            }
-
-            table = Table.builder(currentTable)
-                    .setDataColumns(toHiveColumns(metadata.schema().columns()))
-                    .withStorage(storage -> storage.setLocation(metadata.location()))
-                    .setParameter(METADATA_LOCATION, newMetadataLocation)
-                    .setParameter(PREVIOUS_METADATA_LOCATION, currentMetadataLocation)
-                    .build();
-        }
-        catch (RuntimeException e) {
-            try {
-                io().deleteFile(newMetadataLocation);
-            }
-            catch (RuntimeException ex) {
-                e.addSuppressed(ex);
-            }
-            throw e;
-        }
+        Table table = Table.builder(currentTable)
+                .setDataColumns(toHiveColumns(metadata.schema().columns()))
+                .withStorage(storage -> storage.setLocation(metadata.location()))
+                .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
+                .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
+                .build();
 
         // todo privileges should not be replaced for an alter
-        PrincipalPrivileges privileges = owner.isEmpty() && table.getOwner().isPresent() ? NO_PRIVILEGES : buildInitialPrivilegeSet(table.getOwner().get());
-        metastore.replaceTable(database, tableName, table, privileges);
+        PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
+
+        try {
+            metastore.replaceTable(database, tableName, table, privileges);
+        }
+        catch (RuntimeException e) {
+            throw new CommitFailedException(e, "Failed to commit transaction to FileHiveMetastore");
+        }
     }
 }

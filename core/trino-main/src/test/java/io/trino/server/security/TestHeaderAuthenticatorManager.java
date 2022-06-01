@@ -97,7 +97,7 @@ public class TestHeaderAuthenticatorManager
         @Override
         public HeaderAuthenticator create(Map<String, String> config)
         {
-            return (headers) -> Optional.ofNullable(headers.getHeader(header))
+            return headers -> Optional.ofNullable(headers.getHeader(header))
                     .map(values -> new BasicPrincipal(values.get(0)))
                     .orElseThrow(() -> new AccessDeniedException("You shall not pass!"));
         }

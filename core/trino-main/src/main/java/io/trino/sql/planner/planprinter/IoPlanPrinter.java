@@ -73,7 +73,7 @@ public class IoPlanPrinter
         this.plan = requireNonNull(plan, "plan is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.session = requireNonNull(session, "session is null");
-        this.valuePrinter = new ValuePrinter(plannerContext.getMetadata(), session);
+        this.valuePrinter = new ValuePrinter(plannerContext.getMetadata(), plannerContext.getFunctionManager(), session);
     }
 
     /**

@@ -18,6 +18,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
@@ -45,6 +46,7 @@ import org.weakref.jmx.Nested;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -65,6 +67,7 @@ public class HttpRemoteTaskFactory
     private final JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
+    private final JsonCodec<FailTaskRequest> failTaskRequestCoded;
     private final Duration maxErrorDuration;
     private final Duration taskStatusRefreshMaxWait;
     private final Duration taskInfoUpdateInterval;
@@ -86,6 +89,7 @@ public class HttpRemoteTaskFactory
             JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
+            JsonCodec<FailTaskRequest> failTaskRequestCoded,
             RemoteTaskStats stats,
             DynamicFilterService dynamicFilterService)
     {
@@ -95,6 +99,7 @@ public class HttpRemoteTaskFactory
         this.dynamicFilterDomainsCodec = dynamicFilterDomainsCodec;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
+        this.failTaskRequestCoded = failTaskRequestCoded;
         this.maxErrorDuration = config.getRemoteTaskMaxErrorDuration();
         this.taskStatusRefreshMaxWait = taskConfig.getStatusRefreshMaxWait();
         this.taskInfoUpdateInterval = taskConfig.getInfoUpdateInterval();
@@ -133,6 +138,7 @@ public class HttpRemoteTaskFactory
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             Set<DynamicFilterId> outboundDynamicFilterIds,
+            Optional<DataSize> estimatedMemory,
             boolean summarizeTaskInfo)
     {
         return new HttpRemoteTask(session,
@@ -154,9 +160,11 @@ public class HttpRemoteTaskFactory
                 dynamicFilterDomainsCodec,
                 taskInfoCodec,
                 taskUpdateRequestCodec,
+                failTaskRequestCoded,
                 partitionedSplitCountTracker,
                 stats,
                 dynamicFilterService,
-                outboundDynamicFilterIds);
+                outboundDynamicFilterIds,
+                estimatedMemory);
     }
 }

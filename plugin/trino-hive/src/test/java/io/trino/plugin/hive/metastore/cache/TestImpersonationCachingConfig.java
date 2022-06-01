@@ -40,7 +40,7 @@ public class TestImpersonationCachingConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.user-metastore-cache-ttl", "2h")
                 .put("hive.user-metastore-cache-maximum-size", "5")
-                .build();
+                .buildOrThrow();
 
         ImpersonationCachingConfig expected = new ImpersonationCachingConfig()
                 .setUserMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))

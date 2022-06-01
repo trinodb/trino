@@ -38,7 +38,7 @@ public class TestAwsSecurityConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("elasticsearch.aws.access-key", "access")
                 .put("elasticsearch.aws.secret-key", "secret")
                 .put("elasticsearch.aws.region", "region")

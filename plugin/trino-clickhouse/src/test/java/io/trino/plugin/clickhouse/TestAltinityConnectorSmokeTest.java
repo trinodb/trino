@@ -32,7 +32,6 @@ public class TestAltinityConnectorSmokeTest
                 ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("clickhouse.map-string-as-varchar", "true") // To handle string types in TPCH tables as varchar instead of varbinary
-                        .put("clickhouse.legacy-driver", "true")
                         .buildOrThrow(),
                 REQUIRED_TPCH_TABLES);
     }
@@ -42,6 +41,6 @@ public class TestAltinityConnectorSmokeTest
     {
         // Override because RENAME DATABASE statement isn't supported in Altinity 20.8
         assertThatThrownBy(super::testRenameSchema)
-                .hasMessageMatching("ClickHouse exception, code: 48,.* RENAME DATABASE is not supported.*\\n");
+                .hasMessageContaining("RENAME DATABASE is not supported");
     }
 }

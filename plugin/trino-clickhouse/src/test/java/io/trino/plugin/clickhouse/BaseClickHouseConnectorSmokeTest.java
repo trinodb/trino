@@ -17,6 +17,8 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public abstract class BaseClickHouseConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
@@ -33,8 +35,18 @@ public abstract class BaseClickHouseConnectorSmokeTest
 
     @Test
     @Override
-    public void testRenameSchema()
+    public void testShowCreateTable()
     {
-        super.testRenameSchema();
+        // Override to add table properties
+        assertThat((String) computeScalar("SHOW CREATE TABLE region"))
+                .isEqualTo("" +
+                        "CREATE TABLE clickhouse.tpch.region (\n" +
+                        "   regionkey bigint,\n" +
+                        "   name varchar,\n" +
+                        "   comment varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   engine = 'LOG'\n" +
+                        ")");
     }
 }

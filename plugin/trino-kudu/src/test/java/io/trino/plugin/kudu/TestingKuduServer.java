@@ -34,7 +34,10 @@ import static java.lang.String.format;
 public class TestingKuduServer
         implements Closeable
 {
-    private static final String KUDU_IMAGE = "apache/kudu:1.10.0";
+    private static final String KUDU_IMAGE = "apache/kudu";
+    public static final String EARLIEST_TAG = "1.13.0";
+    public static final String LATEST_TAG = "1.15.0";
+
     private static final Integer KUDU_MASTER_PORT = 7051;
     private static final Integer KUDU_TSERVER_PORT = 7050;
     private static final Integer NUMBER_OF_REPLICA = 3;
@@ -47,13 +50,18 @@ public class TestingKuduServer
     private final GenericContainer<?> master;
     private final List<GenericContainer<?>> tServers;
 
+    public TestingKuduServer()
+    {
+        this(LATEST_TAG);
+    }
+
     /**
      * Kudu tablets needs to know the host/mapped port it will be bound to in order to configure --rpc_advertised_addresses
      * However when using non-fixed ports in testcontainers, we only know the mapped port after the container starts up
      * In order to workaround this, create a proxy to forward traffic from the host to the underlying tablets
      * Since the ToxiProxy container starts up *before* kudu, we know the mapped port when configuring the kudu tablets
      */
-    public TestingKuduServer()
+    public TestingKuduServer(String kuduVersion)
     {
         network = Network.newNetwork();
         ImmutableList.Builder<GenericContainer<?>> tServersBuilder = ImmutableList.builder();
@@ -61,7 +69,7 @@ public class TestingKuduServer
         String hostIP = getHostIPAddress();
 
         String masterContainerAlias = "kudu-master";
-        this.master = new GenericContainer<>(KUDU_IMAGE)
+        this.master = new GenericContainer<>(format("%s:%s", KUDU_IMAGE, kuduVersion))
                 .withExposedPorts(KUDU_MASTER_PORT)
                 .withCommand("master")
                 .withNetwork(network)
@@ -75,7 +83,7 @@ public class TestingKuduServer
         for (int instance = 0; instance < NUMBER_OF_REPLICA; instance++) {
             String instanceName = "kudu-tserver-" + instance;
             ToxiproxyContainer.ContainerProxy proxy = toxiProxy.getProxy(instanceName, KUDU_TSERVER_PORT);
-            GenericContainer<?> tableServer = new GenericContainer<>(KUDU_IMAGE)
+            GenericContainer<?> tableServer = new GenericContainer<>(format("%s:%s", KUDU_IMAGE, kuduVersion))
                     .withExposedPorts(KUDU_TSERVER_PORT)
                     .withCommand("tserver")
                     .withEnv("KUDU_MASTERS", format("%s:%s", masterContainerAlias, KUDU_MASTER_PORT))
@@ -94,7 +102,10 @@ public class TestingKuduServer
 
     public HostAndPort getMasterAddress()
     {
-        return HostAndPort.fromParts(master.getContainerIpAddress(), master.getMappedPort(KUDU_MASTER_PORT));
+        // Do not use master.getContainerIpAddress(), it returns "localhost" which the kudu client resolves to:
+        // localhost/127.0.0.1, localhost/0:0:0:0:0:0:0:1
+        // Instead explicitly list only the ipv4 loopback address 127.0.0.1
+        return HostAndPort.fromParts("127.0.0.1", master.getMappedPort(KUDU_MASTER_PORT));
     }
 
     @Override

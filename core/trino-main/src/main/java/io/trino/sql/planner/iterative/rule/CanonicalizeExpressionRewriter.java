@@ -140,7 +140,7 @@ public final class CanonicalizeExpressionRewriter
             Expression condition = treeRewriter.rewrite(node.getCondition(), context);
             Expression trueValue = treeRewriter.rewrite(node.getTrueValue(), context);
 
-            Optional<Expression> falseValue = node.getFalseValue().map((value) -> treeRewriter.rewrite(value, context));
+            Optional<Expression> falseValue = node.getFalseValue().map(value -> treeRewriter.rewrite(value, context));
 
             return new SearchedCaseExpression(ImmutableList.of(new WhenClause(condition, trueValue)), falseValue);
         }

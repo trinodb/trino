@@ -13,13 +13,15 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.util.concurrent.ListenableFuture;
+
 import java.io.Closeable;
 import java.util.List;
 
 public interface TaskSource
         extends Closeable
 {
-    List<TaskDescriptor> getMoreTasks();
+    ListenableFuture<List<TaskDescriptor>> getMoreTasks();
 
     boolean isFinished();
 

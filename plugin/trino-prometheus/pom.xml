@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>371-SNAPSHOT</version>
+        <version>383-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -95,7 +95,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-            <version>4.5.8</version>
+            <version>4.5.13</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>
@@ -107,7 +107,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore</artifactId>
-            <version>4.4.11</version>
+            <version>4.4.13</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>
@@ -156,6 +156,20 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
+            <scope>test</scope>
+
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-codec</groupId>
+                    <artifactId>commons-codec</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-main</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
 
             <exclusions>

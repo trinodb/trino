@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -37,6 +36,7 @@ import io.trino.plugin.hive.azure.HiveAzureModule;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.s3.HiveS3Module;
+import io.trino.plugin.iceberg.catalog.IcebergCatalogModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -122,7 +122,6 @@ public final class InternalIcebergConnectorFactory
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
                     new ClassLoaderSafeConnectorPageSinkProvider(pageSinkProvider, classLoader),
                     new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
-                    ImmutableSet.of(),
                     sessionPropertiesProviders,
                     IcebergSchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),

@@ -313,7 +313,7 @@ public class DbResourceGroupConfigurationManager
                 .map(selectorRecord ->
                         new SelectorSpec(
                                 selectorRecord.getUserRegex(),
-                                Optional.empty(),
+                                selectorRecord.getUserGroupRegex(),
                                 selectorRecord.getSourceRegex(),
                                 selectorRecord.getQueryType(),
                                 selectorRecord.getClientTags(),

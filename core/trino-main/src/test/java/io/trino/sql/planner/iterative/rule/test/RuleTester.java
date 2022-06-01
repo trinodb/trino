@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.security.AccessControl;
@@ -52,6 +53,7 @@ public class RuleTester
     private final PageSourceManager pageSourceManager;
     private final AccessControl accessControl;
     private final TypeAnalyzer typeAnalyzer;
+    private final FunctionManager functionManager;
 
     public static RuleTester defaultRuleTester()
     {
@@ -90,6 +92,7 @@ public class RuleTester
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
         this.session = queryRunner.getDefaultSession();
         this.metadata = queryRunner.getMetadata();
+        this.functionManager = queryRunner.getFunctionManager();
         this.transactionManager = queryRunner.getTransactionManager();
         this.splitManager = queryRunner.getSplitManager();
         this.pageSourceManager = queryRunner.getPageSourceManager();
@@ -99,7 +102,7 @@ public class RuleTester
 
     public RuleAssert assertThat(Rule<?> rule)
     {
-        return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl);
+        return new RuleAssert(metadata, functionManager, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl);
     }
 
     @Override
@@ -116,6 +119,11 @@ public class RuleTester
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public FunctionManager getFunctionManager()
+    {
+        return functionManager;
     }
 
     public Session getSession()

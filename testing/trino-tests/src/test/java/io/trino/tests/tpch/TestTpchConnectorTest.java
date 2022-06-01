@@ -62,6 +62,9 @@ public class TestTpchConnectorTest
             case SUPPORTS_CREATE_TABLE:
                 return false;
 
+            case SUPPORTS_ADD_COLUMN:
+                return false;
+
             case SUPPORTS_RENAME_TABLE:
                 return false;
 
@@ -76,6 +79,9 @@ public class TestTpchConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+                return false;
+
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             default:

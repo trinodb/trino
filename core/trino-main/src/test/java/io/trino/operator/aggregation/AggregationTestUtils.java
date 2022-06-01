@@ -63,10 +63,10 @@ public final class AggregationTestUtils
     public static BiFunction<Object, Object, Boolean> makeValidityAssertion(Object expectedValue)
     {
         if (expectedValue instanceof Double && !expectedValue.equals(Double.NaN)) {
-            return (actual, expected) -> Precision.equals((double) actual, (double) expected, 1.0e-10);
+            return (actual, expected) -> actual != null && expected != null && Precision.equals((double) actual, (double) expected, 1.0e-10);
         }
         if (expectedValue instanceof Float && !expectedValue.equals(Float.NaN)) {
-            return (actual, expected) -> Precision.equals((float) actual, (float) expected, 1.0e-10f);
+            return (actual, expected) -> actual != null && expected != null && Precision.equals((float) actual, (float) expected, 1.0e-10f);
         }
         return Objects::equals;
     }

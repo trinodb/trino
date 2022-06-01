@@ -52,6 +52,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = DeleteNode.class, name = "delete"),
         @JsonSubTypes.Type(value = UpdateNode.class, name = "update"),
         @JsonSubTypes.Type(value = TableExecuteNode.class, name = "tableExecute"),
+        @JsonSubTypes.Type(value = SimpleTableExecuteNode.class, name = "simpleTableExecuteNode"),
         @JsonSubTypes.Type(value = TableDeleteNode.class, name = "tableDelete"),
         @JsonSubTypes.Type(value = TableFinishNode.class, name = "tablecommit"),
         @JsonSubTypes.Type(value = UnnestNode.class, name = "unnest"),
@@ -66,6 +67,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = CorrelatedJoinNode.class, name = "correlatedJoin"),
         @JsonSubTypes.Type(value = StatisticsWriterNode.class, name = "statisticsWriterNode"),
         @JsonSubTypes.Type(value = PatternRecognitionNode.class, name = "patternRecognition"),
+        @JsonSubTypes.Type(value = TableFunctionNode.class, name = "tableFunction"),
 })
 public abstract class PlanNode
 {

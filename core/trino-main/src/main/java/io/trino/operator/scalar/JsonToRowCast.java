@@ -16,17 +16,17 @@ package io.trino.operator.scalar;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TypeVariableConstraint;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.JsonCastException;
@@ -37,6 +37,7 @@ import java.lang.invoke.MethodHandle;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.BlockBuilderAppender.createBlockBuilderAppender;
@@ -48,21 +49,27 @@ import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
 public class JsonToRowCast
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     public static final JsonToRowCast JSON_TO_ROW = new JsonToRowCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
 
     private JsonToRowCast()
     {
-        super(OperatorType.CAST,
-                ImmutableList.of(
-                        // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for json to row cast
-                        new TypeVariableConstraint("T", false, false, "row", ImmutableSet.of(), ImmutableSet.of(JSON.getTypeSignature()))),
-                ImmutableList.of(),
-                new TypeSignature("T"),
-                ImmutableList.of(JSON.getTypeSignature()),
-                true);
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .operatorType(CAST)
+                        .typeVariableConstraint(
+                                // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for json to row cast
+                                TypeVariableConstraint.builder("T")
+                                        .variadicBound("row")
+                                        .castableFrom(JSON)
+                                        .build())
+                        .returnType(new TypeSignature("T"))
+                        .argumentType(JSON)
+                        .build())
+                .nullable()
+                .build());
     }
 
     @Override

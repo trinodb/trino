@@ -27,6 +27,8 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
+import static io.airlift.configuration.ConfigurationUtils.replaceEnvironmentVariables;
+
 public class DbResourceGroupConfigurationManagerFactory
         implements ResourceGroupConfigurationManagerFactory
 {
@@ -39,6 +41,7 @@ public class DbResourceGroupConfigurationManagerFactory
     @Override
     public ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
+        config = replaceEnvironmentVariables(config);
         FlywayMigration.migrate(new ConfigurationFactory(config).build(DbResourceGroupConfig.class));
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),

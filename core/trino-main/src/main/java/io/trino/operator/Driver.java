@@ -54,6 +54,7 @@ import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 //
 // NOTE:  As a general strategy the methods should "stage" a change and only
@@ -65,6 +66,8 @@ public class Driver
         implements Closeable
 {
     private static final Logger log = Logger.get(Driver.class);
+
+    private static final Duration UNLIMITED_DURATION = new Duration(Long.MAX_VALUE, NANOSECONDS);
 
     private final DriverContext driverContext;
     private final List<Operator> activeOperators;
@@ -185,7 +188,7 @@ public class Driver
         exclusiveLock.interruptCurrentOwner();
 
         // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown
-        tryWithLock(() -> TRUE);
+        tryWithLockUninterruptibly(() -> TRUE);
     }
 
     public boolean isFinished()
@@ -193,7 +196,7 @@ public class Driver
         checkLockNotHeld("Cannot check finished status while holding the driver lock");
 
         // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown
-        Optional<Boolean> result = tryWithLock(this::isFinishedInternal);
+        Optional<Boolean> result = tryWithLockUninterruptibly(this::isFinishedInternal);
         return result.orElseGet(() -> state.get() != State.ALIVE || driverContext.isDone());
     }
 
@@ -221,7 +224,7 @@ public class Driver
 
         // attempt to get the lock and process the updates we staged above
         // updates will be processed in close if and only if we got the lock
-        tryWithLock(() -> TRUE);
+        tryWithLockUninterruptibly(() -> TRUE);
     }
 
     @GuardedBy("exclusiveLock")
@@ -268,11 +271,28 @@ public class Driver
         currentSplitAssignment = newAssignment;
     }
 
-    public ListenableFuture<Void> processFor(Duration duration)
+    public ListenableFuture<Void> processForDuration(Duration duration)
+    {
+        return process(duration, Integer.MAX_VALUE);
+    }
+
+    public ListenableFuture<Void> processForNumberOfIterations(int maxIterations)
+    {
+        return process(UNLIMITED_DURATION, maxIterations);
+    }
+
+    public ListenableFuture<Void> processUntilBlocked()
+    {
+        return process(UNLIMITED_DURATION, Integer.MAX_VALUE);
+    }
+
+    @VisibleForTesting
+    public ListenableFuture<Void> process(Duration maxRuntime, int maxIterations)
     {
         checkLockNotHeld("Cannot process for a duration while holding the driver lock");
 
-        requireNonNull(duration, "duration is null");
+        requireNonNull(maxRuntime, "maxRuntime is null");
+        checkArgument(maxIterations > 0, "maxIterations must be greater than zero");
 
         // if the driver is blocked we don't need to continue
         SettableFuture<Void> blockedFuture = driverBlockedFuture.get();
@@ -280,44 +300,47 @@ public class Driver
             return blockedFuture;
         }
 
-        long maxRuntime = duration.roundTo(TimeUnit.NANOSECONDS);
+        long maxRuntimeInNanos = maxRuntime.roundTo(TimeUnit.NANOSECONDS);
 
-        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
+        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, true, () -> {
             OperationTimer operationTimer = createTimer();
             driverContext.startProcessTimer();
-            driverContext.getYieldSignal().setWithDelay(maxRuntime, driverContext.getYieldExecutor());
+            driverContext.getYieldSignal().setWithDelay(maxRuntimeInNanos, driverContext.getYieldExecutor());
             try {
                 long start = System.nanoTime();
-                do {
+                int iterations = 0;
+                while (!isFinishedInternal()) {
                     ListenableFuture<Void> future = processInternal(operationTimer);
+                    iterations++;
                     if (!future.isDone()) {
                         return updateDriverBlockedFuture(future);
                     }
+                    if (System.nanoTime() - start >= maxRuntimeInNanos || iterations >= maxIterations) {
+                        break;
+                    }
                 }
-                while (System.nanoTime() - start < maxRuntime && !isFinishedInternal());
+            }
+            catch (Throwable t) {
+                List<StackTraceElement> interrupterStack = exclusiveLock.getInterrupterStack();
+                if (interrupterStack == null) {
+                    driverContext.failed(t);
+                    throw t;
+                }
+
+                // Driver thread was interrupted which should only happen if the task is already finished.
+                // If this becomes the actual cause of a failed query there is a bug in the task state machine.
+                Exception exception = new Exception("Interrupted By");
+                exception.setStackTrace(interrupterStack.stream().toArray(StackTraceElement[]::new));
+                TrinoException newException = new TrinoException(GENERIC_INTERNAL_ERROR, "Driver was interrupted", exception);
+                newException.addSuppressed(t);
+                driverContext.failed(newException);
+                throw newException;
             }
             finally {
                 driverContext.getYieldSignal().reset();
                 driverContext.recordProcessed(operationTimer);
             }
             return NOT_BLOCKED;
-        });
-        return result.orElse(NOT_BLOCKED);
-    }
-
-    public ListenableFuture<Void> process()
-    {
-        checkLockNotHeld("Cannot process while holding the driver lock");
-
-        // if the driver is blocked we don't need to continue
-        SettableFuture<Void> blockedFuture = driverBlockedFuture.get();
-        if (!blockedFuture.isDone()) {
-            return blockedFuture;
-        }
-
-        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
-            ListenableFuture<Void> future = processInternal(createTimer());
-            return updateDriverBlockedFuture(future);
         });
         return result.orElse(NOT_BLOCKED);
     }
@@ -359,119 +382,101 @@ public class Driver
 
         handleMemoryRevoke();
 
-        try {
-            processNewSources();
+        processNewSources();
 
-            // If there is only one operator, finish it
-            // Some operators (LookupJoinOperator and HashBuildOperator) are broken and requires finish to be called continuously
-            // TODO remove the second part of the if statement, when these operators are fixed
-            // Note: finish should not be called on the natural source of the pipeline as this could cause the task to finish early
-            if (!activeOperators.isEmpty() && activeOperators.size() != allOperators.size()) {
-                Operator rootOperator = activeOperators.get(0);
-                rootOperator.finish();
-                rootOperator.getOperatorContext().recordFinish(operationTimer);
-            }
-
-            boolean movedPage = false;
-            for (int i = 0; i < activeOperators.size() - 1 && !driverContext.isDone(); i++) {
-                Operator current = activeOperators.get(i);
-                Operator next = activeOperators.get(i + 1);
-
-                // skip blocked operator
-                if (getBlockedFuture(current).isPresent()) {
-                    continue;
-                }
-
-                // if the current operator is not finished and next operator isn't blocked and needs input...
-                if (!current.isFinished() && getBlockedFuture(next).isEmpty() && next.needsInput()) {
-                    // get an output page from current operator
-                    Page page = current.getOutput();
-                    current.getOperatorContext().recordGetOutput(operationTimer, page);
-
-                    // if we got an output page, add it to the next operator
-                    if (page != null && page.getPositionCount() != 0) {
-                        next.addInput(page);
-                        next.getOperatorContext().recordAddInput(operationTimer, page);
-                        movedPage = true;
-                    }
-
-                    if (current instanceof SourceOperator) {
-                        movedPage = true;
-                    }
-                }
-
-                // if current operator is finished...
-                if (current.isFinished()) {
-                    // let next operator know there will be no more data
-                    next.finish();
-                    next.getOperatorContext().recordFinish(operationTimer);
-                }
-            }
-
-            for (int index = activeOperators.size() - 1; index >= 0; index--) {
-                if (activeOperators.get(index).isFinished()) {
-                    // close and remove this operator and all source operators
-                    List<Operator> finishedOperators = this.activeOperators.subList(0, index + 1);
-                    Throwable throwable = closeAndDestroyOperators(finishedOperators);
-                    finishedOperators.clear();
-                    if (throwable != null) {
-                        throwIfUnchecked(throwable);
-                        throw new RuntimeException(throwable);
-                    }
-                    // Finish the next operator, which is now the first operator.
-                    if (!activeOperators.isEmpty()) {
-                        Operator newRootOperator = activeOperators.get(0);
-                        newRootOperator.finish();
-                        newRootOperator.getOperatorContext().recordFinish(operationTimer);
-                    }
-                    break;
-                }
-            }
-
-            // if we did not move any pages, check if we are blocked
-            if (!movedPage) {
-                List<Operator> blockedOperators = new ArrayList<>();
-                List<ListenableFuture<Void>> blockedFutures = new ArrayList<>();
-                for (Operator operator : activeOperators) {
-                    Optional<ListenableFuture<Void>> blocked = getBlockedFuture(operator);
-                    if (blocked.isPresent()) {
-                        blockedOperators.add(operator);
-                        blockedFutures.add(blocked.get());
-                    }
-                }
-
-                if (!blockedFutures.isEmpty()) {
-                    // unblock when the first future is complete
-                    ListenableFuture<Void> blocked = firstFinishedFuture(blockedFutures);
-                    // driver records serial blocked time
-                    driverContext.recordBlocked(blocked);
-                    // each blocked operator is responsible for blocking the execution
-                    // until one of the operators can continue
-                    for (Operator operator : blockedOperators) {
-                        operator.getOperatorContext().recordBlocked(blocked);
-                    }
-                    return blocked;
-                }
-            }
-
-            return NOT_BLOCKED;
+        // If there is only one operator, finish it
+        // Some operators (LookupJoinOperator and HashBuildOperator) are broken and requires finish to be called continuously
+        // TODO remove the second part of the if statement, when these operators are fixed
+        // Note: finish should not be called on the natural source of the pipeline as this could cause the task to finish early
+        if (!activeOperators.isEmpty() && activeOperators.size() != allOperators.size()) {
+            Operator rootOperator = activeOperators.get(0);
+            rootOperator.finish();
+            rootOperator.getOperatorContext().recordFinish(operationTimer);
         }
-        catch (Throwable t) {
-            List<StackTraceElement> interrupterStack = exclusiveLock.getInterrupterStack();
-            if (interrupterStack == null) {
-                driverContext.failed(t);
-                throw t;
+
+        boolean movedPage = false;
+        for (int i = 0; i < activeOperators.size() - 1 && !driverContext.isDone(); i++) {
+            Operator current = activeOperators.get(i);
+            Operator next = activeOperators.get(i + 1);
+
+            // skip blocked operator
+            if (getBlockedFuture(current).isPresent()) {
+                continue;
             }
 
-            // Driver thread was interrupted which should only happen if the task is already finished.
-            // If this becomes the actual cause of a failed query there is a bug in the task state machine.
-            Exception exception = new Exception("Interrupted By");
-            exception.setStackTrace(interrupterStack.stream().toArray(StackTraceElement[]::new));
-            TrinoException newException = new TrinoException(GENERIC_INTERNAL_ERROR, "Driver was interrupted", exception);
-            newException.addSuppressed(t);
-            driverContext.failed(newException);
-            throw newException;
+            // if the current operator is not finished and next operator isn't blocked and needs input...
+            if (!current.isFinished() && getBlockedFuture(next).isEmpty() && next.needsInput()) {
+                // get an output page from current operator
+                Page page = current.getOutput();
+                current.getOperatorContext().recordGetOutput(operationTimer, page);
+
+                // if we got an output page, add it to the next operator
+                if (page != null && page.getPositionCount() != 0) {
+                    next.addInput(page);
+                    next.getOperatorContext().recordAddInput(operationTimer, page);
+                    movedPage = true;
+                }
+
+                if (current instanceof SourceOperator) {
+                    movedPage = true;
+                }
+            }
+
+            // if current operator is finished...
+            if (current.isFinished()) {
+                // let next operator know there will be no more data
+                next.finish();
+                next.getOperatorContext().recordFinish(operationTimer);
+            }
         }
+
+        for (int index = activeOperators.size() - 1; index >= 0; index--) {
+            if (activeOperators.get(index).isFinished()) {
+                // close and remove this operator and all source operators
+                List<Operator> finishedOperators = this.activeOperators.subList(0, index + 1);
+                Throwable throwable = closeAndDestroyOperators(finishedOperators);
+                finishedOperators.clear();
+                if (throwable != null) {
+                    throwIfUnchecked(throwable);
+                    throw new RuntimeException(throwable);
+                }
+                // Finish the next operator, which is now the first operator.
+                if (!activeOperators.isEmpty()) {
+                    Operator newRootOperator = activeOperators.get(0);
+                    newRootOperator.finish();
+                    newRootOperator.getOperatorContext().recordFinish(operationTimer);
+                }
+                break;
+            }
+        }
+
+        // if we did not move any pages, check if we are blocked
+        if (!movedPage) {
+            List<Operator> blockedOperators = new ArrayList<>();
+            List<ListenableFuture<Void>> blockedFutures = new ArrayList<>();
+            for (Operator operator : activeOperators) {
+                Optional<ListenableFuture<Void>> blocked = getBlockedFuture(operator);
+                if (blocked.isPresent()) {
+                    blockedOperators.add(operator);
+                    blockedFutures.add(blocked.get());
+                }
+            }
+
+            if (!blockedFutures.isEmpty()) {
+                // unblock when the first future is complete
+                ListenableFuture<Void> blocked = firstFinishedFuture(blockedFutures);
+                // driver records serial blocked time
+                driverContext.recordBlocked(blocked);
+                // each blocked operator is responsible for blocking the execution
+                // until one of the operators can continue
+                for (Operator operator : blockedOperators) {
+                    operator.getOperatorContext().recordBlocked(blocked);
+                }
+                return blocked;
+            }
+        }
+
+        return NOT_BLOCKED;
     }
 
     @GuardedBy("exclusiveLock")
@@ -654,20 +659,31 @@ public class Driver
         return result;
     }
 
-    // Note: task cannot return null
-    private <T> Optional<T> tryWithLock(Supplier<T> task)
+    /**
+     * Try to acquire the {@code exclusiveLock} immediately and run a {@code task}
+     * The task will not be interrupted if the {@code Driver} is closed.
+     * <p>
+     * Note: task cannot return null
+     */
+    private <T> Optional<T> tryWithLockUninterruptibly(Supplier<T> task)
     {
-        return tryWithLock(0, TimeUnit.MILLISECONDS, task);
+        return tryWithLock(0, TimeUnit.MILLISECONDS, false, task);
     }
 
-    // Note: task cannot return null
-    private <T> Optional<T> tryWithLock(long timeout, TimeUnit unit, Supplier<T> task)
+    /**
+     * Try to acquire the {@code exclusiveLock} with {@code timeout} and run a {@code task}.
+     * If the {@code interruptOnClose} flag is set to {@code true} the {@code task} will be
+     * interrupted if the {@code Driver} is closed.
+     * <p>
+     * Note: task cannot return null
+     */
+    private <T> Optional<T> tryWithLock(long timeout, TimeUnit unit, boolean interruptOnClose, Supplier<T> task)
     {
         checkLockNotHeld("Lock cannot be reacquired");
 
         boolean acquired = false;
         try {
-            acquired = exclusiveLock.tryLock(timeout, unit);
+            acquired = exclusiveLock.tryLock(timeout, unit, interruptOnClose);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -701,7 +717,7 @@ public class Driver
         // The first condition is for processing the pending updates if this driver is still ALIVE
         // The second condition is to destroy the driver if the state is NEED_DESTRUCTION
         while (((pendingSplitAssignmentUpdates.get() != null && state.get() == State.ALIVE) || state.get() == State.NEED_DESTRUCTION)
-                && exclusiveLock.tryLock()) {
+                && exclusiveLock.tryLock(interruptOnClose)) {
             try {
                 try {
                     processNewSources();
@@ -724,6 +740,8 @@ public class Driver
 
         @GuardedBy("this")
         private Thread currentOwner;
+        @GuardedBy("this")
+        private boolean currentOwnerInterruptionAllowed;
 
         @GuardedBy("this")
         private List<StackTraceElement> interrupterStack;
@@ -733,31 +751,32 @@ public class Driver
             return lock.isHeldByCurrentThread();
         }
 
-        public boolean tryLock()
+        public boolean tryLock(boolean currentThreadInterruptionAllowed)
         {
             checkState(!lock.isHeldByCurrentThread(), "Lock is not reentrant");
             boolean acquired = lock.tryLock();
             if (acquired) {
-                setOwner();
+                setOwner(currentThreadInterruptionAllowed);
             }
             return acquired;
         }
 
-        public boolean tryLock(long timeout, TimeUnit unit)
+        public boolean tryLock(long timeout, TimeUnit unit, boolean currentThreadInterruptionAllowed)
                 throws InterruptedException
         {
             checkState(!lock.isHeldByCurrentThread(), "Lock is not reentrant");
             boolean acquired = lock.tryLock(timeout, unit);
             if (acquired) {
-                setOwner();
+                setOwner(currentThreadInterruptionAllowed);
             }
             return acquired;
         }
 
-        private synchronized void setOwner()
+        private synchronized void setOwner(boolean interruptionAllowed)
         {
             checkState(lock.isHeldByCurrentThread(), "Current thread does not hold lock");
             currentOwner = Thread.currentThread();
+            currentOwnerInterruptionAllowed = interruptionAllowed;
             // NOTE: We do not use interrupted stack information to know that another
             // thread has attempted to interrupt the driver, and interrupt this new lock
             // owner.  The interrupted stack information is for debugging purposes only.
@@ -769,6 +788,7 @@ public class Driver
         {
             checkState(lock.isHeldByCurrentThread(), "Current thread does not hold lock");
             currentOwner = null;
+            currentOwnerInterruptionAllowed = false;
             lock.unlock();
         }
 
@@ -779,6 +799,9 @@ public class Driver
 
         public synchronized void interruptCurrentOwner()
         {
+            if (!currentOwnerInterruptionAllowed) {
+                return;
+            }
             // there is a benign race condition here were the lock holder
             // can be change between attempting to get lock and grabbing
             // the synchronized lock here, but in either case we want to

@@ -30,12 +30,15 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+
 public class TestPinotClient
 {
     @Test
     public void testBrokersParsed()
     {
-        HttpClient httpClient = new TestingHttpClient((request) -> TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8, "{\n" +
+        HttpClient httpClient = new TestingHttpClient(request -> TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8, "{\n" +
                 "  \"tableName\": \"dummy\",\n" +
                 "  \"brokers\": [\n" +
                 "    {\n" +
@@ -75,12 +78,13 @@ public class TestPinotClient
                 "  ]\n" +
                 "}"));
         PinotConfig pinotConfig = new PinotConfig()
-                .setMetadataCacheExpiry(new Duration(0, TimeUnit.MILLISECONDS))
+                .setMetadataCacheExpiry(new Duration(1, TimeUnit.MILLISECONDS))
                 .setControllerUrls("localhost:7900");
         PinotClient pinotClient = new PinotClient(
                 pinotConfig,
                 new IdentityPinotHostMapper(),
                 httpClient,
+                newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-testing")),
                 MetadataUtil.TABLES_JSON_CODEC,
                 MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC,
                 MetadataUtil.TIME_BOUNDARY_JSON_CODEC,

@@ -331,7 +331,6 @@ public class DriverContext
 
         DataSize internalNetworkInputDataSize;
         long internalNetworkInputPositions;
-        Duration internalNetworkInputReadTime;
 
         DataSize rawInputDataSize;
         long rawInputPositions;
@@ -339,16 +338,17 @@ public class DriverContext
 
         DataSize processedInputDataSize;
         long processedInputPositions;
+        Duration inputBlockedTime;
         DataSize outputDataSize;
         long outputPositions;
+        Duration outputBlockedTime;
         if (inputOperator != null) {
             physicalInputDataSize = inputOperator.getPhysicalInputDataSize();
             physicalInputPositions = inputOperator.getPhysicalInputPositions();
-            physicalInputReadTime = inputOperator.getAddInputWall();
+            physicalInputReadTime = inputOperator.getPhysicalInputReadTime();
 
             internalNetworkInputDataSize = inputOperator.getInternalNetworkInputDataSize();
             internalNetworkInputPositions = inputOperator.getInternalNetworkInputPositions();
-            internalNetworkInputReadTime = inputOperator.getAddInputWall();
 
             rawInputDataSize = inputOperator.getRawInputDataSize();
             rawInputPositions = inputOperator.getInputPositions();
@@ -357,9 +357,13 @@ public class DriverContext
             processedInputDataSize = inputOperator.getInputDataSize();
             processedInputPositions = inputOperator.getInputPositions();
 
+            inputBlockedTime = inputOperator.getBlockedWall();
+
             OperatorStats outputOperator = requireNonNull(getLast(operators, null));
             outputDataSize = outputOperator.getOutputDataSize();
             outputPositions = outputOperator.getOutputPositions();
+
+            outputBlockedTime = outputOperator.getBlockedWall();
         }
         else {
             physicalInputDataSize = DataSize.ofBytes(0);
@@ -368,7 +372,6 @@ public class DriverContext
 
             internalNetworkInputDataSize = DataSize.ofBytes(0);
             internalNetworkInputPositions = 0;
-            internalNetworkInputReadTime = new Duration(0, MILLISECONDS);
 
             rawInputDataSize = DataSize.ofBytes(0);
             rawInputPositions = 0;
@@ -377,8 +380,12 @@ public class DriverContext
             processedInputDataSize = DataSize.ofBytes(0);
             processedInputPositions = 0;
 
+            inputBlockedTime = new Duration(0, MILLISECONDS);
+
             outputDataSize = DataSize.ofBytes(0);
             outputPositions = 0;
+
+            outputBlockedTime = new Duration(0, MILLISECONDS);
         }
 
         ImmutableSet.Builder<BlockedReason> builder = ImmutableSet.builder();
@@ -409,14 +416,15 @@ public class DriverContext
                 physicalInputReadTime,
                 internalNetworkInputDataSize.succinct(),
                 internalNetworkInputPositions,
-                internalNetworkInputReadTime,
                 rawInputDataSize.succinct(),
                 rawInputPositions,
                 rawInputReadTime,
                 processedInputDataSize.succinct(),
                 processedInputPositions,
+                inputBlockedTime,
                 outputDataSize.succinct(),
                 outputPositions,
+                outputBlockedTime,
                 succinctBytes(physicalWrittenDataSize),
                 operators);
     }

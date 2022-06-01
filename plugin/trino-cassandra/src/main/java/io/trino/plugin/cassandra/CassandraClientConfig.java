@@ -13,9 +13,10 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.ProtocolVersion;
-import com.datastax.driver.core.SocketOptions;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
+import com.datastax.oss.driver.api.core.DefaultProtocolVersion;
+import com.datastax.oss.driver.api.core.ProtocolVersion;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
@@ -58,11 +59,11 @@ public class CassandraClientConfig
     private boolean allowDropTable;
     private String username;
     private String password;
-    private Duration clientReadTimeout = new Duration(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS);
-    private Duration clientConnectTimeout = new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS);
+    private Duration clientReadTimeout = new Duration(12_000, MILLISECONDS);
+    private Duration clientConnectTimeout = new Duration(5_000, MILLISECONDS);
     private Integer clientSoLinger;
     private RetryPolicyType retryPolicy = RetryPolicyType.DEFAULT;
-    private boolean useDCAware;
+    private boolean useDCAware = true;
     private String dcAwareLocalDC;
     private int dcAwareUsedHostsPerRemoteDc;
     private boolean dcAwareAllowRemoteDCsForLocal;
@@ -119,7 +120,7 @@ public class CassandraClientConfig
     }
 
     @Config("cassandra.consistency-level")
-    public CassandraClientConfig setConsistencyLevel(ConsistencyLevel level)
+    public CassandraClientConfig setConsistencyLevel(DefaultConsistencyLevel level)
     {
         this.consistencyLevel = level;
         return this;
@@ -411,7 +412,7 @@ public class CassandraClientConfig
     }
 
     @Config("cassandra.protocol-version")
-    public CassandraClientConfig setProtocolVersion(ProtocolVersion version)
+    public CassandraClientConfig setProtocolVersion(DefaultProtocolVersion version)
     {
         this.protocolVersion = version;
         return this;

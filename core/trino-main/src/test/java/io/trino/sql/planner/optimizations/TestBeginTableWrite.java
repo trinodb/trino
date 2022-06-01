@@ -19,7 +19,9 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableMetadata;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -31,6 +33,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.function.Function;
 
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.sql.planner.TypeProvider.empty;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -131,7 +134,7 @@ public class TestBeginTableWrite
     private void applyOptimization(Function<PlanBuilder, PlanNode> planProvider)
     {
         Metadata metadata = new MockMetadata();
-        new BeginTableWrite(metadata)
+        new BeginTableWrite(metadata, createTestingFunctionManager())
                 .optimize(
                         planProvider.apply(new PlanBuilder(new PlanNodeIdAllocator(), metadata, testSessionBuilder().build())),
                         testSessionBuilder().build(),
@@ -154,6 +157,14 @@ public class TestBeginTableWrite
         public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
         {
             return tableHandle;
+        }
+
+        @Override
+        public TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
+        {
+            return new TableMetadata(
+                    tableHandle.getCatalogName(),
+                    new ConnectorTableMetadata(new SchemaTableName("sch", "tab"), ImmutableList.of()));
         }
     }
 }

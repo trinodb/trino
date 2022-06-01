@@ -115,35 +115,263 @@ public class TestClickHouseTypeMapping
     }
 
     @Test
-    public void testBasicTypes()
+    public void testTinyint()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
-                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
-                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("tinyint", "-128", TINYINT, "TINYINT '-128'") // min value in ClickHouse and Trino
                 .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
-                .addRoundTrip("double", "123.45", DOUBLE, "DOUBLE '123.45'")
-                .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
+                .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'") // max value in ClickHouse and Trino
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"))
 
-                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_basic_types"))
-
-                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
-                .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
-                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
-                .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
-                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
-                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
-
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
+                .addRoundTrip("Nullable(tinyint)", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_tinyint"));
 
         SqlDataTypeTest.create()
-                .addRoundTrip("Nullable(bigint)", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
-                .addRoundTrip("Nullable(integer)", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"));
+    }
+
+    @Test
+    public void testUnsupportedTinyint()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint", "-129", TINYINT, "TINYINT '127'")
+                .addRoundTrip("tinyint", "128", TINYINT, "TINYINT '-128'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_tinyint"));
+    }
+
+    @Test
+    public void testSmallint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in ClickHouse and Trino
+                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in ClickHouse and Trino
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"))
+
                 .addRoundTrip("Nullable(smallint)", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
-                .addRoundTrip("Nullable(tinyint)", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
-                .addRoundTrip("Nullable(double)", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
-                .addRoundTrip("Nullable(real)", "NULL", REAL, "CAST(NULL AS REAL)")
-                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_nullable_types"));
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_smallint"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
+    }
+
+    @Test
+    public void testUnsupportedSmallint()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "-32769", SMALLINT, "SMALLINT '32767'")
+                .addRoundTrip("smallint", "32768", SMALLINT, "SMALLINT '-32768'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_smallint"));
+    }
+
+    @Test
+    public void testInteger()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648") // min value in ClickHouse and Trino
+                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in ClickHouse and Trino
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_int"))
+
+                .addRoundTrip("Nullable(integer)", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_int"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_int"));
+    }
+
+    @Test
+    public void testUnsupportedInteger()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "-2147483649", INTEGER, "INTEGER '2147483647'")
+                .addRoundTrip("integer", "2147483648", INTEGER, "INTEGER '-2147483648'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_integer"));
+    }
+
+    @Test
+    public void testBigint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in ClickHouse and Trino
+                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in ClickHouse and Trino
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"))
+
+                .addRoundTrip("Nullable(bigint)", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_bigint"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
+    }
+
+    @Test
+    public void testUnsupportedBigint()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "-9223372036854775809", BIGINT, "BIGINT '9223372036854775807'")
+                .addRoundTrip("bigint", "9223372036854775808", BIGINT, "BIGINT '-9223372036854775808'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_bigint"));
+    }
+
+    @Test
+    public void testUint8()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt8", "0", SMALLINT, "SMALLINT '0'") // min value in ClickHouse
+                .addRoundTrip("UInt8", "255", SMALLINT, "SMALLINT '255'") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt8)", "NULL", SMALLINT, "CAST(null AS SMALLINT)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_uint8"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt8", "0", SMALLINT, "SMALLINT '0'") // min value in ClickHouse
+                .addRoundTrip("UInt8", "255", SMALLINT, "SMALLINT '255'") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt8)", "NULL", SMALLINT, "CAST(null AS SMALLINT)")
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_uint8"));
+    }
+
+    @Test
+    public void testUnsupportedUint8()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt8", "-1", SMALLINT, "SMALLINT '255'")
+                .addRoundTrip("UInt8", "256", SMALLINT, "SMALLINT '0'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_uint8"));
+
+        // Prevent writing incorrect results in the connector
+        try (TestTable table = new TestTable(clickhouseServer::execute, "tpch.test_unsupported_uint8", "(value UInt8) ENGINE=Log")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (-1)", table.getName()),
+                    "Value must be between 0 and 255 in ClickHouse: -1");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (256)", table.getName()),
+                    "Value must be between 0 and 255 in ClickHouse: 256");
+        }
+    }
+
+    @Test
+    public void testUint16()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt16", "0", INTEGER, "0") // min value in ClickHouse
+                .addRoundTrip("UInt16", "65535", INTEGER, "65535") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt16)", "NULL", INTEGER, "CAST(null AS INTEGER)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_uint16"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt16", "0", INTEGER, "0") // min value in ClickHouse
+                .addRoundTrip("UInt16", "65535", INTEGER, "65535") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt16)", "NULL", INTEGER, "CAST(null AS INTEGER)")
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_uint16"));
+    }
+
+    @Test
+    public void testUnsupportedUint16()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt16", "-1", INTEGER, "65535")
+                .addRoundTrip("UInt16", "65536", INTEGER, "0")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_uint16"));
+
+        // Prevent writing incorrect results in the connector
+        try (TestTable table = new TestTable(clickhouseServer::execute, "tpch.test_unsupported_uint16", "(value UInt16) ENGINE=Log")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (-1)", table.getName()),
+                    "Value must be between 0 and 65535 in ClickHouse: -1");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (65536)", table.getName()),
+                    "Value must be between 0 and 65535 in ClickHouse: 65536");
+        }
+    }
+
+    @Test
+    public void testUint32()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt32", "0", BIGINT, "BIGINT '0'") // min value in ClickHouse
+                .addRoundTrip("UInt32", "4294967295", BIGINT, "BIGINT '4294967295'") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt32)", "NULL", BIGINT, "CAST(null AS BIGINT)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_uint32"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt32", "BIGINT '0'", BIGINT, "BIGINT '0'") // min value in ClickHouse
+                .addRoundTrip("UInt32", "BIGINT '4294967295'", BIGINT, "BIGINT '4294967295'") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt32)", "NULL", BIGINT, "CAST(null AS BIGINT)")
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_uint32"));
+    }
+
+    @Test
+    public void testUnsupportedUint32()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt32", "-1", BIGINT, "BIGINT '4294967295'")
+                .addRoundTrip("UInt32", "4294967296", BIGINT, "BIGINT '0'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_uint32"));
+
+        // Prevent writing incorrect results in the connector
+        try (TestTable table = new TestTable(clickhouseServer::execute, "tpch.test_unsupported_uint32", "(value UInt32) ENGINE=Log")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (CAST('-1' AS BIGINT))", table.getName()),
+                    "Value must be between 0 and 4294967295 in ClickHouse: -1");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (CAST('4294967296' AS BIGINT))", table.getName()),
+                    "Value must be between 0 and 4294967295 in ClickHouse: 4294967296");
+        }
+    }
+
+    @Test
+    public void testUint64()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt64", "0", createDecimalType(20), "CAST('0' AS decimal(20, 0))") // min value in ClickHouse
+                .addRoundTrip("UInt64", "18446744073709551615", createDecimalType(20), "CAST('18446744073709551615' AS decimal(20, 0))") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt64)", "NULL", createDecimalType(20), "CAST(null AS decimal(20, 0))")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_uint64"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt64", "CAST('0' AS decimal(20, 0))", createDecimalType(20), "CAST('0' AS decimal(20, 0))") // min value in ClickHouse
+                .addRoundTrip("UInt64", "CAST('18446744073709551615' AS decimal(20, 0))", createDecimalType(20), "CAST('18446744073709551615' AS decimal(20, 0))") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt64)", "NULL", createDecimalType(20), "CAST(null AS decimal(20, 0))")
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_uint64"));
+    }
+
+    @Test
+    public void testUnsupportedUint64()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt64", "-1", createDecimalType(20), "CAST('18446744073709551615' AS decimal(20, 0))")
+                .addRoundTrip("UInt64", "18446744073709551616", createDecimalType(20), "CAST('0' AS decimal(20, 0))")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_uint64"));
+
+        // Prevent writing incorrect results in the connector
+        try (TestTable table = new TestTable(clickhouseServer::execute, "tpch.test_unsupported_uint64", "(value UInt64) ENGINE=Log")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (CAST('-1' AS decimal(20, 0)))", table.getName()),
+                    "Value must be between 0 and 18446744073709551615 in ClickHouse: -1");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (CAST('18446744073709551616' AS decimal(20, 0)))", table.getName()),
+                    "Value must be between 0 and 18446744073709551615 in ClickHouse: 18446744073709551616");
+        }
     }
 
     @Test
@@ -397,12 +625,18 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
                 .addRoundTrip("date", "DATE '2106-02-07'", DATE, "DATE '2106-02-07'") // max value in ClickHouse
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
 
         // Null
         SqlDataTypeTest.create()
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
         SqlDataTypeTest.create()
                 .addRoundTrip("Nullable(date)", "NULL", DATE, "CAST(NULL AS DATE)")
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"));
@@ -435,8 +669,10 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
                 .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
                 .addRoundTrip("timestamp(0)", "timestamp '2105-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '2105-12-31 23:59:59'") // max value in ClickHouse
-                .execute(getQueryRunner(), session, trinoCreateAsSelect("tpch.test_timestamp"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert("tpch.test_timestamp"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
 
         addTimestampRoundTrips("timestamp")
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_timestamp"));
@@ -536,7 +772,7 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("IPv6", "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", IPADDRESS, "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'")
                 .addRoundTrip("Nullable(IPv4)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
                 .addRoundTrip("Nullable(IPv6)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
-                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_ip"));
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_ip"));
     }
 
     private static Session mapStringAsVarcharSession()
@@ -573,7 +809,7 @@ public class TestClickHouseTypeMapping
         return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(clickhouseServer::execute), tableNamePrefix);
     }
 
-    private DataSetup clickhouseCreateTrinoInsert(String tableNamePrefix)
+    private DataSetup clickhouseCreateAndTrinoInsert(String tableNamePrefix)
     {
         return new CreateAndTrinoInsertDataSetup(new ClickHouseSqlExecutor(clickhouseServer::execute), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }

@@ -36,7 +36,7 @@ public class TestPostgreSqlConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("postgresql.array-mapping", "AS_ARRAY")
                 .put("postgresql.include-system-tables", "true")
                 .put("postgresql.experimental.enable-string-pushdown-with-collate", "true")

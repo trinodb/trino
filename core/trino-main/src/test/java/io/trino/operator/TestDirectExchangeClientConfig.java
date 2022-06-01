@@ -47,7 +47,7 @@ public class TestDirectExchangeClientConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("exchange.max-buffer-size", "1GB")
                 .put("exchange.concurrent-request-multiplier", "13")
                 .put("exchange.min-error-duration", "13s")

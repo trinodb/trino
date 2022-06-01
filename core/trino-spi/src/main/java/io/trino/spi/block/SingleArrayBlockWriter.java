@@ -16,7 +16,8 @@ package io.trino.spi.block;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static java.lang.String.format;
 
@@ -44,6 +45,12 @@ public class SingleArrayBlockWriter
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
+    }
+
+    @Override
     public long getSizeInBytes()
     {
         return blockBuilder.getSizeInBytes() - initialBlockBuilderSize;
@@ -56,7 +63,7 @@ public class SingleArrayBlockWriter
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(blockBuilder, blockBuilder.getRetainedSizeInBytes());
         consumer.accept(this, (long) INSTANCE_SIZE);

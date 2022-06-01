@@ -2,6 +2,10 @@
 Oracle connector
 ================
 
+.. raw:: html
+
+  <img src="../_static/img/oracle.png" class="connector-logo">
+
 The Oracle connector allows querying and creating tables in an external Oracle
 database. Connectors let Trino join data provided by different databases,
 like Oracle and Hive, or different Oracle database instances.
@@ -25,16 +29,20 @@ properties in the file:
 .. code-block:: text
 
     connector.name=oracle
-    // The exact format of connection-url varies by Oracle version. Refer to
-    // the Oracle Database documentation for version-specific information on the
-    // JDBC Thin driver.
-    connection-url=jdbc:oracle:thin:@//example.net:1521/ORCLCDB
+    # The correct syntax of the connection-url varies by Oracle version and
+    # configuration. The following example URL connects to an Oracle SID named
+    # "orcl".
+    connection-url=jdbc:oracle:thin:@example.net:1521:orcl
     connection-user=root
     connection-password=secret
 
 The ``connection-url`` defines the connection information and parameters to pass
-to the Oracle JDBC Thin driver. See the `Oracle Database JDBC driver
-documentation <https://docs.oracle.com/cd/B28359_01/java.111/b31224/urls.htm#BEIDHCBA>`_
+to the JDBC driver. The Oracle connector uses the Oracle JDBC Thin driver,
+and the syntax of the URL may be different depending on your Oracle
+configuration. For example, the connection URL is different if you are
+connecting to an Oracle SID or an Oracle service name. See the `Oracle
+Database JDBC driver documentation
+<https://docs.oracle.com/en/database/oracle/oracle-database/21/jjdbc/data-sources-and-URLs.html#GUID-088B1600-C6C2-4F19-A020-2DAF8FE1F1C3>`_
 for more information.
 
 The ``connection-user`` and ``connection-password`` are typically required and
@@ -369,8 +377,37 @@ Number to decimal configuration properties
 
     - ``UNNECESSARY``
 
+.. _oracle-sql-support:
+
+SQL support
+-----------
+
+The connector provides read access and write access to data and metadata in
+Oracle. In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following statements:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/delete`
+* :doc:`/sql/truncate`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/alter-table`
+* :doc:`/sql/comment`
+
+.. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
 Synonyms
---------
+^^^^^^^^
 
 Based on performance reasons, Trino disables support for Oracle ``SYNONYM``. To
 include ``SYNONYM``, add the following configuration property:
@@ -382,7 +419,7 @@ include ``SYNONYM``, add the following configuration property:
 .. _oracle-pushdown:
 
 Pushdown
---------
+^^^^^^^^
 
 The connector supports pushdown for a number of operations:
 
@@ -390,10 +427,35 @@ The connector supports pushdown for a number of operations:
 * :ref:`limit-pushdown`
 * :ref:`topn-pushdown`
 
+In addition, the connector supports :ref:`aggregation-pushdown` for the
+following functions:
+
+* :func:`avg()`
+* :func:`count()`, also ``count(distinct x)``
+* :func:`max()`
+* :func:`min()`
+* :func:`sum()`
+
+Pushdown is only supported for ``DOUBLE`` type columns with the
+following functions:
+
+* :func:`stddev()` and :func:`stddev_samp()`
+* :func:`stddev_pop()`
+* :func:`var_pop()`
+* :func:`variance()` and :func:`var_samp()`
+
+Pushdown is only supported for ``REAL`` or ``DOUBLE`` type column
+with the following functions:
+
+* :func:`covar_samp()`
+* :func:`covar_pop()`
+
+.. include:: join-pushdown-enabled-false.fragment
+
 .. _oracle-predicate-pushdown:
 
 Predicate pushdown support
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""
 
 The connector does not support pushdown of any predicates on columns that use
 the ``CLOB``, ``NCLOB``, ``BLOB``, or ``RAW(n)`` Oracle database types, or Trino
@@ -434,26 +496,3 @@ since ``name`` is a column of type ``VARCHAR(25)``, which maps to
 
     SELECT * FROM nation WHERE name > 'CANADA';
     SELECT * FROM nation WHERE name = 'CANADA';
-
-.. _oracle-sql-support:
-
-SQL support
------------
-
-The connector provides read access and write access to data and metadata in
-Oracle. In addition to the :ref:`globally available <sql-globally-available>`
-and :ref:`read operation <sql-read-operations>` statements, the connector
-supports the following statements:
-
-* :doc:`/sql/insert`
-* :doc:`/sql/delete`
-* :doc:`/sql/truncate`
-* :doc:`/sql/create-table`
-* :doc:`/sql/create-table-as`
-* :doc:`/sql/drop-table`
-* :doc:`/sql/alter-table`
-* :doc:`/sql/comment`
-
-.. include:: sql-delete-limitation.fragment
-
-.. include:: alter-table-limitation.fragment

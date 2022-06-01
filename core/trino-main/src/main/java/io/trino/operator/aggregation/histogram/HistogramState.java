@@ -17,7 +17,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 
-@AccumulatorStateMetadata(stateFactoryClass = HistogramStateFactory.class, stateSerializerClass = HistogramStateSerializer.class)
+@AccumulatorStateMetadata(
+        stateFactoryClass = HistogramStateFactory.class,
+        stateSerializerClass = HistogramStateSerializer.class,
+        typeParameters = "T",
+        serializedType = "map(T, BIGINT)")
 public interface HistogramState
         extends AccumulatorState
 {

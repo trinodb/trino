@@ -51,7 +51,7 @@ stored in memory. In addition to the :ref:`globally available
 <sql-globally-available>` and :ref:`read operation <sql-read-operations>`
 statements, the connector supports the following features:
 
-* :ref:`sql-data-management`
+* :doc:`/sql/insert`
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`

@@ -25,6 +25,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
@@ -75,6 +76,11 @@ public interface JdbcClient
         return Optional.empty();
     }
 
+    default Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return Optional.empty();
+    }
+
     ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle);
 
     Connection getConnection(ConnectorSession session, JdbcSplit split)
@@ -116,6 +122,17 @@ public interface JdbcClient
     boolean supportsLimit();
 
     boolean isLimitGuaranteed(ConnectorSession session);
+
+    default Optional<String> getTableComment(ResultSet resultSet)
+            throws SQLException
+    {
+        return Optional.ofNullable(resultSet.getString("REMARKS"));
+    }
+
+    default void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting table comments");
+    }
 
     default void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {

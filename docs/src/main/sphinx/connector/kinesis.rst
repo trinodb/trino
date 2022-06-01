@@ -2,6 +2,10 @@
 Kinesis connector
 =================
 
+.. raw:: html
+
+  <img src="../_static/img/kinesis.png" class="connector-logo">
+
 `Kinesis <https://aws.amazon.com/kinesis/>`_ is Amazon's fully managed cloud-based service for real-time processing of large, distributed data streams.
 
 This connector allows the use of Kinesis streams as tables in Trino, such that each data-blob/message

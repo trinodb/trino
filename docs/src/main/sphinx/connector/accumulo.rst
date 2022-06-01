@@ -1,8 +1,9 @@
 Accumulo connector
 ==================
 
-Overview
---------
+.. raw:: html
+
+  <img src="../_static/img/accumulo.png" class="connector-logo">
 
 The Accumulo connector supports reading and writing data from
 `Apache Accumulo <https://accumulo.apache.org/>`_.
@@ -704,3 +705,5 @@ statements, the connector supports the following features:
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`

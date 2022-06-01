@@ -60,7 +60,9 @@ public interface Exchange
     ExchangeSinkInstanceHandle instantiateSink(ExchangeSinkHandle sinkHandle, int taskAttemptId);
 
     /**
-     * Called by the engine when an attempt finishes successfully
+     * Called by the engine when an attempt finishes successfully.
+     * <p>
+     * This method is expected to be lightweight. An implementation shouldn't perform any long running blocking operations within this method.
      */
     void sinkFinished(ExchangeSinkInstanceHandle handle);
 

@@ -16,8 +16,8 @@ package io.trino.plugin.redis.decoder.hash;
 import com.google.common.collect.ImmutableMap;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
-import io.trino.decoder.RowDecoder;
 import io.trino.plugin.redis.RedisFieldDecoder;
+import io.trino.plugin.redis.decoder.RedisRowDecoder;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,7 +30,7 @@ import static java.util.Collections.emptyMap;
  * The row decoder for the Redis values that are stored in Hash format.
  */
 public class HashRedisRowDecoder
-        implements RowDecoder
+        implements RedisRowDecoder
 {
     public static final String NAME = "hash";
 
@@ -42,7 +42,7 @@ public class HashRedisRowDecoder
     }
 
     @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data, Map<String, String> dataMap)
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(Map<String, String> dataMap)
     {
         if (dataMap == null) {
             return Optional.of(emptyMap());
@@ -61,5 +61,11 @@ public class HashRedisRowDecoder
             decodedRow.put(columnHandle, decoder.decode(valueField, columnHandle));
         }
         return Optional.of(decodedRow);
+    }
+
+    @Override
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data)
+    {
+        throw new UnsupportedOperationException();
     }
 }

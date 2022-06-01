@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>371-SNAPSHOT</version>
+        <version>383-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -197,6 +197,11 @@
 
         <dependency>
             <groupId>com.linkedin.coral</groupId>
+            <artifactId>coral-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.linkedin.coral</groupId>
             <artifactId>coral-hive</artifactId>
         </dependency>
 
@@ -316,6 +321,45 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.apis</groupId>
+                    <artifactId>google-api-services-storage</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.api-client</groupId>
+                    <artifactId>google-api-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.auto.value</groupId>
+                    <artifactId>auto-value-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.code.gson</groupId>
+                    <artifactId>gson</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.http-client</groupId>
+                    <artifactId>google-http-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.http-client</groupId>
+                    <artifactId>google-http-client-jackson2</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
@@ -355,6 +399,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-testing-services</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-tpcds</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -425,6 +475,17 @@
                                 <exclude>**/TestHive*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestHiveFaultTolerantExecution*.java</exclude>
                             </excludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.basepom.maven</groupId>
+                        <artifactId>duplicate-finder-maven-plugin</artifactId>
+                        <configuration>
+                            <ignoredResourcePatterns>
+                                <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
+                                <ignoredResourcePattern>mime.types</ignoredResourcePattern>
+                                <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                            </ignoredResourcePatterns>
                         </configuration>
                     </plugin>
                 </plugins>

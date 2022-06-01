@@ -16,6 +16,7 @@ package io.trino.tests;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
@@ -208,6 +209,16 @@ public class TestMockConnector
         assertUpdate("CREATE SCHEMA mock.test_schema WITH (boolean_schema_property = true)");
         assertThatThrownBy(() -> assertUpdate("CREATE SCHEMA mock.test_schema WITH (unknown_property = true)"))
                 .hasMessage("Catalog 'mock' schema property 'unknown_property' does not exist");
+    }
+
+    @Test
+    public void testExecuteWithSchemaProperties()
+    {
+        String query = "CREATE SCHEMA mock.test_schema WITH (boolean_schema_property = ?)";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+        computeActual(session, "EXECUTE my_query USING true");
     }
 
     @Test

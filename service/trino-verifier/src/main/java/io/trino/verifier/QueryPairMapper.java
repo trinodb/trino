@@ -34,21 +34,39 @@ public class QueryPairMapper
     public QueryPair map(ResultSet resultSet, StatementContext context)
             throws SQLException
     {
-        Map<String, String> sessionProperties = ImmutableMap.of();
-        String json = resultSet.getString("session_properties_json");
-        if (json != null) {
-            sessionProperties = propertiesJsonCodec.fromJson(json);
+        Map<String, String> testSessionProperties = ImmutableMap.of();
+        String testSessionPropertiesJson = resultSet.getString("test_session_properties_json");
+        if (testSessionPropertiesJson != null) {
+            testSessionProperties = propertiesJsonCodec.fromJson(testSessionPropertiesJson);
+        }
+
+        Map<String, String> controlSessionProperties = ImmutableMap.of();
+        String controlSessionPropertiesJson = resultSet.getString("control_session_properties_json");
+        if (controlSessionPropertiesJson != null) {
+            controlSessionProperties = propertiesJsonCodec.fromJson(controlSessionPropertiesJson);
         }
 
         return new QueryPair(
                 resultSet.getString("suite"),
                 resultSet.getString("name"),
-                new Query(resultSet.getString("test_catalog"), resultSet.getString("test_schema"), fromJsonString(resultSet.getString("test_prequeries")), resultSet.getString("test_query"),
+                new Query(
+                        resultSet.getString("test_catalog"),
+                        resultSet.getString("test_schema"),
+                        fromJsonString(resultSet.getString("test_prequeries")),
+                        resultSet.getString("test_query"),
                         fromJsonString(resultSet.getString("test_postqueries")),
-                        resultSet.getString("test_username"), resultSet.getString("test_password"), sessionProperties),
-                new Query(resultSet.getString("control_catalog"), resultSet.getString("control_schema"), fromJsonString(resultSet.getString("control_prequeries")), resultSet.getString("control_query"),
+                        resultSet.getString("test_username"),
+                        resultSet.getString("test_password"),
+                        testSessionProperties),
+                new Query(
+                        resultSet.getString("control_catalog"),
+                        resultSet.getString("control_schema"),
+                        fromJsonString(resultSet.getString("control_prequeries")),
+                        resultSet.getString("control_query"),
                         fromJsonString(resultSet.getString("control_postqueries")),
-                        resultSet.getString("control_username"), resultSet.getString("control_password"), sessionProperties));
+                        resultSet.getString("control_username"),
+                        resultSet.getString("control_password"),
+                        controlSessionProperties));
     }
 
     private static List<String> fromJsonString(String jsonString)

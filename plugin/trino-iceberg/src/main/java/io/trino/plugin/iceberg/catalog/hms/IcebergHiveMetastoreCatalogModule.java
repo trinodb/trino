@@ -14,10 +14,15 @@
 package io.trino.plugin.iceberg.catalog.hms;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.hive.metastore.DecoratedHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
+import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
+import io.trino.plugin.iceberg.catalog.IcebergCatalogModule.MetastoreValidator;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 
 public class IcebergHiveMetastoreCatalogModule
         extends AbstractConfigurationAwareModule
@@ -27,5 +32,9 @@ public class IcebergHiveMetastoreCatalogModule
     {
         install(new ThriftMetastoreModule());
         binder.bind(IcebergTableOperationsProvider.class).to(HiveMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
+        binder.bind(TrinoCatalogFactory.class).to(TrinoHiveCatalogFactory.class).in(Scopes.SINGLETON);
+        binder.bind(MetastoreValidator.class).asEagerSingleton();
+        binder.bind(Key.get(boolean.class, TranslateHiveViews.class)).toInstance(false);
+        install(new DecoratedHiveMetastoreModule());
     }
 }

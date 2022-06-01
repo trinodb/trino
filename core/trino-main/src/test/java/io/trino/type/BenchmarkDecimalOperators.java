@@ -603,7 +603,7 @@ public class BenchmarkDecimalOperators
 
         protected void generateProcessor(String expression)
         {
-            processor = new ExpressionCompiler(PLANNER_CONTEXT.getMetadata(), new PageFunctionCompiler(PLANNER_CONTEXT.getMetadata(), 0)).compilePageProcessor(Optional.empty(), ImmutableList.of(rowExpression(expression))).get();
+            processor = new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0)).compilePageProcessor(Optional.empty(), ImmutableList.of(rowExpression(expression))).get();
         }
 
         protected void setDoubleMaxValue(double doubleMaxValue)
@@ -620,6 +620,7 @@ public class BenchmarkDecimalOperators
                     typeAnalyzer.getTypes(TEST_SESSION, TypeProvider.copyOf(symbolTypes), expression),
                     sourceLayout,
                     PLANNER_CONTEXT.getMetadata(),
+                    PLANNER_CONTEXT.getFunctionManager(),
                     TEST_SESSION,
                     true);
         }

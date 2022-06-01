@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.mongodb.MongoIndex.MongodbIndexKey;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -34,11 +35,13 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.NotFoundException;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 
 import java.util.Collection;
@@ -49,8 +52,11 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -74,6 +80,19 @@ public class MongoMetadata
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return mongoSession.getAllSchemas();
+    }
+
+    @Override
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
+    {
+        checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
+        mongoSession.createSchema(schemaName);
+    }
+
+    @Override
+    public void dropSchema(ConnectorSession session, String schemaName)
+    {
+        mongoSession.dropSchema(schemaName);
     }
 
     @Override
@@ -157,7 +176,7 @@ public class MongoMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        mongoSession.createTable(tableMetadata.getTable(), buildColumnHandles(tableMetadata));
+        mongoSession.createTable(tableMetadata.getTable(), buildColumnHandles(tableMetadata), tableMetadata.getComment());
     }
 
     @Override
@@ -166,6 +185,28 @@ public class MongoMetadata
         MongoTableHandle table = (MongoTableHandle) tableHandle;
 
         mongoSession.dropTable(table.getSchemaTableName());
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
+    {
+        MongoTableHandle table = (MongoTableHandle) tableHandle;
+        mongoSession.setTableComment(table.getSchemaTableName(), comment);
+    }
+
+    @Override
+    public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Optional<String> comment)
+    {
+        MongoTableHandle table = (MongoTableHandle) tableHandle;
+        MongoColumnHandle column = (MongoColumnHandle) columnHandle;
+        mongoSession.setColumnComment(table.getSchemaTableName(), column.getName(), comment);
+    }
+
+    @Override
+    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    {
+        MongoTableHandle table = (MongoTableHandle) tableHandle;
+        mongoSession.renameTable(table.getSchemaTableName(), newTableName);
     }
 
     @Override
@@ -181,11 +222,15 @@ public class MongoMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
+
         List<MongoColumnHandle> columns = buildColumnHandles(tableMetadata);
 
-        mongoSession.createTable(tableMetadata.getTable(), columns);
+        mongoSession.createTable(tableMetadata.getTable(), columns, tableMetadata.getComment());
 
         setRollback(() -> mongoSession.dropTable(tableMetadata.getTable()));
 
@@ -202,8 +247,12 @@ public class MongoMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> insertedColumns, RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
+
         MongoTableHandle table = (MongoTableHandle) tableHandle;
         List<MongoColumnHandle> columns = mongoSession.getTable(table.getSchemaTableName()).getColumns();
 
@@ -317,7 +366,8 @@ public class MongoMetadata
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
-        MongoTableHandle tableHandle = mongoSession.getTable(tableName).getTableHandle();
+        MongoTable mongoTable = mongoSession.getTable(tableName);
+        MongoTableHandle tableHandle = mongoTable.getTableHandle();
 
         List<ColumnMetadata> columns = ImmutableList.copyOf(
                 getColumnHandles(session, tableHandle).values().stream()
@@ -325,13 +375,13 @@ public class MongoMetadata
                         .map(MongoColumnHandle::toColumnMetadata)
                         .collect(toList()));
 
-        return new ConnectorTableMetadata(tableName, columns);
+        return new ConnectorTableMetadata(tableName, columns, ImmutableMap.of(), mongoTable.getComment());
     }
 
     private static List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)
     {
         return tableMetadata.getColumns().stream()
-                .map(m -> new MongoColumnHandle(m.getName(), m.getType(), m.isHidden()))
+                .map(m -> new MongoColumnHandle(m.getName(), m.getType(), m.isHidden(), Optional.ofNullable(m.getComment())))
                 .collect(toList());
     }
 

@@ -15,6 +15,7 @@ package io.trino.sql.relational.optimizer;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.ArrayType;
@@ -53,11 +54,13 @@ import static io.trino.type.JsonType.JSON;
 public class ExpressionOptimizer
 {
     private final Metadata metadata;
+    private final FunctionManager functionManager;
     private final Session session;
 
-    public ExpressionOptimizer(Metadata metadata, Session session)
+    public ExpressionOptimizer(Metadata metadata, FunctionManager functionManager, Session session)
     {
         this.metadata = metadata;
+        this.functionManager = functionManager;
         this.session = session;
     }
 
@@ -93,7 +96,7 @@ public class ExpressionOptimizer
                     .collect(toImmutableList());
 
             // TODO: optimize function calls with lambda arguments. For example, apply(x -> x + 2, 1)
-            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(call.getResolvedFunction());
+            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(session, call.getResolvedFunction());
             if (arguments.stream().allMatch(ConstantExpression.class::isInstance) && functionMetadata.isDeterministic()) {
                 List<Object> constantArguments = arguments.stream()
                         .map(ConstantExpression.class::cast)
@@ -101,7 +104,7 @@ public class ExpressionOptimizer
                         .collect(Collectors.toList());
 
                 try {
-                    InterpretedFunctionInvoker invoker = new InterpretedFunctionInvoker(metadata);
+                    InterpretedFunctionInvoker invoker = new InterpretedFunctionInvoker(functionManager);
                     return constant(invoker.invoke(call.getResolvedFunction(), session.toConnectorSession(), constantArguments), call.getType());
                 }
                 catch (RuntimeException e) {

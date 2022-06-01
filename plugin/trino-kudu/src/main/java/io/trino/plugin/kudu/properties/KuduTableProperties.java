@@ -400,6 +400,10 @@ public final class KuduTableProperties
                 return bound.getBoolean(idx);
             case BINARY:
                 return bound.getBinaryCopy(idx);
+            // TODO: add support for varchar and date types: https://github.com/trinodb/trino/issues/11009
+            case VARCHAR:
+            case DATE:
+                break;
         }
         throw new IllegalStateException("Unhandled type " + type + " for range partition");
     }

@@ -104,7 +104,7 @@ public class TestQueryRunner
     {
         return new ClientSession(
                 server.url("/").uri(),
-                "user",
+                Optional.of("user"),
                 Optional.empty(),
                 "source",
                 Optional.empty(),
@@ -112,7 +112,7 @@ public class TestQueryRunner
                 "clientInfo",
                 "catalog",
                 "schema",
-                "path",
+                null,
                 ZoneId.of("America/Los_Angeles"),
                 Locale.ENGLISH,
                 ImmutableMap.of(),
@@ -157,6 +157,7 @@ public class TestQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 insecureSsl,
                 Optional.empty(),
                 Optional.empty(),

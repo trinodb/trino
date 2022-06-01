@@ -29,7 +29,7 @@ public final class DecimalToDecimalCasts
 {
     public static final Signature SIGNATURE = Signature.builder()
             .operatorType(CAST)
-            .argumentTypes(parseTypeSignature("decimal(from_precision,from_scale)", ImmutableSet.of("from_precision", "from_scale")))
+            .argumentType(parseTypeSignature("decimal(from_precision,from_scale)", ImmutableSet.of("from_precision", "from_scale")))
             .returnType(parseTypeSignature("decimal(to_precision,to_scale)", ImmutableSet.of("to_precision", "to_scale")))
             .build();
 
@@ -40,7 +40,7 @@ public final class DecimalToDecimalCasts
             .choice(choice -> choice
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortToShortCast")
-                            .withExtraParameters((context) -> {
+                            .withExtraParameters(context -> {
                                 DecimalType argumentType = (DecimalType) context.getParameterTypes().get(0);
                                 DecimalType resultType = (DecimalType) context.getReturnType();
                                 long rescale = longTenToNth(Math.abs(resultType.getScale() - argumentType.getScale()));
@@ -51,7 +51,7 @@ public final class DecimalToDecimalCasts
                             }))
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortToLongCast", "longToShortCast", "longToLongCast")
-                            .withExtraParameters((context) -> {
+                            .withExtraParameters(context -> {
                                 DecimalType argumentType = (DecimalType) context.getParameterTypes().get(0);
                                 DecimalType resultType = (DecimalType) context.getReturnType();
                                 return ImmutableList.of(

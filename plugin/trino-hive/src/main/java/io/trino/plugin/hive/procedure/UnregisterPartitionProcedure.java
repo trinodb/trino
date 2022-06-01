@@ -70,10 +70,10 @@ public class UnregisterPartitionProcedure
                 "system",
                 "unregister_partition",
                 ImmutableList.of(
-                        new Procedure.Argument("schema_name", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("partition_columns", new ArrayType(VARCHAR)),
-                        new Procedure.Argument("partition_values", new ArrayType(VARCHAR))),
+                        new Procedure.Argument("SCHEMA_NAME", VARCHAR),
+                        new Procedure.Argument("TABLE_NAME", VARCHAR),
+                        new Procedure.Argument("PARTITION_COLUMNS", new ArrayType(VARCHAR)),
+                        new Procedure.Argument("PARTITION_VALUES", new ArrayType(VARCHAR))),
                 UNREGISTER_PARTITION.bindTo(this));
     }
 

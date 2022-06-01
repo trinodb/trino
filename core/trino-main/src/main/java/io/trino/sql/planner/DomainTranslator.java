@@ -25,6 +25,7 @@ import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
@@ -64,6 +65,7 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.transaction.NoOpTransactionManager;
 import io.trino.type.LikeFunctions;
 import io.trino.type.TypeCoercion;
 
@@ -310,8 +312,10 @@ public final class DomainTranslator
                         plannerContext,
                         new SqlParser(),
                         new AllowAllAccessControl(),
+                        new NoOpTransactionManager(),
                         user -> ImmutableSet.of(),
                         new TableProceduresRegistry(),
+                        new TableFunctionRegistry(),
                         new SessionPropertyManager(),
                         new TablePropertyManager(),
                         new AnalyzePropertyManager(),
@@ -336,7 +340,7 @@ public final class DomainTranslator
             this.literalEncoder = new LiteralEncoder(plannerContext);
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getMetadata());
+            this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         }
@@ -763,7 +767,7 @@ public final class DomainTranslator
             Type valueType = nullableValue.getType();
             Object value = nullableValue.getValue();
             return floorValue(valueType, symbolExpressionType, value)
-                    .map((floorValue) -> rewriteComparisonExpression(symbolExpressionType, symbolExpression, valueType, value, floorValue, comparisonOperator));
+                    .map(floorValue -> rewriteComparisonExpression(symbolExpressionType, symbolExpression, valueType, value, floorValue, comparisonOperator));
         }
 
         private Expression rewriteComparisonExpression(
@@ -833,7 +837,7 @@ public final class DomainTranslator
         private Optional<Object> floorValue(Type fromType, Type toType, Object value)
         {
             return getSaturatedFloorCastOperator(fromType, toType)
-                    .map((operator) -> functionInvoker.invoke(operator, session.toConnectorSession(), value));
+                    .map(operator -> functionInvoker.invoke(operator, session.toConnectorSession(), value));
         }
 
         private Optional<ResolvedFunction> getSaturatedFloorCastOperator(Type fromType, Type toType)
@@ -1004,10 +1008,11 @@ public final class DomainTranslator
             VarcharType varcharType = (VarcharType) type;
 
             Symbol symbol = Symbol.from(node.getValue());
-            Slice pattern = ((StringLiteral) node.getPattern()).getSlice();
+            Slice pattern = Slices.utf8Slice(((StringLiteral) node.getPattern()).getValue());
             Optional<Slice> escape = node.getEscape()
                     .map(StringLiteral.class::cast)
-                    .map(StringLiteral::getSlice);
+                    .map(StringLiteral::getValue)
+                    .map(Slices::utf8Slice);
 
             int patternConstantPrefixBytes = LikeFunctions.patternConstantPrefixBytes(pattern, escape);
             if (patternConstantPrefixBytes == pattern.length()) {
@@ -1077,7 +1082,7 @@ public final class DomainTranslator
             }
 
             Symbol symbol = Symbol.from(target);
-            Slice constantPrefix = ((StringLiteral) prefix).getSlice();
+            Slice constantPrefix = Slices.utf8Slice(((StringLiteral) prefix).getValue());
 
             return createRangeDomain(type, constantPrefix).map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), node));
         }

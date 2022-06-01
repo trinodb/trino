@@ -69,7 +69,7 @@ public final class PinotQueryBuilder
                 .append(" FROM ")
                 .append(getTableName(tableHandle, tableNameSuffix))
                 .append(" ");
-        generateFilterPql(pqlBuilder, tableHandle, timePredicate, columnHandles);
+        generateFilterPql(pqlBuilder, tableHandle, timePredicate);
         OptionalLong appliedLimit = tableHandle.getLimit();
         long limit = limitForSegmentQueries + 1;
         if (appliedLimit.isPresent()) {
@@ -90,16 +90,16 @@ public final class PinotQueryBuilder
         return tableHandle.getTableName();
     }
 
-    private static void generateFilterPql(StringBuilder pqlBuilder, PinotTableHandle tableHandle, Optional<String> timePredicate, List<PinotColumnHandle> columnHandles)
+    private static void generateFilterPql(StringBuilder pqlBuilder, PinotTableHandle tableHandle, Optional<String> timePredicate)
     {
-        Optional<String> filterClause = getFilterClause(tableHandle.getConstraint(), timePredicate, columnHandles);
+        Optional<String> filterClause = getFilterClause(tableHandle.getConstraint(), timePredicate);
         if (filterClause.isPresent()) {
             pqlBuilder.append(" WHERE ")
                     .append(filterClause.get());
         }
     }
 
-    public static Optional<String> getFilterClause(TupleDomain<ColumnHandle> tupleDomain, Optional<String> timePredicate, List<PinotColumnHandle> columnHandles)
+    public static Optional<String> getFilterClause(TupleDomain<ColumnHandle> tupleDomain, Optional<String> timePredicate)
     {
         ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
         timePredicate.ifPresent(conjunctsBuilder::add);

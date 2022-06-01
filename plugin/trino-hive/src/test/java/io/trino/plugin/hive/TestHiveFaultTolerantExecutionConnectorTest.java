@@ -13,19 +13,31 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
+import io.trino.Session;
+import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
 
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_PARTITION_COUNT;
+import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveFaultTolerantExecutionConnectorTest
         extends BaseHiveConnectorTest
 {
+    private MinioStorage minioStorage;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return BaseHiveConnectorTest.createHiveQueryRunner(FaultTolerantExecutionConnectorTestHelper.getExtraProperties());
+        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
+        minioStorage.start();
+
+        return BaseHiveConnectorTest.createHiveQueryRunner(getExtraProperties(), getExchangeManagerProperties(minioStorage));
     }
 
     @Override
@@ -43,13 +55,13 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     @Override
     public void testTargetMaxFileSize()
     {
-        testTargetMaxFileSize(1);
+        testTargetMaxFileSize(9);
     }
 
     @Override
     public void testTargetMaxFileSizePartitioned()
     {
-        testTargetMaxFileSizePartitioned(1);
+        testTargetMaxFileSizePartitioned(9);
     }
 
     @Override
@@ -80,17 +92,22 @@ public class TestHiveFaultTolerantExecutionConnectorTest
                 .hasMessageContaining("OPTIMIZE procedure is not supported with query retries enabled");
     }
 
-    @Override
-    public void testOptimizeHiveInformationSchema()
+    @Test
+    public void testMaxOutputPartitionCountCheck()
     {
-        assertThatThrownBy(super::testOptimizeHiveInformationSchema)
-                .hasMessageContaining("This connector does not support query retries");
+        Session session = Session.builder(getSession())
+                .setSystemProperty(FAULT_TOLERANT_EXECUTION_PARTITION_COUNT, "51")
+                .build();
+        assertQueryFails(session, "SELECT nationkey, count(*) FROM nation GROUP BY nationkey", "Max number of output partitions exceeded for exchange.*");
     }
 
-    @Override
-    public void testOptimizeHiveSystemTable()
+    @AfterClass(alwaysRun = true)
+    public void destroy()
+            throws Exception
     {
-        assertThatThrownBy(super::testOptimizeHiveSystemTable)
-                .hasMessageContaining("This connector does not support query retries");
+        if (minioStorage != null) {
+            minioStorage.close();
+            minioStorage = null;
+        }
     }
 }

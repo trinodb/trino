@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>371-SNAPSHOT</version>
+        <version>383-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -21,6 +21,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-collect</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-toolkit</artifactId>
         </dependency>
 
         <dependency>
@@ -41,11 +46,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>security</artifactId>
         </dependency>
 
         <dependency>
@@ -77,11 +77,6 @@
         <dependency>
             <groupId>javax.validation</groupId>
             <artifactId>validation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.gaul</groupId>
-            <artifactId>modernizer-maven-annotations</artifactId>
         </dependency>
 
         <!-- Trino SPI -->
@@ -123,6 +118,13 @@
         </dependency>
 
         <dependency>
+            <groupId>eu.rekawek.toxiproxy</groupId>
+            <artifactId>toxiproxy-java</artifactId>
+            <version>2.1.5</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
@@ -131,6 +133,12 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>toxiproxy</artifactId>
             <scope>test</scope>
         </dependency>
 

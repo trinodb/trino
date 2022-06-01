@@ -25,6 +25,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.trino.plugin.hive.fs.CachingDirectoryLister;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
@@ -859,7 +861,7 @@ public class TestBackgroundHiveSplitLoader
     public void testBuildManifestFileIterator()
             throws Exception
     {
-        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of());
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), 0, ImmutableList.of());
         Properties schema = new Properties();
         schema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
         schema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());

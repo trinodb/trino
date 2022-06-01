@@ -302,7 +302,7 @@ public class TestTopNRankingOperator
                 type,
                 operatorFactory,
                 operator -> ((TopNRankingOperator) operator).getGroupedTopNBuilder() == null ? 0 : ((GroupedTopNRowNumberBuilder) ((TopNRankingOperator) operator).getGroupedTopNBuilder()).getGroupByHash().getCapacity(),
-                1_000_000);
+                450_000);
         assertGreaterThan(result.getYieldCount(), 3);
         assertGreaterThan(result.getMaxReservedBytes(), 5L << 20);
 

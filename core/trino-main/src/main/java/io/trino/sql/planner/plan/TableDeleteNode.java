@@ -23,6 +23,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -76,6 +77,7 @@ public class TableDeleteNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TableDeleteNode(getId(), target, output);
+        checkArgument(newChildren.isEmpty(), "newChildren should be empty");
+        return this;
     }
 }

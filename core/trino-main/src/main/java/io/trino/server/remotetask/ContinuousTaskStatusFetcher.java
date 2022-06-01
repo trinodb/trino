@@ -33,7 +33,6 @@ import javax.annotation.concurrent.GuardedBy;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -51,7 +50,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class ContinuousTaskStatusFetcher
-        implements SimpleHttpResponseCallback<TaskStatus>
 {
     private static final Logger log = Logger.get(ContinuousTaskStatusFetcher.class);
 
@@ -66,8 +64,6 @@ class ContinuousTaskStatusFetcher
     private final HttpClient httpClient;
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
-
-    private final AtomicLong currentRequestStartNanos = new AtomicLong();
 
     @GuardedBy("this")
     private boolean running;
@@ -154,8 +150,7 @@ class ContinuousTaskStatusFetcher
 
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskStatusCodec));
-        currentRequestStartNanos.set(System.nanoTime());
-        Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri(), stats), executor);
+        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new TaskStatusResponseCallback(), request.getUri(), stats), executor);
     }
 
     TaskStatus getTaskStatus()
@@ -163,52 +158,58 @@ class ContinuousTaskStatusFetcher
         return taskStatus.get();
     }
 
-    @Override
-    public void success(TaskStatus value)
+    private class TaskStatusResponseCallback
+            implements SimpleHttpResponseCallback<TaskStatus>
     {
-        try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", taskId)) {
-            updateStats(currentRequestStartNanos.get());
-            try {
-                updateTaskStatus(value);
-                errorTracker.requestSucceeded();
-            }
-            finally {
-                scheduleNextRequest();
-            }
-        }
-    }
+        private final long requestStartNanos = System.nanoTime();
 
-    @Override
-    public void failed(Throwable cause)
-    {
-        try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", taskId)) {
-            updateStats(currentRequestStartNanos.get());
-            try {
-                // if task not already done, record error
-                TaskStatus taskStatus = getTaskStatus();
-                if (!taskStatus.getState().isDone()) {
-                    errorTracker.requestFailed(cause);
+        @Override
+        public void success(TaskStatus value)
+        {
+            try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", taskId)) {
+                updateStats(requestStartNanos);
+                try {
+                    updateTaskStatus(value);
+                    errorTracker.requestSucceeded();
+                }
+                finally {
+                    scheduleNextRequest();
                 }
             }
-            catch (Error e) {
-                onFail.accept(e);
-                throw e;
-            }
-            catch (RuntimeException e) {
-                onFail.accept(e);
-            }
-            finally {
-                scheduleNextRequest();
+        }
+
+        @Override
+        public void failed(Throwable cause)
+        {
+            try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", taskId)) {
+                updateStats(requestStartNanos);
+                try {
+                    // if task not already done, record error
+                    TaskStatus taskStatus = getTaskStatus();
+                    if (!taskStatus.getState().isDone()) {
+                        errorTracker.requestFailed(cause);
+                    }
+                }
+                catch (Error e) {
+                    onFail.accept(e);
+                    throw e;
+                }
+                catch (RuntimeException e) {
+                    onFail.accept(e);
+                }
+                finally {
+                    scheduleNextRequest();
+                }
             }
         }
-    }
 
-    @Override
-    public void fatal(Throwable cause)
-    {
-        try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", taskId)) {
-            updateStats(currentRequestStartNanos.get());
-            onFail.accept(cause);
+        @Override
+        public void fatal(Throwable cause)
+        {
+            try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", taskId)) {
+                updateStats(requestStartNanos);
+                onFail.accept(cause);
+            }
         }
     }
 

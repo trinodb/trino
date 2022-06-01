@@ -27,11 +27,12 @@ import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.type.Type;
@@ -176,7 +177,7 @@ public final class BytecodeUtils
     public static BytecodeNode generateInvocation(
             Scope scope,
             ResolvedFunction resolvedFunction,
-            Metadata metadata,
+            FunctionManager functionManager,
             List<BytecodeNode> arguments,
             CallSiteBinder binder)
     {
@@ -184,7 +185,7 @@ public final class BytecodeUtils
                 scope,
                 resolvedFunction.getSignature().getName(),
                 resolvedFunction.getFunctionNullability(),
-                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention),
+                invocationConvention -> functionManager.getScalarFunctionInvoker(resolvedFunction, invocationConvention),
                 arguments,
                 binder);
     }
@@ -223,7 +224,7 @@ public final class BytecodeUtils
     public static BytecodeNode generateFullInvocation(
             Scope scope,
             ResolvedFunction resolvedFunction,
-            Metadata metadata,
+            FunctionManager functionManager,
             Function<MethodHandle, BytecodeNode> instanceFactory,
             List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
             CallSiteBinder binder)
@@ -235,7 +236,7 @@ public final class BytecodeUtils
                 resolvedFunction.getSignature().getArgumentTypes().stream()
                         .map(FunctionType.class::isInstance)
                         .collect(toImmutableList()),
-                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention),
+                invocationConvention -> functionManager.getScalarFunctionInvoker(resolvedFunction, invocationConvention),
                 instanceFactory,
                 argumentCompilers,
                 binder);
@@ -333,6 +334,16 @@ public final class BytecodeUtils
                         stackTypes.add(int.class);
                         if (!functionNullability.isArgumentNullable(realParameterIndex)) {
                             block.append(scope.getVariable("wasNull").set(inputReferenceNode.blockAndPositionIsNull()));
+                            block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                        }
+                        currentParameterIndex++;
+                        break;
+                    case IN_OUT:
+                        block.append(arguments.get(realParameterIndex));
+                        if (!functionNullability.isArgumentNullable(realParameterIndex)) {
+                            block.append(arguments.get(realParameterIndex));
+                            block.invokeVirtual(InOut.class, "isNull", boolean.class);
+                            block.putVariable(scope.getVariable("wasNull"));
                             block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
                         }
                         currentParameterIndex++;

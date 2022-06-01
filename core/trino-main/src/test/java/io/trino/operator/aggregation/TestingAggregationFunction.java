@@ -51,7 +51,7 @@ public class TestingAggregationFunction
                 .collect(toImmutableList());
         intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
         this.finalType = signature.getReturnType();
-        this.factory = generateAccumulatorFactory(signature, aggregationMetadata, functionNullability, ImmutableList.of());
+        this.factory = generateAccumulatorFactory(signature, aggregationMetadata, functionNullability);
         distinctFactory = new DistinctAccumulatorFactory(
                 factory,
                 parameterTypes,
@@ -114,6 +114,7 @@ public class TestingAggregationFunction
                 finalType,
                 inputChannels,
                 maskChannel,
-                true);
+                true,
+                ImmutableList.of());
     }
 }

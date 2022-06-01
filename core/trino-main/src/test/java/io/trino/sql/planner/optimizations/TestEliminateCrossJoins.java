@@ -24,8 +24,10 @@ import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
@@ -108,14 +110,24 @@ public class TestEliminateCrossJoins
     @Test
     public void testEliminateCrossJoinWithNonEqualityCondition()
     {
+        // "p.name < l.comment" expression is automatically transformed to "p.name < cast(L_COMMENT AS varchar(55))"
+        // with PushInequalityFilterExpressionBelowJoinRuleSet the cast "cast(L_COMMENT AS varchar(55))" is pushed down
         assertPlan("SELECT o.orderkey FROM part p, orders o, lineitem l " +
                         "WHERE p.partkey = l.partkey AND l.orderkey = o.orderkey AND p.partkey <> o.orderkey AND p.name < l.comment",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")),
                                 anyTree(
-                                        join(INNER, ImmutableList.of(equiJoinClause("P_PARTKEY", "L_PARTKEY")), Optional.of("P_NAME < cast(L_COMMENT AS varchar(55))"),
+                                        join(
+                                                INNER,
+                                                ImmutableList.of(equiJoinClause("P_PARTKEY", "L_PARTKEY")),
+                                                Optional.of("P_NAME < expr"),
                                                 anyTree(PART_WITH_NAME_TABLESCAN),
-                                                anyTree(filter("L_PARTKEY <> L_ORDERKEY", LINEITEM_WITH_COMMENT_TABLESCAN)))),
+                                                anyTree(
+                                                        project(
+                                                                ImmutableMap.of("expr", expression("cast(L_COMMENT AS varchar(55))")),
+                                                                filter(
+                                                                        "L_PARTKEY <> L_ORDERKEY",
+                                                                        LINEITEM_WITH_COMMENT_TABLESCAN))))),
                                 anyTree(ORDERS_TABLESCAN))));
     }
 

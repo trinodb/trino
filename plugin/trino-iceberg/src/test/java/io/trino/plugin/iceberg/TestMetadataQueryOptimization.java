@@ -31,6 +31,7 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -58,7 +59,7 @@ public class TestMetadataQueryOptimization
 
         queryRunner.createCatalog(
                 ICEBERG_CATALOG,
-                new TestingIcebergConnectorFactory(Optional.of(metastore), Optional.empty()),
+                new TestingIcebergConnectorFactory(Optional.of(metastore), Optional.empty(), EMPTY_MODULE),
                 ImmutableMap.of());
 
         Database database = Database.builder()

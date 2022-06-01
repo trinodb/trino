@@ -179,6 +179,7 @@ public class ParquetWriter
             flush();
             writeFooter();
         }
+        bufferedBytes = 0;
     }
 
     // Parquet File Layout:

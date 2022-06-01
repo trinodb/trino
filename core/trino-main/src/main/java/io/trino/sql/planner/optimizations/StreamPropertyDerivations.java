@@ -54,6 +54,7 @@ import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -449,6 +450,12 @@ public final class StreamPropertyDerivations
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
             // table execute only outputs the row count and fragments
             return properties.withUnspecifiedPartitioning();
+        }
+
+        @Override
+        public StreamProperties visitSimpleTableExecuteNode(SimpleTableExecuteNode node, List<StreamProperties> context)
+        {
+            return StreamProperties.singleStream();
         }
 
         @Override

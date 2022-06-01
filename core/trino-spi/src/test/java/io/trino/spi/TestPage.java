@@ -30,6 +30,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -113,6 +114,20 @@ public class TestPage
         // Blocks that had the same source id before compacting page should have the same source id after compacting page
         assertNotEquals(((DictionaryBlock) page.getBlock(0)).getDictionarySourceId(), ((DictionaryBlock) page.getBlock(1)).getDictionarySourceId());
         assertEquals(((DictionaryBlock) page.getBlock(0)).getDictionarySourceId(), ((DictionaryBlock) page.getBlock(2)).getDictionarySourceId());
+    }
+
+    @Test
+    public void testCompactNestedDictionary()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        Block valuesBlock = createSlicesBlock(expectedValues);
+        DictionaryBlock nestedDictionary = new DictionaryBlock(valuesBlock, new int[] {0, 1, 2, 2, 4, 5});
+        DictionaryBlock dictionary = new DictionaryBlock(nestedDictionary, new int[] {2, 3, 2, 0});
+
+        Page page = new Page(dictionary);
+        page.compact();
+        // Page#compact does not unnest nested dictionaries
+        assertFalse(((DictionaryBlock) page.getBlock(0)).isCompact());
     }
 
     @Test

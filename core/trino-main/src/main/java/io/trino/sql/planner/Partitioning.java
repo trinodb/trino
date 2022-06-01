@@ -219,9 +219,9 @@ public final class Partitioning
         return Optional.of(new Partitioning(handle, newArguments.build()));
     }
 
-    public Partitioning withAlternativePartitiongingHandle(PartitioningHandle partitiongingHandle)
+    public Partitioning withAlternativePartitioningHandle(PartitioningHandle partitioningHandle)
     {
-        return new Partitioning(partitiongingHandle, this.arguments);
+        return new Partitioning(partitioningHandle, this.arguments);
     }
 
     @Override

@@ -1,0 +1,16 @@
+{
+  "tables": [
+    {
+      "user": "hive",
+      "privileges": [
+        "SELECT",
+        "OWNERSHIP"
+      ]
+    }
+  ],
+  "schemas": [
+    {
+      "owner": false
+    }
+  ]
+}

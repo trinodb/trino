@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>371-SNAPSHOT</version>
+        <version>383-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -60,6 +60,11 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
@@ -77,11 +82,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
         </dependency>
 
         <dependency>
@@ -206,6 +206,11 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
         </dependency>
@@ -218,6 +223,13 @@
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
+        </dependency>
+
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Trino SPI -->
@@ -324,6 +336,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
             <version>3.2.4</version>
@@ -351,7 +369,7 @@
                         <configuration>
                             <excludes>
                                 <!-- If you are adding entry here also add an entry to cloud-tests or cloud-tests-case-insensitive-mapping profile below -->
-                                <exclude>**/TestBigQueryIntegrationSmokeTest.java</exclude>
+                                <exclude>**/TestBigQueryConnectorTest.java</exclude>
                                 <exclude>**/TestBigQueryTypeMapping.java</exclude>
                                 <exclude>**/TestBigQueryMetadata.java</exclude>
                                 <exclude>**/TestBigQueryInstanceCleaner.java</exclude>
@@ -375,7 +393,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestBigQueryIntegrationSmokeTest.java</include>
+                                <include>**/TestBigQueryConnectorTest.java</include>
                                 <include>**/TestBigQueryTypeMapping.java</include>
                                 <include>**/TestBigQueryMetadata.java</include>
                                 <include>**/TestBigQueryInstanceCleaner.java</include>
@@ -400,6 +418,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestBigQueryCaseInsensitiveMapping.java</include>
+                                <include>**/TestBigQueryInstanceCleaner.java</include>
                             </includes>
                         </configuration>
                     </plugin>

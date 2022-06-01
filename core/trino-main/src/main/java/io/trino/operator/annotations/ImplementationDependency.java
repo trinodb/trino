@@ -102,7 +102,7 @@ public interface ImplementationDependency
         public static ImplementationDependency createDependency(Annotation annotation, Set<String> literalParameters, Class<?> type)
         {
             if (annotation instanceof TypeParameter) {
-                return new TypeImplementationDependency(((TypeParameter) annotation).value());
+                return new TypeImplementationDependency(parseTypeSignature(((TypeParameter) annotation).value(), literalParameters));
             }
             if (annotation instanceof LiteralParameter) {
                 return new LiteralImplementationDependency(((LiteralParameter) annotation).value());

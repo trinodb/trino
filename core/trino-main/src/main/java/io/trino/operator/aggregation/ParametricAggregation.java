@@ -16,21 +16,23 @@ package io.trino.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
+import io.trino.metadata.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.ParametricImplementationsGroup;
+import io.trino.operator.aggregation.AggregationFromAnnotationsParser.AccumulatorStateDetails;
 import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.TrinoException;
-import io.trino.spi.function.AccumulatorState;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -39,12 +41,9 @@ import java.util.Optional;
 import java.util.StringJoiner;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.metadata.FunctionKind.AGGREGATE;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.ParametricFunctionHelpers.bindDependencies;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
-import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
-import static io.trino.operator.aggregation.state.StateCompiler.generateStateSerializer;
-import static io.trino.operator.aggregation.state.StateCompiler.getSerializedType;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static java.lang.String.format;
@@ -54,30 +53,62 @@ public class ParametricAggregation
         extends SqlAggregationFunction
 {
     private final ParametricImplementationsGroup<AggregationImplementation> implementations;
-    private final Class<? extends AccumulatorState> stateClass;
+    private final List<AccumulatorStateDetails<?>> stateDetails;
 
     public ParametricAggregation(
             Signature signature,
             AggregationHeader details,
-            Class<? extends AccumulatorState> stateClass,
+            List<AccumulatorStateDetails<?>> stateDetails,
             ParametricImplementationsGroup<AggregationImplementation> implementations)
     {
         super(
-                new FunctionMetadata(
-                        signature,
-                        details.getName(),
-                        implementations.getFunctionNullability(),
-                        details.isHidden(),
-                        true,
-                        details.getDescription().orElse(""),
-                        AGGREGATE,
-                        details.isDeprecated()),
-                new AggregationFunctionMetadata(
-                        details.isOrderSensitive(),
-                        details.isDecomposable() ? ImmutableList.of(getSerializedType(stateClass).getTypeSignature()) : ImmutableList.of()));
-        this.stateClass = requireNonNull(stateClass, "stateClass is null");
+                createFunctionMetadata(signature, details, implementations.getFunctionNullability()),
+                createAggregationFunctionMetadata(details, stateDetails));
+        this.stateDetails = ImmutableList.copyOf(requireNonNull(stateDetails, "stateDetails is null"));
         checkArgument(implementations.getFunctionNullability().isReturnNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
+    }
+
+    private static FunctionMetadata createFunctionMetadata(Signature signature, AggregationHeader details, FunctionNullability functionNullability)
+    {
+        FunctionMetadata.Builder functionMetadata = FunctionMetadata.aggregateBuilder()
+                .signature(signature)
+                .canonicalName(details.getName());
+
+        if (details.getDescription().isPresent()) {
+            functionMetadata.description(details.getDescription().get());
+        }
+        else {
+            functionMetadata.noDescription();
+        }
+
+        if (details.isHidden()) {
+            functionMetadata.hidden();
+        }
+        if (details.isDeprecated()) {
+            functionMetadata.deprecated();
+        }
+
+        if (functionNullability.isReturnNullable()) {
+            functionMetadata.nullable();
+        }
+        functionMetadata.argumentNullability(functionNullability.getArgumentNullable());
+
+        return functionMetadata.build();
+    }
+
+    private static AggregationFunctionMetadata createAggregationFunctionMetadata(AggregationHeader details, List<AccumulatorStateDetails<?>> stateDetails)
+    {
+        AggregationFunctionMetadataBuilder builder = AggregationFunctionMetadata.builder();
+        if (details.isOrderSensitive()) {
+            builder.orderSensitive();
+        }
+        if (details.isDecomposable()) {
+            for (AccumulatorStateDetails<?> stateDetail : stateDetails) {
+                builder.intermediateType(stateDetail.getSerializedType());
+            }
+        }
+        return builder.build();
     }
 
     @Override
@@ -87,6 +118,11 @@ public class ParametricAggregation
         declareDependencies(builder, implementations.getExactImplementations().values());
         declareDependencies(builder, implementations.getSpecializedImplementations());
         declareDependencies(builder, implementations.getGenericImplementations());
+        for (AccumulatorStateDetails<?> stateDetail : stateDetails) {
+            for (ImplementationDependency dependency : stateDetail.getDependencies()) {
+                dependency.declareDependencies(builder);
+            }
+        }
         return builder.build();
     }
 
@@ -112,11 +148,13 @@ public class ParametricAggregation
         AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature);
 
         // Build state factory and serializer
-        AccumulatorStateDescriptor<?> accumulatorStateDescriptor = generateAccumulatorStateDescriptor(stateClass);
-
-        // Bind provided dependencies to aggregation method handlers
         FunctionMetadata metadata = getFunctionMetadata();
         FunctionBinding functionBinding = SignatureBinder.bindFunction(metadata.getFunctionId(), metadata.getSignature(), boundSignature);
+        List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors = stateDetails.stream()
+                .map(state -> state.createAccumulatorStateDescriptor(functionBinding, functionDependencies))
+                .collect(toImmutableList());
+
+        // Bind provided dependencies to aggregation method handlers
         MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), functionBinding, functionDependencies);
         Optional<MethodHandle> removeInputHandle = concreteImplementation.getRemoveInputFunction().map(
                 removeInputFunction -> bindDependencies(removeInputFunction, concreteImplementation.getRemoveInputDependencies(), functionBinding, functionDependencies));
@@ -141,20 +179,13 @@ public class ParametricAggregation
                 removeInputHandle,
                 combineHandle,
                 outputHandle,
-                ImmutableList.of(accumulatorStateDescriptor));
+                accumulatorStateDescriptors);
     }
 
-    private static <T extends AccumulatorState> AccumulatorStateDescriptor<T> generateAccumulatorStateDescriptor(Class<T> stateClass)
+    @VisibleForTesting
+    public List<AccumulatorStateDetails<?>> getStateDetails()
     {
-        return new AccumulatorStateDescriptor<>(
-                stateClass,
-                generateStateSerializer(stateClass),
-                generateStateFactory(stateClass));
-    }
-
-    public Class<?> getStateClass()
-    {
-        return stateClass;
+        return stateDetails;
     }
 
     @VisibleForTesting

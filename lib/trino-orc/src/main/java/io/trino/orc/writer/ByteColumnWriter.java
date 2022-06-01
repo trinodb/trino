@@ -113,7 +113,7 @@ public class ByteColumnWriter
     public Map<OrcColumnId, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null, null, null);
         rowGroupColumnStatistics.add(statistics);
         nonNullValueCount = 0;
         return ImmutableMap.of(columnId, statistics);

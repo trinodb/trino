@@ -23,6 +23,6 @@ public class TestHiveConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return BaseHiveConnectorTest.createHiveQueryRunner(ImmutableMap.of());
+        return BaseHiveConnectorTest.createHiveQueryRunner(ImmutableMap.of(), ImmutableMap.of());
     }
 }

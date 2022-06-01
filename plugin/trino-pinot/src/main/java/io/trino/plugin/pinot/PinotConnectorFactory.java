@@ -28,6 +28,7 @@ import org.weakref.jmx.guice.MBeanModule;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.util.Objects.requireNonNull;
 
 public class PinotConnectorFactory
@@ -51,6 +52,7 @@ public class PinotConnectorFactory
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
+        checkSpiVersion(context, this);
 
         ImmutableList.Builder<Module> modulesBuilder = ImmutableList.<Module>builder()
                 .add(new JsonModule())

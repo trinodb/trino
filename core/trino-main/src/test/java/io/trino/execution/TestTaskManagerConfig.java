@@ -72,7 +72,7 @@ public class TestTaskManagerConfig
     public void testExplicitPropertyMappings()
     {
         int processorCount = DEFAULT_PROCESSOR_COUNT == 32 ? 16 : 32;
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("task.initial-splits-per-node", "1")
                 .put("task.split-concurrency-adjustment-interval", "1s")
                 .put("task.status-refresh-max-wait", "2s")

@@ -18,6 +18,7 @@ import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
+import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -32,6 +33,7 @@ import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.metrics.RequestMetricCollector;
+import com.amazonaws.regions.DefaultAwsRegionProviderChain;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -64,6 +66,7 @@ import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
+import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
@@ -150,6 +153,7 @@ import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
+import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -196,6 +200,16 @@ public class TrinoS3FileSystem
     public static final String S3_STREAMING_UPLOAD_PART_SIZE = "trino.s3.streaming.part-size";
     public static final String S3_STORAGE_CLASS = "trino.s3.storage-class";
     public static final String S3_ROLE_SESSION_NAME = "trino.s3.role-session-name";
+    public static final String S3_PROXY_HOST = "trino.s3.proxy.host";
+    public static final String S3_PROXY_PORT = "trino.s3.proxy.port";
+    public static final String S3_PROXY_PROTOCOL = "trino.s3.proxy.protocol";
+    public static final String S3_NON_PROXY_HOSTS = "trino.s3.proxy.non-proxy-hosts";
+    public static final String S3_PROXY_USERNAME = "trino.s3.proxy.username";
+    public static final String S3_PROXY_PASSWORD = "trino.s3.proxy.password";
+    public static final String S3_PREEMPTIVE_BASIC_PROXY_AUTH = "trino.s3.proxy.preemptive-basic-auth";
+
+    public static final String S3_STS_ENDPOINT = "trino.s3.sts.endpoint";
+    public static final String S3_STS_REGION = "trino.s3.sts.region";
 
     private static final Logger log = Logger.get(TrinoS3FileSystem.class);
     private static final TrinoS3FileSystemStats STATS = new TrinoS3FileSystemStats();
@@ -293,6 +307,30 @@ public class TrinoS3FileSystem
                 .withMaxConnections(maxConnections)
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix("Trino");
+
+        String proxyHost = conf.get(S3_PROXY_HOST);
+        if (nonNull(proxyHost)) {
+            configuration.setProxyHost(proxyHost);
+            configuration.setProxyPort(conf.getInt(S3_PROXY_PORT, defaults.getS3ProxyPort()));
+            String proxyProtocol = conf.get(S3_PROXY_PROTOCOL);
+            if (proxyProtocol != null) {
+                configuration.setProxyProtocol(TrinoS3Protocol.valueOf(proxyProtocol).getProtocol());
+            }
+            String nonProxyHosts = conf.get(S3_NON_PROXY_HOSTS);
+            if (nonProxyHosts != null) {
+                configuration.setNonProxyHosts(nonProxyHosts);
+            }
+            String proxyUsername = conf.get(S3_PROXY_USERNAME);
+            if (proxyUsername != null) {
+                configuration.setProxyUsername(proxyUsername);
+            }
+            String proxyPassword = conf.get(S3_PROXY_PASSWORD);
+            if (proxyPassword != null) {
+                configuration.setProxyPassword(proxyPassword);
+            }
+            configuration.setPreemptiveBasicProxyAuth(
+                    conf.getBoolean(S3_PREEMPTIVE_BASIC_PROXY_AUTH, defaults.getS3PreemptiveBasicProxyAuth()));
+        }
 
         this.credentialsProvider = createAwsCredentialsProvider(uri, conf);
         this.s3 = createAmazonS3Client(conf, configuration);
@@ -820,7 +858,10 @@ public class TrinoS3FileSystem
     public static String keyFromPath(Path path)
     {
         checkArgument(path.isAbsolute(), "Path is not absolute: %s", path);
-        String key = nullToEmpty(path.toUri().getPath());
+        // hack to use path from fragment -- see IcebergSplitSource#hadoopPath()
+        String key = Optional.ofNullable(path.toUri().getFragment())
+                .or(() -> Optional.ofNullable(path.toUri().getPath()))
+                .orElse("");
         if (key.startsWith(PATH_SEPARATOR)) {
             key = key.substring(PATH_SEPARATOR.length());
         }
@@ -941,9 +982,37 @@ public class TrinoS3FileSystem
                 .orElseGet(DefaultAWSCredentialsProviderChain::getInstance);
 
         if (iamRole != null) {
+            String stsEndpointOverride = conf.get(S3_STS_ENDPOINT);
+            String stsRegionOverride = conf.get(S3_STS_REGION);
+
+            AWSSecurityTokenServiceClientBuilder stsClientBuilder = AWSSecurityTokenServiceClientBuilder.standard()
+                    .withCredentials(provider);
+
+            String region;
+            if (!isNullOrEmpty(stsRegionOverride)) {
+                region = stsRegionOverride;
+            }
+            else {
+                DefaultAwsRegionProviderChain regionProviderChain = new DefaultAwsRegionProviderChain();
+                try {
+                    region = regionProviderChain.getRegion();
+                }
+                catch (SdkClientException ex) {
+                    log.warn("Falling back to default AWS region " + US_EAST_1);
+                    region = US_EAST_1.getName();
+                }
+            }
+
+            if (!isNullOrEmpty(stsEndpointOverride)) {
+                stsClientBuilder.withEndpointConfiguration(new EndpointConfiguration(stsEndpointOverride, region));
+            }
+            else {
+                stsClientBuilder.withRegion(region);
+            }
+
             provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, s3RoleSessionName)
                     .withExternalId(externalId)
-                    .withLongLivedCredentialsProvider(provider)
+                    .withStsClient(stsClientBuilder.build())
                     .build();
         }
 
@@ -1481,6 +1550,7 @@ public class TrinoS3FileSystem
         private byte[] buffer;
         private int bufferSize;
 
+        private boolean closed;
         private boolean failed;
         // Mutated and read by main thread; mutated just before scheduling upload to background thread (access does not need to be thread safe)
         private boolean multipartUploadStarted;
@@ -1548,6 +1618,11 @@ public class TrinoS3FileSystem
         public void close()
                 throws IOException
         {
+            if (closed) {
+                return;
+            }
+            closed = true;
+
             if (failed) {
                 try {
                     abortUpload();

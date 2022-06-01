@@ -15,13 +15,13 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.FeaturesConfig.JoinDistributionType;
-import io.trino.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.cost.CostComparator;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.RuleAssert;
@@ -39,12 +39,12 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
-import static io.trino.FeaturesConfig.JoinDistributionType.AUTOMATIC;
-import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.AUTOMATIC;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -571,7 +571,7 @@ public class TestReorderJoins
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
 
-        // B table is small enough to be replicated in AUTOMATIC_RESTRICTED mode
+        // B table is small enough to be replicated according to JOIN_MAX_BROADCAST_TABLE_SIZE limit
         assertReorderJoins()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, AUTOMATIC.name())
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
@@ -606,7 +606,7 @@ public class TestReorderJoins
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
 
-        // B table exceeds AUTOMATIC_RESTRICTED limit therefore it is partitioned
+        // B table exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit therefore it is partitioned
         assertReorderJoins()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, AUTOMATIC.name())
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
@@ -649,7 +649,7 @@ public class TestReorderJoins
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
 
-        // A table is small enough to be replicated in AUTOMATIC_RESTRICTED mode
+        // A table is small enough to be replicated in JOIN_MAX_BROADCAST_TABLE_SIZE mode
         assertReorderJoins()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, AUTOMATIC.name())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, AUTOMATIC.name())

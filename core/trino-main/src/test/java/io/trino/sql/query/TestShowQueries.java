@@ -90,8 +90,9 @@ public class TestShowQueries
     public void testShowFunctionLike()
     {
         assertThat(assertions.query("SHOW FUNCTIONS LIKE 'split%'"))
+                .skippingTypesCheck()
                 .matches("VALUES " +
-                        "(cast('split' AS VARCHAR(30)), cast('array(varchar(x))' AS VARCHAR(28)), cast('varchar(x), varchar(y)' AS VARCHAR(68)), cast('scalar' AS VARCHAR(9)), true, cast('' AS VARCHAR(131)))," +
+                        "('split', 'array(varchar(x))', 'varchar(x), varchar(y)', 'scalar', true, '')," +
                         "('split', 'array(varchar(x))', 'varchar(x), varchar(y), bigint', 'scalar', true, '')," +
                         "('split_part', 'varchar(x)', 'varchar(x), varchar(y), bigint', 'scalar', true, 'Splits a string by a delimiter and returns the specified field (counting from one)')," +
                         "('split_to_map', 'map(varchar,varchar)', 'varchar, varchar, varchar', 'scalar', true, 'Creates a map using entryDelimiter and keyValueDelimiter')," +
@@ -102,8 +103,9 @@ public class TestShowQueries
     public void testShowFunctionsLikeWithEscape()
     {
         assertThat(assertions.query("SHOW FUNCTIONS LIKE 'split$_to$_%' ESCAPE '$'"))
+                .skippingTypesCheck()
                 .matches("VALUES " +
-                        "(cast('split_to_map' AS VARCHAR(30)), cast('map(varchar,varchar)' AS VARCHAR(28)), cast('varchar, varchar, varchar' AS VARCHAR(68)), cast('scalar' AS VARCHAR(9)), true, cast('Creates a map using entryDelimiter and keyValueDelimiter' AS VARCHAR(131)))," +
+                        "('split_to_map', 'map(varchar,varchar)', 'varchar, varchar, varchar', 'scalar', true, 'Creates a map using entryDelimiter and keyValueDelimiter')," +
                         "('split_to_multimap', 'map(varchar,array(varchar))', 'varchar, varchar, varchar', 'scalar', true, 'Creates a multimap by splitting a string into key/value pairs')");
     }
 
@@ -112,7 +114,8 @@ public class TestShowQueries
     {
         assertThat(assertions.query(
                 "SHOW SESSION LIKE '%page_row_c%'"))
-                .matches("VALUES (cast('filter_and_project_min_output_page_row_count' as VARCHAR(53)), cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(142)))");
+                .skippingTypesCheck()
+                .matches("VALUES ('filter_and_project_min_output_page_row_count', '256', '256', 'integer', 'Experimental: Minimum output page row count for filter and project operators')");
     }
 
     @Test
@@ -124,7 +127,8 @@ public class TestShowQueries
                 .hasMessage("Escape string must be a single character");
         assertThat(assertions.query(
                 "SHOW SESSION LIKE '%page$_row$_c%' ESCAPE '$'"))
-                .matches("VALUES (cast('filter_and_project_min_output_page_row_count' as VARCHAR(53)), cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(142)))");
+                .skippingTypesCheck()
+                .matches("VALUES ('filter_and_project_min_output_page_row_count', '256', '256', 'integer', 'Experimental: Minimum output page row count for filter and project operators')");
     }
 
     @Test

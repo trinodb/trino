@@ -13,6 +13,7 @@
  */
 package io.trino.sql;
 
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.TypeManager;
@@ -37,14 +38,20 @@ public class PlannerContext
     private final TypeOperators typeOperators;
     private final BlockEncodingSerde blockEncodingSerde;
     private final TypeManager typeManager;
+    private final FunctionManager functionManager;
 
     @Inject
-    public PlannerContext(Metadata metadata, TypeOperators typeOperators, BlockEncodingSerde blockEncodingSerde, TypeManager typeManager)
+    public PlannerContext(Metadata metadata,
+            TypeOperators typeOperators,
+            BlockEncodingSerde blockEncodingSerde,
+            TypeManager typeManager,
+            FunctionManager functionManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     public Metadata getMetadata()
@@ -65,5 +72,10 @@ public class PlannerContext
     public TypeManager getTypeManager()
     {
         return typeManager;
+    }
+
+    public FunctionManager getFunctionManager()
+    {
+        return functionManager;
     }
 }

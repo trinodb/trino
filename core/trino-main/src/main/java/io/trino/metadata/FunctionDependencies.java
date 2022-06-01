@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -38,22 +39,22 @@ import static java.util.function.Function.identity;
 
 public class FunctionDependencies
 {
-    private final Metadata metadata;
+    private final BiFunction<ResolvedFunction, InvocationConvention, FunctionInvoker> specialization;
     private final Map<TypeSignature, Type> types;
     private final Map<FunctionKey, ResolvedFunction> functions;
     private final Map<OperatorKey, ResolvedFunction> operators;
     private final Map<CastKey, ResolvedFunction> casts;
 
     public FunctionDependencies(
-            Metadata metadata,
+            BiFunction<ResolvedFunction, InvocationConvention, FunctionInvoker> specialization,
             Map<TypeSignature, Type> typeDependencies,
             Collection<ResolvedFunction> functionDependencies)
     {
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(specialization, "specialization is null");
         requireNonNull(typeDependencies, "typeDependencies is null");
         requireNonNull(functionDependencies, "functionDependencies is null");
 
-        this.metadata = metadata;
+        this.specialization = specialization;
         this.types = ImmutableMap.copyOf(typeDependencies);
         this.functions = functionDependencies.stream()
                 .filter(function -> !isOperatorName(function.getSignature().getName()))
@@ -113,7 +114,7 @@ public class FunctionDependencies
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(functionKey.toString());
         }
-        return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
+        return specialization.apply(resolvedFunction, invocationConvention);
     }
 
     public FunctionInvoker getFunctionSignatureInvoker(QualifiedName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
@@ -123,7 +124,7 @@ public class FunctionDependencies
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(functionKey.toString());
         }
-        return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
+        return specialization.apply(resolvedFunction, invocationConvention);
     }
 
     public FunctionInvoker getOperatorInvoker(OperatorType operatorType, List<Type> parameterTypes, InvocationConvention invocationConvention)
@@ -133,7 +134,7 @@ public class FunctionDependencies
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(operatorKey.toString());
         }
-        return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
+        return specialization.apply(resolvedFunction, invocationConvention);
     }
 
     public FunctionInvoker getOperatorSignatureInvoker(OperatorType operatorType, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
@@ -143,7 +144,7 @@ public class FunctionDependencies
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(operatorKey.toString());
         }
-        return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
+        return specialization.apply(resolvedFunction, invocationConvention);
     }
 
     public FunctionInvoker getCastInvoker(Type fromType, Type toType, InvocationConvention invocationConvention)
@@ -153,7 +154,7 @@ public class FunctionDependencies
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(castKey.toString());
         }
-        return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
+        return specialization.apply(resolvedFunction, invocationConvention);
     }
 
     public FunctionInvoker getCastSignatureInvoker(TypeSignature fromType, TypeSignature toType, InvocationConvention invocationConvention)
@@ -163,7 +164,7 @@ public class FunctionDependencies
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(castKey.toString());
         }
-        return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
+        return specialization.apply(resolvedFunction, invocationConvention);
     }
 
     private static List<TypeSignature> toTypeSignatures(List<Type> types)

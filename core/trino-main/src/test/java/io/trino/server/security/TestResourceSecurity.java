@@ -28,10 +28,13 @@ import io.airlift.node.NodeInfo;
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.JwtBuilder;
+import io.jsonwebtoken.JwtParser;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlManager;
 import io.trino.server.HttpRequestSessionContextFactory;
+import io.trino.server.ProtocolConfig;
+import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
@@ -70,6 +73,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
@@ -78,13 +82,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -96,6 +101,7 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
+import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
@@ -140,11 +146,13 @@ public class TestResourceSecurity
     private static final String JWK_KEY_ID = "test-rsa";
     private static final String GROUPS_CLAIM = "groups";
     private static final PrivateKey JWK_PRIVATE_KEY;
+    private static final PublicKey JWK_PUBLIC_KEY;
     private static final ObjectMapper json = new ObjectMapper();
 
     static {
         try {
-            JWK_PRIVATE_KEY = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/jwk-rsa-private.pem").getPath()), Optional.empty());
+            JWK_PRIVATE_KEY = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/jwk-rsa-private.pem").toURI()), Optional.empty());
+            JWK_PUBLIC_KEY = PemReader.loadPublicKey(new File(Resources.getResource("jwk/jwk-rsa-public.pem").getPath()));
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -167,7 +175,8 @@ public class TestResourceSecurity
                 Optional.empty(),
                 Optional.of(LOCALHOST_KEYSTORE),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                false);
         client = clientBuilder.build();
 
         passwordConfigDummy = Files.createTempFile("passwordConfigDummy", "");
@@ -437,7 +446,8 @@ public class TestResourceSecurity
                     Optional.empty(),
                     Optional.of(LOCALHOST_KEYSTORE),
                     Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    false);
             OkHttpClient clientWithCert = clientBuilder.build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithCert);
         }
@@ -677,7 +687,7 @@ public class TestResourceSecurity
                                 .put("http-server.authentication.type", "oauth2")
                                 .putAll(getOAuth2Properties(tokenServer))
                                 .put("http-server.authentication.oauth2.groups-field", GROUPS_CLAIM)
-                                .build())
+                                .buildOrThrow())
                         .setAdditionalModule(oauth2Module(tokenServer))
                         .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
@@ -813,7 +823,8 @@ public class TestResourceSecurity
                 .put("http-server.authentication.oauth2.token-url", tokenServer.getIssuer())
                 .put("http-server.authentication.oauth2.client-id", tokenServer.getClientId())
                 .put("http-server.authentication.oauth2.client-secret", tokenServer.getClientSecret())
-                .build();
+                .put("http-server.authentication.oauth2.oidc.discovery", "false")
+                .buildOrThrow();
     }
 
     private static String getOauthToken(OkHttpClient client, String url)
@@ -834,6 +845,7 @@ public class TestResourceSecurity
         private final String issuer = "http://example.com/";
         private final String clientId = "clientID";
         private final Date tokenExpiration = Date.from(ZonedDateTime.now().plusMinutes(5).toInstant());
+        private final JwtParser jwtParser = newJwtParserBuilder().setSigningKey(JWK_PUBLIC_KEY).build();
         private final Optional<String> principalField;
         private final TestingHttpServer jwkServer;
         private final String accessToken;
@@ -858,23 +870,37 @@ public class TestResourceSecurity
         {
             return new OAuth2Client()
             {
-                private final AtomicReference<Optional<String>> nonceHash = new AtomicReference<>();
-
                 @Override
-                public URI getAuthorizationUri(String state, URI callbackUri, Optional<String> nonceHash)
+                public void load()
                 {
-                    // Save the last nonce in order to add it to the next issued ID token
-                    this.nonceHash.set(nonceHash);
-                    return URI.create("http://example.com/authorize?" + state);
                 }
 
                 @Override
-                public OAuth2Response getOAuth2Response(String code, URI callbackUri)
+                public Request createAuthorizationRequest(String state, URI callbackUri)
+                {
+                    return new Request(URI.create("http://example.com/authorize?" + state), Optional.of(UUID.randomUUID().toString()));
+                }
+
+                @Override
+                public Response getOAuth2Response(String code, URI callbackUri, Optional<String> nonce)
                 {
                     if (!"TEST_CODE".equals(code)) {
                         throw new IllegalArgumentException("Expected TEST_CODE");
                     }
-                    return new OAuth2Response(accessToken, Optional.of(now().plus(5, ChronoUnit.MINUTES)), Optional.of(issueIdToken(nonceHash.get())));
+                    return new Response(accessToken, now().plus(5, ChronoUnit.MINUTES), Optional.of(issueIdToken(nonce.map(this::hashNonce))));
+                }
+
+                @Override
+                public Optional<Map<String, Object>> getClaims(String accessToken)
+                {
+                    return Optional.of(jwtParser.parseClaimsJws(accessToken).getBody());
+                }
+
+                private String hashNonce(String nonce)
+                {
+                    return sha256()
+                            .hashString(nonce, UTF_8)
+                            .toString();
                 }
             };
         }
@@ -949,7 +975,11 @@ public class TestResourceSecurity
         @Inject
         public TestResource(AccessControl accessControl)
         {
-            this.sessionContextFactory = new HttpRequestSessionContextFactory(createTestMetadataManager(), user -> ImmutableSet.of(), accessControl);
+            this.sessionContextFactory = new HttpRequestSessionContextFactory(
+                    new PreparedStatementEncoder(new ProtocolConfig()),
+                    createTestMetadataManager(),
+                    user -> ImmutableSet.of(),
+                    accessControl);
         }
 
         @ResourceSecurity(AUTHENTICATED_USER)

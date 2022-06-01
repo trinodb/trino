@@ -13,12 +13,20 @@
  */
 package io.trino.operator;
 
+import javax.annotation.Nullable;
+
 import static java.util.Objects.requireNonNull;
 
 public final class CompletedWork<T>
         implements Work<T>
 {
+    @Nullable
     private final T result;
+
+    public CompletedWork()
+    {
+        this.result = null;
+    }
 
     public CompletedWork(T value)
     {
@@ -31,6 +39,7 @@ public final class CompletedWork<T>
         return true;
     }
 
+    @Nullable
     @Override
     public T getResult()
     {

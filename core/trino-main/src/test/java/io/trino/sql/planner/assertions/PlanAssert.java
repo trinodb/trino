@@ -18,6 +18,7 @@ import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.iterative.GroupReference;
@@ -36,22 +37,22 @@ public final class PlanAssert
 {
     private PlanAssert() {}
 
-    public static void assertPlan(Session session, Metadata metadata, StatsCalculator statsCalculator, Plan actual, PlanMatchPattern pattern)
+    public static void assertPlan(Session session, Metadata metadata, FunctionManager functionManager, StatsCalculator statsCalculator, Plan actual, PlanMatchPattern pattern)
     {
-        assertPlan(session, metadata, statsCalculator, actual, noLookup(), pattern);
+        assertPlan(session, metadata, functionManager, statsCalculator, actual, noLookup(), pattern);
     }
 
-    public static void assertPlan(Session session, Metadata metadata, StatsCalculator statsCalculator, Plan actual, Lookup lookup, PlanMatchPattern pattern)
+    public static void assertPlan(Session session, Metadata metadata, FunctionManager functionManager, StatsCalculator statsCalculator, Plan actual, Lookup lookup, PlanMatchPattern pattern)
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, actual.getTypes());
-        assertPlan(session, metadata, statsProvider, actual, lookup, pattern);
+        assertPlan(session, metadata, functionManager, statsProvider, actual, lookup, pattern);
     }
 
-    public static void assertPlan(Session session, Metadata metadata, StatsProvider statsProvider, Plan actual, Lookup lookup, PlanMatchPattern pattern)
+    public static void assertPlan(Session session, Metadata metadata, FunctionManager functionManager, StatsProvider statsProvider, Plan actual, Lookup lookup, PlanMatchPattern pattern)
     {
         MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, statsProvider, lookup), pattern);
         if (!matches.isMatch()) {
-            String formattedPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
+            String formattedPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
             if (!containsGroupReferences(actual.getRoot())) {
                 throw new AssertionError(format(
                         "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]",
@@ -59,7 +60,7 @@ public final class PlanAssert
                         formattedPlan));
             }
             PlanNode resolvedPlan = resolveGroupReferences(actual.getRoot(), lookup);
-            String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, actual.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
+            String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, actual.getTypes(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
             throw new AssertionError(format(
                     "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n] which resolves to [\n\n%s\n]",
                     pattern,

@@ -20,6 +20,7 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
@@ -80,13 +81,13 @@ public class BridgingHiveMetastore
     @Override
     public Optional<Database> getDatabase(String databaseName)
     {
-        return delegate.getDatabase(databaseName).map(ThriftMetastoreUtil::fromMetastoreApiDatabase);
+        return delegate.getDatabase(identity, databaseName).map(ThriftMetastoreUtil::fromMetastoreApiDatabase);
     }
 
     @Override
     public List<String> getAllDatabases()
     {
-        return delegate.getAllDatabases();
+        return delegate.getAllDatabases(identity);
     }
 
     @Override
@@ -142,19 +143,19 @@ public class BridgingHiveMetastore
     @Override
     public List<String> getAllTables(String databaseName)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getAllTables(identity, databaseName);
     }
 
     @Override
     public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
-        return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
+        return delegate.getTablesWithParameter(identity, databaseName, parameterKey, parameterValue);
     }
 
     @Override
     public List<String> getAllViews(String databaseName)
     {
-        return delegate.getAllViews(databaseName);
+        return delegate.getAllViews(identity, databaseName);
     }
 
     @Override
@@ -172,12 +173,12 @@ public class BridgingHiveMetastore
     @Override
     public void renameDatabase(String databaseName, String newDatabaseName)
     {
-        org.apache.hadoop.hive.metastore.api.Database database = delegate.getDatabase(databaseName)
+        org.apache.hadoop.hive.metastore.api.Database database = delegate.getDatabase(identity, databaseName)
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName));
         database.setName(newDatabaseName);
         delegate.alterDatabase(identity, databaseName, database);
 
-        delegate.getDatabase(databaseName).ifPresent(newDatabase -> {
+        delegate.getDatabase(identity, databaseName).ifPresent(newDatabase -> {
             if (newDatabase.getName().equals(databaseName)) {
                 throw new TrinoException(NOT_SUPPORTED, "Hive metastore does not support renaming schemas");
             }
@@ -187,7 +188,7 @@ public class BridgingHiveMetastore
     @Override
     public void setDatabaseOwner(String databaseName, HivePrincipal principal)
     {
-        Database database = fromMetastoreApiDatabase(delegate.getDatabase(databaseName)
+        Database database = fromMetastoreApiDatabase(delegate.getDatabase(identity, databaseName)
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName)));
 
         Database newDatabase = Database.builder(database)
@@ -407,73 +408,73 @@ public class BridgingHiveMetastore
     @Override
     public void createRole(String role, String grantor)
     {
-        delegate.createRole(role, grantor);
+        delegate.createRole(identity, role, grantor);
     }
 
     @Override
     public void dropRole(String role)
     {
-        delegate.dropRole(role);
+        delegate.dropRole(identity, role);
     }
 
     @Override
     public Set<String> listRoles()
     {
-        return delegate.listRoles();
+        return delegate.listRoles(identity);
     }
 
     @Override
     public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
-        delegate.grantRoles(roles, grantees, adminOption, grantor);
+        delegate.grantRoles(identity, roles, grantees, adminOption, grantor);
     }
 
     @Override
     public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
-        delegate.revokeRoles(roles, grantees, adminOption, grantor);
+        delegate.revokeRoles(identity, roles, grantees, adminOption, grantor);
     }
 
     @Override
     public Set<RoleGrant> listGrantedPrincipals(String role)
     {
-        return delegate.listGrantedPrincipals(role);
+        return delegate.listGrantedPrincipals(identity, role);
     }
 
     @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
-        return delegate.listRoleGrants(principal);
+        return delegate.listRoleGrants(identity, principal);
     }
 
     @Override
     public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
-        delegate.grantTablePrivileges(databaseName, tableName, tableOwner, grantee, grantor, privileges, grantOption);
+        delegate.grantTablePrivileges(identity, databaseName, tableName, tableOwner, grantee, grantor, privileges, grantOption);
     }
 
     @Override
     public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
-        delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, grantor, privileges, grantOption);
+        delegate.revokeTablePrivileges(identity, databaseName, tableName, tableOwner, grantee, grantor, privileges, grantOption);
     }
 
     @Override
     public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
-        return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
+        return delegate.listTablePrivileges(identity, databaseName, tableName, tableOwner, principal);
     }
 
     @Override
     public Optional<String> getConfigValue(String name)
     {
-        return delegate.getConfigValue(name);
+        return delegate.getConfigValue(identity, name);
     }
 
     @Override
-    public long openTransaction()
+    public long openTransaction(AcidTransactionOwner transactionOwner)
     {
-        return delegate.openTransaction(identity);
+        return delegate.openTransaction(identity, transactionOwner);
     }
 
     @Override
@@ -495,9 +496,14 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void acquireSharedReadLock(String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    public void acquireSharedReadLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            List<SchemaTableName> fullTables,
+            List<HivePartition> partitions)
     {
-        delegate.acquireSharedReadLock(identity, queryId, transactionId, fullTables, partitions);
+        delegate.acquireSharedReadLock(identity, transactionOwner, queryId, transactionId, fullTables, partitions);
     }
 
     @Override
@@ -513,9 +519,16 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void acquireTableWriteLock(String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isDynamicPartitionWrite)
+    public void acquireTableWriteLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            String dbName,
+            String tableName,
+            DataOperationType operation,
+            boolean isDynamicPartitionWrite)
     {
-        delegate.acquireTableWriteLock(identity, queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);
+        delegate.acquireTableWriteLock(identity, transactionOwner, queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);
     }
 
     @Override

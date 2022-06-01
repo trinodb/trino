@@ -21,6 +21,6 @@ public interface HiveSplitWeightProvider
 
     static HiveSplitWeightProvider uniformStandardWeightProvider()
     {
-        return (splitSizeInBytes) -> SplitWeight.standard();
+        return splitSizeInBytes -> SplitWeight.standard();
     }
 }

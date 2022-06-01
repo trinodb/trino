@@ -26,9 +26,9 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.FailureInjector;
 import io.trino.execution.FailureInjector.InjectedFailure;
+import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
-import io.trino.execution.TaskManager;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.BufferResult;
@@ -94,7 +94,7 @@ public class TaskResource
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
     private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
 
-    private final TaskManager taskManager;
+    private final SqlTaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
@@ -104,7 +104,7 @@ public class TaskResource
 
     @Inject
     public TaskResource(
-            TaskManager taskManager,
+            SqlTaskManager taskManager,
             SessionPropertyManager sessionPropertyManager,
             @ForAsyncHttp BoundedExecutor responseExecutor,
             @ForAsyncHttp ScheduledExecutorService timeoutExecutor,
@@ -287,6 +287,21 @@ public class TaskResource
             taskInfo = taskInfo.summarize();
         }
         return taskInfo;
+    }
+
+    @ResourceSecurity(INTERNAL_ONLY)
+    @POST
+    @Path("{taskId}/fail")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public TaskInfo failTask(
+            @PathParam("taskId") TaskId taskId,
+            FailTaskRequest failTaskRequest,
+            @Context UriInfo uriInfo)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(failTaskRequest, "failTaskRequest is null");
+        return taskManager.failTask(taskId, failTaskRequest.getFailureInfo().toException());
     }
 
     @ResourceSecurity(INTERNAL_ONLY)

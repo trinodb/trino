@@ -21,6 +21,7 @@ import org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.serde2.thrift.ThriftDeserializer;
 import org.apache.hadoop.hive.serde2.thrift.test.IntString;
+import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -35,6 +36,7 @@ import java.util.Properties;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
+import static io.trino.plugin.hive.HiveStorageFormat.SEQUENCEFILE;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializer;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormat;
 import static io.trino.plugin.hive.util.HiveUtil.parseHiveTimestamp;
@@ -86,6 +88,14 @@ public class TestHiveUtil
     public void testGetInputFormat()
     {
         Configuration configuration = new Configuration(false);
+
+        // LazySimpleSerDe is used by TEXTFILE and SEQUENCEFILE. getInputFormat should default to TEXTFILE
+        // per Hive spec.
+        Properties sequenceFileSchema = new Properties();
+        sequenceFileSchema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
+        sequenceFileSchema.setProperty(SERIALIZATION_LIB, SEQUENCEFILE.getSerde());
+        assertInstanceOf(getInputFormat(configuration, sequenceFileSchema, false), SymlinkTextInputFormat.class);
+        assertInstanceOf(getInputFormat(configuration, sequenceFileSchema, true), TextInputFormat.class);
 
         Properties avroSymlinkSchema = new Properties();
         avroSymlinkSchema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());

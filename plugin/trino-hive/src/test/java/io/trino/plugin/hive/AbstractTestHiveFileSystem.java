@@ -27,6 +27,7 @@ import io.trino.plugin.hive.AbstractTestHive.Transaction;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.ForwardingHiveMetastore;
@@ -94,7 +95,6 @@ import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnHandles
 import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnMetadata;
 import static io.trino.plugin.hive.AbstractTestHive.getAllSplits;
 import static io.trino.plugin.hive.AbstractTestHive.getSplits;
-import static io.trino.plugin.hive.HiveTableRedirectionsProvider.NO_REDIRECTIONS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
@@ -190,8 +190,8 @@ public abstract class AbstractTestHiveFileSystem
                 new BridgingHiveMetastore(
                         new ThriftHiveMetastore(
                                 metastoreLocator,
-                                new HiveConfig(),
                                 metastoreConfig,
+                                new HiveConfig().isTranslateHiveViews(),
                                 new ThriftMetastoreConfig(),
                                 hdfsEnvironment,
                                 false),
@@ -220,14 +220,13 @@ public abstract class AbstractTestHiveFileSystem
                         new PropertiesSystemTableProvider()),
                 new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new,
-                NO_REDIRECTIONS);
+                new FileSystemDirectoryLister());
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
                 transactionManager,
                 hivePartitionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
-                new CachingDirectoryLister(new HiveConfig()),
                 new BoundedExecutor(executor, config.getMaxSplitIteratorThreads()),
                 new CounterStat(),
                 config.getMaxOutstandingSplits(),

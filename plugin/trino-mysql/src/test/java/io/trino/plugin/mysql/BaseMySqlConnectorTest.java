@@ -19,6 +19,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
@@ -31,13 +32,18 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseMySqlConnectorTest
         extends BaseJdbcConnectorTest
 {
+    protected TestingMySqlServer mySqlServer;
+
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -57,11 +63,15 @@ public abstract class BaseMySqlConnectorTest
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
                 return false;
 
-            case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
+                return false;
+
             case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
@@ -179,14 +189,11 @@ public abstract class BaseMySqlConnectorTest
                         ")");
     }
 
-    @Test
-    public void testDropTable()
+    @Override
+    public void testDeleteWithLike()
     {
-        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
-
-        assertUpdate("DROP TABLE test_drop");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Test
@@ -239,19 +246,16 @@ public abstract class BaseMySqlConnectorTest
         assertUpdate("DROP TABLE mysql_test_tinyint1");
     }
 
-    @Test
-    public void testCharTrailingSpace()
+    @Override
+    protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        onRemoteDatabase().execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
-        assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
+        return format("Failed to insert data: Data truncation: Incorrect date value: '%s' for column 'dt' at row 1", date);
+    }
 
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test  '", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test        '", "VALUES 'test'");
-
-        assertEquals(getQueryRunner().execute("SELECT * FROM char_trailing_space WHERE x = char ' test'").getRowCount(), 0);
-
-        assertUpdate("DROP TABLE char_trailing_space");
+    @Override
+    protected String errorMessageForInsertNegativeDate(String date)
+    {
+        return format("Failed to insert data: Data truncation: Incorrect date value: '%s' for column 'dt' at row 1", date);
     }
 
     @Override
@@ -263,7 +267,7 @@ public abstract class BaseMySqlConnectorTest
     @Test
     public void testColumnComment()
     {
-        // TODO add support for setting comments on existing column and replace the test with io.trino.testing.AbstractTestDistributedQueries#testCommentColumn
+        // TODO add support for setting comments on existing column and replace the test with io.trino.testing.BaseConnectorTest#testCommentColumn
 
         onRemoteDatabase().execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
 
@@ -326,5 +330,52 @@ public abstract class BaseMySqlConnectorTest
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
                 .isFullyPushedDown();
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeLargeIn()
+    {
+        // Using IN list of size 140_000 as bigger list causes error:
+        // "com.mysql.jdbc.PacketTooBigException: Packet for query is too large (XXX > 1048576).
+        //  You can change this value on the server by setting the max_allowed_packet' variable."
+        onRemoteDatabase().execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 140_000));
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeMultipleInClauses()
+    {
+        String longInClauses = range(0, 14)
+                .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
+                .collect(joining(" OR "));
+        onRemoteDatabase().execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
+    }
+
+    private String getLongInClause(int start, int length)
+    {
+        String longValues = range(start, start + length)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+        return "orderkey IN (" + longValues + ")";
+    }
+
+    @Override
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return mySqlServer::execute;
+    }
+
+    @Override
+    protected Session joinPushdownEnabled(Session session)
+    {
+        return Session.builder(super.joinPushdownEnabled(session))
+                // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
+                .build();
     }
 }

@@ -24,33 +24,46 @@ import io.trino.plugin.iceberg.IcebergFileFormat;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergOptimizeHandle
         extends IcebergProcedureHandle
 {
+    private final long snapshotId;
     private final String schemaAsJson;
     private final String partitionSpecAsJson;
     private final List<IcebergColumnHandle> tableColumns;
     private final IcebergFileFormat fileFormat;
     private final Map<String, String> tableStorageProperties;
     private final DataSize maxScannedFileSize;
+    private final boolean retriesEnabled;
 
     @JsonCreator
     public IcebergOptimizeHandle(
+            long snapshotId,
             String schemaAsJson,
             String partitionSpecAsJson,
             List<IcebergColumnHandle> tableColumns,
             IcebergFileFormat fileFormat,
             Map<String, String> tableStorageProperties,
-            DataSize maxScannedFileSize)
+            DataSize maxScannedFileSize,
+            boolean retriesEnabled)
     {
+        this.snapshotId = snapshotId;
         this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
         this.partitionSpecAsJson = requireNonNull(partitionSpecAsJson, "partitionSpecAsJson is null");
         this.tableColumns = ImmutableList.copyOf(requireNonNull(tableColumns, "tableColumns is null"));
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.tableStorageProperties = ImmutableMap.copyOf(requireNonNull(tableStorageProperties, "tableStorageProperties is null"));
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
+        this.retriesEnabled = retriesEnabled;
+    }
+
+    @JsonProperty
+    public long getSnapshotId()
+    {
+        return snapshotId;
     }
 
     @JsonProperty
@@ -87,5 +100,26 @@ public class IcebergOptimizeHandle
     public DataSize getMaxScannedFileSize()
     {
         return maxScannedFileSize;
+    }
+
+    @JsonProperty
+    public boolean isRetriesEnabled()
+    {
+        return retriesEnabled;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("snapshotId", snapshotId)
+                .add("schemaAsJson", schemaAsJson)
+                .add("partitionSpecAsJson", partitionSpecAsJson)
+                .add("tableColumns", tableColumns)
+                .add("fileFormat", fileFormat)
+                .add("tableStorageProperties", tableStorageProperties)
+                .add("maxScannedFileSize", maxScannedFileSize)
+                .add("retriesEnabled", retriesEnabled)
+                .toString();
     }
 }

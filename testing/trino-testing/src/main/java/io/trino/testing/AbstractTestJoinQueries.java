@@ -14,7 +14,6 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.execution.QueryStats;
@@ -30,6 +29,7 @@ import java.util.List;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tests.QueryTemplate.parameter;
@@ -893,7 +893,7 @@ public abstract class AbstractTestJoinQueries
                 condition);
 
         queryTemplate.replaceAll(
-                (query) -> assertQueryFails(query, "line .*: Reference to column 'x' from outer scope not allowed in this context"),
+                query -> assertQueryFails(query, "line .*: Reference to column 'x' from outer scope not allowed in this context"),
                 ImmutableList.of(type.of("left"), type.of("right"), type.of("full")),
                 ImmutableList.of(
                         condition.of("EXISTS(SELECT 1 WHERE x = y)"),
@@ -1476,7 +1476,7 @@ public abstract class AbstractTestJoinQueries
         // Stateful function is placed in LEFT JOIN's ON clause and involves left & right symbols to prevent any kind of push down/pull down.
         Session session = Session.builder(getSession())
                 // With broadcast join, lineitem would be source-distributed and not executed concurrently.
-                .setSystemProperty(SystemSessionProperties.JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.PARTITIONED.toString())
+                .setSystemProperty(SystemSessionProperties.JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.toString())
                 .build();
         long joinOutputRowCount = 60175;
         assertQuery(

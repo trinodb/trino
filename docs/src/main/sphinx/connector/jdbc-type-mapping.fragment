@@ -1,5 +1,5 @@
-General configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Type mapping configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following properties can be used to configure how data types from the
 connected data source are mapped to Trino data types and how the metadata is

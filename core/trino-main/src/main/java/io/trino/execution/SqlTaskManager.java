@@ -36,11 +36,9 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.LocalMemoryManager;
-import io.trino.memory.MemoryPool;
-import io.trino.memory.MemoryPoolAssignment;
-import io.trino.memory.MemoryPoolAssignmentsRequest;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
@@ -57,7 +55,6 @@ import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.io.Closeable;
@@ -75,12 +72,11 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
-import static io.trino.SystemSessionProperties.getQueryMaxTotalMemoryPerTask;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.SqlTask.createSqlTask;
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
-import static io.trino.memory.LocalMemoryManager.RESERVED_POOL;
+import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.StandardErrorCode.ABANDONED_TASK;
 import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static java.lang.Math.min;
@@ -90,7 +86,7 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class SqlTaskManager
-        implements TaskManager, Closeable
+        implements Closeable
 {
     private static final Logger log = Logger.get(SqlTaskManager.class);
 
@@ -104,7 +100,6 @@ public class SqlTaskManager
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
 
-    private final LocalMemoryManager localMemoryManager;
     private final NonEvictableLoadingCache<QueryId, QueryContext> queryContexts;
     private final NonEvictableLoadingCache<TaskId, SqlTask> tasks;
 
@@ -112,12 +107,6 @@ public class SqlTaskManager
     private final SqlTaskIoStats finishedTaskStats = new SqlTaskIoStats();
 
     private final long queryMaxMemoryPerNode;
-    private final Optional<DataSize> queryMaxMemoryPerTask;
-
-    @GuardedBy("this")
-    private long currentMemoryPoolAssignmentVersion;
-    @GuardedBy("this")
-    private String coordinatorId;
 
     private final CounterStat failedTasks = new CounterStat();
 
@@ -155,15 +144,13 @@ public class SqlTaskManager
 
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, config);
 
-        this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
         DataSize maxQueryMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
-        queryMaxMemoryPerTask = nodeMemoryConfig.getMaxQueryMemoryPerTask();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
 
         queryMaxMemoryPerNode = maxQueryMemoryPerNode.toBytes();
 
         queryContexts = buildNonEvictableCache(CacheBuilder.newBuilder().weakValues(), CacheLoader.from(
-                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryMemoryPerNode, queryMaxMemoryPerTask, maxQuerySpillPerNode)));
+                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryMemoryPerNode, maxQuerySpillPerNode)));
 
         tasks = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(
                 taskId -> createSqlTask(
@@ -186,46 +173,17 @@ public class SqlTaskManager
             LocalSpillManager localSpillManager,
             GcMonitor gcMonitor,
             DataSize maxQueryUserMemoryPerNode,
-            Optional<DataSize> maxQueryMemoryPerTask,
             DataSize maxQuerySpillPerNode)
     {
         return new QueryContext(
                 queryId,
                 maxQueryUserMemoryPerNode,
-                maxQueryMemoryPerTask,
-                localMemoryManager.getGeneralPool(),
+                localMemoryManager.getMemoryPool(),
                 gcMonitor,
                 taskNotificationExecutor,
                 driverYieldExecutor,
                 maxQuerySpillPerNode,
                 localSpillManager.getSpillSpaceTracker());
-    }
-
-    @Override
-    public synchronized void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments)
-    {
-        if (coordinatorId != null && coordinatorId.equals(assignments.getCoordinatorId()) && assignments.getVersion() <= currentMemoryPoolAssignmentVersion) {
-            return;
-        }
-        currentMemoryPoolAssignmentVersion = assignments.getVersion();
-        if (coordinatorId != null && !coordinatorId.equals(assignments.getCoordinatorId())) {
-            log.warn("Switching coordinator affinity from %s to %s", coordinatorId, assignments.getCoordinatorId());
-        }
-        coordinatorId = assignments.getCoordinatorId();
-
-        for (MemoryPoolAssignment assignment : assignments.getAssignments()) {
-            if (assignment.getPoolId().equals(GENERAL_POOL)) {
-                queryContexts.getUnchecked(assignment.getQueryId()).setMemoryPool(localMemoryManager.getGeneralPool());
-            }
-            else if (assignment.getPoolId().equals(RESERVED_POOL)) {
-                MemoryPool reservedPool = localMemoryManager.getReservedPool()
-                        .orElseThrow(() -> new IllegalArgumentException(format("Cannot move %s to the reserved pool as the reserved pool is not enabled", assignment.getQueryId())));
-                queryContexts.getUnchecked(assignment.getQueryId()).setMemoryPool(reservedPool);
-            }
-            else {
-                throw new IllegalArgumentException(format("Cannot move %s to %s as the target memory pool id is invalid", assignment.getQueryId(), assignment.getPoolId()));
-            }
-        }
     }
 
     @PostConstruct
@@ -256,8 +214,8 @@ public class SqlTaskManager
         }, 0, 1, TimeUnit.SECONDS);
     }
 
-    @Override
     @PreDestroy
+    @Override
     public void close()
     {
         boolean taskCanceled = false;
@@ -305,7 +263,10 @@ public class SqlTaskManager
         return ImmutableList.copyOf(tasks.asMap().values());
     }
 
-    @Override
+    /**
+     * Gets all of the currently tracked tasks.  This will included
+     * uninitialized, running, and completed tasks.
+     */
     public List<TaskInfo> getAllTaskInfo()
     {
         return tasks.asMap().values().stream()
@@ -313,7 +274,13 @@ public class SqlTaskManager
                 .collect(toImmutableList());
     }
 
-    @Override
+    /**
+     * Gets the info for the specified task.  If the task has not been created
+     * yet, an uninitialized task is created and the info is returned.
+     * <p>
+     * NOTE: this design assumes that only tasks that will eventually exist are
+     * queried.
+     */
     public TaskInfo getTaskInfo(TaskId taskId)
     {
         requireNonNull(taskId, "taskId is null");
@@ -323,7 +290,9 @@ public class SqlTaskManager
         return sqlTask.getTaskInfo();
     }
 
-    @Override
+    /**
+     * Gets the status for the specified task.
+     */
     public TaskStatus getTaskStatus(TaskId taskId)
     {
         requireNonNull(taskId, "taskId is null");
@@ -333,7 +302,15 @@ public class SqlTaskManager
         return sqlTask.getTaskStatus();
     }
 
-    @Override
+    /**
+     * Gets future info for the task after the state changes from
+     * {@code current state}. If the task has not been created yet, an
+     * uninitialized task is created and the future is returned.  If the task
+     * is already in a final state, the info is returned immediately.
+     * <p>
+     * NOTE: this design assumes that only tasks that will eventually exist are
+     * queried.
+     */
     public ListenableFuture<TaskInfo> getTaskInfo(TaskId taskId, long currentVersion)
     {
         requireNonNull(taskId, "taskId is null");
@@ -343,7 +320,10 @@ public class SqlTaskManager
         return sqlTask.getTaskInfo(currentVersion);
     }
 
-    @Override
+    /**
+     * Gets the unique instance id of a task.  This can be used to detect a task
+     * that was destroyed and recreated.
+     */
     public String getTaskInstanceId(TaskId taskId)
     {
         SqlTask sqlTask = tasks.getUnchecked(taskId);
@@ -351,7 +331,15 @@ public class SqlTaskManager
         return sqlTask.getTaskInstanceId();
     }
 
-    @Override
+    /**
+     * Gets future status for the task after the state changes from
+     * {@code current state}. If the task has not been created yet, an
+     * uninitialized task is created and the future is returned.  If the task
+     * is already in a final state, the status is returned immediately.
+     * <p>
+     * NOTE: this design assumes that only tasks that will eventually exist are
+     * queried.
+     */
     public ListenableFuture<TaskStatus> getTaskStatus(TaskId taskId, long currentVersion)
     {
         requireNonNull(taskId, "taskId is null");
@@ -361,7 +349,6 @@ public class SqlTaskManager
         return sqlTask.getTaskStatus(currentVersion);
     }
 
-    @Override
     public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(TaskId taskId, long currentDynamicFiltersVersion)
     {
         requireNonNull(taskId, "taskId is null");
@@ -371,7 +358,10 @@ public class SqlTaskManager
         return sqlTask.acknowledgeAndGetNewDynamicFilterDomains(currentDynamicFiltersVersion);
     }
 
-    @Override
+    /**
+     * Updates the task plan, splitAssignments and output buffers.  If the task does not
+     * already exist, it is created and then updated.
+     */
     public TaskInfo updateTask(
             Session session,
             TaskId taskId,
@@ -407,26 +397,34 @@ public class SqlTaskManager
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         QueryContext queryContext = sqlTask.getQueryContext();
         if (!queryContext.isMemoryLimitsInitialized()) {
-            long sessionQueryMaxMemoryPerNode = getQueryMaxMemoryPerNode(session).toBytes();
-
-            Optional<DataSize> effectiveQueryMaxMemoryPerTask = getQueryMaxTotalMemoryPerTask(session);
-            if (queryMaxMemoryPerTask.isPresent() &&
-                    (effectiveQueryMaxMemoryPerTask.isEmpty() || effectiveQueryMaxMemoryPerTask.get().toBytes() > queryMaxMemoryPerTask.get().toBytes())) {
-                effectiveQueryMaxMemoryPerTask = queryMaxMemoryPerTask;
+            RetryPolicy retryPolicy = getRetryPolicy(session);
+            if (retryPolicy == TASK) {
+                // Memory limit for fault tolerant queries should only be enforced by the MemoryPool.
+                // LowMemoryKiller is responsible for freeing up the MemoryPool if necessary.
+                queryContext.initializeMemoryLimits(false, /* unlimited */ Long.MAX_VALUE);
             }
+            else {
+                long sessionQueryMaxMemoryPerNode = getQueryMaxMemoryPerNode(session).toBytes();
 
-            // Session properties are only allowed to decrease memory limits, not increase them
-            queryContext.initializeMemoryLimits(
-                    resourceOvercommit(session),
-                    min(sessionQueryMaxMemoryPerNode, queryMaxMemoryPerNode),
-                    effectiveQueryMaxMemoryPerTask);
+                // Session properties are only allowed to decrease memory limits, not increase them
+                queryContext.initializeMemoryLimits(
+                        resourceOvercommit(session),
+                        min(sessionQueryMaxMemoryPerNode, queryMaxMemoryPerNode));
+            }
         }
 
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, fragment, splitAssignments, outputBuffers, dynamicFilterDomains);
     }
 
-    @Override
+    /**
+     * Gets results from a task either immediately or in the future.  If the
+     * task or buffer has not been created yet, an uninitialized task is
+     * created and a future is returned.
+     * <p>
+     * NOTE: this design assumes that only tasks and buffers that will
+     * eventually exist are queried.
+     */
     public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
         requireNonNull(taskId, "taskId is null");
@@ -437,7 +435,9 @@ public class SqlTaskManager
         return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSize);
     }
 
-    @Override
+    /**
+     * Acknowledges previously received results.
+     */
     public void acknowledgeTaskResults(TaskId taskId, OutputBufferId bufferId, long sequenceId)
     {
         requireNonNull(taskId, "taskId is null");
@@ -447,7 +447,14 @@ public class SqlTaskManager
         tasks.getUnchecked(taskId).acknowledgeTaskResults(bufferId, sequenceId);
     }
 
-    @Override
+    /**
+     * Aborts a result buffer for a task.  If the task or buffer has not been
+     * created yet, an uninitialized task is created and a the buffer is
+     * aborted.
+     * <p>
+     * NOTE: this design assumes that only tasks and buffers that will
+     * eventually exist are queried.
+     */
     public TaskInfo destroyTaskResults(TaskId taskId, OutputBufferId bufferId)
     {
         requireNonNull(taskId, "taskId is null");
@@ -456,7 +463,10 @@ public class SqlTaskManager
         return tasks.getUnchecked(taskId).destroyTaskResults(bufferId);
     }
 
-    @Override
+    /**
+     * Cancels a task.  If the task does not already exist, it is created and then
+     * canceled.
+     */
     public TaskInfo cancelTask(TaskId taskId)
     {
         requireNonNull(taskId, "taskId is null");
@@ -464,7 +474,10 @@ public class SqlTaskManager
         return tasks.getUnchecked(taskId).cancel();
     }
 
-    @Override
+    /**
+     * Aborts a task.  If the task does not already exist, it is created and then
+     * aborted.
+     */
     public TaskInfo abortTask(TaskId taskId)
     {
         requireNonNull(taskId, "taskId is null");
@@ -472,7 +485,10 @@ public class SqlTaskManager
         return tasks.getUnchecked(taskId).abort();
     }
 
-    @Override
+    /**
+     * Fail a task.  If the task does not already exist, it is created and then
+     * failed.
+     */
     public TaskInfo failTask(TaskId taskId, Throwable failure)
     {
         requireNonNull(taskId, "taskId is null");
@@ -504,7 +520,7 @@ public class SqlTaskManager
                 });
     }
 
-    public void failAbandonedTasks()
+    private void failAbandonedTasks()
     {
         DateTime now = DateTime.now();
         DateTime oldestAllowedHeartbeat = now.minus(clientTimeout.toMillis());
@@ -547,20 +563,29 @@ public class SqlTaskManager
         cachedStats.resetTo(tempIoStats);
     }
 
-    @Override
+    /**
+     * Adds a state change listener to the specified task.
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
+     */
     public void addStateChangeListener(TaskId taskId, StateChangeListener<TaskState> stateChangeListener)
     {
         requireNonNull(taskId, "taskId is null");
         tasks.getUnchecked(taskId).addStateChangeListener(stateChangeListener);
     }
 
-    @Override
+    /**
+     * Add a listener that notifies about failures of any source tasks for a given task
+     */
     public void addSourceTaskFailureListener(TaskId taskId, TaskFailureListener listener)
     {
         tasks.getUnchecked(taskId).addSourceTaskFailureListener(listener);
     }
 
-    @Override
+    /**
+     * Return trace token for a given task (see Session#traceToken)
+     */
     public Optional<String> getTraceToken(TaskId taskId)
     {
         return tasks.getUnchecked(taskId).getTraceToken();

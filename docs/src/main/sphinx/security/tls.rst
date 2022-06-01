@@ -1,5 +1,5 @@
 =============
-HTTPS and TLS
+TLS and HTTPS
 =============
 
 Trino runs with no security by default. This allows you to connect to the server
@@ -80,7 +80,7 @@ Approaches
 To configure Trino with TLS support, consider two alternative paths:
 
 * Use the :ref:`load balancer or proxy <https-load-balancer>` at your site
-  or cloud environment to terminate HTTPS/TLS. This approach is the simplest and
+  or cloud environment to terminate TLS/HTTPS. This approach is the simplest and
   strongly preferred solution.
 
 * Secure the Trino :ref:`server directly <https-secure-directly>`. This
@@ -89,7 +89,7 @@ To configure Trino with TLS support, consider two alternative paths:
 
 .. _https-load-balancer:
 
-Use a load balancer to terminate HTTPS/TLS
+Use a load balancer to terminate TLS/HTTPS
 ------------------------------------------
 
 Your site or cloud environment may already have a :ref:`load balancer <glossLB>`

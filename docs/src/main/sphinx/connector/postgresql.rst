@@ -2,6 +2,10 @@
 PostgreSQL connector
 ====================
 
+.. raw:: html
+
+  <img src="../_static/img/postgresql.png" class="connector-logo">
+
 The PostgreSQL connector allows querying and creating tables in an
 external `PostgreSQL <https://www.postgresql.org/>`_ database. This can be used to join data between
 different systems like PostgreSQL and Hive, or between different
@@ -93,6 +97,38 @@ catalog named ``sales`` using the configured connector.
 Type mapping
 ------------
 
+The data type mappings are as follows:
+
+=================== ================================ =======================================================================
+PostgreSQL          Trino                            Notes
+=================== ================================ =======================================================================
+``BIT``             ``BOOLEAN``
+``BOOLEAN``         ``BOOLEAN``
+``SMALLINT``        ``SMALLINT``
+``INTEGER``         ``INTEGER``
+``BIGINT``          ``BIGINT``
+``REAL``            ``DATE``
+``DOUBLE``          ``DOUBLE``
+``NUMERIC(p, s)``   ``DECIMAL(p, s)``                ``DECIMAL(p, s)`` is an alias of  ``NUMERIC(p, s)``.
+                                                     See :ref:`postgresql-decimal-type-handling` for more information.
+``CHAR(n)``         ``CHAR(n)``
+``VARCHAR(n)``      ``VARCHAR(n)``
+``ENUM``            ``VARCHAR``
+``BINARY``          ``VARBINARY``
+``DATE``            ``DATE``
+``TIME(n)``         ``TIME(n)``
+``TIMESTAMP(n)``    ``TIMESTAMP(n)``
+``TIMESTAMPTZ(n)``  ``TIMESTAMP(n) WITH TIME ZONE``
+``MONEY``           ``VARCHAR``
+``UUID``            ``UUID``
+``JSON``            ``JSON``
+``JSONB``           ``JSON``
+``HSTORE``          ``MAP(VARCHAR, VARCHAR)``
+``ARRAY``           Disabled, ``ARRAY`` or ``JSON``  See :ref:`postgresql-array-type-handling` for more information.
+=================== ================================ =======================================================================
+
+.. _postgresql-decimal-type-handling:
+
 Decimal type handling
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -106,6 +142,8 @@ is controlled via the ``decimal-rounding-mode`` configuration property or the ``
 property, which can be set to ``UNNECESSARY`` (the default),
 ``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
 (see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+
+.. _postgresql-array-type-handling:
 
 Array type handling
 ^^^^^^^^^^^^^^^^^^^
@@ -169,10 +207,38 @@ statements, the connector supports the following features:
 
 .. include:: alter-schema-limitation.fragment
 
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+.. _postgresql-table-statistics:
+
+Table statistics
+^^^^^^^^^^^^^^^^
+
+The PostgreSQL connector can use :doc:`table and column statistics
+</optimizer/statistics>` for :doc:`cost based optimizations
+</optimizer/cost-based-optimizations>`, to improve query processing performance
+based on the actual data in the data source.
+
+The statistics are collected by PostgreSQL and retrieved by the connector.
+
+To collect statistics for a table, execute the following statement in
+PostgreSQL.
+
+.. code-block:: text
+
+    ANALYZE table_schema.table_name;
+
+Refer to PostgreSQL documentation for additional ``ANALYZE`` options.
+
 .. _postgresql-pushdown:
 
 Pushdown
---------
+^^^^^^^^
 
 The connector supports pushdown for a number of operations:
 
@@ -198,6 +264,8 @@ The connector supports pushdown for a number of operations:
 * :func:`corr`
 * :func:`regr_intercept`
 * :func:`regr_slope`
+
+.. include:: join-pushdown-enabled-true.fragment
 
 Predicate pushdown support
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

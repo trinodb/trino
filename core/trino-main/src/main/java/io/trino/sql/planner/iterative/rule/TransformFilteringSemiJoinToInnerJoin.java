@@ -22,7 +22,6 @@ import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
-import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
@@ -43,7 +42,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.Patterns.filter;
@@ -124,15 +123,11 @@ public class TransformFilteringSemiJoinToInnerJoin
 
         Optional<Expression> joinFilter = simplifiedPredicate.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(simplifiedPredicate);
 
-        PlanNode filteringSourceDistinct = new AggregationNode(
+        PlanNode filteringSourceDistinct = singleAggregation(
                 context.getIdAllocator().getNextId(),
                 semiJoin.getFilteringSource(),
                 ImmutableMap.of(),
-                singleGroupingSet(ImmutableList.of(semiJoin.getFilteringSourceJoinSymbol())),
-                ImmutableList.of(),
-                SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                singleGroupingSet(ImmutableList.of(semiJoin.getFilteringSourceJoinSymbol())));
 
         JoinNode innerJoin = new JoinNode(
                 semiJoin.getId(),

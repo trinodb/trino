@@ -13,6 +13,7 @@
  */
 package io.trino.server.remotetask;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -29,6 +30,7 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.DynamicFiltersCollector;
@@ -51,6 +53,7 @@ import io.trino.execution.buffer.PageBufferInfo;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
+import io.trino.server.FailTaskRequest;
 import io.trino.server.TaskUpdateRequest;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoTransportException;
@@ -58,6 +61,7 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.util.Failures;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -161,6 +165,7 @@ public final class HttpRemoteTask
 
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
+    private final JsonCodec<FailTaskRequest> failTaskRequestCodec;
 
     private final RequestErrorTracker updateErrorTracker;
 
@@ -192,10 +197,12 @@ public final class HttpRemoteTask
             JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
+            JsonCodec<FailTaskRequest> failTaskRequestCodec,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             RemoteTaskStats stats,
             DynamicFilterService dynamicFilterService,
-            Set<DynamicFilterId> outboundDynamicFilterIds)
+            Set<DynamicFilterId> outboundDynamicFilterIds,
+            Optional<DataSize> estimatedMemory)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -211,6 +218,7 @@ public final class HttpRemoteTask
         requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
         requireNonNull(stats, "stats is null");
         requireNonNull(outboundDynamicFilterIds, "outboundDynamicFilterIds is null");
+        requireNonNull(estimatedMemory, "estimatedMemory is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -225,6 +233,7 @@ public final class HttpRemoteTask
             this.summarizeTaskInfo = summarizeTaskInfo;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
+            this.failTaskRequestCodec = failTaskRequestCodec;
             this.updateErrorTracker = new RequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             this.stats = stats;
@@ -291,7 +300,8 @@ public final class HttpRemoteTask
                     executor,
                     updateScheduledExecutor,
                     errorScheduledExecutor,
-                    stats);
+                    stats,
+                    estimatedMemory);
 
             taskStatusFetcher.addStateChangeListener(newStatus -> {
                 TaskState state = newStatus.getState();
@@ -730,17 +740,43 @@ public final class HttpRemoteTask
 
     private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, String action, boolean abort)
     {
+        scheduleAsyncCleanupRequest(cleanupBackoff, action, () -> buildDeleteTaskRequest(abort));
+    }
+
+    private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, String action, FailTaskRequest failTaskRequest)
+    {
+        scheduleAsyncCleanupRequest(cleanupBackoff, action, () -> buildFailTaskRequest(failTaskRequest));
+    }
+
+    private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, String action, Supplier<Request> remoteRequestSupplier)
+    {
         if (!aborting.compareAndSet(false, true)) {
             // Do not initiate another round of cleanup requests if one had been initiated.
             // Otherwise, we can get into an asynchronous recursion here. For example, when aborting a task after REMOTE_TASK_MISMATCH.
             return;
         }
 
+        Request request = remoteRequestSupplier.get();
+        doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
+    }
+
+    private Request buildDeleteTaskRequest(boolean abort)
+    {
         HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus()).addParameter("abort", "" + abort);
-        Request request = prepareDelete()
+        return prepareDelete()
                 .setUri(uriBuilder.build())
                 .build();
-        doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
+    }
+
+    private Request buildFailTaskRequest(FailTaskRequest failTaskRequest)
+    {
+        HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
+        uriBuilder = uriBuilder.appendPath("fail");
+        return preparePost()
+                .setUri(uriBuilder.build())
+                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
+                .setBodyGenerator(createStaticBodyGenerator(failTaskRequestCodec.toJsonBytes(failTaskRequest)))
+                .build();
     }
 
     private void doScheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
@@ -816,6 +852,21 @@ public final class HttpRemoteTask
                 // send abort to task
                 scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "abort", true);
             }
+        }
+    }
+
+    /**
+     * Trigger remote task failure. Task status will be updated only when request sent to remote node returns.
+     */
+    @Override
+    public synchronized void failRemotely(Throwable cause)
+    {
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            TaskStatus taskStatus = getTaskStatus();
+            if (taskStatus.getState().isDone()) {
+                return;
+            }
+            scheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), "fail", new FailTaskRequest(Failures.toFailure(cause)));
         }
     }
 

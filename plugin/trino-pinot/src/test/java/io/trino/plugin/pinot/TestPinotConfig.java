@@ -54,7 +54,7 @@ public class TestPinotConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("pinot.controller-urls", "host1:1111,host2:1111")
                 .put("pinot.idle-timeout", "1h")
                 .put("pinot.max-backlog-per-server", "15")

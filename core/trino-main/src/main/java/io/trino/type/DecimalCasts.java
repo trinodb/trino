@@ -96,7 +96,7 @@ public final class DecimalCasts
     {
         Signature signature = Signature.builder()
                 .operatorType(CAST)
-                .argumentTypes(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
+                .argumentType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                 .returnType(to)
                 .build();
         return new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
@@ -105,7 +105,7 @@ public final class DecimalCasts
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods(methodNames)
-                                .withExtraParameters((context) -> {
+                                .withExtraParameters(context -> {
                                     long precision = context.getLiteral("precision");
                                     long scale = context.getLiteral("scale");
                                     Object tenToScale;
@@ -129,7 +129,7 @@ public final class DecimalCasts
     {
         Signature signature = Signature.builder()
                 .operatorType(CAST)
-                .argumentTypes(from)
+                .argumentType(from)
                 .returnType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                 .build();
         return new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
@@ -140,7 +140,7 @@ public final class DecimalCasts
                         .returnConvention(nullableResult ? NULLABLE_RETURN : FAIL_ON_NULL)
                         .implementation(methodsGroup -> methodsGroup
                                 .methods(methodNames)
-                                .withExtraParameters((context) -> {
+                                .withExtraParameters(context -> {
                                     DecimalType resultType = (DecimalType) context.getReturnType();
                                     Object tenToScale;
                                     if (isShortDecimal(resultType)) {
@@ -156,14 +156,14 @@ public final class DecimalCasts
     public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
             .signature(Signature.builder()
                     .operatorType(CAST)
-                    .argumentTypes(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
+                    .argumentType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                     .returnType(new TypeSignature("varchar", typeVariable("x")))
                     .build())
             .deterministic(true)
             .choice(choice -> choice
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortDecimalToVarchar", "longDecimalToVarchar")
-                            .withExtraParameters((context) -> {
+                            .withExtraParameters(context -> {
                                 long scale = context.getLiteral("scale");
                                 VarcharType resultType = (VarcharType) context.getReturnType();
                                 long length;

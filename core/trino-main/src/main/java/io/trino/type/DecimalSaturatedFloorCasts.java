@@ -42,14 +42,14 @@ public final class DecimalSaturatedFloorCasts
     public static final SqlScalarFunction DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST = new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
             .signature(Signature.builder()
                     .operatorType(SATURATED_FLOOR_CAST)
-                    .argumentTypes(new TypeSignature("decimal", typeVariable("source_precision"), typeVariable("source_scale")))
+                    .argumentType(new TypeSignature("decimal", typeVariable("source_precision"), typeVariable("source_scale")))
                     .returnType(new TypeSignature("decimal", typeVariable("result_precision"), typeVariable("result_scale")))
                     .build())
             .deterministic(true)
             .choice(choice -> choice
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortDecimalToShortDecimal", "shortDecimalToLongDecimal", "longDecimalToShortDecimal", "longDecimalToLongDecimal")
-                            .withExtraParameters((context) -> {
+                            .withExtraParameters(context -> {
                                 int sourcePrecision = toIntExact(context.getLiteral("source_precision"));
                                 int sourceScale = toIntExact(context.getLiteral("source_scale"));
                                 int resultPrecision = toIntExact(context.getLiteral("result_precision"));
@@ -113,14 +113,14 @@ public final class DecimalSaturatedFloorCasts
         return new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
                         .operatorType(SATURATED_FLOOR_CAST)
-                        .argumentTypes(new TypeSignature("decimal", typeVariable("source_precision"), typeVariable("source_scale")))
+                        .argumentType(new TypeSignature("decimal", typeVariable("source_precision"), typeVariable("source_scale")))
                         .returnType(type.getTypeSignature())
                         .build())
                 .deterministic(true)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods("shortDecimalToGenericIntegerType", "longDecimalToGenericIntegerType")
-                                .withExtraParameters((context) -> {
+                                .withExtraParameters(context -> {
                                     int sourceScale = toIntExact(context.getLiteral("source_scale"));
                                     return ImmutableList.of(sourceScale, minValue, maxValue);
                                 })))
@@ -164,14 +164,14 @@ public final class DecimalSaturatedFloorCasts
         return new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
                         .operatorType(SATURATED_FLOOR_CAST)
-                        .argumentTypes(integerType.getTypeSignature())
+                        .argumentType(integerType)
                         .returnType(new TypeSignature("decimal", typeVariable("result_precision"), typeVariable("result_scale")))
                         .build())
                 .deterministic(true)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods("genericIntegerTypeToShortDecimal", "genericIntegerTypeToLongDecimal")
-                                .withExtraParameters((context) -> {
+                                .withExtraParameters(context -> {
                                     int resultPrecision = toIntExact(context.getLiteral("result_precision"));
                                     int resultScale = toIntExact(context.getLiteral("result_scale"));
                                     return ImmutableList.of(resultPrecision, resultScale);

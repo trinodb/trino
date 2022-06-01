@@ -57,7 +57,7 @@ public class TestLocalQueries
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
 
-        localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
+        localQueryRunner.addFunctions(CUSTOM_FUNCTIONS);
 
         return localQueryRunner;
     }

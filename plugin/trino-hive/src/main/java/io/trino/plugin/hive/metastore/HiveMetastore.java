@@ -142,7 +142,7 @@ public interface HiveMetastore
      */
     Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal);
 
-    default long openTransaction()
+    default long openTransaction(AcidTransactionOwner transactionOwner)
     {
         throw new UnsupportedOperationException();
     }
@@ -162,7 +162,12 @@ public interface HiveMetastore
         throw new UnsupportedOperationException();
     }
 
-    default void acquireSharedReadLock(String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    default void acquireSharedReadLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            List<SchemaTableName> fullTables,
+            List<HivePartition> partitions)
     {
         throw new UnsupportedOperationException();
     }
@@ -182,7 +187,14 @@ public interface HiveMetastore
         throw new UnsupportedOperationException();
     }
 
-    default void acquireTableWriteLock(String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isDynamicPartitionWrite)
+    default void acquireTableWriteLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            String dbName,
+            String tableName,
+            DataOperationType operation,
+            boolean isDynamicPartitionWrite)
     {
         throw new UnsupportedOperationException();
     }

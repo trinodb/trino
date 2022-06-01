@@ -49,6 +49,6 @@ public class TestPinotMetadata
         PinotTableHandle withAnotherSchema = metadata.getTableHandle(session, new SchemaTableName(TestPinotSplitManager.realtimeOnlyTable.getTableName(), TestPinotSplitManager.realtimeOnlyTable.getTableName()));
         assertEquals(withAnotherSchema.getTableName(), TestPinotSplitManager.realtimeOnlyTable.getTableName());
         PinotTableHandle withUppercaseTable = metadata.getTableHandle(session, new SchemaTableName("default", TEST_TABLE));
-        assertEquals(withUppercaseTable.getTableName(), "airlinestats");
+        assertEquals(withUppercaseTable.getTableName(), "airlineStats");
     }
 }

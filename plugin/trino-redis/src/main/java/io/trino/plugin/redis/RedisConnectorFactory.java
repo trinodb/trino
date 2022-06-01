@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.util.Objects.requireNonNull;
 
 public class RedisConnectorFactory
@@ -52,6 +53,7 @@ public class RedisConnectorFactory
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
+        checkSpiVersion(context, this);
 
         Bootstrap app = new Bootstrap(
                 new JsonModule(),

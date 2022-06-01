@@ -122,7 +122,7 @@ public class TestPlannerWarnings
     {
         // Warnings from testing rules will be added
         PlanOptimizer optimizer = new IterativeOptimizer(
-                queryRunner.getMetadata(),
+                queryRunner.getPlannerContext(),
                 new RuleStatsRecorder(),
                 queryRunner.getStatsCalculator(),
                 queryRunner.getCostCalculator(),

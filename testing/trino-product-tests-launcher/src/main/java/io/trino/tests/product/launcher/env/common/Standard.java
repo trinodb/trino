@@ -106,6 +106,11 @@ public final class Standard
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.addContainers(createPrestoMaster(), createTestsContainer());
+        // default catalogs copied from /docker/presto-product-tests
+        builder.addConnector("blackhole");
+        builder.addConnector("jmx");
+        builder.addConnector("system");
+        builder.addConnector("tpch");
     }
 
     @SuppressWarnings("resource")
@@ -186,6 +191,7 @@ public final class Standard
         try {
             FileAttribute<Set<PosixFilePermission>> rwx = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwxrwxrwx"));
             Path script = Files.createTempFile("enable-java-debugger", ".sh", rwx);
+            script.toFile().deleteOnExit();
             Files.writeString(
                     script,
                     format(

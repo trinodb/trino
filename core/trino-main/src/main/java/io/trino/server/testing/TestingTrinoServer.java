@@ -50,13 +50,16 @@ import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.SqlQueryManager;
+import io.trino.execution.SqlTaskManager;
 import io.trino.execution.StateMachine.StateChangeListener;
-import io.trino.execution.TaskManager;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.FunctionManager;
+import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
@@ -73,7 +76,6 @@ import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.ShutdownAction;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
-import io.trino.server.testing.exchange.LocalFileSystemExchangeManagerFactory;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
@@ -154,6 +156,8 @@ public class TestingTrinoServer
     private final TypeManager typeManager;
     private final QueryExplainer queryExplainer;
     private final SessionPropertyManager sessionPropertyManager;
+    private final FunctionManager functionManager;
+    private final GlobalFunctionCatalog globalFunctionCatalog;
     private final StatsCalculator statsCalculator;
     private final ProcedureRegistry procedureRegistry;
     private final TestingAccessControlManager accessControl;
@@ -171,12 +175,13 @@ public class TestingTrinoServer
     private final Announcer announcer;
     private final DispatchManager dispatchManager;
     private final SqlQueryManager queryManager;
-    private final TaskManager taskManager;
+    private final SqlTaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
     private final MBeanServer mBeanServer;
     private final boolean coordinator;
     private final FailureInjector failureInjector;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -231,7 +236,8 @@ public class TestingTrinoServer
                 .put("coordinator", String.valueOf(coordinator))
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
-                .put("exchange.client-threads", "4");
+                .put("exchange.client-threads", "4")
+                .put("internal-communication.shared-secret", "internal-shared-secret");
 
         if (coordinator) {
             // TODO: enable failure detector
@@ -303,8 +309,10 @@ public class TestingTrinoServer
         server = injector.getInstance(TestingHttpServer.class);
         catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
+        globalFunctionCatalog = injector.getInstance(GlobalFunctionCatalog.class);
         metadata = injector.getInstance(Metadata.class);
         typeManager = injector.getInstance(TypeManager.class);
+        functionManager = injector.getInstance(FunctionManager.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         groupProvider = injector.getInstance(TestingGroupProvider.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
@@ -339,21 +347,17 @@ public class TestingTrinoServer
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
-        taskManager = injector.getInstance(TaskManager.class);
+        taskManager = injector.getInstance(SqlTaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         mBeanServer = injector.getInstance(MBeanServer.class);
         announcer = injector.getInstance(Announcer.class);
         failureInjector = injector.getInstance(FailureInjector.class);
+        exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
 
         accessControl.setSystemAccessControls(systemAccessControls);
 
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);
-
-        ExchangeManagerRegistry exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
-        exchangeManagerRegistry.addExchangeManagerFactory(new LocalFileSystemExchangeManagerFactory());
-        exchangeManagerRegistry.loadExchangeManager("local", ImmutableMap.of(
-                "base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
 
         announcer.forceAnnounce();
 
@@ -421,6 +425,11 @@ public class TestingTrinoServer
         return catalog;
     }
 
+    public void loadExchangeManager(String name, Map<String, String> properties)
+    {
+        exchangeManagerRegistry.loadExchangeManager(name, properties);
+    }
+
     public Path getBaseDataDir()
     {
         return baseDataDir;
@@ -480,6 +489,16 @@ public class TestingTrinoServer
     public SessionPropertyManager getSessionPropertyManager()
     {
         return sessionPropertyManager;
+    }
+
+    public FunctionManager getFunctionManager()
+    {
+        return functionManager;
+    }
+
+    public void addFunctions(FunctionBundle functionBundle)
+    {
+        globalFunctionCatalog.addFunctions(functionBundle);
     }
 
     public StatsCalculator getStatsCalculator()
@@ -554,7 +573,7 @@ public class TestingTrinoServer
         return gracefulShutdownHandler;
     }
 
-    public TaskManager getTaskManager()
+    public SqlTaskManager getTaskManager()
     {
         return taskManager;
     }

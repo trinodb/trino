@@ -16,7 +16,6 @@ package io.trino.plugin.raptor.legacy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.QualifiedObjectName;
@@ -160,7 +159,6 @@ public final class RaptorQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
         DistributedQueryRunner queryRunner = createRaptorQueryRunner(properties, ImmutableList.of(), false, ImmutableMap.of());
         Thread.sleep(10);

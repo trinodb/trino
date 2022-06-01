@@ -321,8 +321,8 @@ public class TestExpressionCompiler
         assertExecute("nullif(cast(null as boolean), true)", BOOLEAN, null);
         for (Boolean left : booleanValues) {
             for (Boolean right : booleanValues) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : left == right);
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : left != right);
+                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : left.equals(right));
+                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : !left.equals(right));
 
                 assertExecute(generateExpression("nullif(%s, %s)", left, right), BOOLEAN, nullIf(left, right));
                 assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right));

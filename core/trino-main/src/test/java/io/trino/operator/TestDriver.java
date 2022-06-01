@@ -106,7 +106,7 @@ public class TestDriver
         assertSame(driver.getDriverContext(), driverContext);
 
         assertFalse(driver.isFinished());
-        ListenableFuture<Void> blocked = driver.processFor(new Duration(1, TimeUnit.SECONDS));
+        ListenableFuture<Void> blocked = driver.processForDuration(new Duration(1, TimeUnit.SECONDS));
         assertTrue(blocked.isDone());
         assertTrue(driver.isFinished());
 
@@ -127,7 +127,7 @@ public class TestDriver
         Operator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
         // let these threads race
-        scheduledExecutor.submit(() -> driver.processFor(new Duration(1, TimeUnit.NANOSECONDS))); // don't want to call isFinishedInternal in processFor
+        scheduledExecutor.submit(() -> driver.processForDuration(new Duration(1, TimeUnit.NANOSECONDS))); // don't want to call isFinishedInternal in processFor
         scheduledExecutor.submit(driver::close);
         while (!driverContext.isDone()) {
             Uninterruptibles.sleepUninterruptibly(1, TimeUnit.MILLISECONDS);
@@ -179,13 +179,13 @@ public class TestDriver
         assertSame(driver.getDriverContext(), driverContext);
 
         assertFalse(driver.isFinished());
-        assertFalse(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
+        assertFalse(driver.processForDuration(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         assertFalse(driver.isFinished());
 
         driver.updateSplitAssignment(new SplitAssignment(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, newMockSplit())), true));
 
         assertFalse(driver.isFinished());
-        assertTrue(driver.processFor(new Duration(1, TimeUnit.SECONDS)).isDone());
+        assertTrue(driver.processForDuration(new Duration(1, TimeUnit.SECONDS)).isDone());
         assertTrue(driver.isFinished());
 
         assertTrue(sink.isFinished());
@@ -202,7 +202,7 @@ public class TestDriver
         assertSame(driver.getDriverContext(), driverContext);
 
         // block thread in operator processing
-        Future<Boolean> driverProcessFor = executor.submit(() -> driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
+        Future<Boolean> driverProcessFor = executor.submit(() -> driver.processForDuration(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         brokenOperator.waitForLocked();
 
         driver.close();
@@ -229,7 +229,7 @@ public class TestDriver
         });
         brokenOperator.waitForLocked();
 
-        assertTrue(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
+        assertTrue(driver.processForDuration(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         assertTrue(driver.isFinished());
 
         brokenOperator.unlock();
@@ -253,7 +253,7 @@ public class TestDriver
         // the table scan operator will request memory revocation with requestMemoryRevoking()
         // while the driver is still not done with the processFor() method and before it moves to
         // updateDriverBlockedFuture() method.
-        assertTrue(driver.processFor(new Duration(100, TimeUnit.MILLISECONDS)).isDone());
+        assertTrue(driver.processForDuration(new Duration(100, TimeUnit.MILLISECONDS)).isDone());
     }
 
     @Test
@@ -275,21 +275,21 @@ public class TestDriver
         Driver driver = Driver.createDriver(driverContext, source, brokenOperator);
 
         // block thread in operator processing
-        Future<Boolean> driverProcessFor = executor.submit(() -> driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
+        Future<Boolean> driverProcessFor = executor.submit(() -> driver.processForDuration(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         brokenOperator.waitForLocked();
 
         assertSame(driver.getDriverContext(), driverContext);
 
         assertFalse(driver.isFinished());
         // processFor always returns NOT_BLOCKED, because DriveLockResult was not acquired
-        assertTrue(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
+        assertTrue(driver.processForDuration(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         assertFalse(driver.isFinished());
 
         driver.updateSplitAssignment(new SplitAssignment(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, newMockSplit())), true));
 
         assertFalse(driver.isFinished());
         // processFor always returns NOT_BLOCKED, because DriveLockResult was not acquired
-        assertTrue(driver.processFor(new Duration(1, TimeUnit.SECONDS)).isDone());
+        assertTrue(driver.processForDuration(new Duration(1, TimeUnit.SECONDS)).isDone());
         assertFalse(driver.isFinished());
 
         driver.close();

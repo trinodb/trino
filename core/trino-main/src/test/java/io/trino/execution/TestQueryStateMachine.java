@@ -21,14 +21,12 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.FailureInfo;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.memory.VersionedMemoryPoolId;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.TrinoException;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.type.Type;
@@ -74,7 +72,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestQueryStateMachine
@@ -94,7 +91,6 @@ public class TestQueryStateMachine
     private static final List<String> OUTPUT_FIELD_NAMES = ImmutableList.of("a", "b", "c");
     private static final List<Type> OUTPUT_FIELD_TYPES = ImmutableList.of(BIGINT, BIGINT, BIGINT);
     private static final String UPDATE_TYPE = "update type";
-    private static final VersionedMemoryPoolId MEMORY_POOL = new VersionedMemoryPoolId(new MemoryPoolId("pool"), 42);
     private static final Map<String, String> SET_SESSION_PROPERTIES = ImmutableMap.<String, String>builder()
             .put("fruit", "apple")
             .put("drink", "coffee")
@@ -439,7 +435,6 @@ public class TestQueryStateMachine
     {
         assertEquals(stateMachine.getQueryId(), TEST_SESSION.getQueryId());
         assertEqualSessionsWithoutTransactionId(stateMachine.getSession(), TEST_SESSION);
-        assertSame(stateMachine.getMemoryPool(), MEMORY_POOL);
         assertEquals(stateMachine.getSetSessionProperties(), SET_SESSION_PROPERTIES);
         assertEquals(stateMachine.getResetSessionProperties(), RESET_SESSION_PROPERTIES);
 
@@ -452,7 +447,6 @@ public class TestQueryStateMachine
         assertEquals(queryInfo.getOutput(), OUTPUT);
         assertEquals(queryInfo.getFieldNames(), OUTPUT_FIELD_NAMES);
         assertEquals(queryInfo.getUpdateType(), UPDATE_TYPE);
-        assertEquals(queryInfo.getMemoryPool(), MEMORY_POOL.getId());
         assertTrue(queryInfo.getQueryType().isPresent());
         assertEquals(queryInfo.getQueryType().get(), QUERY_TYPE.get());
 
@@ -534,7 +528,6 @@ public class TestQueryStateMachine
         stateMachine.setOutput(OUTPUT);
         stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
         stateMachine.setUpdateType(UPDATE_TYPE);
-        stateMachine.setMemoryPool(MEMORY_POOL);
         for (Entry<String, String> entry : SET_SESSION_PROPERTIES.entrySet()) {
             stateMachine.addSetSessionProperties(entry.getKey(), entry.getValue());
         }

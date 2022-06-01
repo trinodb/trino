@@ -14,6 +14,7 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.execution.TaskId;
 import io.trino.metadata.InternalNode;
 
 import java.io.Closeable;
@@ -21,12 +22,23 @@ import java.io.Closeable;
 public interface NodeAllocator
         extends Closeable
 {
-    ListenableFuture<InternalNode> acquire(NodeRequirements requirements);
-
-    void release(InternalNode node);
-
-    void updateNodes();
+    /**
+     * Requests acquisition of node. Obtained node can be obtained via {@link NodeLease#getNode()} method.
+     * The node may not be available immediately. Calling party needs to wait until future returned is done.
+     *
+     * It is obligatory for the calling party to release all the leases they obtained via {@link NodeLease#release()}.
+     */
+    NodeLease acquire(NodeRequirements requirements);
 
     @Override
     void close();
+
+    interface NodeLease
+    {
+        ListenableFuture<InternalNode> getNode();
+
+        default void attachTaskId(TaskId taskId) {}
+
+        void release();
+    }
 }

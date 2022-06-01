@@ -41,7 +41,7 @@ public class TestDbResourceGroupConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("resource-groups.config-db-url", "jdbc:mysql://localhost:3306/config")
                 .put("resource-groups.config-db-user", "trino_admin")
                 .put("resource-groups.config-db-password", "trino_admin_pass")

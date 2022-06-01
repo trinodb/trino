@@ -177,7 +177,7 @@ public class HivePageSourceProvider
                 hiveSplit.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
                 hiveSplit.getTableToPartitionMapping(),
                 path,
-                hiveSplit.getBucketNumber(),
+                hiveSplit.getTableBucketNumber(),
                 hiveSplit.getEstimatedFileSize(),
                 hiveSplit.getFileModifiedTime());
 
@@ -198,7 +198,7 @@ public class HivePageSourceProvider
                 configuration,
                 session,
                 path,
-                hiveSplit.getBucketNumber(),
+                hiveSplit.getTableBucketNumber(),
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
                 hiveSplit.getEstimatedFileSize(),
@@ -235,7 +235,7 @@ public class HivePageSourceProvider
                         hiveSplit.getStatementId(),
                         source,
                         typeManager,
-                        hiveSplit.getBucketNumber(),
+                        hiveSplit.getTableBucketNumber(),
                         path,
                         originalFile,
                         orcFileWriterFactory.get(),
@@ -259,7 +259,7 @@ public class HivePageSourceProvider
             Configuration configuration,
             ConnectorSession session,
             Path path,
-            OptionalInt bucketNumber,
+            OptionalInt tableBucketNumber,
             long start,
             long length,
             long estimatedFileSize,
@@ -281,8 +281,8 @@ public class HivePageSourceProvider
 
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
-        Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, bucketNumber, regularAndInterimColumnMappings);
-        Optional<BucketValidator> bucketValidator = createBucketValidator(path, bucketValidation, bucketNumber, regularAndInterimColumnMappings);
+        Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, tableBucketNumber, regularAndInterimColumnMappings);
+        Optional<BucketValidator> bucketValidator = createBucketValidator(path, bucketValidation, tableBucketNumber, regularAndInterimColumnMappings);
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, true, typeManager);
@@ -298,7 +298,7 @@ public class HivePageSourceProvider
                     desiredColumns,
                     effectivePredicate,
                     acidInfo,
-                    bucketNumber,
+                    tableBucketNumber,
                     originalFile,
                     transaction);
 
@@ -386,11 +386,11 @@ public class HivePageSourceProvider
 
     private static boolean shouldSkipBucket(HiveTableHandle hiveTable, HiveSplit hiveSplit, DynamicFilter dynamicFilter)
     {
-        if (hiveSplit.getBucketNumber().isEmpty()) {
+        if (hiveSplit.getTableBucketNumber().isEmpty()) {
             return false;
         }
         Optional<HiveBucketFilter> hiveBucketFilter = getHiveBucketFilter(hiveTable, dynamicFilter.getCurrentPredicate());
-        return hiveBucketFilter.map(filter -> !filter.getBucketsToKeep().contains(hiveSplit.getBucketNumber().getAsInt())).orElse(false);
+        return hiveBucketFilter.map(filter -> !filter.getBucketsToKeep().contains(hiveSplit.getTableBucketNumber().getAsInt())).orElse(false);
     }
 
     private static boolean shouldSkipSplit(List<ColumnMapping> columnMappings, DynamicFilter dynamicFilter)

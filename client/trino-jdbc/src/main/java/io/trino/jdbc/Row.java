@@ -13,13 +13,14 @@
  */
 package io.trino.jdbc;
 
+import com.google.common.collect.ImmutableList;
+
 import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 // A public facade for Row from trino-client
@@ -34,9 +35,12 @@ public final class Row
 
     public List<RowField> getFields()
     {
-        return row.getFields().stream()
-                .map(RowField::new)
-                .collect(toImmutableList());
+        List<io.trino.client.RowField> fields = row.getFields();
+        ImmutableList.Builder<RowField> results = ImmutableList.builderWithExpectedSize(fields.size());
+        for (io.trino.client.RowField field : fields) {
+            results.add(new RowField(field));
+        }
+        return results.build();
     }
 
     @Override
@@ -69,12 +73,25 @@ public final class Row
         return new Builder();
     }
 
+    public static Builder builderWithExpectedSize(int fields)
+    {
+        return new Builder(fields);
+    }
+
     // A public facade for Row.Builder from trino-client
     public static final class Builder
     {
-        private final io.trino.client.Row.Builder builder = io.trino.client.Row.builder();
+        private final io.trino.client.Row.Builder builder;
 
-        private Builder() {}
+        private Builder()
+        {
+            builder = io.trino.client.Row.builder();
+        }
+
+        private Builder(int fields)
+        {
+            builder = io.trino.client.Row.builderWithExpectedSize(fields);
+        }
 
         public Builder addField(String name, @Nullable Object value)
         {

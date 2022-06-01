@@ -41,7 +41,7 @@ public class TestHdfsKerberosConfig
     {
         Path keytab = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.hdfs.trino.principal", "trino@EXAMPLE.COM")
                 .put("hive.hdfs.trino.keytab", keytab.toString())
                 .buildOrThrow();

@@ -16,9 +16,8 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionListBuilder;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
@@ -60,8 +59,6 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.scalar.BenchmarkArrayFilter.ExactArrayFilterFunction.EXACT_ARRAY_FILTER_FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -121,8 +118,7 @@ public class BenchmarkArrayFilter
         @Setup
         public void setup()
         {
-            TestingFunctionResolution functionResolution = new TestingFunctionResolution()
-                    .addFunctions(new FunctionListBuilder().function(EXACT_ARRAY_FILTER_FUNCTION).getFunctions());
+            TestingFunctionResolution functionResolution = new TestingFunctionResolution(InternalFunctionBundle.builder().function(EXACT_ARRAY_FILTER_FUNCTION).build());
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];
@@ -196,21 +192,17 @@ public class BenchmarkArrayFilter
 
         private ExactArrayFilterFunction()
         {
-            super(new FunctionMetadata(
-                    new Signature(
-                            "exact_filter",
-                            ImmutableList.of(typeVariable("T")),
-                            ImmutableList.of(),
-                            arrayType(new TypeSignature("T")),
-                            ImmutableList.of(
-                                    arrayType(new TypeSignature("T")),
-                                    functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature())),
-                            false),
-                    new FunctionNullability(false, ImmutableList.of(false, false)),
-                    false,
-                    false,
-                    "return array containing elements that match the given predicate",
-                    SCALAR));
+            super(FunctionMetadata.scalarBuilder()
+                    .signature(Signature.builder()
+                            .name("exact_filter")
+                            .typeVariable("T")
+                            .returnType(arrayType(new TypeSignature("T")))
+                            .argumentType(arrayType(new TypeSignature("T")))
+                            .argumentType(functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature()))
+                            .build())
+                    .nondeterministic()
+                    .description("return array containing elements that match the given predicate")
+                    .build());
         }
 
         @Override

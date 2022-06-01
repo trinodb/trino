@@ -294,7 +294,7 @@ public class DatabaseShardManager
 
         Map<String, Integer> nodeIds = toNodeIdMap(shards);
 
-        runCommit(transactionId, (handle) -> {
+        runCommit(transactionId, handle -> {
             externalBatchId.ifPresent(shardDaoSupplier.attach(handle)::insertExternalBatch);
             lockTable(handle, tableId);
             insertShardsAndIndex(tableId, columns, shards, nodeIds, handle);
@@ -311,7 +311,7 @@ public class DatabaseShardManager
     {
         Map<String, Integer> nodeIds = toNodeIdMap(newShards);
 
-        runCommit(transactionId, (handle) -> {
+        runCommit(transactionId, handle -> {
             lockTable(handle, tableId);
 
             if (updateTime.isEmpty() && handle.attach(MetadataDao.class).isMaintenanceBlockedLocked(tableId)) {

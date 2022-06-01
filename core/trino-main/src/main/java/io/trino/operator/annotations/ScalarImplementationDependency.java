@@ -35,9 +35,19 @@ public abstract class ScalarImplementationDependency
     {
         this.invocationConvention = requireNonNull(invocationConvention, "invocationConvention is null");
         this.type = requireNonNull(type, "type is null");
-        if (invocationConvention.supportsInstanceFactor()) {
+        if (invocationConvention.supportsInstanceFactory()) {
             throw new IllegalArgumentException(getClass().getSimpleName() + " does not support instance functions");
         }
+    }
+
+    public InvocationConvention getInvocationConvention()
+    {
+        return invocationConvention;
+    }
+
+    public Class<?> getType()
+    {
+        return type;
     }
 
     protected abstract FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention);

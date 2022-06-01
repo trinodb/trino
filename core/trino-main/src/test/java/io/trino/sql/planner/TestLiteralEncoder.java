@@ -47,11 +47,11 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreCase;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.FunctionId.toFunctionId;
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.operator.scalar.JoniRegexpCasts.castVarcharToJoniRegexp;
 import static io.trino.operator.scalar.JsonFunctions.castVarcharToJsonPath;
 import static io.trino.operator.scalar.StringFunctions.castVarcharToCodePoints;
+import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -93,7 +93,11 @@ public class TestLiteralEncoder
 
     private final ResolvedFunction base64Function = new ResolvedFunction(
             new BoundSignature("from_base64", VARBINARY, ImmutableList.of(VARCHAR)),
-            toFunctionId(new Signature("from_base64", VARBINARY.getTypeSignature(), ImmutableList.of(new TypeSignature("varchar", typeVariable("x"))))),
+            toFunctionId(Signature.builder()
+                    .name("from_base64")
+                    .returnType(VARBINARY)
+                    .argumentType(new TypeSignature("varchar", typeVariable("x")))
+                    .build()),
             SCALAR,
             true,
             new FunctionNullability(false, ImmutableList.of(false)),

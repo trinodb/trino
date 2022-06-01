@@ -36,6 +36,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public final class GlueExpressionUtil
 {
@@ -47,6 +48,19 @@ public final class GlueExpressionUtil
     private static final Joiner CONJUNCT_JOINER = Joiner.on(CONJUNCT_SEPARATOR);
     private static final String DISJUNCT_SEPARATOR = " OR ";
     private static final Joiner DISJUNCT_JOINER = Joiner.on(DISJUNCT_SEPARATOR);
+
+    /**
+     * AWS Glue uses internally <a href="http://jsqlparser.sourceforge.net/home.php">JSQLParser</a>
+     * as SQL statement parser for the expression that can be used to filter the partitions.
+     * JSQLParser defines a set of reserved keywords which cannot be used as column names in the filter.
+     *
+     * @see <a href="https://sourceforge.net/p/jsqlparser/code/HEAD/tree/trunk/src/main/javacc/JSqlParserCC.jj">JSqlParser Grammar</a>
+     */
+    private static final Set<String> JSQL_PARSER_RESERVED_KEYWORDS = ImmutableSet.of(
+            "AS", "BY", "DO", "IS", "IN", "OR", "ON", "ALL", "AND", "ANY", "KEY", "NOT", "SET", "ASC", "TOP", "END", "DESC", "INTO", "NULL", "LIKE", "DROP", "JOIN",
+            "LEFT", "FROM", "OPEN", "CASE", "WHEN", "THEN", "ELSE", "SOME", "FULL", "WITH", "TABLE", "WHERE", "USING", "UNION", "GROUP", "BEGIN", "INDEX", "INNER",
+            "LIMIT", "OUTER", "ORDER", "RIGHT", "DELETE", "CREATE", "SELECT", "OFFSET", "EXISTS", "HAVING", "INSERT", "UPDATE", "VALUES", "ESCAPE", "PRIMARY",
+            "NATURAL", "REPLACE", "BETWEEN", "TRUNCATE", "DISTINCT", "INTERSECT");
 
     private GlueExpressionUtil() {}
 
@@ -89,6 +103,10 @@ public final class GlueExpressionUtil
         int expressionLength = 0;
         Map<String, Domain> domains = partitionKeysFilter.getDomains().get();
         for (String columnName : columnNames) {
+            if (JSQL_PARSER_RESERVED_KEYWORDS.contains(columnName.toUpperCase(ENGLISH))) {
+                // The column name is a reserved keyword in the grammar of the SQL parser used internally by Glue API
+                continue;
+            }
             Domain domain = domains.get(columnName);
             if (domain != null) {
                 Optional<String> columnExpression = buildGlueExpressionForSingleDomain(columnName, domain, assumeCanonicalPartitionKeys);

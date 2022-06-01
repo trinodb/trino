@@ -71,7 +71,6 @@ public class RedisTableDescriptionSupplier
 
             log.debug("Loaded table definitions: %s", tableDefinitions.keySet());
 
-            builder = ImmutableMap.builder();
             for (String definedTable : redisConnectorConfig.getTableNames()) {
                 SchemaTableName tableName;
                 try {
@@ -81,12 +80,7 @@ public class RedisTableDescriptionSupplier
                     tableName = new SchemaTableName(redisConnectorConfig.getDefaultSchema(), definedTable);
                 }
 
-                if (tableDefinitions.containsKey(tableName)) {
-                    RedisTableDescription redisTable = tableDefinitions.get(tableName);
-                    log.debug("Found Table definition for %s: %s", tableName, redisTable);
-                    builder.put(tableName, redisTable);
-                }
-                else {
+                if (!tableDefinitions.containsKey(tableName)) {
                     // A dummy table definition only supports the internal columns.
                     log.debug("Created dummy Table definition for %s", tableName);
                     builder.put(tableName, new RedisTableDescription(tableName.getTableName(),
@@ -99,7 +93,7 @@ public class RedisTableDescriptionSupplier
             return builder.buildOrThrow();
         }
         catch (IOException e) {
-            log.warn(e, "Error: ");
+            log.warn(e, "Failed to get table description files for Redis");
             throw new UncheckedIOException(e);
         }
     }

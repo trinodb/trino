@@ -13,31 +13,47 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
+import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.testing.AbstractTestFaultTolerantExecutionJoinQueries;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.testng.annotations.AfterClass;
 
 import java.util.Map;
 
+import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.getTables;
 
 public class TestHiveFaultTolerantExecutionJoinQueries
         extends AbstractTestFaultTolerantExecutionJoinQueries
 {
+    private MinioStorage minioStorage;
+
     @Override
     protected QueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
+        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
+        minioStorage.start();
+
         return HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
+                .setAdditionalSetup(runner -> {
+                    runner.installPlugin(new FileSystemExchangePlugin());
+                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
+                })
                 .setInitialTables(getTables())
                 .build();
     }
 
-    @Override
-    @Test(enabled = false)
-    public void testOutputDuplicatesInsensitiveJoin()
+    @AfterClass(alwaysRun = true)
+    public void destroy()
+            throws Exception
     {
-        // flaky
+        if (minioStorage != null) {
+            minioStorage.close();
+            minioStorage = null;
+        }
     }
 }

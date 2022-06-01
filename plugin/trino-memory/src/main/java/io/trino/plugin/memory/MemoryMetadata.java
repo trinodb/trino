@@ -34,8 +34,8 @@ import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
-import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -67,7 +67,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SampleType.SYSTEM;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -114,14 +116,27 @@ public class MemoryMetadata
             throw new TrinoException(NOT_FOUND, format("Schema [%s] does not exist", schemaName));
         }
 
-        boolean tablesExist = tables.values().stream()
-                .anyMatch(table -> table.getSchemaName().equals(schemaName));
-
-        if (tablesExist) {
+        // DropSchemaTask has the same logic, but needs to check in connector side considering concurrent operations
+        if (!isSchemaEmpty(schemaName)) {
             throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
         }
 
         verify(schemas.remove(schemaName));
+    }
+
+    private boolean isSchemaEmpty(String schemaName)
+    {
+        if (tables.values().stream()
+                .anyMatch(table -> table.getSchemaName().equals(schemaName))) {
+            return false;
+        }
+
+        if (views.keySet().stream()
+                .anyMatch(view -> view.getSchemaName().equals(schemaName))) {
+            return false;
+        }
+
+        return true;
     }
 
     @Override
@@ -214,13 +229,16 @@ public class MemoryMetadata
     @Override
     public synchronized void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata, Optional.empty());
+        ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
         finishCreateTable(session, outputTableHandle, ImmutableList.of(), ImmutableList.of());
     }
 
     @Override
-    public synchronized MemoryOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout)
+    public synchronized MemoryOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
         checkSchemaExists(tableMetadata.getTable().getSchemaName());
         checkTableNotExists(tableMetadata.getTable());
         long tableId = nextTableId.getAndIncrement();
@@ -230,6 +248,9 @@ public class MemoryMetadata
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
+            if (column.getComment() != null) {
+                throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+            }
             columns.add(new ColumnInfo(new MemoryColumnHandle(i), column.getName(), column.getType()));
         }
 
@@ -272,7 +293,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized MemoryInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
+    public synchronized MemoryInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
         return new MemoryInsertTableHandle(memoryTableHandle.getId(), ImmutableSet.copyOf(tableIds.values()));
@@ -378,7 +399,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         List<MemoryDataFragment> dataFragments = getDataFragments(((MemoryTableHandle) tableHandle).getId());
         long rows = dataFragments.stream()

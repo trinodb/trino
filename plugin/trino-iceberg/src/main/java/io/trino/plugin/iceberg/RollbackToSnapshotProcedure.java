@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
@@ -55,9 +56,9 @@ public class RollbackToSnapshotProcedure
                 "system",
                 "rollback_to_snapshot",
                 ImmutableList.of(
-                        new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table", VARCHAR),
-                        new Procedure.Argument("snapshot_id", BIGINT)),
+                        new Procedure.Argument("SCHEMA", VARCHAR),
+                        new Procedure.Argument("TABLE", VARCHAR),
+                        new Procedure.Argument("SNAPSHOT_ID", BIGINT)),
                 ROLLBACK_TO_SNAPSHOT.bindTo(this));
     }
 

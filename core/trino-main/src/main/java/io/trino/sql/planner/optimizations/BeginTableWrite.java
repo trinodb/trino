@@ -16,6 +16,7 @@ package io.trino.sql.planner.optimizations;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
@@ -59,6 +60,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
 /*
@@ -72,10 +74,12 @@ public class BeginTableWrite
         implements PlanOptimizer
 {
     private final Metadata metadata;
+    private final FunctionManager functionManager;
 
-    public BeginTableWrite(Metadata metadata)
+    public BeginTableWrite(Metadata metadata, FunctionManager functionManager)
     {
-        this.metadata = metadata;
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     @Override
@@ -87,7 +91,7 @@ public class BeginTableWrite
         catch (RuntimeException e) {
             try {
                 int nestLevel = 4; // so that it renders reasonably within exception stacktrace
-                String explain = textLogicalPlan(plan, types, metadata, StatsAndCosts.empty(), session, nestLevel, false);
+                String explain = textLogicalPlan(plan, types, metadata, functionManager, StatsAndCosts.empty(), session, nestLevel, false);
                 e.addSuppressed(new Exception("Current plan:\n" + explain));
             }
             catch (RuntimeException ignore) {
@@ -233,7 +237,8 @@ public class BeginTableWrite
                 return new TableExecuteTarget(
                         target.getExecuteHandle(),
                         findTableScanHandleForTableExecute(((TableExecuteNode) node).getSource()),
-                        target.getSchemaTableName());
+                        target.getSchemaTableName(),
+                        target.isReportingWrittenBytesSupported());
             }
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
                 Set<WriterTarget> writerTargets = node.getSources().stream()
@@ -250,11 +255,11 @@ public class BeginTableWrite
             // TODO: we shouldn't need to store the schemaTableName in the handles, but there isn't a good way to pass this around with the current architecture
             if (target instanceof CreateReference) {
                 CreateReference create = (CreateReference) target;
-                return new CreateTarget(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()), create.getTableMetadata().getTable());
+                return new CreateTarget(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()), create.getTableMetadata().getTable(), target.supportsReportingWrittenBytes(metadata, session));
             }
             if (target instanceof InsertReference) {
                 InsertReference insert = (InsertReference) target;
-                return new InsertTarget(metadata.beginInsert(session, insert.getHandle(), insert.getColumns()), metadata.getTableMetadata(session, insert.getHandle()).getTable());
+                return new InsertTarget(metadata.beginInsert(session, insert.getHandle(), insert.getColumns()), metadata.getTableMetadata(session, insert.getHandle()).getTable(), target.supportsReportingWrittenBytes(metadata, session));
             }
             if (target instanceof DeleteTarget) {
                 DeleteTarget delete = (DeleteTarget) target;
@@ -281,8 +286,7 @@ public class BeginTableWrite
             if (target instanceof TableExecuteTarget) {
                 TableExecuteTarget tableExecute = (TableExecuteTarget) target;
                 BeginTableExecuteResult<TableExecuteHandle, TableHandle> result = metadata.beginTableExecute(session, tableExecute.getExecuteHandle(), tableExecute.getMandatorySourceHandle());
-
-                return new TableExecuteTarget(result.getTableExecuteHandle(), Optional.of(result.getSourceHandle()), tableExecute.getSchemaTableName());
+                return new TableExecuteTarget(result.getTableExecuteHandle(), Optional.of(result.getSourceHandle()), tableExecute.getSchemaTableName(), tableExecute.isReportingWrittenBytesSupported());
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }

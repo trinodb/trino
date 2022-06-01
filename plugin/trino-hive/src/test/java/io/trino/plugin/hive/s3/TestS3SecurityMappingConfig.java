@@ -47,7 +47,7 @@ public class TestS3SecurityMappingConfig
     {
         Path securityMappingConfigFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.s3.security-mapping.config-file", securityMappingConfigFile.toString())
                 .put("hive.s3.security-mapping.json-pointer", "/data")
                 .put("hive.s3.security-mapping.iam-role-credential-name", "iam-role-credential-name")
@@ -70,7 +70,7 @@ public class TestS3SecurityMappingConfig
     @Test
     public void testExplicitPropertyMappingsWithUrl()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.s3.security-mapping.config-file", "http://test:1234/example")
                 .put("hive.s3.security-mapping.json-pointer", "/data")
                 .put("hive.s3.security-mapping.iam-role-credential-name", "iam-role-credential-name")

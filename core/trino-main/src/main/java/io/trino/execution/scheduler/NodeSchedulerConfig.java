@@ -17,13 +17,20 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.units.Duration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.concurrent.TimeUnit;
+
 import static java.util.Locale.ENGLISH;
 
-@DefunctConfig({"node-scheduler.location-aware-scheduling-enabled", "node-scheduler.multiple-tasks-per-node-enabled"})
+@DefunctConfig({
+        "node-scheduler.location-aware-scheduling-enabled",
+        "node-scheduler.multiple-tasks-per-node-enabled",
+        "node-scheduler.max-fraction-full-nodes-per-query",
+        "node-scheduler.max-absolute-full-nodes-per-query"})
 public class NodeSchedulerConfig
 {
     public enum NodeSchedulerPolicy
@@ -44,6 +51,8 @@ public class NodeSchedulerConfig
     private boolean optimizedLocalScheduling = true;
     private SplitsBalancingPolicy splitsBalancingPolicy = SplitsBalancingPolicy.STAGE;
     private int maxUnacknowledgedSplitsPerTask = 500;
+    private Duration allowedNoMatchingNodePeriod = new Duration(2, TimeUnit.MINUTES);
+    private NodeAllocatorType nodeAllocatorType = NodeAllocatorType.BIN_PACKING;
 
     @NotNull
     public NodeSchedulerPolicy getNodeSchedulerPolicy()
@@ -162,5 +171,48 @@ public class NodeSchedulerConfig
     {
         this.optimizedLocalScheduling = optimizedLocalScheduling;
         return this;
+    }
+
+    @Config("node-scheduler.allowed-no-matching-node-period")
+    @ConfigDescription("How long scheduler should wait before failing a query for which hard task requirements (e.g. node exposing specific catalog) cannot be satisfied")
+    public NodeSchedulerConfig setAllowedNoMatchingNodePeriod(Duration allowedNoMatchingNodePeriod)
+    {
+        this.allowedNoMatchingNodePeriod = allowedNoMatchingNodePeriod;
+        return this;
+    }
+
+    public Duration getAllowedNoMatchingNodePeriod()
+    {
+        return allowedNoMatchingNodePeriod;
+    }
+
+    public enum NodeAllocatorType
+    {
+        FIXED_COUNT,
+        BIN_PACKING
+    }
+
+    @NotNull
+    public NodeAllocatorType getNodeAllocatorType()
+    {
+        return nodeAllocatorType;
+    }
+
+    @Config("node-scheduler.allocator-type")
+    public NodeSchedulerConfig setNodeAllocatorType(String nodeAllocatorType)
+    {
+        this.nodeAllocatorType = toNodeAllocatorType(nodeAllocatorType);
+        return this;
+    }
+
+    private static NodeAllocatorType toNodeAllocatorType(String nodeAllocatorType)
+    {
+        switch (nodeAllocatorType.toLowerCase(ENGLISH)) {
+            case "fixed_count":
+                return NodeAllocatorType.FIXED_COUNT;
+            case "bin_packing":
+                return NodeAllocatorType.BIN_PACKING;
+        }
+        throw new IllegalArgumentException("Unknown node allocator type: " + nodeAllocatorType);
     }
 }

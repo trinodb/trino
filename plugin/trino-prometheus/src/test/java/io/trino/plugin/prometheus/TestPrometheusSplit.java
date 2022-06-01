@@ -475,7 +475,7 @@ public class TestPrometheusSplit
      * $ curl "http://127.0.0.1:9090/api/v1/query?query=up[120s]&time=1568638172"
      * Just the time items from the "values" section of the response
      */
-    private static final ImmutableList<Double> promTimeValuesMock = new ImmutableList.Builder<Double>()
+    private static final ImmutableList<Double> promTimeValuesMock = ImmutableList.<Double>builder()
             .add(1568638066.999)
             .add(1568638081.996)
             .add(1568638097.0)

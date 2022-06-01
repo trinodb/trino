@@ -13,21 +13,30 @@
  */
 package io.trino.sql.tree;
 
+import com.google.common.base.CharMatcher;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class Identifier
         extends Expression
 {
-    private static final Pattern NAME_PATTERN = Pattern.compile("[a-zA-Z_]([a-zA-Z0-9_])*");
+    private static final CharMatcher FIRST_CHAR_DISALLOWED_MATCHER = CharMatcher.inRange('0', '9')
+            .precomputed();
+
+    private static final CharMatcher ALLOWED_CHARS_MATCHER = CharMatcher.inRange('a', 'z')
+            .or(CharMatcher.inRange('A', 'Z'))
+            .or(CharMatcher.is('_'))
+            .or(CharMatcher.inRange('0', '9'))
+            .precomputed();
 
     private final String value;
     private final boolean delimited;
@@ -44,7 +53,7 @@ public class Identifier
 
     public Identifier(String value)
     {
-        this(Optional.empty(), value, !NAME_PATTERN.matcher(value).matches());
+        this(Optional.empty(), value, !isValidIdentifier(value));
     }
 
     private Identifier(Optional<NodeLocation> location, String value, boolean delimited)
@@ -54,7 +63,7 @@ public class Identifier
         this.delimited = delimited;
 
         checkArgument(!value.isEmpty(), "value is empty");
-        checkArgument(delimited || NAME_PATTERN.matcher(value).matches(), "value contains illegal characters: %s", value);
+        checkArgument(delimited || isValidIdentifier(value), "value contains illegal characters: %s", value);
     }
 
     public String getValue()
@@ -117,5 +126,18 @@ public class Identifier
 
         Identifier that = (Identifier) other;
         return Objects.equals(value, that.value) && delimited == that.delimited;
+    }
+
+    private static boolean isValidIdentifier(String value)
+    {
+        verify(!Strings.isNullOrEmpty(value), "Identifier cannot be empty or null");
+
+        if (FIRST_CHAR_DISALLOWED_MATCHER.matches(value.charAt(0))) {
+            return false;
+        }
+
+        // We've already checked that first char does not contain digits,
+        // so to avoid copying we are checking whole string.
+        return ALLOWED_CHARS_MATCHER.matchesAllOf(value);
     }
 }

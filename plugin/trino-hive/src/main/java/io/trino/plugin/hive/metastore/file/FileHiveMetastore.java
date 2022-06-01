@@ -524,12 +524,10 @@ public class FileHiveMetastore
 
         Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
 
-        // It is safe to delete the whole meta directory for external tables and views
-        if (!table.getTableType().equals(MANAGED_TABLE.name()) || deleteData) {
+        if (deleteData) {
             deleteDirectoryAndSchema(TABLE, tableMetadataDirectory);
         }
         else {
-            // in this case we only want to delete the metadata of a managed table
             deleteSchemaFile(TABLE, tableMetadataDirectory);
             deleteTablePrivileges(table);
         }
@@ -541,6 +539,10 @@ public class FileHiveMetastore
         Table table = getRequiredTable(databaseName, tableName);
         if (!table.getDatabaseName().equals(databaseName) || !table.getTableName().equals(tableName)) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Replacement table must have same name");
+        }
+
+        if (isIcebergTable(table) && !Objects.equals(table.getParameters().get("metadata_location"), newTable.getParameters().get("previous_metadata_location"))) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, "Cannot update Iceberg table: supplied previous location does not match current location");
         }
 
         Path tableMetadataDirectory = getTableMetadataDirectory(table);

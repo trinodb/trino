@@ -144,11 +144,6 @@ public class TestingAccessControlManager
         this(transactionManager, eventListenerManager, new AccessControlConfig());
     }
 
-    public void loadSystemAccessControl(String name, Map<String, String> properties)
-    {
-        setSystemAccessControl(name, properties);
-    }
-
     public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)
     {
         return new TestingPrivilege(Optional.empty(), entityName, type);

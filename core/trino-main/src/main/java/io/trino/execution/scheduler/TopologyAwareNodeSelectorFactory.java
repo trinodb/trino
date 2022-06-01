@@ -38,13 +38,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
@@ -181,12 +181,6 @@ public class TopologyAwareNodeSelectorFactory
     private boolean markInaccessibleNode(InternalNode node)
     {
         Object marker = new Object();
-        try {
-            return inaccessibleNodeLogCache.get(node, () -> marker) == marker;
-        }
-        catch (ExecutionException e) {
-            // impossible
-            throw new RuntimeException(e);
-        }
+        return uncheckedCacheGet(inaccessibleNodeLogCache, node, () -> marker) == marker;
     }
 }

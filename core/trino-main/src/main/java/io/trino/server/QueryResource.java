@@ -79,7 +79,7 @@ public class QueryResource
         List<BasicQueryInfo> queries = dispatchManager.getQueries();
         queries = filterQueries(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queries, accessControl);
 
-        ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<BasicQueryInfo> builder = ImmutableList.builder();
         for (BasicQueryInfo queryInfo : queries) {
             if (stateFilter == null || queryInfo.getState() == expectedState) {
                 builder.add(queryInfo);

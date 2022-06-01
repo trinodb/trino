@@ -24,6 +24,7 @@ import io.trino.connector.CatalogName;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.IndexHandle;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
@@ -84,8 +85,10 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
+import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
+import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
@@ -99,6 +102,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Row;
+import io.trino.testing.TestingHandle;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.TestingTableExecuteHandle;
@@ -393,6 +397,7 @@ public class PlanBuilder
         private Step step = Step.SINGLE;
         private Optional<Symbol> hashSymbol = Optional.empty();
         private Optional<Symbol> groupIdSymbol = Optional.empty();
+        private Optional<PlanNodeId> nodeId = Optional.empty();
 
         public AggregationBuilder source(PlanNode source)
         {
@@ -474,11 +479,17 @@ public class PlanBuilder
             return this;
         }
 
+        public AggregationBuilder nodeId(PlanNodeId nodeId)
+        {
+            this.nodeId = Optional.of(nodeId);
+            return this;
+        }
+
         protected AggregationNode build()
         {
             checkState(groupingSets != null, "No grouping sets defined; use globalGrouping/groupingKeys method");
             return new AggregationNode(
-                    idAllocator.getNextId(),
+                    nodeId.orElse(idAllocator.getNextId()),
                     source,
                     assignments,
                     groupingSets,
@@ -680,6 +691,27 @@ public class PlanBuilder
                 Optional.empty());
     }
 
+    public TableFinishNode tableWithExchangeCreate(WriterTarget target, PlanNode source, Symbol rowCountSymbol, PartitioningScheme partitioningScheme)
+    {
+        return new TableFinishNode(
+                idAllocator.getNextId(),
+                exchange(e -> e
+                        .addSource(tableWriter(
+                                ImmutableList.of(rowCountSymbol),
+                                ImmutableList.of("column_a"),
+                                Optional.empty(),
+                                Optional.empty(),
+                                target,
+                                source,
+                                rowCountSymbol))
+                        .addInputsSet(rowCountSymbol)
+                        .partitioningScheme(partitioningScheme)),
+                target,
+                rowCountSymbol,
+                Optional.empty(),
+                Optional.empty());
+    }
+
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
     {
         DeleteTarget deleteTarget = deleteTarget(schemaTableName);
@@ -717,6 +749,18 @@ public class PlanBuilder
                 schemaTableName);
     }
 
+    public CreateTarget createTarget(CatalogName catalog, SchemaTableName schemaTableName, boolean reportingWrittenBytesSupported)
+    {
+        OutputTableHandle tableHandle = new OutputTableHandle(
+                catalog,
+                TestingConnectorTransactionHandle.INSTANCE,
+                TestingHandle.INSTANCE);
+        return new CreateTarget(
+                tableHandle,
+                schemaTableName,
+                reportingWrittenBytesSupported);
+    }
+
     public TableFinishNode tableUpdate(SchemaTableName schemaTableName, PlanNode updateSource, Symbol updateRowId, List<Symbol> columnsToBeUpdated)
     {
         UpdateTarget updateTarget = updateTarget(
@@ -747,11 +791,12 @@ public class PlanBuilder
 
     private UpdateTarget updateTarget(SchemaTableName schemaTableName, List<String> columnsToBeUpdated)
     {
+        TableHandle tableHandle = new TableHandle(
+                new CatalogName("testConnector"),
+                new TestingTableHandle(),
+                TestingTransactionHandle.create());
         return new UpdateTarget(
-                Optional.of(new TableHandle(
-                        new CatalogName("testConnector"),
-                        new TestingTableHandle(),
-                        TestingTransactionHandle.create())),
+                Optional.of(tableHandle),
                 schemaTableName,
                 columnsToBeUpdated,
                 columnsToBeUpdated.stream()
@@ -891,7 +936,7 @@ public class PlanBuilder
             return partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), outputSymbols));
         }
 
-        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols)
+        public ExchangeBuilder fixedHashDistributionPartitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols)
         {
             return partitioningScheme(new PartitioningScheme(Partitioning.create(
                     FIXED_HASH_DISTRIBUTION,
@@ -899,7 +944,7 @@ public class PlanBuilder
                     ImmutableList.copyOf(outputSymbols)));
         }
 
-        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols, Symbol hashSymbol)
+        public ExchangeBuilder fixedHashDistributionPartitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols, Symbol hashSymbol)
         {
             return partitioningScheme(new PartitioningScheme(Partitioning.create(
                     FIXED_HASH_DISTRIBUTION,
@@ -1126,6 +1171,30 @@ public class PlanBuilder
             List<String> columnNames,
             Optional<PartitioningScheme> partitioningScheme,
             Optional<PartitioningScheme> preferredPartitioningScheme,
+            TableWriterNode.WriterTarget target,
+            PlanNode source,
+            Symbol rowCountSymbol)
+    {
+        return new TableWriterNode(
+                idAllocator.getNextId(),
+                source,
+                target,
+                rowCountSymbol,
+                rowCountSymbol,
+                columns,
+                columnNames,
+                ImmutableSet.of(),
+                partitioningScheme,
+                preferredPartitioningScheme,
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    public TableWriterNode tableWriter(
+            List<Symbol> columns,
+            List<String> columnNames,
+            Optional<PartitioningScheme> partitioningScheme,
+            Optional<PartitioningScheme> preferredPartitioningScheme,
             Optional<StatisticAggregations> statisticAggregations,
             Optional<StatisticAggregationsDescriptor<Symbol>> statisticAggregationsDescriptor,
             PlanNode source)
@@ -1157,16 +1226,18 @@ public class PlanBuilder
             Optional<PartitioningScheme> preferredPartitioningScheme,
             PlanNode source)
     {
+        CatalogName catalogName = new CatalogName("testConnector");
         return new TableExecuteNode(
                 idAllocator.getNextId(),
                 source,
                 new TableWriterNode.TableExecuteTarget(
                         new TableExecuteHandle(
-                                new CatalogName("testConnector"),
+                                catalogName,
                                 TestingTransactionHandle.create(),
                                 new TestingTableExecuteHandle()),
                         Optional.empty(),
-                        SchemaTableName.schemaTableName("testschema", "testtable")),
+                        new SchemaTableName(catalogName.getCatalogName(), "tableName"),
+                        false),
                 symbol("partialrows", BIGINT),
                 symbol("fragment", VARBINARY),
                 columns,

@@ -47,6 +47,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.cost.CostCalculatorWithEstimatedExchanges.adjustReplicatedJoinLocalExchangeCost;
 import static io.trino.cost.CostCalculatorWithEstimatedExchanges.calculateJoinInputCost;
 import static io.trino.cost.CostCalculatorWithEstimatedExchanges.calculateLocalRepartitionCost;
 import static io.trino.cost.CostCalculatorWithEstimatedExchanges.calculateRemoteGatherCost;
@@ -192,15 +193,24 @@ public class CostCalculatorUsingExchanges
 
         private LocalCostEstimate calculateJoinCost(PlanNode join, PlanNode probe, PlanNode build, boolean replicated)
         {
+            int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount(session);
             LocalCostEstimate joinInputCost = calculateJoinInputCost(
                     probe,
                     build,
                     stats,
                     types,
                     replicated,
-                    taskCountEstimator.estimateSourceDistributedTaskCount(session));
+                    estimatedSourceDistributedTaskCount);
+            // TODO: Use traits (https://github.com/trinodb/trino/issues/4763) instead, to correctly estimate
+            // local exchange cost for replicated join in CostCalculatorUsingExchanges#visitExchange
+            LocalCostEstimate adjustedLocalExchangeCost = adjustReplicatedJoinLocalExchangeCost(
+                    build,
+                    stats,
+                    types,
+                    replicated,
+                    estimatedSourceDistributedTaskCount);
             LocalCostEstimate joinOutputCost = calculateJoinOutputCost(join);
-            return addPartialComponents(joinInputCost, joinOutputCost);
+            return addPartialComponents(joinInputCost, adjustedLocalExchangeCost, joinOutputCost);
         }
 
         private LocalCostEstimate calculateJoinOutputCost(PlanNode join)

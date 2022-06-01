@@ -67,6 +67,7 @@ public class TestJdbcTableHandle
                                         IntegerType.INTEGER,
                                         Optional.of(1))))),
                 TupleDomain.all(),
+                ImmutableList.of(),
                 Optional.empty(),
                 OptionalLong.of(1),
                 Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),
@@ -80,8 +81,10 @@ public class TestJdbcTableHandle
         return new JdbcTableHandle(
                 new JdbcNamedRelationHandle(
                         new SchemaTableName("schema", "table"),
-                        new RemoteTableName(Optional.of("catalog"), Optional.of("schema"), "table")),
+                        new RemoteTableName(Optional.of("catalog"), Optional.of("schema"), "table"),
+                        Optional.empty()),
                 TupleDomain.all(),
+                ImmutableList.of(),
                 Optional.empty(),
                 OptionalLong.of(1),
                 Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),

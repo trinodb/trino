@@ -29,11 +29,11 @@ import javax.inject.Inject;
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -175,12 +175,13 @@ public final class BlockTypeOperators
     {
         try {
             @SuppressWarnings("unchecked")
-            GeneratedBlockOperator<T> generatedBlockOperator = (GeneratedBlockOperator<T>) generatedBlockOperatorCache.get(
+            GeneratedBlockOperator<T> generatedBlockOperator = (GeneratedBlockOperator<T>) uncheckedCacheGet(
+                    generatedBlockOperatorCache,
                     new GeneratedBlockOperatorKey<>(type, operatorInterface, additionalKey),
                     () -> new GeneratedBlockOperator<>(type, operatorInterface, methodHandleSupplier.get()));
             return generatedBlockOperator.get();
         }
-        catch (ExecutionException | UncheckedExecutionException e) {
+        catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());
             throw new RuntimeException(e.getCause());
         }

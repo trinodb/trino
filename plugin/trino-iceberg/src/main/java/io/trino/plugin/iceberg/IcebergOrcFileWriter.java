@@ -104,7 +104,7 @@ public class IcebergOrcFileWriter
     private static Metrics computeMetrics(MetricsConfig metricsConfig, Schema icebergSchema, ColumnMetadata<OrcType> orcColumns, long fileRowCount, Optional<ColumnMetadata<ColumnStatistics>> columnStatistics)
     {
         if (columnStatistics.isEmpty()) {
-            return new Metrics(fileRowCount, null, null, null, null, null);
+            return new Metrics(fileRowCount, null, null, null, null, null, null);
         }
         // Columns that are descendants of LIST or MAP types are excluded because:
         // 1. Their stats are not used by Apache Iceberg to filter out data files
@@ -114,6 +114,7 @@ public class IcebergOrcFileWriter
 
         ImmutableMap.Builder<Integer, Long> valueCountsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, Long> nullCountsBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<Integer, Long> nanCountsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, ByteBuffer> lowerBoundsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, ByteBuffer> upperBoundsBuilder = ImmutableMap.builder();
 
@@ -136,6 +137,9 @@ public class IcebergOrcFileWriter
             if (orcColumnStats.hasNumberOfValues()) {
                 nullCountsBuilder.put(icebergId, fileRowCount - orcColumnStats.getNumberOfValues());
             }
+            if (orcColumnStats.getNumberOfNanValues() > 0) {
+                nanCountsBuilder.put(icebergId, orcColumnStats.getNumberOfNanValues());
+            }
 
             if (!metricsMode.equals(MetricsModes.Counts.get())) {
                 toIcebergMinMax(orcColumnStats, icebergField.type(), metricsMode).ifPresent(minMax -> {
@@ -146,6 +150,7 @@ public class IcebergOrcFileWriter
         }
         Map<Integer, Long> valueCounts = valueCountsBuilder.buildOrThrow();
         Map<Integer, Long> nullCounts = nullCountsBuilder.buildOrThrow();
+        Map<Integer, Long> nanCounts = nanCountsBuilder.buildOrThrow();
         Map<Integer, ByteBuffer> lowerBounds = lowerBoundsBuilder.buildOrThrow();
         Map<Integer, ByteBuffer> upperBounds = upperBoundsBuilder.buildOrThrow();
         return new Metrics(
@@ -153,6 +158,7 @@ public class IcebergOrcFileWriter
                 null, // TODO: Add column size accounting to ORC column writers
                 valueCounts.isEmpty() ? null : valueCounts,
                 nullCounts.isEmpty() ? null : nullCounts,
+                nanCounts.isEmpty() ? null : nanCounts,
                 lowerBounds.isEmpty() ? null : lowerBounds,
                 upperBounds.isEmpty() ? null : upperBounds);
     }

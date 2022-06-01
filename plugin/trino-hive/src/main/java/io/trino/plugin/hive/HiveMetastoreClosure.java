@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
@@ -305,9 +306,9 @@ public class HiveMetastoreClosure
         return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
     }
 
-    public long openTransaction()
+    public long openTransaction(AcidTransactionOwner transactionOwner)
     {
-        return delegate.openTransaction();
+        return delegate.openTransaction(transactionOwner);
     }
 
     public void commitTransaction(long transactionId)
@@ -325,9 +326,14 @@ public class HiveMetastoreClosure
         delegate.sendTransactionHeartbeat(transactionId);
     }
 
-    public void acquireSharedReadLock(String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    public void acquireSharedReadLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            List<SchemaTableName> fullTables,
+            List<HivePartition> partitions)
     {
-        delegate.acquireSharedReadLock(queryId, transactionId, fullTables, partitions);
+        delegate.acquireSharedReadLock(transactionOwner, queryId, transactionId, fullTables, partitions);
     }
 
     public String getValidWriteIds(List<SchemaTableName> tables, long currentTransactionId)
@@ -345,9 +351,16 @@ public class HiveMetastoreClosure
         return delegate.allocateWriteId(dbName, tableName, transactionId);
     }
 
-    public void acquireTableWriteLock(String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isPartitioned)
+    public void acquireTableWriteLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            String dbName,
+            String tableName,
+            DataOperationType operation,
+            boolean isPartitioned)
     {
-        delegate.acquireTableWriteLock(queryId, transactionId, dbName, tableName, operation, isPartitioned);
+        delegate.acquireTableWriteLock(transactionOwner, queryId, transactionId, dbName, tableName, operation, isPartitioned);
     }
 
     public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)

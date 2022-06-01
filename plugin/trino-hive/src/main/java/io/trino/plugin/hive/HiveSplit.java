@@ -52,7 +52,8 @@ public class HiveSplit
     private final String database;
     private final String table;
     private final String partitionName;
-    private final OptionalInt bucketNumber;
+    private final OptionalInt readBucketNumber;
+    private final OptionalInt tableBucketNumber;
     private final int statementId;
     private final boolean forceLocalScheduling;
     private final TableToPartitionMapping tableToPartitionMapping;
@@ -76,7 +77,8 @@ public class HiveSplit
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("bucketNumber") OptionalInt bucketNumber,
+            @JsonProperty("readBucketNumber") OptionalInt readBucketNumber,
+            @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
             @JsonProperty("statementId") int statementId,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("tableToPartitionMapping") TableToPartitionMapping tableToPartitionMapping,
@@ -97,7 +99,8 @@ public class HiveSplit
         requireNonNull(schema, "schema is null");
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(addresses, "addresses is null");
-        requireNonNull(bucketNumber, "bucketNumber is null");
+        requireNonNull(readBucketNumber, "readBucketNumber is null");
+        requireNonNull(tableBucketNumber, "tableBucketNumber is null");
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(bucketValidation, "bucketValidation is null");
@@ -114,7 +117,8 @@ public class HiveSplit
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.addresses = ImmutableList.copyOf(addresses);
-        this.bucketNumber = bucketNumber;
+        this.readBucketNumber = readBucketNumber;
+        this.tableBucketNumber = tableBucketNumber;
         this.statementId = statementId;
         this.forceLocalScheduling = forceLocalScheduling;
         this.tableToPartitionMapping = tableToPartitionMapping;
@@ -194,9 +198,15 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public OptionalInt getBucketNumber()
+    public OptionalInt getReadBucketNumber()
     {
-        return bucketNumber;
+        return readBucketNumber;
+    }
+
+    @JsonProperty
+    public OptionalInt getTableBucketNumber()
+    {
+        return tableBucketNumber;
     }
 
     @JsonProperty
@@ -271,7 +281,8 @@ public class HiveSplit
                 + estimatedSizeOf(database)
                 + estimatedSizeOf(table)
                 + estimatedSizeOf(partitionName)
-                + sizeOf(bucketNumber)
+                + sizeOf(readBucketNumber)
+                + sizeOf(tableBucketNumber)
                 + tableToPartitionMapping.getEstimatedSizeInBytes()
                 + sizeOf(bucketConversion, BucketConversion::getRetainedSizeInBytes)
                 + sizeOf(bucketValidation, BucketValidation::getRetainedSizeInBytes)
@@ -317,7 +328,7 @@ public class HiveSplit
         private final int tableBucketCount;
         private final int partitionBucketCount;
         private final List<HiveColumnHandle> bucketColumnNames;
-        // bucketNumber is needed, but can be found in bucketNumber field of HiveSplit.
+        // tableBucketNumber is needed, but can be found in tableBucketNumber field of HiveSplit.
 
         @JsonCreator
         public BucketConversion(

@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 
+import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.REFRESH_PERIOD_DURATION;
 import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static java.util.Objects.requireNonNull;
@@ -47,7 +48,7 @@ public class TestMySqlCaseInsensitiveMapping
                 ImmutableMap.<String, String>builder()
                         .put("case-insensitive-name-matching", "true")
                         .put("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())
-                        .put("case-insensitive-name-matching.config-file.refresh-period", "1ms") // ~always refresh
+                        .put("case-insensitive-name-matching.config-file.refresh-period", REFRESH_PERIOD_DURATION.toString())
                         .buildOrThrow(),
                 ImmutableList.of());
     }

@@ -18,7 +18,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroup;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
@@ -46,10 +45,10 @@ import static java.util.function.Predicate.isEqual;
 public abstract class AbstractResourceConfigurationManager
         implements ResourceGroupConfigurationManager<ResourceGroupIdTemplate>
 {
-    @GuardedBy("generalPoolMemoryFraction")
-    private final Map<ResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
-    @GuardedBy("generalPoolMemoryFraction")
-    private long generalPoolBytes;
+    @GuardedBy("memoryPoolFraction")
+    private final Map<ResourceGroup, Double> memoryPoolFraction = new HashMap<>();
+    @GuardedBy("memoryPoolFraction")
+    private long memoryPoolBytes;
 
     protected abstract Optional<Duration> getCpuQuotaPeriod();
 
@@ -137,15 +136,15 @@ public abstract class AbstractResourceConfigurationManager
 
     protected AbstractResourceConfigurationManager(ClusterMemoryPoolManager memoryPoolManager)
     {
-        memoryPoolManager.addChangeListener(new MemoryPoolId("general"), poolInfo -> {
+        memoryPoolManager.addChangeListener(poolInfo -> {
             Map<ResourceGroup, DataSize> memoryLimits = new HashMap<>();
-            synchronized (generalPoolMemoryFraction) {
-                for (Map.Entry<ResourceGroup, Double> entry : generalPoolMemoryFraction.entrySet()) {
+            synchronized (memoryPoolFraction) {
+                for (Map.Entry<ResourceGroup, Double> entry : memoryPoolFraction.entrySet()) {
                     long bytes = Math.round(poolInfo.getMaxBytes() * entry.getValue());
-                    // setSoftMemoryLimit() acquires a lock on the root group of its tree, which could cause a deadlock if done while holding the "generalPoolMemoryFraction" lock
+                    // setSoftMemoryLimit() acquires a lock on the root group of its tree, which could cause a deadlock if done while holding the "memoryPoolFraction" lock
                     memoryLimits.put(entry.getKey(), DataSize.ofBytes(bytes));
                 }
-                generalPoolBytes = poolInfo.getMaxBytes();
+                memoryPoolBytes = poolInfo.getMaxBytes();
             }
             memoryLimits.forEach((group, limit) ->
                     group.setSoftMemoryLimitBytes(limit.toBytes()));
@@ -198,10 +197,10 @@ public abstract class AbstractResourceConfigurationManager
             group.setSoftMemoryLimitBytes(match.getSoftMemoryLimit().get().toBytes());
         }
         else {
-            synchronized (generalPoolMemoryFraction) {
+            synchronized (memoryPoolFraction) {
                 double fraction = match.getSoftMemoryLimitFraction().get();
-                generalPoolMemoryFraction.put(group, fraction);
-                group.setSoftMemoryLimitBytes((long) (generalPoolBytes * fraction));
+                memoryPoolFraction.put(group, fraction);
+                group.setSoftMemoryLimitBytes((long) (memoryPoolBytes * fraction));
             }
         }
         group.setMaxQueuedQueries(match.getMaxQueued());

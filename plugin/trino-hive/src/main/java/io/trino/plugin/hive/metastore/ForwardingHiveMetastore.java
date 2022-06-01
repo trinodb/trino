@@ -346,9 +346,9 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public long openTransaction()
+    public long openTransaction(AcidTransactionOwner transactionOwner)
     {
-        return delegate.openTransaction();
+        return delegate.openTransaction(transactionOwner);
     }
 
     @Override
@@ -365,12 +365,13 @@ public abstract class ForwardingHiveMetastore
 
     @Override
     public void acquireSharedReadLock(
+            AcidTransactionOwner transactionOwner,
             String queryId,
             long transactionId,
             List<SchemaTableName> fullTables,
             List<HivePartition> partitions)
     {
-        delegate.acquireSharedReadLock(queryId, transactionId, fullTables, partitions);
+        delegate.acquireSharedReadLock(transactionOwner, queryId, transactionId, fullTables, partitions);
     }
 
     @Override
@@ -393,6 +394,7 @@ public abstract class ForwardingHiveMetastore
 
     @Override
     public void acquireTableWriteLock(
+            AcidTransactionOwner transactionOwner,
             String queryId,
             long transactionId,
             String dbName,
@@ -400,7 +402,7 @@ public abstract class ForwardingHiveMetastore
             DataOperationType operation,
             boolean isDynamicPartitionWrite)
     {
-        delegate.acquireTableWriteLock(queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);
+        delegate.acquireTableWriteLock(transactionOwner, queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);
     }
 
     @Override
