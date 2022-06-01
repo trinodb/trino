@@ -127,7 +127,7 @@ public class TestQuantileDigestAggregationFunction
                 createSequenceBlockOfReal(-1000, 1000),
                 createRLEBlock(1, 2000),
                 0.01,
-                Floats.toArray(LongStream.range(-1000, 1000).mapToObj(Float::new).collect(toImmutableList())));
+                Floats.toArray(LongStream.range(-1000, 1000).mapToObj(Float::valueOf).collect(toImmutableList())));
     }
 
     @Test

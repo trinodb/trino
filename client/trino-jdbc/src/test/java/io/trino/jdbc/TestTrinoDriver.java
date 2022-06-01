@@ -132,7 +132,7 @@ public class TestTrinoDriver
         server.close();
     }
 
-    @Test
+    @Test @SuppressWarnings("deprecation") // java.sql.ResultSet#getBigDecimal is deprecated
     public void testDriverManager()
             throws Exception
     {

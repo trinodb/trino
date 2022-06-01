@@ -17,6 +17,7 @@ import org.apache.log4j.helpers.LogLog;
 import org.apache.log4j.spi.LocationInfo;
 import org.apache.log4j.spi.LoggingEvent;
 
+import java.time.Instant;
 import java.util.logging.LogRecord;
 
 import static java.lang.String.format;
@@ -46,7 +47,7 @@ public class JulAppender
         java.util.logging.Level julLevel = convertLog4jLevel(level);
 
         LogRecord record = new LogRecord(julLevel, loggingEvent.getRenderedMessage());
-        record.setMillis(loggingEvent.getTimeStamp());
+        record.setInstant(Instant.ofEpochMilli(loggingEvent.getTimeStamp()));
         LocationInfo location = loggingEvent.getLocationInformation();
         if (location != null) {
             record.setSourceClassName(location.getClassName());

@@ -305,7 +305,7 @@ abstract class AbstractTrinoResultSet
         return toNumber(column(columnIndex)).doubleValue();
     }
 
-    @Override
+    @Override @Deprecated
     public BigDecimal getBigDecimal(int columnIndex, int scale)
             throws SQLException
     {

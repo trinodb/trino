@@ -452,7 +452,7 @@ public class TrinoPreparedStatement
         throw new NotImplementedException("PreparedStatement", "setAsciiStream");
     }
 
-    @Override
+    @Override @Deprecated
     public void setUnicodeStream(int parameterIndex, InputStream x, int length)
             throws SQLException
     {
