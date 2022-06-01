@@ -244,13 +244,13 @@ subsequent requests to be consistent with the response headers received.
       in subsequent client requests.
   * - ``X-Trino-Added-Prepare``
     - Instructs the client to add the name=value pair to the set of
-      prepared statements in the ``X-Trino-Prepared-Statements``
+      prepared statements in the ``X-Trino-Prepared-Statement``
       request header in subsequent client requests.
   * - ``X-Trino-Deallocated-Prepare``
     - Instructs the client to remove the prepared statement whose name
       is the value of the ``X-Trino-Deallocated-Prepare`` header from
       the client's list of prepared statements sent in the
-      ``X-Trino-Prepared-Statements`` request header in subsequent client
+      ``X-Trino-Prepared-Statement`` request header in subsequent client
       requests.
   * - ``X-Trino-Started-Transaction-Id``
     - Provides the transaction ID that the client should pass back in the
