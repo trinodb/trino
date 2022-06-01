@@ -1220,6 +1220,44 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Begin the creation of a materialized view with data.
+     */
+    default ConnectorInsertTableHandle beginCreateMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            List<ConnectorTableHandle> sourceTableHandles,
+            ConnectorTableMetadata storageTableMetadata,
+            Optional<ConnectorTableLayout> storageTableLayout,
+            RetryMode retryMode)
+    {
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "This connector does not support creating materialized views");
+    }
+
+    /**
+     * Finish the creation of a materialized view.
+     */
+    default Optional<ConnectorOutputMetadata> finishCreateMaterializedView(
+            ConnectorSession session,
+            ConnectorInsertTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<ConnectorTableHandle> sourceTableHandles)
+    {
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "This connector does not support creating materialized views");
+    }
+
+    /**
+     * Returns the properties of storage table for materialized view
+     */
+    default Map<String, Object> getMaterializedViewStorageTableProperties(ConnectorSession session, Map<String, Object> materializedViewProperties)
+    {
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "This connector does not support creating materialized views");
+    }
+
+    /**
      * Drop the specified materialized view.
      */
     default void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
