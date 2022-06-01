@@ -58,8 +58,7 @@ public final class JsonFunctions
             .disable(CANONICALIZE_FIELD_NAMES)
             .build();
 
-    private static final JsonFactory MAPPING_JSON_FACTORY = new MappingJsonFactory()
-            .disable(CANONICALIZE_FIELD_NAMES);
+    private static final JsonFactory MAPPING_JSON_FACTORY = new MappingJsonFactory(JSON_FACTORY, null);
 
     private JsonFunctions() {}
 

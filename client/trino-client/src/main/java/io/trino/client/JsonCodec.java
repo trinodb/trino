@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 
 import java.io.IOException;
@@ -30,7 +31,8 @@ import static java.util.Objects.requireNonNull;
 public class JsonCodec<T>
 {
     // copy of https://github.com/airlift/airlift/blob/master/json/src/main/java/io/airlift/json/ObjectMapperProvider.java
-    static final Supplier<ObjectMapper> OBJECT_MAPPER_SUPPLIER = () -> new ObjectMapper()
+    // TODO: fix deprecated usages in Airlift's ObjectMapperProvider
+    static final Supplier<ObjectMapper> OBJECT_MAPPER_SUPPLIER = () -> JsonMapper.builder()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .disable(MapperFeature.AUTO_DETECT_CREATORS)
             .disable(MapperFeature.AUTO_DETECT_FIELDS)
@@ -41,6 +43,7 @@ public class JsonCodec<T>
             .disable(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS)
             .disable(MapperFeature.INFER_PROPERTY_MUTATORS)
             .disable(MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS)
+            .build()
             .registerModule(new Jdk8Module());
 
     public static <T> JsonCodec<T> jsonCodec(Class<T> type)

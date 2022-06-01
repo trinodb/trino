@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.json.ObjectMapperProvider;
 
@@ -33,9 +34,13 @@ import static java.nio.file.Files.isReadable;
 
 public final class JsonUtils
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get()
-            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider(
+            JsonMapper.builder()
+                    .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
+                    .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                    .build()
+                    .getFactory())
+            .get();
 
     private JsonUtils() {}
 

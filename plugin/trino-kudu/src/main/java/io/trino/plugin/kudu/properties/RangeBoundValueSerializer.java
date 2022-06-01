@@ -36,7 +36,7 @@ public class RangeBoundValueSerializer
                 writeValue(value.getValues().get(0), gen);
             }
             else {
-                gen.writeStartArray(value.getValues().size());
+                gen.writeStartArray(value, value.getValues().size());
                 for (Object obj : value.getValues()) {
                     writeValue(obj, gen);
                 }
