@@ -60,6 +60,8 @@ public abstract class BaseStargateConnectorTest
                 return true;
 
             case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
                 // not yet supported in Stargate connector
                 return false;
 

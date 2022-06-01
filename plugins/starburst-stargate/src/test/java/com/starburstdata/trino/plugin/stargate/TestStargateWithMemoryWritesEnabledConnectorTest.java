@@ -101,8 +101,9 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     public void testAddColumnWithComment()
     {
         // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message
+        // expecting different exception message because https://github.com/trinodb/trino/pull/12574/files#r886633242
         assertThatThrownBy(super::testAddColumnWithComment)
-                .hasMessageContaining("This connector does not support adding columns");
+                .hasMessageContaining("This connector does not support creating tables with column comment");
         throw new SkipException("not supported");
     }
 
