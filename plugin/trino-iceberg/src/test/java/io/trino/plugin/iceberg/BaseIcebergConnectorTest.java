@@ -73,6 +73,7 @@ import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.concat;
@@ -1022,6 +1023,38 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testCreateTableFailsOnNonEmptyPath()
+    {
+        String tableName = "test_rename_table_" + randomTableSuffix();
+        String tmpName = "test_rename_table_tmp_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tmpName + " AS SELECT 1 as a", 1);
+            assertUpdate("ALTER TABLE " + tmpName + " RENAME TO " + tableName);
+            assertQueryFails("CREATE TABLE " + tmpName + " AS SELECT 1 as a", "Cannot create a table on a non-empty location.*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            assertUpdate("DROP TABLE IF EXISTS " + tmpName);
+        }
+    }
+
+    @Test
+    public void testCreateTableSucceedsOnEmptyDirectory()
+    {
+        File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
+        String tmpName = "test_rename_table_tmp_" + randomTableSuffix();
+        Path newPath = tempDir.toPath().resolve(tmpName);
+        File directory = newPath.toFile();
+        verify(directory.mkdirs(), "Could not make directory on filesystem");
+        try {
+            assertUpdate("CREATE TABLE " + tmpName + " WITH (location='" + directory + "') AS SELECT 1 as a", 1);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tmpName);
+        }
+    }
+
+    @Test
     public void testCreateTableLike()
     {
         IcebergFileFormat otherFormat = (format == PARQUET) ? ORC : PARQUET;
@@ -1057,21 +1090,11 @@ public abstract class BaseIcebergConnectorTest
                 format("   format = '%s',\n   format_version = 2,\n   location = '%s'\n)", format, tempDir + "/iceberg_data/tpch/test_create_table_like_copy2"));
         dropTable("test_create_table_like_copy2");
 
-        assertUpdate("CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
-        assertEquals(getTablePropertiesString("test_create_table_like_copy3"), "WITH (\n" +
-                format("   format = '%s',\n", format) +
-                "   format_version = 2,\n" +
-                format("   location = '%s',\n", tempDirPath) +
-                "   partitioning = ARRAY['adate']\n" +
-                ")");
+        assertQueryFails("CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)",
+                "Cannot create a table on a non-empty location.*");
 
-        assertUpdate(format("CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = '%s')", otherFormat));
-        assertEquals(getTablePropertiesString("test_create_table_like_copy4"), "WITH (\n" +
-                format("   format = '%s',\n", otherFormat) +
-                "   format_version = 2,\n" +
-                format("   location = '%s',\n", tempDirPath) +
-                "   partitioning = ARRAY['adate']\n" +
-                ")");
+        assertQueryFails(format("CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = '%s')", otherFormat),
+                "Cannot create a table on a non-empty location.*");
     }
 
     private String getTablePropertiesString(String tableName)
