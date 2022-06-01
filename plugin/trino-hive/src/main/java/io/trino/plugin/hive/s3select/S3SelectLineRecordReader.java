@@ -224,7 +224,7 @@ public abstract class S3SelectLineRecordReader
         return ((float) (position - start)) / (end - start);
     }
 
-    String getFieldDelimiter(Properties schema)
+    protected String getFieldDelimiter(Properties schema)
     {
         return schema.getProperty(FIELD_DELIM, schema.getProperty(SERIALIZATION_FORMAT));
     }
