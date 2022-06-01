@@ -158,8 +158,10 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedB
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId.OPTIMIZE;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.APPEND_ONLY_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isAppendOnly;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.validateType;
@@ -1169,6 +1171,9 @@ public class DeltaLakeMetadata
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
+        if (isAppendOnly(handle.getMetadataEntry())) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot delete rows from a table with '" + APPEND_ONLY_CONFIGURATION_KEY + "' set to true");
+        }
         if (!allowWrite(session, handle)) {
             String fileSystem = new Path(handle.getLocation()).toUri().getScheme();
             throw new TrinoException(NOT_SUPPORTED, format("Deletes are not supported on the %s filesystem", fileSystem));
@@ -1221,6 +1226,9 @@ public class DeltaLakeMetadata
     public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, RetryMode retryMode)
     {
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
+        if (isAppendOnly(handle.getMetadataEntry())) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot update rows from a table with '" + APPEND_ONLY_CONFIGURATION_KEY + "' set to true");
+        }
         if (!allowWrite(session, handle)) {
             String fileSystem = new Path(handle.getLocation()).toUri().getScheme();
             throw new TrinoException(NOT_SUPPORTED, format("Updates are not supported on the %s filesystem", fileSystem));
