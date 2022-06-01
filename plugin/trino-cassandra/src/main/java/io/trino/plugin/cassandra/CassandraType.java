@@ -443,7 +443,7 @@ public class CassandraType
             case COUNTER:
                 return Long.toString(row.getLong(position));
             case BOOLEAN:
-                return Boolean.toString(row.getBool(position));
+                return Boolean.toString(row.getBoolean(position));
             case DOUBLE:
                 return Double.toString(row.getDouble(position));
             case FLOAT:

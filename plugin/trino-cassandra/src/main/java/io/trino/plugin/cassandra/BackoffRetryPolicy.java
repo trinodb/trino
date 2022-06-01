@@ -37,7 +37,7 @@ public class BackoffRetryPolicy
         this.logPrefix = (context != null ? context.getSessionName() : null) + "|" + profileName;
     }
 
-    @Override
+    @Override @Deprecated
     public RetryDecision onReadTimeout(Request request, ConsistencyLevel consistencyLevel, int blockFor, int received, boolean dataPresent, int retryCount)
     {
         RetryDecision decision =
@@ -59,7 +59,7 @@ public class BackoffRetryPolicy
         return decision;
     }
 
-    @Override
+    @Override @Deprecated
     public RetryDecision onWriteTimeout(Request request, ConsistencyLevel consistencyLevel, WriteType writeType, int blockFor, int received, int retryCount)
     {
         RetryDecision decision =
@@ -80,7 +80,7 @@ public class BackoffRetryPolicy
         return decision;
     }
 
-    @Override
+    @Override @Deprecated
     public RetryDecision onUnavailable(Request request, ConsistencyLevel consistencyLevel, int required, int alive, int retries)
     {
         if (retries >= 10) {
@@ -99,13 +99,13 @@ public class BackoffRetryPolicy
         }
     }
 
-    @Override
+    @Override @Deprecated
     public RetryDecision onRequestAborted(Request request, Throwable error, int retryCount)
     {
         return RetryDecision.RETHROW;
     }
 
-    @Override
+    @Override @Deprecated
     public RetryDecision onErrorResponse(Request request, CoordinatorException error, int retryCount)
     {
         log.debug(error, "[%s] Retrying on node error on next host (retries: %s)", logPrefix, retryCount);

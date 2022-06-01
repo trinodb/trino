@@ -61,7 +61,7 @@ public class CassandraRecordCursor
     @Override
     public boolean getBoolean(int i)
     {
-        return currentRow.getBool(i);
+        return currentRow.getBoolean(i);
     }
 
     @Override

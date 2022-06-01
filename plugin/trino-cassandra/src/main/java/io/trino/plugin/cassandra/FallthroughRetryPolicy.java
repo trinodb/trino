@@ -25,7 +25,7 @@ import com.datastax.oss.driver.api.core.session.Request;
 /**
  * A retry policy that never retries (nor ignores).
  * <p/>
- * All of the methods of this retry policy unconditionally return {@link RetryDecision#RETHROW}.
+ * All methods of this retry policy unconditionally return {@link RetryDecision#RETHROW}.
  * If this policy is used, retry logic will have to be implemented in business code.
  */
 public class FallthroughRetryPolicy
@@ -34,31 +34,31 @@ public class FallthroughRetryPolicy
     // Required by Cassandra driver library for instantiation
     public FallthroughRetryPolicy(DriverContext context, String profileName) {}
 
-    @Override
+    @Override @Deprecated
     public RetryDecision onReadTimeout(Request request, ConsistencyLevel consistencyLevel, int blockFor, int received, boolean dataPresent, int retryCount)
     {
         return RetryDecision.RETHROW;
     }
 
-    @Override
+    @Override @Deprecated
     public RetryDecision onWriteTimeout(Request request, ConsistencyLevel consistencyLevel, WriteType writeType, int blockFor, int received, int retryCount)
     {
         return RetryDecision.RETHROW;
     }
 
-    @Override
+    @Override @Deprecated
     public RetryDecision onUnavailable(Request request, ConsistencyLevel consistencyLevel, int required, int alive, int retries)
     {
         return RetryDecision.RETHROW;
     }
 
-    @Override
+    @Override @Deprecated
     public RetryDecision onRequestAborted(Request request, Throwable error, int retryCount)
     {
         return RetryDecision.RETHROW;
     }
 
-    @Override
+    @Override @Deprecated
     public RetryDecision onErrorResponse(Request request, CoordinatorException error, int retryCount)
     {
         return RetryDecision.RETHROW;
