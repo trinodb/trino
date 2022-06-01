@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.kinesis;
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.kinesis.model.GetRecordsRequest;
 import com.amazonaws.services.kinesis.model.GetRecordsResult;
 import com.amazonaws.services.kinesis.model.GetShardIteratorRequest;
@@ -142,7 +142,7 @@ public class KinesisRecordSet
 
         // Initialize checkpoint related code
         if (checkpointEnabled) {
-            AmazonDynamoDBClient dynamoDBClient = clientManager.getDynamoDbClient();
+            AmazonDynamoDB dynamoDBClient = clientManager.getDynamoDbClient();
             String dynamoDBTable = split.getStreamName();
             int curIterationNumber = getIterationNumber(session);
             String sessionLogicalName = getCheckpointLogicalName(session);

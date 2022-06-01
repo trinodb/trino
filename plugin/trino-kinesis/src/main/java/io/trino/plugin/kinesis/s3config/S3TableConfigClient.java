@@ -14,7 +14,7 @@
 package io.trino.plugin.kinesis.s3config;
 
 import com.amazonaws.AmazonClientException;
-import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3URI;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
@@ -143,7 +143,7 @@ public class S3TableConfigClient
      */
     private List<S3ObjectSummary> getObjectSummaries()
     {
-        AmazonS3Client s3client = clientManager.getS3Client();
+        AmazonS3 s3client = clientManager.getS3Client();
         AmazonS3URI directoryURI = new AmazonS3URI(bucketUrl.get());
 
         List<S3ObjectSummary> result = new ArrayList<>();
@@ -180,7 +180,7 @@ public class S3TableConfigClient
     {
         long now = System.currentTimeMillis();
 
-        AmazonS3Client s3client = clientManager.getS3Client();
+        AmazonS3 s3client = clientManager.getS3Client();
 
         for (S3ObjectSummary summary : getObjectSummaries()) {
             if (!descriptors.containsKey(summary.getKey()) || summary.getLastModified().getTime() >= lastCheck) {

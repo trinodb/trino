@@ -13,8 +13,11 @@
  */
 package io.trino.plugin.kinesis.util;
 
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
-import com.amazonaws.services.kinesis.AmazonKinesisClient;
+import com.amazonaws.services.kinesis.AmazonKinesis;
+import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import io.trino.plugin.kinesis.KinesisClientProvider;
 
@@ -24,30 +27,37 @@ import io.trino.plugin.kinesis.KinesisClientProvider;
 public class KinesisTestClientManager
         implements KinesisClientProvider
 {
-    private AmazonKinesisClient client = new MockKinesisClient();
-    private final AmazonDynamoDBClient dynamoDBClient;
-    private final AmazonS3Client amazonS3Client;
+    private AmazonKinesis client = new MockKinesisClient();
+    private final AmazonDynamoDB dynamoDBClient;
+    private final AmazonS3 amazonS3Client;
 
     public KinesisTestClientManager()
     {
-        this.dynamoDBClient = new AmazonDynamoDBClient();
-        this.amazonS3Client = new AmazonS3Client();
+        // https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/java-dg-region-selection.html
+        // AWS clients created by using the client constructor will not automatically determine region from the environment and will,
+        // instead, use the default SDK region (USEast1).
+        this.dynamoDBClient = AmazonDynamoDBClient.builder()
+                .withRegion(Regions.US_EAST_1)
+                .build();
+        this.amazonS3Client = AmazonS3Client.builder()
+                .withRegion(Regions.US_EAST_1)
+                .build();
     }
 
     @Override
-    public AmazonKinesisClient getClient()
+    public AmazonKinesis getClient()
     {
         return client;
     }
 
     @Override
-    public AmazonDynamoDBClient getDynamoDbClient()
+    public AmazonDynamoDB getDynamoDbClient()
     {
         return this.dynamoDBClient;
     }
 
     @Override
-    public AmazonS3Client getS3Client()
+    public AmazonS3 getS3Client()
     {
         return amazonS3Client;
     }

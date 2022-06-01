@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.kinesis.util;
 
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.services.kinesis.AmazonKinesis;
 import com.amazonaws.services.kinesis.AmazonKinesisClient;
 import com.amazonaws.services.kinesis.model.CreateStreamRequest;
 import com.amazonaws.services.kinesis.model.DeleteStreamRequest;
@@ -27,11 +29,11 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class EmbeddedKinesisStream
         implements Closeable
 {
-    private AmazonKinesisClient amazonKinesisClient;
+    private AmazonKinesis amazonKinesisClient;
 
     public EmbeddedKinesisStream(String accessKey, String secretKey)
     {
-        this.amazonKinesisClient = new AmazonKinesisClient(new BasicAWSCredentials(accessKey, secretKey));
+        this.amazonKinesisClient = AmazonKinesisClient.builder().withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKey, secretKey))).build();
     }
 
     @Override
@@ -62,7 +64,7 @@ public class EmbeddedKinesisStream
         }
     }
 
-    public AmazonKinesisClient getKinesisClient()
+    public AmazonKinesis getKinesisClient()
     {
         return amazonKinesisClient;
     }

@@ -471,6 +471,7 @@ public class TrinoS3FileSystem
                 qualifiedPath(path));
     }
 
+    @SuppressWarnings("deprecation") // TODO: upgrade to AmazonS3EncryptionV2
     private long getObjectSize(Path path, ObjectMetadata metadata)
             throws IOException
     {
@@ -871,6 +872,7 @@ public class TrinoS3FileSystem
         return key;
     }
 
+    @SuppressWarnings("deprecation") // TODO: upgrade to AmazonS3EncryptionClientV2
     private AmazonS3 createAmazonS3Client(Configuration hadoopConfig, ClientConfiguration clientConfig)
     {
         Optional<EncryptionMaterialsProvider> encryptionMaterialsProvider = createEncryptionMaterialsProvider(hadoopConfig);
@@ -895,6 +897,8 @@ public class TrinoS3FileSystem
         }
 
         if (encryptionMaterialsProvider.isPresent()) {
+            // TODO: Is upgrading to AmazonS3EncryptionClientV2 a breaking change / do we need to support old encryption method?
+            // (e.g., decrypting files encrypted with old client?)
             clientBuilder = AmazonS3EncryptionClient.encryptionBuilder()
                     .withCredentials(credentialsProvider)
                     .withEncryptionMaterials(encryptionMaterialsProvider.get())

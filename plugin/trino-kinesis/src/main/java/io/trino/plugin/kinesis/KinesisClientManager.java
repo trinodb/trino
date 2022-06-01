@@ -13,10 +13,15 @@
  */
 package io.trino.plugin.kinesis;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
+import com.amazonaws.services.kinesis.AmazonKinesis;
 import com.amazonaws.services.kinesis.AmazonKinesisClient;
+import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.google.inject.Inject;
 
@@ -31,44 +36,48 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 public class KinesisClientManager
         implements KinesisClientProvider
 {
-    private final AmazonKinesisClient client;
-    private final AmazonS3Client amazonS3Client;
-    private final AmazonDynamoDBClient dynamoDbClient;              // for Checkpointing
+    private final AmazonKinesis client;
+    private final AmazonS3 amazonS3Client;
+    private final AmazonDynamoDB dynamoDbClient;              // for Checkpointing
 
     @Inject
     public KinesisClientManager(KinesisConfig config)
     {
-        if (!isNullOrEmpty(config.getAccessKey()) && !isNullOrEmpty(config.getSecretKey())) {
-            BasicAWSCredentials awsCredentials = new BasicAWSCredentials(config.getAccessKey(), config.getSecretKey());
-            this.client = new AmazonKinesisClient(awsCredentials);
-            this.amazonS3Client = new AmazonS3Client(awsCredentials);
-            this.dynamoDbClient = new AmazonDynamoDBClient(awsCredentials);
+        AWSCredentialsProvider awsCredentials;
+        if (isNullOrEmpty(config.getAccessKey()) || isNullOrEmpty(config.getSecretKey())) {
+            awsCredentials = new DefaultAWSCredentialsProviderChain();
         }
         else {
-            DefaultAWSCredentialsProviderChain defaultChain = new DefaultAWSCredentialsProviderChain();
-            this.client = new AmazonKinesisClient(defaultChain);
-            this.amazonS3Client = new AmazonS3Client(defaultChain);
-            this.dynamoDbClient = new AmazonDynamoDBClient(defaultChain);
+            awsCredentials = new AWSStaticCredentialsProvider(new BasicAWSCredentials(config.getAccessKey(), config.getSecretKey()));
         }
-
-        this.client.setEndpoint("kinesis." + config.getAwsRegion() + ".amazonaws.com");
-        this.dynamoDbClient.setEndpoint("dynamodb." + config.getAwsRegion() + ".amazonaws.com");
+        this.client = AmazonKinesisClient.builder()
+                .withCredentials(awsCredentials)
+                .withRegion(config.getAwsRegion())
+                .build();
+        this.amazonS3Client = AmazonS3Client.builder()
+                .withCredentials(awsCredentials)
+                .withRegion(config.getAwsRegion())
+                .build();
+        this.dynamoDbClient = AmazonDynamoDBClient.builder()
+                .withCredentials(awsCredentials)
+                .withRegion(config.getAwsRegion())
+                .build();
     }
 
     @Override
-    public AmazonKinesisClient getClient()
+    public AmazonKinesis getClient()
     {
         return client;
     }
 
     @Override
-    public AmazonDynamoDBClient getDynamoDbClient()
+    public AmazonDynamoDB getDynamoDbClient()
     {
         return dynamoDbClient;
     }
 
     @Override
-    public AmazonS3Client getS3Client()
+    public AmazonS3 getS3Client()
     {
         return amazonS3Client;
     }

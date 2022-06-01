@@ -243,6 +243,7 @@ public class MockKinesisClient
         }
     }
 
+    @SuppressWarnings("deprecation")
     public MockKinesisClient()
     {
         super();

@@ -489,7 +489,7 @@ public class TestTrinoS3FileSystem
         }
     }
 
-    @Test
+    @Test @SuppressWarnings("deprecation") // TODO: upgrade to AmazonS3EncryptionClientV2
     public void testEncryptionMaterialsProvider()
             throws Exception
     {
@@ -502,7 +502,7 @@ public class TestTrinoS3FileSystem
         }
     }
 
-    @Test
+    @Test @SuppressWarnings("deprecation") // TODO: upgrade to AmazonS3EncryptionClientV2
     public void testKMSEncryptionMaterialsProvider()
             throws Exception
     {

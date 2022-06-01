@@ -18,6 +18,7 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -50,7 +51,7 @@ public class GlueCredentialsProvider
                 provider = new STSAssumeRoleSessionCredentialsProvider
                         .Builder(config.getIamRole().get(), "trino-session")
                         .withExternalId(config.getExternalId().orElse(null))
-                        .withLongLivedCredentialsProvider(provider)
+                        .withStsClient(AWSSecurityTokenServiceClientBuilder.standard().withCredentials(provider).build())
                         .build();
             }
             this.credentialsProvider = provider;
