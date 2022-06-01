@@ -1303,6 +1303,37 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testNestedTimestamps()
+            throws IOException
+    {
+        String indexName = "nested_timestamps";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\":{" +
+                "    \"field\": {" +
+                "      \"properties\": {" +
+                "        \"timestamp_column\": { \"type\": \"date\" }" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.of("field", ImmutableMap.of("timestamp_column", 0)));
+        index(indexName, ImmutableMap.of("field", ImmutableMap.of("timestamp_column", "1")));
+        index(indexName, ImmutableMap.of("field", ImmutableMap.of("timestamp_column", "1970-01-01T01:01:00+0000")));
+
+        assertThat(query("SELECT field.timestamp_column FROM " + indexName))
+                .matches("VALUES " +
+                        "(TIMESTAMP '1970-01-01 00:00:00.000')," +
+                        "(TIMESTAMP '1970-01-01 00:00:00.001')," +
+                        "(TIMESTAMP '1970-01-01 01:01:00.000')");
+    }
+
+    @Test
     public void testScaledFloat()
             throws Exception
     {

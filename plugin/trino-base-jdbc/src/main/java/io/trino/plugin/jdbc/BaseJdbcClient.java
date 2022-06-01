@@ -511,10 +511,12 @@ public abstract class BaseJdbcClient
             String remoteTargetTableName = identifierMapping.toRemoteTableName(identity, connection, remoteSchema, targetTableName);
             String catalog = connection.getCatalog();
 
-            ImmutableList.Builder<String> columnNames = ImmutableList.builder();
-            ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
-            ImmutableList.Builder<String> columnList = ImmutableList.builder();
-            for (ColumnMetadata column : tableMetadata.getColumns()) {
+            List<ColumnMetadata> columns = tableMetadata.getColumns();
+            ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(columns.size());
+            ImmutableList.Builder<Type> columnTypes = ImmutableList.builderWithExpectedSize(columns.size());
+            ImmutableList.Builder<String> columnList = ImmutableList.builderWithExpectedSize(columns.size());
+
+            for (ColumnMetadata column : columns) {
                 String columnName = identifierMapping.toRemoteColumnName(connection, column.getName());
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
@@ -532,18 +534,24 @@ public abstract class BaseJdbcClient
                     columnNames.build(),
                     columnTypes.build(),
                     Optional.empty(),
-                    remoteTargetTableName);
+                    Optional.of(remoteTargetTableName));
         }
     }
 
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
         return format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns));
     }
 
     protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
     {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+        }
         StringBuilder sb = new StringBuilder()
                 .append(quoted(columnName))
                 .append(" ")
@@ -582,7 +590,7 @@ public abstract class BaseJdbcClient
                         columnNames.build(),
                         columnTypes.build(),
                         Optional.of(jdbcColumnTypes.build()),
-                        remoteTable);
+                        Optional.empty());
             }
 
             String remoteTemporaryTableName = identifierMapping.toRemoteTableName(identity, connection, remoteSchema, generateTemporaryTableName());
@@ -595,7 +603,7 @@ public abstract class BaseJdbcClient
                     columnNames.build(),
                     columnTypes.build(),
                     Optional.of(jdbcColumnTypes.build()),
-                    remoteTemporaryTableName);
+                    Optional.of(remoteTemporaryTableName));
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -626,7 +634,7 @@ public abstract class BaseJdbcClient
                 session,
                 handle.getCatalogName(),
                 handle.getSchemaName(),
-                handle.getTemporaryTableName(),
+                handle.getTemporaryTableName().orElseThrow(() -> new IllegalStateException("Temporary table name missing")),
                 new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
     }
 
@@ -659,14 +667,14 @@ public abstract class BaseJdbcClient
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         if (isNonTransactionalInsert(session)) {
-            checkState(handle.getTemporaryTableName().equals(handle.getTableName()), "Unexpected use of temporary table when non transactional inserts are enabled");
+            checkState(handle.getTemporaryTableName().isEmpty(), "Unexpected use of temporary table when non transactional inserts are enabled");
             return;
         }
 
         RemoteTableName temporaryTable = new RemoteTableName(
                 Optional.ofNullable(handle.getCatalogName()),
                 Optional.ofNullable(handle.getSchemaName()),
-                handle.getTemporaryTableName());
+                handle.getTemporaryTableName().orElseThrow());
         RemoteTableName targetTable = new RemoteTableName(
                 Optional.ofNullable(handle.getCatalogName()),
                 Optional.ofNullable(handle.getSchemaName()),
@@ -755,11 +763,13 @@ public abstract class BaseJdbcClient
     @Override
     public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        dropTable(session, new JdbcTableHandle(
-                new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
-                handle.getCatalogName(),
-                handle.getSchemaName(),
-                handle.getTemporaryTableName()));
+        if (handle.getTemporaryTableName().isPresent()) {
+            dropTable(session, new JdbcTableHandle(
+                    new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName().get()),
+                    handle.getCatalogName(),
+                    handle.getSchemaName(),
+                    handle.getTemporaryTableName().get()));
+        }
     }
 
     @Override
@@ -768,7 +778,7 @@ public abstract class BaseJdbcClient
         checkArgument(handle.getColumnNames().size() == columnWriters.size(), "handle and columnWriters mismatch: %s, %s", handle, columnWriters);
         return format(
                 "INSERT INTO %s (%s) VALUES (%s)",
-                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
+                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName().orElseGet(handle::getTableName)),
                 handle.getColumnNames().stream()
                         .map(this::quoted)
                         .collect(joining(", ")),

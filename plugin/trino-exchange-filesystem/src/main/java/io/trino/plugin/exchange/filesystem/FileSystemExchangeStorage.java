@@ -36,7 +36,7 @@ public interface FileSystemExchangeStorage
 
     ListenableFuture<Void> createEmptyFile(URI file);
 
-    ListenableFuture<Void> deleteRecursively(URI dir);
+    ListenableFuture<Void> deleteRecursively(List<URI> directories);
 
     List<FileStatus> listFiles(URI dir) throws IOException;
 

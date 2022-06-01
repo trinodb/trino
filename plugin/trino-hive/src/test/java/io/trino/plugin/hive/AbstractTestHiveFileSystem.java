@@ -190,8 +190,8 @@ public abstract class AbstractTestHiveFileSystem
                 new BridgingHiveMetastore(
                         new ThriftHiveMetastore(
                                 metastoreLocator,
-                                new HiveConfig(),
                                 metastoreConfig,
+                                new HiveConfig().isTranslateHiveViews(),
                                 new ThriftMetastoreConfig(),
                                 hdfsEnvironment,
                                 false),

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.util;
 
+import io.trino.testing.minio.MinioClient;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 

@@ -31,7 +31,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
@@ -51,6 +50,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -143,7 +143,7 @@ public class PluginReader
 
     private static List<String> readTrinoPlugins(File rootPom)
     {
-        try (FileReader fileReader = new FileReader(rootPom)) {
+        try (FileReader fileReader = new FileReader(rootPom, UTF_8)) {
             MavenXpp3Reader reader = new MavenXpp3Reader();
             Model model = reader.read(fileReader);
             return model.getModules().stream()
@@ -161,7 +161,7 @@ public class PluginReader
     private static boolean isTrinoPlugin(String module)
     {
         String modulePom = module + "/pom.xml";
-        try (FileReader fileReader = new FileReader(modulePom)) {
+        try (FileReader fileReader = new FileReader(modulePom, UTF_8)) {
             MavenXpp3Reader reader = new MavenXpp3Reader();
             Model model = reader.read(fileReader);
             return model.getPackaging().equals("trino-plugin");
@@ -200,7 +200,7 @@ public class PluginReader
                     .findFirst()
                     .map(entry -> {
                         try (BufferedInputStream bis = new BufferedInputStream(zipFile.getInputStream(entry))) {
-                            return new String(ByteStreams.toByteArray(bis), StandardCharsets.UTF_8).trim();
+                            return new String(ByteStreams.toByteArray(bis), UTF_8).trim();
                         }
                         catch (IOException e) {
                             throw new UncheckedIOException(format("Couldn't read plugin's service descriptor in %s", serviceJar), e);
@@ -219,7 +219,7 @@ public class PluginReader
     private static Optional<List<String>> readImpactedModules(File gibImpactedModules)
     {
         try {
-            return Optional.of(Files.asCharSource(gibImpactedModules, StandardCharsets.UTF_8).readLines());
+            return Optional.of(Files.asCharSource(gibImpactedModules, UTF_8).readLines());
         }
         catch (IOException e) {
             log.warn(e, "Couldn't read file %s", gibImpactedModules);

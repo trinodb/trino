@@ -182,6 +182,9 @@ public class ClientOptions
     @Option(names = "--editing-mode", paramLabel = "<editing-mode>", defaultValue = "EMACS", description = "Editing mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
     public EditingMode editingMode;
 
+    @Option(names = "--disable-auto-suggestion", description = "Disable auto suggestion")
+    public boolean disableAutoSuggestion;
+
     public enum OutputFormat
     {
         ALIGNED,

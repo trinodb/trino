@@ -260,7 +260,7 @@ public class SqlServerClient
             // 'table lock on bulk load' table option causes the bulk load processes on user-defined tables to obtain a bulk update lock
             // note: this is not a request to lock a table immediately
             String sql = format("EXEC sp_tableoption '%s', 'table lock on bulk load', '1'",
-                    quoted(table.getCatalogName(), table.getSchemaName(), table.getTemporaryTableName()));
+                    quoted(table.getCatalogName(), table.getSchemaName(), table.getTemporaryTableName().orElseGet(table::getTableName)));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -858,6 +858,9 @@ public class SqlServerClient
     @Override
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
         return format(
                 "CREATE TABLE %s (%s) %s",
                 quoted(remoteTableName),
@@ -1014,13 +1017,6 @@ public class SqlServerClient
         return Failsafe
                 .with(retryPolicy)
                 .get(() -> getTableDataCompression(handle, table));
-    }
-
-    private enum SnapshotIsolationEnabledCacheKey
-    {
-        // The snapshot isolation can be enabled or disabled on database level. We connect to single
-        // database, so from our perspective, this is a global property.
-        INSTANCE
     }
 
     private static class StatisticsDao

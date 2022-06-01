@@ -143,6 +143,8 @@ mode:
     - Enables display of debug information during CLI usage for
       :ref:`cli-troubleshooting`. Displays more information about query
       processing statistics.
+  * - ``--disable-auto-suggestion``
+    - Disables autocomplete suggestions.
   * - ``--disable-compression``
     - Disables compression of query results.
   * - ``--editing-mode``
@@ -393,6 +395,15 @@ press :kbd:`Enter`.
 
 By default, you can locate the Trino history file in ``~/.trino_history``.
 Use the ``TRINO_HISTORY_FILE`` environment variable to change the default.
+
+Auto suggestion
+^^^^^^^^^^^^^^^
+
+The CLI generates autocomplete suggestions based on command history.
+
+Press :kbd:`→` to accept the suggestion and replace the current command line
+buffer. Press :kbd:`Ctrl+→` (:kbd:`Option+→` on Mac) to accept only the next
+keyword. Continue typing to reject the suggestion.
 
 Batch mode
 ----------

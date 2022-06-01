@@ -25,7 +25,9 @@ public final class FaultTolerantExecutionConnectorTestHelper
     {
         return ImmutableMap.<String, String>builder()
                 .put("retry-policy", "TASK")
-                .put("query.hash-partition-count", "5")
+                .put("retry-initial-delay", "50ms")
+                .put("retry-max-delay", "100ms")
+                .put("fault-tolerant-execution-partition-count", "5")
                 .put("fault-tolerant-execution-target-task-input-size", "10MB")
                 .put("fault-tolerant-execution-target-task-split-count", "4")
                 // to trigger spilling

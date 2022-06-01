@@ -85,6 +85,15 @@ public class JdkLdapClient
     }
 
     @Override
+    public <T> T processLdapContext(String userName, String password, LdapContextProcessor<T> contextProcessor)
+            throws NamingException
+    {
+        try (CloseableContext context = createUserDirContext(userName, password)) {
+            return contextProcessor.process(context.context);
+        }
+    }
+
+    @Override
     public <T> T executeLdapQuery(String userName, String password, LdapQuery ldapQuery, LdapSearchResultProcessor<T> resultProcessor)
             throws NamingException
     {
@@ -165,6 +174,7 @@ public class JdkLdapClient
             this.context = requireNonNull(context, "context is null");
         }
 
+        @SuppressWarnings("BanJNDI")
         public NamingEnumeration<SearchResult> search(String name, String filter, SearchControls searchControls)
                 throws NamingException
         {

@@ -36,16 +36,18 @@ public class TestExchangeS3Config
         assertRecordedDefaults(recordDefaults(ExchangeS3Config.class)
                 .setS3AwsAccessKey(null)
                 .setS3AwsSecretKey(null)
+                .setS3IamRole(null)
+                .setS3ExternalId(null)
                 .setS3Region(null)
                 .setS3Endpoint(null)
-                .setS3UseWebIdentityTokenCredentials(false)
                 .setS3MaxErrorRetries(10)
                 .setS3UploadPartSize(DataSize.of(5, MEGABYTE))
                 .setStorageClass(StorageClass.STANDARD)
                 .setRetryMode(RetryMode.ADAPTIVE)
                 .setAsyncClientConcurrency(100)
                 .setAsyncClientMaxPendingConnectionAcquires(10000)
-                .setConnectionAcquisitionTimeout(new Duration(1, MINUTES)));
+                .setConnectionAcquisitionTimeout(new Duration(1, MINUTES))
+                .setGcsJsonKeyFilePath(null));
     }
 
     @Test
@@ -54,9 +56,10 @@ public class TestExchangeS3Config
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("exchange.s3.aws-access-key", "access")
                 .put("exchange.s3.aws-secret-key", "secret")
+                .put("exchange.s3.iam-role", "roleArn")
+                .put("exchange.s3.external-id", "externalId")
                 .put("exchange.s3.region", "us-west-1")
                 .put("exchange.s3.endpoint", "https://s3.us-east-1.amazonaws.com")
-                .put("exchange.s3.use-web-identity-token-credentials", "true")
                 .put("exchange.s3.max-error-retries", "8")
                 .put("exchange.s3.upload.part-size", "10MB")
                 .put("exchange.s3.storage-class", "REDUCED_REDUNDANCY")
@@ -64,21 +67,24 @@ public class TestExchangeS3Config
                 .put("exchange.s3.async-client-concurrency", "202")
                 .put("exchange.s3.async-client-max-pending-connection-acquires", "999")
                 .put("exchange.s3.async-client-connection-acquisition-timeout", "5m")
+                .put("exchange.gcs.json-key-file-path", "/path/to/gcs_keyfile.json")
                 .buildOrThrow();
 
         ExchangeS3Config expected = new ExchangeS3Config()
                 .setS3AwsAccessKey("access")
                 .setS3AwsSecretKey("secret")
+                .setS3IamRole("roleArn")
+                .setS3ExternalId("externalId")
                 .setS3Region("us-west-1")
                 .setS3Endpoint("https://s3.us-east-1.amazonaws.com")
-                .setS3UseWebIdentityTokenCredentials(true)
                 .setS3MaxErrorRetries(8)
                 .setS3UploadPartSize(DataSize.of(10, MEGABYTE))
                 .setStorageClass(StorageClass.REDUCED_REDUNDANCY)
                 .setRetryMode(RetryMode.STANDARD)
                 .setAsyncClientConcurrency(202)
                 .setAsyncClientMaxPendingConnectionAcquires(999)
-                .setConnectionAcquisitionTimeout(new Duration(5, MINUTES));
+                .setConnectionAcquisitionTimeout(new Duration(5, MINUTES))
+                .setGcsJsonKeyFilePath("/path/to/gcs_keyfile.json");
 
         assertFullMapping(properties, expected);
     }

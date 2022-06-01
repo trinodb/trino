@@ -50,21 +50,23 @@ Configuration properties
 
 The following configuration properties are available:
 
-=================================   ==============================================================
-Property Name                       Description
-=================================   ==============================================================
-``redis.table-names``               List of all tables provided by the catalog
-``redis.default-schema``            Default schema name for tables
-``redis.nodes``                     Location of the Redis server
-``redis.scan-count``                Redis parameter for scanning of the keys
-``redis.max-keys-per-fetch``        Get values associated with the specified number of keys in the redis command such as MGET(key...)
-``redis.key-prefix-schema-table``   Redis keys have schema-name:table-name prefix
-``redis.key-delimiter``             Delimiter separating schema_name and table_name if redis.key-prefix-schema-table is used
-``redis.table-description-dir``     Directory containing table description files
-``redis.hide-internal-columns``     Controls whether internal columns are part of the table schema or not
-``redis.database-index``            Redis database index
-``redis.password``                  Redis server password
-=================================   ==============================================================
+======================================  ==============================================================
+Property Name                           Description
+======================================  ==============================================================
+``redis.table-names``                   List of all tables provided by the catalog
+``redis.default-schema``                Default schema name for tables
+``redis.nodes``                         Location of the Redis server
+``redis.scan-count``                    Redis parameter for scanning of the keys
+``redis.max-keys-per-fetch``            Get values associated with the specified number of keys in the redis command such as MGET(key...)
+``redis.key-prefix-schema-table``       Redis keys have schema-name:table-name prefix
+``redis.key-delimiter``                 Delimiter separating schema_name and table_name if redis.key-prefix-schema-table is used
+``redis.table-description-dir``         Directory containing table description files
+``redis.table-description-cache-ttl``   The cache time for table description files
+``redis.hide-internal-columns``         Controls whether internal columns are part of the table schema or not
+``redis.database-index``                Redis database index
+``redis.user``                          Redis server username
+``redis.password``                      Redis server password
+======================================  ==============================================================
 
 ``redis.table-names``
 ^^^^^^^^^^^^^^^^^^^^^
@@ -77,8 +79,8 @@ For each table defined, a table description file (see below) may
 exist. If no table description file exists, the
 table only contains internal columns (see below).
 
-This property is required; there is no default and at least one table must be
-defined.
+This property is optional; the connector relies on the table description files
+specified in the ``redis.table-description-dir`` property.
 
 ``redis.default-schema``
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -138,7 +140,21 @@ This property is optional; the default is ``:``.
 References a folder within Trino deployment that holds one or more JSON
 files, which must end with ``.json`` and contain table description files.
 
+Note that the table description files will only be used by the Trino coordinator
+node.
+
 This property is optional; the default is ``etc/redis``.
+
+``redis.table-description-cache-ttl``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Redis connector dynamically loads the table description files after waiting
+for the time specified by this property. Therefore, there is no need to update
+the ``redis.table-names`` property and restart the Trino service when adding,
+updating, or deleting a file end with ``.json`` to ``redis.table-description-dir``
+folder.
+
+This property is optional; the default is ``5m``.
 
 ``redis.hide-internal-columns``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -156,6 +172,14 @@ This property is optional; the default is ``true``.
 The Redis database to query.
 
 This property is optional; the default is ``0``.
+
+``redis.user``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The username for Redis server.
+
+This property is optional; the default is ``null``.
+
 
 ``redis.password``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

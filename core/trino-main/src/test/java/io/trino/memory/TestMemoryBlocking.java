@@ -118,7 +118,7 @@ public class TestMemoryBlocking
         Split testSplit = new Split(new CatalogName("test"), new TestSplit(), Lifespan.taskWide());
         driver.updateSplitAssignment(new SplitAssignment(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
 
-        ListenableFuture<Void> blocked = driver.processFor(new Duration(1, NANOSECONDS));
+        ListenableFuture<Void> blocked = driver.processForDuration(new Duration(1, NANOSECONDS));
 
         // the driver shouldn't block in the first call as it will be able to move a page between source and the sink operator
         // but the operator should be blocked
@@ -128,7 +128,7 @@ public class TestMemoryBlocking
         // in the subsequent calls both the driver and the operator should be blocked
         // and they should stay blocked until more memory becomes available
         for (int i = 0; i < 10; i++) {
-            blocked = driver.processFor(new Duration(1, NANOSECONDS));
+            blocked = driver.processForDuration(new Duration(1, NANOSECONDS));
             assertFalse(blocked.isDone());
             assertFalse(source.getOperatorContext().isWaitingForMemory().isDone());
         }
@@ -140,7 +140,7 @@ public class TestMemoryBlocking
         assertTrue(source.getOperatorContext().isWaitingForMemory().isDone());
 
         // the driver shouldn't be blocked
-        blocked = driver.processFor(new Duration(1, NANOSECONDS));
+        blocked = driver.processForDuration(new Duration(1, NANOSECONDS));
         assertTrue(blocked.isDone());
     }
 

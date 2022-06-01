@@ -19,8 +19,8 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.FunctionCall;
 
-import static io.trino.metadata.FunctionKind.WINDOW;
 import static io.trino.spi.StandardErrorCode.MISSING_OVER;
+import static io.trino.spi.function.FunctionKind.WINDOW;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 

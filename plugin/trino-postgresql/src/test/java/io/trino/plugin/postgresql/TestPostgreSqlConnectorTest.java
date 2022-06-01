@@ -118,6 +118,8 @@ public class TestPostgreSqlConnectorTest
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
@@ -189,6 +191,20 @@ public class TestPostgreSqlConnectorTest
         computeActual("SELECT * FROM test_ft");
         onRemoteDatabase().execute("DROP FOREIGN TABLE test_ft");
         onRemoteDatabase().execute("DROP SERVER devnull");
+    }
+
+    @Test
+    public void testErrorDuringInsert()
+    {
+        onRemoteDatabase().execute("CREATE TABLE test_with_constraint (x bigint primary key)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_with_constraint"));
+        Session nonTransactional = Session.builder(getSession())
+                .setCatalogSessionProperty("postgresql", "non_transactional_insert", "true")
+                .build();
+        assertUpdate(nonTransactional, "INSERT INTO test_with_constraint VALUES (1)", 1);
+        assertQueryFails(nonTransactional, "INSERT INTO test_with_constraint VALUES (1)", "[\\s\\S]*ERROR: duplicate key value[\\s\\S]*");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_with_constraint"));
+        onRemoteDatabase().execute("DROP TABLE test_with_constraint");
     }
 
     @Test

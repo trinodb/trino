@@ -34,6 +34,10 @@ import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 public class IcebergColumnHandle
         implements ColumnHandle
 {
+    // Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
+    public static final int TRINO_UPDATE_ROW_ID_COLUMN_ID = Integer.MIN_VALUE;
+    public static final String TRINO_UPDATE_ROW_ID_COLUMN_NAME = "$row_id";
+
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;
     // The list of field ids to indicate the projected part of the top-level column represented by baseColumnIdentity
@@ -149,6 +153,12 @@ public class IcebergColumnHandle
         return id == ROW_POSITION.fieldId();
     }
 
+    @JsonIgnore
+    public boolean isUpdateRowIdColumn()
+    {
+        return id == TRINO_UPDATE_ROW_ID_COLUMN_ID;
+    }
+
     /**
      * Marker column used by the Iceberg DeleteFilter to indicate rows which are deleted by equality deletes.
      */
@@ -190,7 +200,7 @@ public class IcebergColumnHandle
     public static IcebergColumnHandle pathColumnHandle()
     {
         return new IcebergColumnHandle(
-                columIdentity(FILE_PATH),
+                columnIdentity(FILE_PATH),
                 FILE_PATH.getType(),
                 ImmutableList.of(),
                 FILE_PATH.getType(),
@@ -206,7 +216,7 @@ public class IcebergColumnHandle
                 .build();
     }
 
-    private static ColumnIdentity columIdentity(IcebergMetadataColumn metadata)
+    private static ColumnIdentity columnIdentity(IcebergMetadataColumn metadata)
     {
         return new ColumnIdentity(metadata.getId(), metadata.getColumnName(), metadata.getTypeCategory(), ImmutableList.of());
     }

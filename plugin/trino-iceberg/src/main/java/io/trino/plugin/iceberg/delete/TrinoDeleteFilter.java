@@ -20,16 +20,17 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.data.DeleteFilter;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
-import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_UPDATE_ROW_ID_COLUMN_ID;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_UPDATE_ROW_ID_COLUMN_NAME;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.FILE_PATH;
+import static org.apache.iceberg.MetadataColumns.IS_DELETED;
+import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 
 public class TrinoDeleteFilter
         extends DeleteFilter<TrinoRow>
@@ -38,7 +39,7 @@ public class TrinoDeleteFilter
 
     public TrinoDeleteFilter(FileScanTask task, Schema tableSchema, List<IcebergColumnHandle> requestedColumns, FileIO fileIO)
     {
-        super(task, tableSchema, filterSchema(tableSchema, requestedColumns));
+        super(task, tableSchema, toSchema(tableSchema, requestedColumns));
         this.fileIO = requireNonNull(fileIO, "fileIO is null");
     }
 
@@ -54,43 +55,26 @@ public class TrinoDeleteFilter
         return fileIO.newInputFile(s);
     }
 
-    private static Schema filterSchema(Schema tableSchema, List<IcebergColumnHandle> requestedColumns)
+    private static Schema toSchema(Schema tableSchema, List<IcebergColumnHandle> requestedColumns)
     {
-        Set<Integer> requestedFieldIds = requestedColumns.stream()
-                .map(IcebergColumnHandle::getId)
-                .collect(toImmutableSet());
-        return new Schema(filterFieldList(tableSchema.columns(), requestedFieldIds));
+        return new Schema(requestedColumns.stream().map(column -> toNestedField(tableSchema, column)).collect(toImmutableList()));
     }
 
-    private static List<Types.NestedField> filterFieldList(List<Types.NestedField> fields, Set<Integer> requestedFieldIds)
+    private static Types.NestedField toNestedField(Schema tableSchema, IcebergColumnHandle columnHandle)
     {
-        return fields.stream()
-                .map(field -> filterField(field, requestedFieldIds))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(toImmutableList());
-    }
-
-    private static Optional<Types.NestedField> filterField(Types.NestedField field, Set<Integer> requestedFieldIds)
-    {
-        Type fieldType = field.type();
-        if (requestedFieldIds.contains(field.fieldId())) {
-            return Optional.of(field);
+        if (columnHandle.isRowPositionColumn()) {
+            return ROW_POSITION;
+        }
+        if (columnHandle.isIsDeletedColumn()) {
+            return IS_DELETED;
+        }
+        if (columnHandle.isPathColumn()) {
+            return FILE_PATH;
+        }
+        if (columnHandle.isUpdateRowIdColumn()) {
+            return Types.NestedField.of(TRINO_UPDATE_ROW_ID_COLUMN_ID, false, TRINO_UPDATE_ROW_ID_COLUMN_NAME, Types.StructType.of());
         }
 
-        if (fieldType.isStructType()) {
-            List<Types.NestedField> requiredChildren = filterFieldList(fieldType.asStructType().fields(), requestedFieldIds);
-            if (requiredChildren.isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(Types.NestedField.of(
-                    field.fieldId(),
-                    field.isOptional(),
-                    field.name(),
-                    Types.StructType.of(requiredChildren),
-                    field.doc()));
-        }
-
-        return Optional.empty();
+        return tableSchema.findField(columnHandle.getId());
     }
 }

@@ -78,12 +78,17 @@ import io.trino.execution.scheduler.policy.PhasedExecutionPolicy;
 import io.trino.failuredetector.FailureDetectorModule;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.ForMemoryManager;
+import io.trino.memory.LeastWastedEffortTaskLowMemoryKiller;
 import io.trino.memory.LowMemoryKiller;
+import io.trino.memory.LowMemoryKiller.ForQueryLowMemoryKiller;
+import io.trino.memory.LowMemoryKiller.ForTaskLowMemoryKiller;
 import io.trino.memory.MemoryManagerConfig;
-import io.trino.memory.MemoryManagerConfig.LowMemoryKillerPolicy;
+import io.trino.memory.MemoryManagerConfig.LowMemoryQueryKillerPolicy;
+import io.trino.memory.MemoryManagerConfig.LowMemoryTaskKillerPolicy;
 import io.trino.memory.NoneLowMemoryKiller;
 import io.trino.memory.TotalReservationLowMemoryKiller;
-import io.trino.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
+import io.trino.memory.TotalReservationOnBlockedNodesQueryLowMemoryKiller;
+import io.trino.memory.TotalReservationOnBlockedNodesTaskLowMemoryKiller;
 import io.trino.metadata.CatalogManager;
 import io.trino.operator.ForScheduler;
 import io.trino.operator.OperatorStats;
@@ -213,9 +218,14 @@ public class CoordinatorModule
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 });
-        bindLowMemoryKiller(LowMemoryKillerPolicy.NONE, NoneLowMemoryKiller.class);
-        bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
-        bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesLowMemoryKiller.class);
+
+        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.NONE, NoneLowMemoryKiller.class);
+        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesTaskLowMemoryKiller.class);
+        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.LEAST_WASTE, LeastWastedEffortTaskLowMemoryKiller.class);
+        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.NONE, NoneLowMemoryKiller.class);
+        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
+        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesQueryLowMemoryKiller.class);
+
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
 
         // node allocator
@@ -397,12 +407,28 @@ public class CoordinatorModule
         return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, versionEmbedder.embedVersion(finishingExecutor));
     }
 
-    private void bindLowMemoryKiller(LowMemoryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
+    private void bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
     {
         install(conditionalModule(
                 MemoryManagerConfig.class,
-                config -> policy == config.getLowMemoryKillerPolicy(),
-                binder -> binder.bind(LowMemoryKiller.class).to(clazz).in(Scopes.SINGLETON)));
+                config -> policy == config.getLowMemoryQueryKillerPolicy(),
+                binder -> binder
+                        .bind(LowMemoryKiller.class)
+                        .annotatedWith(ForQueryLowMemoryKiller.class)
+                        .to(clazz)
+                        .in(Scopes.SINGLETON)));
+    }
+
+    private void bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
+    {
+        install(conditionalModule(
+                MemoryManagerConfig.class,
+                config -> policy == config.getLowMemoryTaskKillerPolicy(),
+                binder -> binder
+                        .bind(LowMemoryKiller.class)
+                        .annotatedWith(ForTaskLowMemoryKiller.class)
+                        .to(clazz)
+                        .in(Scopes.SINGLETON)));
     }
 
     public static class ExecutorCleanup

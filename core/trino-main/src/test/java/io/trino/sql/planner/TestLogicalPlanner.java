@@ -966,6 +966,68 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testCorrelatedDistinctAggregationRewriteToLeftOuterJoin()
+    {
+        assertPlan(
+                "SELECT (SELECT count(DISTINCT o.orderkey) FROM orders o WHERE c.custkey = o.custkey), c.custkey FROM customer c",
+                output(
+                        project(join(
+                                INNER,
+                                ImmutableList.of(),
+                                join(
+                                        LEFT,
+                                        ImmutableList.of(equiJoinClause("c_custkey", "o_custkey")),
+                                        anyTree(tableScan("customer", ImmutableMap.of("c_custkey", "custkey"))),
+                                        anyTree(aggregation(
+                                                singleGroupingSet("o_custkey"),
+                                                ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("o_orderkey"))),
+                                                ImmutableList.of(),
+                                                ImmutableList.of("non_null"),
+                                                Optional.empty(),
+                                                SINGLE,
+                                                project(ImmutableMap.of("non_null", expression("true")),
+                                                        aggregation(
+                                                                singleGroupingSet("o_orderkey", "o_custkey"),
+                                                                ImmutableMap.of(),
+                                                                Optional.empty(),
+                                                                FINAL,
+                                                                anyTree(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey")))))))),
+                                anyTree(node(ValuesNode.class))))));
+    }
+
+    @Test
+    public void testCorrelatedDistinctGropuedAggregationRewriteToLeftOuterJoin()
+    {
+        assertPlan(
+                "SELECT (SELECT count(DISTINCT o.orderkey) FROM orders o WHERE c.custkey = o.custkey GROUP BY o.orderstatus), c.custkey FROM customer c",
+                output(
+                        project(filter(
+                                "(CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(28, 'Scalar sub-query has returned multiple rows') AS boolean) END)",
+                                project(markDistinct(
+                                        "is_distinct",
+                                        ImmutableList.of("unique"),
+                                        join(
+                                                LEFT,
+                                                ImmutableList.of(equiJoinClause("c_custkey", "o_custkey")),
+                                                project(assignUniqueId(
+                                                        "unique",
+                                                        tableScan("customer", ImmutableMap.of("c_custkey", "custkey")))),
+                                                project(aggregation(
+                                                        singleGroupingSet("o_orderstatus", "o_custkey"),
+                                                        ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("o_orderkey"))),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        project(aggregation(
+                                                                singleGroupingSet("o_orderstatus", "o_orderkey", "o_custkey"),
+                                                                ImmutableMap.of(),
+                                                                Optional.empty(),
+                                                                FINAL,
+                                                                anyTree(tableScan(
+                                                                        "orders",
+                                                                        ImmutableMap.of("o_orderkey", "orderkey", "o_orderstatus", "orderstatus", "o_custkey", "custkey"))))))))))))));
+    }
+
+    @Test
     public void testRemovesTrivialFilters()
     {
         assertPlan(
@@ -2040,6 +2102,31 @@ public class TestLogicalPlanner
                                                 values(
                                                         ImmutableList.of("id", "input1", "input2"),
                                                         ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3")))))))));
+    }
+
+    @Test
+    public void testDifferentOuterParentScopeSubqueries()
+    {
+        assertPlan("SELECT customer.custkey AS custkey," +
+                        "(SELECT COUNT(*) FROM orders WHERE customer.custkey = orders.custkey) AS count1," +
+                        "(SELECT COUNT(*) FROM orders WHERE orders.custkey = customer.custkey) AS count2 " +
+                        "FROM customer",
+                output(
+                        project(
+                                join(INNER,
+                                        ImmutableList.of(),
+                                        join(LEFT,
+                                                ImmutableList.of(equiJoinClause("CUSTOMER_CUSTKEY", "ORDERS2_CUSTKEY")),
+                                                project(
+                                                        join(INNER,
+                                                                ImmutableList.of(),
+                                                                join(LEFT,
+                                                                        ImmutableList.of(equiJoinClause("CUSTOMER_CUSTKEY", "ORDERS_CUSTKEY")),
+                                                                        project(tableScan("customer", ImmutableMap.of("CUSTOMER_CUSTKEY", "custkey"))),
+                                                                        anyTree(project(tableScan("orders", ImmutableMap.of("ORDERS_CUSTKEY", "custkey"))))),
+                                                                anyTree(node(ValuesNode.class)))),
+                                                anyTree(project(tableScan("orders", ImmutableMap.of("ORDERS2_CUSTKEY", "custkey"))))),
+                                        anyTree(node(ValuesNode.class))))));
     }
 
     private Session noJoinReordering()

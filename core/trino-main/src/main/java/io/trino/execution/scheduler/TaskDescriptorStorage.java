@@ -110,6 +110,26 @@ public class TaskDescriptorStorage
     }
 
     /**
+     * Removes {@link TaskDescriptor} for a task identified by the <code>stageId</code> and <code>partitionId</code>.
+     * If the query has been terminated the call is ignored.
+     *
+     * @throws java.util.NoSuchElementException if {@link TaskDescriptor} for a given task does not exist
+     */
+    public synchronized void remove(StageId stageId, int partitionId)
+    {
+        TaskDescriptors storage = storages.get(stageId.getQueryId());
+        if (storage == null) {
+            // query has been terminated
+            return;
+        }
+        long previousReservedBytes = storage.getReservedBytes();
+        storage.remove(stageId, partitionId);
+        long currentReservedBytes = storage.getReservedBytes();
+        long delta = currentReservedBytes - previousReservedBytes;
+        updateMemoryReservation(delta);
+    }
+
+    /**
      * Notifies the storage that the query with a given <code>queryId</code> has been finished and the task descriptors can be safely discarded.
      * <p>
      * The engine may decided to destroy the storage while the scheduling is still in process (for example if query was cancelled). Under such
@@ -176,6 +196,17 @@ public class TaskDescriptorStorage
                 throw new NoSuchElementException(format("descriptor not found for key %s", key));
             }
             return descriptor;
+        }
+
+        public void remove(StageId stageId, int partitionId)
+        {
+            throwIfFailed();
+            TaskDescriptorKey key = new TaskDescriptorKey(stageId, partitionId);
+            TaskDescriptor descriptor = descriptors.remove(key);
+            if (descriptor == null) {
+                throw new NoSuchElementException(format("descriptor not found for key %s", key));
+            }
+            reservedBytes -= descriptor.getRetainedSizeInBytes();
         }
 
         public long getReservedBytes()

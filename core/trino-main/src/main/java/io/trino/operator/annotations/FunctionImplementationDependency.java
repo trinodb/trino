@@ -40,6 +40,16 @@ public final class FunctionImplementationDependency
         this.argumentTypes = requireNonNull(argumentTypes, "argumentTypes is null");
     }
 
+    public QualifiedName getFullyQualifiedName()
+    {
+        return fullyQualifiedName;
+    }
+
+    public List<TypeSignature> getArgumentTypes()
+    {
+        return argumentTypes;
+    }
+
     @Override
     public void declareDependencies(FunctionDependencyDeclarationBuilder builder)
     {

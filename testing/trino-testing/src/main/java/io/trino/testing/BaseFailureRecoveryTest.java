@@ -107,7 +107,7 @@ public abstract class BaseFailureRecoveryTest
                         .put("failure-injection.request-timeout", new Duration(REQUEST_TIMEOUT.toMillis() * 2, MILLISECONDS).toString())
                         // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
                         .put("exchange.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
-                        .put("query.hash-partition-count", "5")
+                        .put("fault-tolerant-execution-partition-count", "5")
                         // to trigger spilling
                         .put("exchange.deduplication-buffer-size", "1kB")
                         .put("fault-tolerant-execution-task-memory", "1GB")
@@ -229,7 +229,7 @@ public abstract class BaseFailureRecoveryTest
                 .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                 // using boundary stage so we observe task failures
                 .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer.*3 failures"))
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
     }
 
@@ -352,7 +352,7 @@ public abstract class BaseFailureRecoveryTest
                     .withCleanupQuery(Optional.of("DROP TABLE <table>"))
                     .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                     .at(leafStage())
-                    .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                     // get results timeout for leaf stage will not result in accounted task failure if failure recovery is enabled
                     .finishesSuccessfullyWithoutTaskFailures();
         }
@@ -454,7 +454,7 @@ public abstract class BaseFailureRecoveryTest
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
     }
 
@@ -814,13 +814,15 @@ public abstract class BaseFailureRecoveryTest
         return requireNonNull(statementStats.getRootStage(), "root stage is null");
     }
 
-    protected Session enableDynamicFiltering(boolean enabled)
+    private Session enableDynamicFiltering(boolean enabled)
     {
         Session defaultSession = getQueryRunner().getDefaultSession();
         return Session.builder(defaultSession)
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.toString(enabled))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
+                // Ensure probe side scan wait until DF is collected
+                .setCatalogSessionProperty(defaultSession.getCatalog().orElseThrow(), "dynamic_filtering_wait_timeout", "1h")
                 .build();
     }
 }

@@ -96,6 +96,7 @@ import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.Split;
 import io.trino.metadata.SystemFunctionBundle;
 import io.trino.metadata.SystemSecurityMetadata;
+import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
@@ -114,6 +115,9 @@ import io.trino.operator.StageExecutionDescriptor;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
+import io.trino.operator.scalar.json.JsonExistsFunction;
+import io.trino.operator.scalar.json.JsonQueryFunction;
+import io.trino.operator.scalar.json.JsonValueFunction;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
@@ -187,6 +191,8 @@ import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
+import io.trino.type.JsonPath2016Type;
+import io.trino.type.TypeDeserializer;
 import io.trino.util.FinalizerService;
 import org.intellij.lang.annotations.Language;
 
@@ -243,6 +249,7 @@ public class LocalQueryRunner
     private final InMemoryNodeManager nodeManager;
     private final BlockTypeOperators blockTypeOperators;
     private final PlannerContext plannerContext;
+    private final TypeRegistry typeRegistry;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final FunctionManager functionManager;
     private final StatsCalculator statsCalculator;
@@ -346,7 +353,7 @@ public class LocalQueryRunner
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators);
 
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
-        TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
+        typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
         TypeManager typeManager = new InternalTypeManager(typeRegistry);
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
 
@@ -360,6 +367,11 @@ public class LocalQueryRunner
                 transactionManager,
                 globalFunctionCatalog,
                 typeManager);
+        globalFunctionCatalog.addFunctions(new InternalFunctionBundle(
+                new JsonExistsFunction(functionManager, metadata, typeManager),
+                new JsonValueFunction(functionManager, metadata, typeManager),
+                new JsonQueryFunction(functionManager, metadata, typeManager)));
+        typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager);
         this.splitManager = new SplitManager(new QueryManagerConfig());
         this.planFragmenter = new PlanFragmenter(metadata, functionManager, this.nodePartitioningManager, new QueryManagerConfig());
@@ -382,8 +394,10 @@ public class LocalQueryRunner
                 plannerContext,
                 sqlParser,
                 accessControl,
+                transactionManager,
                 groupProvider,
                 tableProceduresRegistry,
+                new TableFunctionRegistry(),
                 sessionPropertyManager,
                 tablePropertyManager,
                 analyzePropertyManager,
@@ -423,6 +437,7 @@ public class LocalQueryRunner
                 typeManager,
                 new ProcedureRegistry(),
                 tableProceduresRegistry,
+                new TableFunctionRegistry(),
                 sessionPropertyManager,
                 schemaPropertyManager,
                 columnPropertyManager,
@@ -597,10 +612,20 @@ public class LocalQueryRunner
         return analyzePropertyManager;
     }
 
+    public TypeRegistry getTypeRegistry()
+    {
+        return typeRegistry;
+    }
+
     @Override
     public TypeManager getTypeManager()
     {
         return plannerContext.getTypeManager();
+    }
+
+    public GlobalFunctionCatalog getGlobalFunctionCatalog()
+    {
+        return globalFunctionCatalog;
     }
 
     @Override
@@ -827,7 +852,7 @@ public class LocalQueryRunner
                     }
 
                     if (!driver.isFinished()) {
-                        driver.process();
+                        driver.processForNumberOfIterations(1);
                         processed = true;
                     }
                 }
@@ -1098,7 +1123,6 @@ public class LocalQueryRunner
                         new DescribeOutputRewrite(sqlParser),
                         new ShowQueriesRewrite(
                                 plannerContext.getMetadata(),
-                                plannerContext.getFunctionManager(),
                                 sqlParser,
                                 accessControl,
                                 sessionPropertyManager,

@@ -25,6 +25,7 @@ import io.trino.operator.aggregation.ApproximateRealPercentileAggregations;
 import io.trino.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import io.trino.operator.aggregation.ApproximateSetAggregation;
 import io.trino.operator.aggregation.ApproximateSetGenericAggregation;
+import io.trino.operator.aggregation.ArbitraryAggregationFunction;
 import io.trino.operator.aggregation.AverageAggregations;
 import io.trino.operator.aggregation.BigintApproximateMostFrequent;
 import io.trino.operator.aggregation.BitwiseAndAggregation;
@@ -36,7 +37,10 @@ import io.trino.operator.aggregation.BooleanOrAggregation;
 import io.trino.operator.aggregation.CentralMomentsAggregation;
 import io.trino.operator.aggregation.ChecksumAggregationFunction;
 import io.trino.operator.aggregation.CountAggregation;
+import io.trino.operator.aggregation.CountColumn;
 import io.trino.operator.aggregation.CountIfAggregation;
+import io.trino.operator.aggregation.DecimalAverageAggregation;
+import io.trino.operator.aggregation.DecimalSumAggregation;
 import io.trino.operator.aggregation.DefaultApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.DoubleCorrelationAggregation;
 import io.trino.operator.aggregation.DoubleCovarianceAggregation;
@@ -54,12 +58,18 @@ import io.trino.operator.aggregation.LegacyApproximateRealPercentileAggregations
 import io.trino.operator.aggregation.LongSumAggregation;
 import io.trino.operator.aggregation.MapAggregationFunction;
 import io.trino.operator.aggregation.MapUnionAggregation;
+import io.trino.operator.aggregation.MaxAggregationFunction;
+import io.trino.operator.aggregation.MaxByAggregationFunction;
 import io.trino.operator.aggregation.MaxDataSizeForStats;
-import io.trino.operator.aggregation.MaxNAggregationFunction;
 import io.trino.operator.aggregation.MergeHyperLogLogAggregation;
 import io.trino.operator.aggregation.MergeQuantileDigestFunction;
 import io.trino.operator.aggregation.MergeTDigestAggregation;
-import io.trino.operator.aggregation.MinNAggregationFunction;
+import io.trino.operator.aggregation.MinAggregationFunction;
+import io.trino.operator.aggregation.MinByAggregationFunction;
+import io.trino.operator.aggregation.QuantileDigestAggregationFunction.BigintQuantileDigestAggregationFunction;
+import io.trino.operator.aggregation.QuantileDigestAggregationFunction.DoubleQuantileDigestAggregationFunction;
+import io.trino.operator.aggregation.QuantileDigestAggregationFunction.RealQuantileDigestAggregationFunction;
+import io.trino.operator.aggregation.RealAverageAggregation;
 import io.trino.operator.aggregation.RealCorrelationAggregation;
 import io.trino.operator.aggregation.RealCovarianceAggregation;
 import io.trino.operator.aggregation.RealGeometricMeanAggregations;
@@ -70,9 +80,13 @@ import io.trino.operator.aggregation.SumDataSizeForStats;
 import io.trino.operator.aggregation.TDigestAggregationFunction;
 import io.trino.operator.aggregation.VarcharApproximateMostFrequent;
 import io.trino.operator.aggregation.VarianceAggregation;
+import io.trino.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import io.trino.operator.aggregation.histogram.Histogram;
-import io.trino.operator.aggregation.minmaxby.MaxByNAggregationFunction;
-import io.trino.operator.aggregation.minmaxby.MinByNAggregationFunction;
+import io.trino.operator.aggregation.listagg.ListaggAggregationFunction;
+import io.trino.operator.aggregation.minmaxbyn.MaxByNAggregationFunction;
+import io.trino.operator.aggregation.minmaxbyn.MinByNAggregationFunction;
+import io.trino.operator.aggregation.minmaxn.MaxNAggregationFunction;
+import io.trino.operator.aggregation.minmaxn.MinNAggregationFunction;
 import io.trino.operator.aggregation.multimapagg.MultimapAggregationFunction;
 import io.trino.operator.scalar.ArrayAllMatchFunction;
 import io.trino.operator.scalar.ArrayAnyMatchFunction;
@@ -157,6 +171,8 @@ import io.trino.operator.scalar.VarbinaryFunctions;
 import io.trino.operator.scalar.VersionFunction;
 import io.trino.operator.scalar.WilsonInterval;
 import io.trino.operator.scalar.WordStemFunction;
+import io.trino.operator.scalar.json.JsonInputFunctions;
+import io.trino.operator.scalar.json.JsonOutputFunctions;
 import io.trino.operator.scalar.time.LocalTimeFunction;
 import io.trino.operator.scalar.time.TimeFunctions;
 import io.trino.operator.scalar.time.TimeOperators;
@@ -255,21 +271,7 @@ import io.trino.type.setdigest.MergeSetDigestAggregation;
 import io.trino.type.setdigest.SetDigestFunctions;
 import io.trino.type.setdigest.SetDigestOperators;
 
-import static io.trino.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
-import static io.trino.operator.aggregation.CountColumn.COUNT_COLUMN;
-import static io.trino.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
-import static io.trino.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
-import static io.trino.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
-import static io.trino.operator.aggregation.MinAggregationFunction.MIN_AGGREGATION;
-import static io.trino.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG;
-import static io.trino.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT;
-import static io.trino.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT_AND_ERROR;
-import static io.trino.operator.aggregation.RealAverageAggregation.REAL_AVERAGE_AGGREGATION;
 import static io.trino.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
-import static io.trino.operator.aggregation.arrayagg.ArrayAggregationFunction.ARRAY_AGG;
-import static io.trino.operator.aggregation.listagg.ListaggAggregationFunction.LISTAGG;
-import static io.trino.operator.aggregation.minmaxby.MaxByAggregationFunction.MAX_BY;
-import static io.trino.operator.aggregation.minmaxby.MinByAggregationFunction.MIN_BY;
 import static io.trino.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static io.trino.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static io.trino.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
@@ -391,7 +393,7 @@ public final class SystemFunctionBundle
                 .aggregates(IntervalDayToSecondSumAggregation.class)
                 .aggregates(IntervalYearToMonthSumAggregation.class)
                 .aggregates(AverageAggregations.class)
-                .function(REAL_AVERAGE_AGGREGATION)
+                .aggregates(RealAverageAggregation.class)
                 .aggregates(IntervalDayToSecondAverageAggregation.class)
                 .aggregates(IntervalYearToMonthAverageAggregation.class)
                 .aggregates(GeometricMeanAggregations.class)
@@ -400,8 +402,10 @@ public final class SystemFunctionBundle
                 .aggregates(ApproximateSetAggregation.class)
                 .aggregates(ApproximateSetGenericAggregation.class)
                 .aggregates(TDigestAggregationFunction.class)
-                .functions(QDIGEST_AGG, QDIGEST_AGG_WITH_WEIGHT, QDIGEST_AGG_WITH_WEIGHT_AND_ERROR)
-                .function(MergeQuantileDigestFunction.MERGE)
+                .aggregates(DoubleQuantileDigestAggregationFunction.class)
+                .aggregates(RealQuantileDigestAggregationFunction.class)
+                .aggregates(BigintQuantileDigestAggregationFunction.class)
+                .aggregates(MergeQuantileDigestFunction.class)
                 .aggregates(MergeTDigestAggregation.class)
                 .aggregates(DoubleHistogramAggregation.class)
                 .aggregates(RealHistogramAggregation.class)
@@ -435,6 +439,8 @@ public final class SystemFunctionBundle
                 .scalars(DateTimeFunctions.class)
                 .scalar(DateTimeFunctions.FromUnixtimeNanosDecimal.class)
                 .scalars(JsonFunctions.class)
+                .scalars(JsonInputFunctions.class)
+                .scalars(JsonOutputFunctions.class)
                 .scalars(ColorFunctions.class)
                 .scalars(HyperLogLogFunctions.class)
                 .scalars(QuantileDigestFunctions.class)
@@ -518,13 +524,14 @@ public final class SystemFunctionBundle
                 .function(ARRAY_FLATTEN_FUNCTION)
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
-                .function(ARRAY_AGG)
-                .function(LISTAGG)
+                .aggregates(ArrayAggregationFunction.class)
+                .aggregates(ListaggAggregationFunction.class)
                 .functions(new MapSubscriptOperator())
                 .functions(MAP_CONSTRUCTOR, JSON_TO_MAP, JSON_STRING_TO_MAP)
-                .functions(new MapAggregationFunction(blockTypeOperators), new MapUnionAggregation(blockTypeOperators))
+                .aggregates(MapAggregationFunction.class)
+                .aggregates(MapUnionAggregation.class)
                 .function(REDUCE_AGG)
-                .function(new MultimapAggregationFunction(blockTypeOperators))
+                .aggregates(MultimapAggregationFunction.class)
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
@@ -534,21 +541,27 @@ public final class SystemFunctionBundle
                 .functions(DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST, INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST, SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
-                .function(new Histogram(blockTypeOperators))
-                .function(new ChecksumAggregationFunction(blockTypeOperators))
-                .function(ARBITRARY_AGGREGATION)
+                .aggregates(Histogram.class)
+                .aggregates(ChecksumAggregationFunction.class)
+                .aggregates(ArbitraryAggregationFunction.class)
                 .functions(GREATEST, LEAST)
-                .functions(MAX_BY, MIN_BY, new MaxByNAggregationFunction(blockTypeOperators), new MinByNAggregationFunction(blockTypeOperators))
-                .functions(MAX_AGGREGATION, MIN_AGGREGATION, new MaxNAggregationFunction(blockTypeOperators), new MinNAggregationFunction(blockTypeOperators))
-                .function(COUNT_COLUMN)
+                .aggregates(MinAggregationFunction.class)
+                .aggregates(MaxAggregationFunction.class)
+                .aggregates(MinByAggregationFunction.class)
+                .aggregates(MaxByAggregationFunction.class)
+                .aggregates(MaxNAggregationFunction.class)
+                .aggregates(MinNAggregationFunction.class)
+                .aggregates(MinByNAggregationFunction.class)
+                .aggregates(MaxByNAggregationFunction.class)
+                .aggregates(CountColumn.class)
                 .functions(JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(CONCAT_WS)
                 .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
-                .function(DECIMAL_AVERAGE_AGGREGATION)
-                .function(DECIMAL_SUM_AGGREGATION)
+                .aggregates(DecimalAverageAggregation.class)
+                .aggregates(DecimalSumAggregation.class)
                 .function(DECIMAL_MOD_FUNCTION)
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
                 .functions(MAP_FILTER_FUNCTION, new MapTransformKeysFunction(blockTypeOperators), MAP_TRANSFORM_VALUES_FUNCTION)

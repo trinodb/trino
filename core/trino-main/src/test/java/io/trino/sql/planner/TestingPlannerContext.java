@@ -26,6 +26,9 @@ import io.trino.metadata.MetadataManager;
 import io.trino.metadata.MetadataManager.TestMetadataManagerBuilder;
 import io.trino.metadata.SystemFunctionBundle;
 import io.trino.metadata.TypeRegistry;
+import io.trino.operator.scalar.json.JsonExistsFunction;
+import io.trino.operator.scalar.json.JsonQueryFunction;
+import io.trino.operator.scalar.json.JsonValueFunction;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
@@ -35,6 +38,8 @@ import io.trino.sql.PlannerContext;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
+import io.trino.type.JsonPath2016Type;
+import io.trino.type.TypeDeserializer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -127,12 +132,19 @@ public final class TestingPlannerContext
                 metadata = builder.build();
             }
 
+            FunctionManager functionManager = new FunctionManager(globalFunctionCatalog);
+            globalFunctionCatalog.addFunctions(new InternalFunctionBundle(
+                    new JsonExistsFunction(functionManager, metadata, typeManager),
+                    new JsonValueFunction(functionManager, metadata, typeManager),
+                    new JsonQueryFunction(functionManager, metadata, typeManager)));
+            typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
+
             return new PlannerContext(
                     metadata,
                     typeOperators,
                     blockEncodingSerde,
                     typeManager,
-                    new FunctionManager(globalFunctionCatalog));
+                    functionManager);
         }
     }
 }

@@ -87,8 +87,8 @@ public class TestCheckpointEntryIterator
                 .isEqualTo(
                         new MetadataEntry(
                                 "b6aeffad-da73-4dde-b68e-937e468b1fde",
-                                "",
-                                "",
+                                null,
+                                null,
                                 new MetadataEntry.Format("parquet", Map.of()),
                                 "{\"type\":\"struct\",\"fields\":[" +
                                         "{\"name\":\"name\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +

@@ -41,12 +41,14 @@ public class BigQueryConfig
     private Optional<Integer> parallelism = Optional.empty();
     private boolean viewsEnabled;
     private Duration viewExpireDuration = new Duration(24, HOURS);
+    private boolean skipViewMaterialization;
     private Optional<String> viewMaterializationProject = Optional.empty();
     private Optional<String> viewMaterializationDataset = Optional.empty();
     private int maxReadRowsRetries = DEFAULT_MAX_READ_ROWS_RETRIES;
     private boolean caseInsensitiveNameMatching;
     private Duration viewsCacheTtl = new Duration(15, MINUTES);
     private Duration serviceCacheTtl = new Duration(3, MINUTES);
+    private boolean queryResultsCacheEnabled;
 
     public Optional<String> getProjectId()
     {
@@ -111,6 +113,19 @@ public class BigQueryConfig
     public BigQueryConfig setViewExpireDuration(Duration viewExpireDuration)
     {
         this.viewExpireDuration = viewExpireDuration;
+        return this;
+    }
+
+    public boolean isSkipViewMaterialization()
+    {
+        return skipViewMaterialization;
+    }
+
+    @Config("bigquery.skip-view-materialization")
+    @ConfigDescription("Skip materializing views")
+    public BigQueryConfig setSkipViewMaterialization(boolean skipViewMaterialization)
+    {
+        this.skipViewMaterialization = skipViewMaterialization;
         return this;
     }
 
@@ -198,9 +213,25 @@ public class BigQueryConfig
         return this;
     }
 
+    public boolean isQueryResultsCacheEnabled()
+    {
+        return queryResultsCacheEnabled;
+    }
+
+    @Config("bigquery.query-results-cache.enabled")
+    public BigQueryConfig setQueryResultsCacheEnabled(boolean queryResultsCacheEnabled)
+    {
+        this.queryResultsCacheEnabled = queryResultsCacheEnabled;
+        return this;
+    }
+
     @PostConstruct
     public void validate()
     {
         checkState(viewExpireDuration.toMillis() > viewsCacheTtl.toMillis(), "View expiration duration must be longer than view cache TTL");
+
+        if (skipViewMaterialization) {
+            checkState(viewsEnabled, "%s config property must be enabled when skipping view materialization", VIEWS_ENABLED);
+        }
     }
 }

@@ -53,6 +53,20 @@ public class TestSpiBackwardCompatibility
                     "Field: public java.util.List<io.trino.spi.predicate.Range> io.trino.spi.predicate.BenchmarkSortedRangeSet$Data.ranges"))
             .put("377", ImmutableSet.of(
                     "Constructor: public io.trino.spi.memory.MemoryPoolInfo(long,long,long,java.util.Map<io.trino.spi.QueryId, java.lang.Long>,java.util.Map<io.trino.spi.QueryId, java.util.List<io.trino.spi.memory.MemoryAllocation>>,java.util.Map<io.trino.spi.QueryId, java.lang.Long>)"))
+            .put("382", ImmutableSet.of(
+                    "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.rowSemantics(boolean)",
+                    "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.pruneWhenEmpty(boolean)",
+                    "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.passThroughColumns(boolean)",
+                    "Class: public abstract class io.trino.spi.ptf.ConnectorTableFunction",
+                    "Constructor: public io.trino.spi.ptf.ConnectorTableFunction(java.lang.String,java.lang.String,java.util.List<io.trino.spi.ptf.ArgumentSpecification>,io.trino.spi.ptf.ReturnTypeSpecification)",
+                    "Method: public java.util.List<io.trino.spi.ptf.ArgumentSpecification> io.trino.spi.ptf.ConnectorTableFunction.getArguments()",
+                    "Method: public io.trino.spi.ptf.ReturnTypeSpecification io.trino.spi.ptf.ConnectorTableFunction.getReturnTypeSpecification()",
+                    "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getName()",
+                    "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getSchema()"))
+            .put("383", ImmutableSet.of(
+                    "Method: public abstract java.lang.String io.trino.spi.function.AggregationState.value()",
+                    "Method: public default void io.trino.spi.security.SystemAccessControl.checkCanExecuteFunction(io.trino.spi.security.SystemSecurityContext,io.trino.spi.connector.CatalogSchemaRoutineName)",
+                    "Method: public default void io.trino.spi.connector.ConnectorAccessControl.checkCanExecuteFunction(io.trino.spi.connector.ConnectorSecurityContext,io.trino.spi.connector.SchemaRoutineName)"))
             .buildOrThrow();
 
     @Test
@@ -123,13 +137,13 @@ public class TestSpiBackwardCompatibility
         if (!isPublic(clazz.getModifiers())) {
             return;
         }
-        entities.add("Class: " + clazz.toGenericString());
         for (Class<?> nestedClass : clazz.getDeclaredClasses()) {
             addClassEntities(entities, nestedClass, includeDeprecated);
         }
         if (!includeDeprecated && clazz.isAnnotationPresent(Deprecated.class)) {
             return;
         }
+        entities.add("Class: " + clazz.toGenericString());
         for (Constructor<?> constructor : clazz.getConstructors()) {
             if (!includeDeprecated && constructor.isAnnotationPresent(Deprecated.class)) {
                 continue;

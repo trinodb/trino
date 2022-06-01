@@ -135,7 +135,7 @@ public class VerifyCommand
 
         ImmutableList.Builder<Module> builder = ImmutableList.<Module>builder()
                 .add(new JsonModule())
-                .add(new PrestoVerifierModule())
+                .add(new TrinoVerifierModule())
                 .add(new DataSourceModule(this))
                 .addAll(getAdditionalModules());
 

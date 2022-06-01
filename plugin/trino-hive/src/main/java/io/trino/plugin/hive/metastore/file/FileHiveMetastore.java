@@ -541,6 +541,10 @@ public class FileHiveMetastore
             throw new TrinoException(HIVE_METASTORE_ERROR, "Replacement table must have same name");
         }
 
+        if (isIcebergTable(table) && !Objects.equals(table.getParameters().get("metadata_location"), newTable.getParameters().get("previous_metadata_location"))) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, "Cannot update Iceberg table: supplied previous location does not match current location");
+        }
+
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
         writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
 

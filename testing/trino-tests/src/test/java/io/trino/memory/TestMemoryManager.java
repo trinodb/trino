@@ -234,7 +234,8 @@ public class TestMemoryManager
 
             List<Future<?>> queryFutures = new ArrayList<>();
             for (int i = 0; i < 2; i++) {
-                queryFutures.add(executor.submit(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
+                // for this test to work, the query has to have enough groups for HashAggregationOperator to go over QueryContext.GUARANTEED_MEMORY
+                queryFutures.add(executor.submit(() -> queryRunner.execute("SELECT COUNT(*), cast(orderkey as varchar), partkey FROM lineitem GROUP BY cast(orderkey as varchar), partkey")));
             }
 
             ClusterMemoryManager memoryManager = queryRunner.getCoordinator().getClusterMemoryManager();

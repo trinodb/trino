@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
@@ -40,6 +42,8 @@ import java.util.function.LongConsumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static java.util.Objects.requireNonNull;
@@ -48,13 +52,18 @@ public class TestingTaskSourceFactory
         implements TaskSourceFactory
 {
     private final Optional<CatalogName> catalog;
-    private final List<Split> splits;
+    private final ListenableFuture<List<Split>> splitsFuture;
     private final int tasksPerBatch;
 
     public TestingTaskSourceFactory(Optional<CatalogName> catalog, List<Split> splits, int tasksPerBatch)
     {
+        this(catalog, immediateFuture(ImmutableList.copyOf(requireNonNull(splits, "splits is null"))), tasksPerBatch);
+    }
+
+    public TestingTaskSourceFactory(Optional<CatalogName> catalog, ListenableFuture<List<Split>> splitsFuture, int tasksPerBatch)
+    {
         this.catalog = requireNonNull(catalog, "catalog is null");
-        this.splits = ImmutableList.copyOf(requireNonNull(splits, "splits is null"));
+        this.splitsFuture = requireNonNull(splitsFuture, "splitsFuture is null");
         this.tasksPerBatch = tasksPerBatch;
     }
 
@@ -73,7 +82,7 @@ public class TestingTaskSourceFactory
 
         return new TestingTaskSource(
                 catalog,
-                splits,
+                splitsFuture,
                 tasksPerBatch,
                 getOnlyElement(partitionedSources),
                 getHandlesForRemoteSources(fragment.getRemoteSourceNodes(), exchangeSourceHandles));
@@ -99,32 +108,60 @@ public class TestingTaskSourceFactory
             implements TaskSource
     {
         private final Optional<CatalogName> catalogRequirement;
-        private final Iterator<Split> splits;
+        private final ListenableFuture<List<Split>> splitsFuture;
         private final int tasksPerBatch;
         private final PlanNodeId tableScanPlanNodeId;
         private final ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles;
 
         private final AtomicInteger nextPartitionId = new AtomicInteger();
+        private Iterator<Split> splits;
 
         public TestingTaskSource(
                 Optional<CatalogName> catalogRequirement,
-                List<Split> splits,
+                ListenableFuture<List<Split>> splitsFuture,
                 int tasksPerBatch,
                 PlanNodeId tableScanPlanNodeId,
                 ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles)
         {
             this.catalogRequirement = requireNonNull(catalogRequirement, "catalogRequirement is null");
-            this.splits = ImmutableList.copyOf(requireNonNull(splits, "splits is null")).iterator();
+            this.splitsFuture = requireNonNull(splitsFuture, "splitsFuture is null");
             this.tasksPerBatch = tasksPerBatch;
             this.tableScanPlanNodeId = requireNonNull(tableScanPlanNodeId, "tableScanPlanNodeId is null");
             this.exchangeSourceHandles = ImmutableListMultimap.copyOf(requireNonNull(exchangeSourceHandles, "exchangeSourceHandles is null"));
         }
 
         @Override
-        public List<TaskDescriptor> getMoreTasks()
+        public ListenableFuture<List<TaskDescriptor>> getMoreTasks()
         {
             checkState(!isFinished(), "already finished");
 
+            if (splits == null) {
+                return Futures.transform(
+                        splitsFuture,
+                        loadedSplits -> {
+                            checkState(this.splits == null, "splits should be null");
+                            splits = loadedSplits.iterator();
+                            return getTasksBatch();
+                        },
+                        directExecutor());
+            }
+            checkState(splitsFuture.isDone(), "splitsFuture should be completed");
+            return immediateFuture(getTasksBatch());
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return splits != null && !splits.hasNext();
+        }
+
+        @Override
+        public void close()
+        {
+        }
+
+        private List<TaskDescriptor> getTasksBatch()
+        {
             ImmutableList.Builder<TaskDescriptor> result = ImmutableList.builder();
             for (int i = 0; i < tasksPerBatch; i++) {
                 if (isFinished()) {
@@ -138,19 +175,7 @@ public class TestingTaskSourceFactory
                         new NodeRequirements(catalogRequirement, ImmutableSet.copyOf(split.getAddresses()), DataSize.of(4, GIGABYTE)));
                 result.add(task);
             }
-
             return result.build();
-        }
-
-        @Override
-        public boolean isFinished()
-        {
-            return !splits.hasNext();
-        }
-
-        @Override
-        public void close()
-        {
         }
     }
 }

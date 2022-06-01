@@ -139,15 +139,10 @@ public class PruneDistinctAggregation
                 return rewrittenNode;
             }
 
-            return new AggregationNode(
-                    node.getId(),
-                    rewrittenNode,
-                    node.getAggregations(),
-                    node.getGroupingSets(),
-                    ImmutableList.of(),
-                    node.getStep(),
-                    node.getHashSymbol(),
-                    node.getGroupIdSymbol());
+            return AggregationNode.builderFrom(node)
+                    .setSource(rewrittenNode)
+                    .setPreGroupedSymbols(ImmutableList.of())
+                    .build();
         }
     }
 }

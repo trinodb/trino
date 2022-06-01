@@ -56,7 +56,7 @@ public class QueryManagerConfig
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
-    private int maxStageCount = 100;
+    private int maxStageCount = 150;
     private int stageCountWarningThreshold = 50;
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
@@ -92,6 +92,7 @@ public class QueryManagerConfig
     private int faultTolerantExecutionTargetTaskSplitCount = 16;
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
+    private int faultTolerantExecutionPartitionCount = 50;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -583,6 +584,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory)
     {
         this.faultTolerantExecutionTaskDescriptorStorageMaxMemory = faultTolerantExecutionTaskDescriptorStorageMaxMemory;
+        return this;
+    }
+
+    @Min(1)
+    public int getFaultTolerantExecutionPartitionCount()
+    {
+        return faultTolerantExecutionPartitionCount;
+    }
+
+    @Config("fault-tolerant-execution-partition-count")
+    @ConfigDescription("Number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled")
+    public QueryManagerConfig setFaultTolerantExecutionPartitionCount(int faultTolerantExecutionPartitionCount)
+    {
+        this.faultTolerantExecutionPartitionCount = faultTolerantExecutionPartitionCount;
         return this;
     }
 }

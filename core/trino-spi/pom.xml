@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>380</version>
+        <version>383-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -117,6 +117,7 @@
                     <include>io/trino/spi/trino-spi-version.txt</include>
                 </includes>
             </resource>
+
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>false</filtering>
@@ -125,28 +126,39 @@
                 </excludes>
             </resource>
         </resources>
+
         <plugins>
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>build-helper-maven-plugin</artifactId>
-                <version>3.3.0</version>
+                <groupId>org.codehaus.gmaven</groupId>
+                <artifactId>groovy-maven-plugin</artifactId>
                 <executions>
                     <execution>
                         <id>released-version</id>
+                        <phase>generate-test-resources</phase>
                         <goals>
-                            <!-- sets releasedVersion.version -->
-                            <goal>released-version</goal>
+                            <goal>execute</goal>
                         </goals>
+                        <configuration>
+                            <source>
+                                def match = project.version =~ /(\d+)(?:-SNAPSHOT)?/
+                                if (!match.matches()) {
+                                    throw new RuntimeException("Invalid version: " + project.version)
+                                }
+                                int version = (match.group(1) as int) - 1
+                                project.properties.setProperty('releasedVersion', version as String)
+                            </source>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>
                     <execution>
                         <id>copy</id>
-                        <phase>generate-resources</phase>
+                        <phase>generate-test-resources</phase>
                         <goals>
                             <goal>copy</goal>
                         </goals>
@@ -156,7 +168,7 @@
                                 <artifactItem>
                                     <groupId>io.trino</groupId>
                                     <artifactId>trino-spi</artifactId>
-                                    <version>${releasedVersion.version}</version>
+                                    <version>${releasedVersion}</version>
                                     <type>jar</type>
                                     <outputDirectory>${released-artifacts.dir}</outputDirectory>
                                 </artifactItem>

@@ -17,26 +17,17 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.redis.util.RedisServer;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
 
 import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
 
 public class TestRedisDistributedHash
         extends AbstractTestQueries
 {
-    private RedisServer redisServer;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        redisServer = new RedisServer();
-        return createRedisQueryRunner(redisServer, ImmutableMap.of(), "hash", REQUIRED_TPCH_TABLES);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        redisServer.close();
+        RedisServer redisServer = closeAfterClass(new RedisServer());
+        return createRedisQueryRunner(redisServer, ImmutableMap.of(), ImmutableMap.of(), "hash", REQUIRED_TPCH_TABLES);
     }
 }

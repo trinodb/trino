@@ -182,15 +182,10 @@ public class HashGenerationOptimizer
             Optional<Symbol> hashSymbol = groupByHash.map(child::getRequiredHashSymbol);
 
             return new PlanWithProperties(
-                    new AggregationNode(
-                            node.getId(),
-                            child.getNode(),
-                            node.getAggregations(),
-                            node.getGroupingSets(),
-                            node.getPreGroupedSymbols(),
-                            node.getStep(),
-                            hashSymbol,
-                            node.getGroupIdSymbol()),
+                    AggregationNode.builderFrom(node)
+                            .setSource(child.getNode())
+                            .setHashSymbol(hashSymbol)
+                            .build(),
                     hashSymbol.isPresent() ? ImmutableMap.of(groupByHash.get(), hashSymbol.get()) : ImmutableMap.of());
         }
 

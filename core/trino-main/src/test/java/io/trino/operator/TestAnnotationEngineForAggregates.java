@@ -72,6 +72,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinitions;
+import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.toAccumulatorStateDetails;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
@@ -84,6 +85,7 @@ import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.invoke.MethodType.methodType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -146,12 +148,43 @@ public class TestAnnotationEngineForAggregates
         aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
-    @AggregationFunction("simple_exact_aggregate_aggregation_state_moved")
-    @Description("Simple exact function which has @AggregationState on different than first positions")
-    public static final class StateOnDifferentThanFirstPositionAggregationFunction
+    @AggregationFunction("input_parameters_wrong_order")
+    @Description("AggregationState must be the first input parameter")
+    public static final class InputParametersWrongOrder
     {
         @InputFunction
         public static void input(@SqlType(DOUBLE) double value, @AggregationState NullableDoubleState state)
+        {
+            // noop this is only for annotation testing puproses
+        }
+
+        @CombineFunction
+        public static void combine(@AggregationState NullableDoubleState combine1, @AggregationState NullableDoubleState combine2)
+        {
+            // noop this is only for annotation testing puproses
+        }
+
+        @OutputFunction(DOUBLE)
+        public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
+        {
+            // noop this is only for annotation testing puproses
+        }
+    }
+
+    @Test
+    public void testInputParameterOrderEnforced()
+    {
+        assertThatThrownBy(() -> parseFunctionDefinitions(InputParametersWrongOrder.class))
+                .hasMessage("Expected input function non-dependency parameters to begin with state types [NullableDoubleState]: " +
+                        "public static void io.trino.operator.TestAnnotationEngineForAggregates$InputParametersWrongOrder.input(double,io.trino.operator.aggregation.state.NullableDoubleState)");
+    }
+
+    @AggregationFunction("output_parameters_wrong_order")
+    @Description("AggregationState must be the first output parameter")
+    public static final class OutputParametersWrongOrder
+    {
+        @InputFunction
+        public static void input(@AggregationState NullableDoubleState state, @SqlType(DOUBLE) double value)
         {
             // noop this is only for annotation testing puproses
         }
@@ -170,20 +203,11 @@ public class TestAnnotationEngineForAggregates
     }
 
     @Test
-    public void testStateOnDifferentThanFirstPositionAggregationParse()
+    public void testOutputParameterOrderEnforced()
     {
-        Signature expectedSignature = Signature.builder()
-                .name("simple_exact_aggregate_aggregation_state_moved")
-                .returnType(DoubleType.DOUBLE)
-                .argumentType(DoubleType.DOUBLE)
-                .build();
-
-        ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(StateOnDifferentThanFirstPositionAggregationFunction.class));
-        assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-
-        AggregationImplementation implementation = getOnlyElement(aggregation.getImplementations().getExactImplementations().values());
-        assertEquals(implementation.getDefinitionClass(), StateOnDifferentThanFirstPositionAggregationFunction.class);
-        assertEquals(implementation.getInputParameterKinds(), ImmutableList.of(INPUT_CHANNEL, STATE));
+        assertThatThrownBy(() -> parseFunctionDefinitions(OutputParametersWrongOrder.class))
+                .hasMessage("Expected output function non-dependency parameters to be [NullableDoubleState, BlockBuilder]: " +
+                        "public static void io.trino.operator.TestAnnotationEngineForAggregates$OutputParametersWrongOrder.output(io.trino.spi.block.BlockBuilder,io.trino.operator.aggregation.state.NullableDoubleState)");
     }
 
     @AggregationFunction("no_aggregation_state_aggregate")
@@ -319,7 +343,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with two generic implementations");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertEquals(aggregation.getStateClass(), NullableLongState.class);
+        assertEquals(aggregation.getStateDetails(), ImmutableList.of(toAccumulatorStateDetails(NullableLongState.class, ImmutableList.of())));
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 0, 2);
         AggregationImplementation implementationDouble = implementations.getGenericImplementations().stream()
@@ -984,7 +1008,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with fixed parameter type injected");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertEquals(aggregation.getStateClass(), NullableDoubleState.class);
+        assertEquals(aggregation.getStateDetails(), ImmutableList.of(toAccumulatorStateDetails(NullableDoubleState.class, ImmutableList.of())));
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 1, 0, 0);
         AggregationImplementation implementationDouble = implementations.getExactImplementations().get(expectedSignature);
@@ -1048,7 +1072,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with fixed parameter type injected");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertEquals(aggregation.getStateClass(), NullableDoubleState.class);
+        assertEquals(aggregation.getStateDetails(), ImmutableList.of(toAccumulatorStateDetails(NullableDoubleState.class, ImmutableList.of())));
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 0, 1);
         AggregationImplementation implementationDouble = getOnlyElement(implementations.getGenericImplementations());

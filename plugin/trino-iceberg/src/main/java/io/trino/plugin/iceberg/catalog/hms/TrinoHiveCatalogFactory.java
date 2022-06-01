@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg.catalog.hms;
 
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -56,8 +55,7 @@ public class TrinoHiveCatalogFactory
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             NodeVersion nodeVersion,
-            IcebergSecurityConfig securityConfig,
-            HiveConfig hiveConfig)
+            IcebergSecurityConfig securityConfig)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
@@ -69,8 +67,7 @@ public class TrinoHiveCatalogFactory
         this.isUniqueTableLocation = config.isUniqueTableLocation();
         requireNonNull(securityConfig, "securityConfig is null");
         this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
-        requireNonNull(hiveConfig, "hiveConfig is null");
-        this.deleteSchemaLocationsFallback = hiveConfig.isDeleteSchemaLocationsFallback();
+        this.deleteSchemaLocationsFallback = config.isDeleteSchemaLocationsFallback();
     }
 
     @Override

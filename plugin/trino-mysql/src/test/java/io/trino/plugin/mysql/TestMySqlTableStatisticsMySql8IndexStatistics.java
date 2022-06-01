@@ -13,11 +13,19 @@
  */
 package io.trino.plugin.mysql;
 
+import org.testng.SkipException;
+
 public class TestMySqlTableStatisticsMySql8IndexStatistics
         extends BaseMySqlTableStatisticsIndexStatisticsTest
 {
     public TestMySqlTableStatisticsMySql8IndexStatistics()
     {
         super("mysql:8.0.15");
+    }
+
+    @Override
+    public void testNotAnalyzed()
+    {
+        throw new SkipException("MySql8 automatically calculates stats - https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_stats_auto_recalc");
     }
 }

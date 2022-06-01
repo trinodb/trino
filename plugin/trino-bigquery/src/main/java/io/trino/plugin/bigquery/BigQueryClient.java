@@ -20,6 +20,7 @@ import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobInfo;
+import com.google.cloud.bigquery.JobInfo.CreateDisposition;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.Table;
@@ -208,15 +209,50 @@ public class BigQueryClient
         return bigQuery.create(jobInfo);
     }
 
-    public TableResult query(String sql)
+    public TableResult query(String sql, boolean useQueryResultsCache, CreateDisposition createDisposition)
     {
         try {
-            return bigQuery.query(QueryJobConfiguration.of(sql));
+            return bigQuery.query(QueryJobConfiguration.newBuilder(sql)
+                    .setUseQueryCache(useQueryResultsCache)
+                    .setCreateDisposition(createDisposition)
+                    .build());
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new BigQueryException(BaseHttpServiceException.UNKNOWN_CODE, format("Failed to run the query [%s]", sql), e);
         }
+    }
+
+    public TableResult query(TableId table, List<String> requiredColumns, Optional<String> filter, boolean useQueryResultsCache, CreateDisposition createDisposition)
+    {
+        String sql = selectSql(table, requiredColumns, filter);
+        log.debug("Execute query: %s", sql);
+        try {
+            return bigQuery.query(QueryJobConfiguration.newBuilder(sql)
+                    .setUseQueryCache(useQueryResultsCache)
+                    .setCreateDisposition(createDisposition)
+                    .build());
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BigQueryException(BaseHttpServiceException.UNKNOWN_CODE, format("Failed to run the query [%s]", sql), e);
+        }
+    }
+
+    private String selectSql(TableId table, List<String> requiredColumns, Optional<String> filter)
+    {
+        String columns = requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
+        return selectSql(table, columns, filter);
+    }
+
+    private String selectSql(TableId table, String formattedColumns, Optional<String> filter)
+    {
+        String tableName = fullTableName(table);
+        String query = format("SELECT %s FROM `%s`", formattedColumns, tableName);
+        if (filter.isEmpty()) {
+            return query;
+        }
+        return query + " WHERE " + filter.get();
     }
 
     private String selectSql(TableInfo remoteTable, List<String> requiredColumns)

@@ -55,6 +55,7 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -73,6 +74,8 @@ public abstract class BaseRaptorConnectorTest
                 return true;
             case SUPPORTS_CREATE_SCHEMA:
             case SUPPORTS_RENAME_SCHEMA:
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
@@ -879,5 +882,17 @@ public abstract class BaseRaptorConnectorTest
         assertUpdate("DELETE FROM test_alter_table WHERE c1 = 22", 3);
 
         assertUpdate("DROP TABLE test_alter_table");
+    }
+
+    @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessageContaining("Failed to perform metadata operation")
+                .getCause()
+                .hasMessageMatching(
+                        "(?s).*SQLIntegrityConstraintViolationException.*" +
+                                "|.*Unique index or primary key violation.*" +
+                                "|.*Deadlock found when trying to get lock; try restarting transaction.*");
     }
 }

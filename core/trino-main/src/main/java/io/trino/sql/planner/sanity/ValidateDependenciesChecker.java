@@ -62,6 +62,7 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -210,6 +211,13 @@ public final class ValidateDependenciesChecker
                     .collect(toImmutableSet());
             checkDependencies(inputs, variableDefinitionsSymbols, "Invalid node. Symbols used in measures (%s) not in source plan output (%s)", variableDefinitionsSymbols, node.getSource().getOutputSymbols());
 
+            return null;
+        }
+
+        @Override
+        public Void visitTableFunction(TableFunctionNode node, Set<Symbol> context)
+        {
+            // TODO
             return null;
         }
 

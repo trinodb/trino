@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.client.NodeVersion;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.execution.TaskInfo;
 import io.trino.metadata.InternalNode;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
@@ -30,6 +31,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public final class LowMemoryKillerTestingUtils
 {
@@ -97,22 +100,34 @@ public final class LowMemoryKillerTestingUtils
         return new TaskId(new StageId(QueryId.valueOf(query), 0), partition, 0);
     }
 
-    static List<LowMemoryKiller.QueryMemoryInfo> toQueryMemoryInfoList(Map<String, Map<String, Long>> queries)
+    static List<LowMemoryKiller.RunningQueryInfo> toRunningQueryInfoList(Map<String, Map<String, Long>> queries)
     {
-        return toQueryMemoryInfoList(queries, ImmutableSet.of());
+        return toRunningQueryInfoList(queries, ImmutableSet.of());
     }
 
-    static List<LowMemoryKiller.QueryMemoryInfo> toQueryMemoryInfoList(Map<String, Map<String, Long>> queries, Set<String> queriesWithTaskLevelRetries)
+    static List<LowMemoryKiller.RunningQueryInfo> toRunningQueryInfoList(Map<String, Map<String, Long>> queries, Set<String> queriesWithTaskLevelRetries)
     {
-        ImmutableList.Builder<LowMemoryKiller.QueryMemoryInfo> result = ImmutableList.builder();
+        return toRunningQueryInfoList(queries, queriesWithTaskLevelRetries, ImmutableMap.of());
+    }
+
+    static List<LowMemoryKiller.RunningQueryInfo> toRunningQueryInfoList(Map<String, Map<String, Long>> queries, Set<String> queriesWithTaskLevelRetries, Map<String, Map<Integer, TaskInfo>> taskInfos)
+    {
+        ImmutableList.Builder<LowMemoryKiller.RunningQueryInfo> result = ImmutableList.builder();
         for (Map.Entry<String, Map<String, Long>> entry : queries.entrySet()) {
             String queryId = entry.getKey();
             long totalReservation = entry.getValue().values().stream()
                     .mapToLong(x -> x)
                     .sum();
-            result.add(new LowMemoryKiller.QueryMemoryInfo(
+
+            Map<TaskId, TaskInfo> queryTaskInfos = taskInfos.getOrDefault(queryId, ImmutableMap.of()).entrySet().stream()
+                    .collect(toImmutableMap(
+                            taskEntry -> taskId(queryId, taskEntry.getKey()),
+                            Map.Entry::getValue));
+
+            result.add(new LowMemoryKiller.RunningQueryInfo(
                     new QueryId(queryId),
                     totalReservation,
+                    queryTaskInfos,
                     queriesWithTaskLevelRetries.contains(queryId) ? RetryPolicy.TASK : RetryPolicy.NONE));
         }
         return result.build();

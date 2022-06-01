@@ -82,33 +82,27 @@ public class TestingOpenLdapServer
     public DisposableSubContext createOrganization()
             throws NamingException
     {
-        DirContext context = createContext();
-        try {
-            return new DisposableSubContext(addLdapDefinition(buildLdapOrganizationObject("organization_" + randomSuffix(), BASE_DISTINGUISED_NAME), context));
-        }
-        finally {
-            context.close();
-        }
+        return createDisposableSubContext(buildLdapOrganizationObject("organization_" + randomSuffix(), BASE_DISTINGUISED_NAME));
     }
 
     public DisposableSubContext createGroup(DisposableSubContext organization)
             throws Exception
     {
-        DirContext context = createContext();
-        try {
-            return new DisposableSubContext(addLdapDefinition(buildLdapGroupObject(organization.getDistinguishedName(), "group_" + randomSuffix()), context));
-        }
-        finally {
-            context.close();
-        }
+        return createDisposableSubContext(buildLdapGroupObject(organization.getDistinguishedName(), "group_" + randomSuffix()));
     }
 
     public DisposableSubContext createUser(DisposableSubContext organization, String userName, String password)
             throws Exception
     {
+        return createDisposableSubContext(buildLdapUserObject(organization.getDistinguishedName(), userName, password));
+    }
+
+    public DisposableSubContext createDisposableSubContext(LdapObjectDefinition ldapObjectDefinition)
+            throws NamingException
+    {
         DirContext context = createContext();
         try {
-            return new DisposableSubContext(addLdapDefinition(buildLdapUserObject(organization.getDistinguishedName(), userName, password), context));
+            return new DisposableSubContext(addLdapDefinition(ldapObjectDefinition, context));
         }
         finally {
             context.close();

@@ -18,7 +18,8 @@
 
 ## Security
 
-* Add support to use two-way TLS/SSL certificate validation with LDAP authentication. ({issue}`11070`)
+* Add support to use two-way TLS/SSL certificate validation with LDAP authentication. 
+  Additionally `ldap.ssl-trust-certificate` config is replaced by `ldap.ssl.truststore.path`. ({issue}`11070`).
 * Fix failures in information schema role tables for catalogs using system roles. ({issue}`11694`)
 
 ## Web UI
@@ -61,6 +62,8 @@
   max value exceeds 64 bytes. This improves query performance when filtering on
   such column. ({issue}`11652`)
 * Improve performance when reading Parquet data. ({issue}`11675`)
+* Improve query performance when the same table is referenced multiple times
+  within a query. ({issue}`11650`)
 
 ## Iceberg connector
 
@@ -73,8 +76,6 @@
   max value exceeds 64 bytes. This improves query performance when filtering on
   such column. ({issue}`11652`)
 * Improve performance when reading Parquet data. ({issue}`11675`)
-* Improve query performance when the same table is referenced multiple times
-  within a query. ({issue}`11650`)
 * Fix NPE when an Iceberg data file is missing null count statistics. ({issue}`11832`)
 
 ## Kudu connector

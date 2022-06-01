@@ -61,9 +61,13 @@ public abstract class BaseOracleConnectorTest
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
@@ -415,6 +419,13 @@ public abstract class BaseOracleConnectorTest
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return format("ORA-01400: cannot insert NULL into \\(.*\"%s\"\\)\n", columnName.toUpperCase(ENGLISH));
+    }
+
+    @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessage("ORA-14411: The DDL cannot be run concurrently with other DDLs\n");
     }
 
     private void predicatePushdownTest(String oracleType, String oracleLiteral, String operator, String filterLiteral)
