@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake.metastore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
@@ -63,6 +62,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
@@ -95,6 +95,7 @@ public class TestDeltaLakeMetastoreStatistics
 
     @BeforeClass
     public void setupMetastore()
+            throws Exception
     {
         TestingConnectorContext context = new TestingConnectorContext();
         TypeManager typeManager = context.getTypeManager();
@@ -113,7 +114,7 @@ public class TestDeltaLakeMetastoreStatistics
                 hdfsEnvironment,
                 new ParquetReaderConfig());
 
-        File tmpDir = Files.createTempDir();
+        File tmpDir = Files.createTempDirectory(null).toFile();
         File metastoreDir = new File(tmpDir, "metastore");
         hiveMetastore = new FileHiveMetastore(
                 new NodeVersion("test_version"),

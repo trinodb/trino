@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.slice.Slice;
@@ -39,6 +38,7 @@ import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -72,7 +72,7 @@ public class TestDeltaLakePageSink
     public void testPageSinkStats()
             throws Exception
     {
-        File tempDir = Files.createTempDir();
+        File tempDir = Files.createTempDirectory(null).toFile();
         try {
             DeltaLakeWriterStats stats = new DeltaLakeWriterStats();
             String tablePath = tempDir.getAbsolutePath() + "/test_table";

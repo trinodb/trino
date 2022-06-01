@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import com.google.common.io.RecursiveDeleteOption;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
@@ -46,6 +45,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -87,8 +87,9 @@ public abstract class AbstractTestHiveLocal
 
     @BeforeClass(alwaysRun = true)
     public void initialize()
+            throws Exception
     {
-        tempDir = Files.createTempDir();
+        tempDir = Files.createTempDirectory(null).toFile();
 
         HiveMetastore metastore = createMetastore(tempDir);
 
