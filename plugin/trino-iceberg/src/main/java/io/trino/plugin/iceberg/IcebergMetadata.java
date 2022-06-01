@@ -634,16 +634,30 @@ public class IcebergMetadata
     {
         verify(transaction == null, "transaction already set");
         transaction = newCreateTableTransaction(catalog, tableMetadata, session);
-        return new IcebergWritableTableHandle(
-                tableMetadata.getTable().getSchemaName(),
-                tableMetadata.getTable().getTableName(),
-                SchemaParser.toJson(transaction.table().schema()),
-                PartitionSpecParser.toJson(transaction.table().spec()),
-                getColumns(transaction.table().schema(), typeManager),
-                transaction.table().location(),
-                getFileFormat(transaction.table()),
-                transaction.table().properties(),
-                retryMode);
+        String location = transaction.table().location();
+        HdfsContext hdfsContext = new HdfsContext(session);
+        try {
+            Path path = new Path(location);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, path);
+            if (fileSystem.exists(path) && fileSystem.listFiles(path, true).hasNext()) {
+                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format(
+                        "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
+                        "to use unique table locations for every table.", location));
+            }
+            return new IcebergWritableTableHandle(
+                    tableMetadata.getTable().getSchemaName(),
+                    tableMetadata.getTable().getTableName(),
+                    SchemaParser.toJson(transaction.table().schema()),
+                    PartitionSpecParser.toJson(transaction.table().spec()),
+                    getColumns(transaction.table().schema(), typeManager),
+                    location,
+                    getFileFormat(transaction.table()),
+                    transaction.table().properties(),
+                    retryMode);
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking new table's location: " + location, e);
+        }
     }
 
     @Override
