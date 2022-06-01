@@ -52,9 +52,7 @@ import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.hadoop.hive.serde.serdeConstants.FIELD_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.LINE_DELIM;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 
 @ThreadSafe
 public abstract class S3SelectLineRecordReader
@@ -222,11 +220,6 @@ public abstract class S3SelectLineRecordReader
     public float getProgress()
     {
         return ((float) (position - start)) / (end - start);
-    }
-
-    String getFieldDelimiter(Properties schema)
-    {
-        return schema.getProperty(FIELD_DELIM, schema.getProperty(SERIALIZATION_FORMAT));
     }
 
     /**
