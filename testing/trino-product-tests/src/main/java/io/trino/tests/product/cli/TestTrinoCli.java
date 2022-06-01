@@ -16,7 +16,6 @@ package io.trino.tests.product.cli;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
@@ -43,6 +42,7 @@ import static io.trino.tests.product.TestGroups.CLI;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.writeString;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -151,7 +151,7 @@ public class TestTrinoCli
             throws Exception
     {
         try (TempFile file = new TempFile()) {
-            Files.write("select * from hive.default.nation;", file.file(), UTF_8);
+            writeString(file.path(), "select * from hive.default.nation;");
 
             launchTrinoCliWithRedirectedStdin(file.file());
             assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
@@ -164,7 +164,7 @@ public class TestTrinoCli
             throws Exception
     {
         try (TempFile file = new TempFile()) {
-            Files.write("select * from hive.default.nation;select 1;select 2", file.file(), UTF_8);
+            writeString(file.path(), "select * from hive.default.nation;select 1;select 2");
 
             launchTrinoCliWithRedirectedStdin(file.file());
 
@@ -239,7 +239,7 @@ public class TestTrinoCli
             throws Exception
     {
         try (TempFile file = new TempFile()) {
-            Files.write("select * from hive.default.nation;\n", file.file(), UTF_8);
+            writeString(file.path(), "select * from hive.default.nation;\n");
 
             launchTrinoCliWithServerArgument("--file", file.file().getAbsolutePath());
             assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
@@ -264,7 +264,7 @@ public class TestTrinoCli
             throws IOException
     {
         try (TempFile file = new TempFile()) {
-            Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", file.file(), UTF_8);
+            writeString(file.path(), "select * from hive.default.nations;\nselect * from hive.default.nation;\n");
 
             launchTrinoCliWithServerArgument("--file", file.file().getAbsolutePath());
             assertThat(trimLines(trino.readRemainingOutputLines())).isEmpty();
@@ -289,7 +289,7 @@ public class TestTrinoCli
             throws IOException
     {
         try (TempFile file = new TempFile()) {
-            Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", file.file(), UTF_8);
+            writeString(file.path(), "select * from hive.default.nations;\nselect * from hive.default.nation;\n");
 
             launchTrinoCliWithServerArgument("--file", file.file().getAbsolutePath(), "--ignore-errors", "true");
             assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
@@ -422,7 +422,7 @@ public class TestTrinoCli
 
         File tempFile = File.createTempFile(".trino_config", "");
         tempFile.deleteOnExit();
-        Files.write(fileContent.getBytes(UTF_8), tempFile);
+        writeString(tempFile.toPath(), fileContent);
 
         processBuilder.environment().put("TRINO_CONFIG", tempFile.getAbsolutePath());
         trino = new TrinoCliProcess(processBuilder.start());

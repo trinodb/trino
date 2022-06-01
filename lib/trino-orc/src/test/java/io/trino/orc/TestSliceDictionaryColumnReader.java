@@ -23,12 +23,12 @@ import io.trino.orc.reader.SliceDictionaryColumnReader;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
-import static com.google.common.io.Files.createTempDir;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcTester.writeOrcColumnTrino;
 import static io.trino.orc.metadata.CompressionKind.NONE;
@@ -52,7 +52,7 @@ public class TestSliceDictionaryColumnReader
     {
         // create orc file
         List<String> values = createValues();
-        File temporaryDirectory = createTempDir();
+        File temporaryDirectory = Files.createTempDirectory(null).toFile();
         File orcFile = new File(temporaryDirectory, randomUUID().toString());
         writeOrcColumnTrino(orcFile, NONE, VARCHAR, values.iterator(), new OrcWriterStats());
 

@@ -16,7 +16,6 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -95,7 +94,6 @@ import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.intersection;
-import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
@@ -151,6 +149,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
+import static java.nio.file.Files.writeString;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -3856,7 +3855,7 @@ public abstract class BaseHiveConnectorTest
     {
         java.nio.file.Path tempDir = createTempDirectory(null);
         File dataFile = tempDir.resolve("test.txt").toFile();
-        Files.asCharSink(dataFile, UTF_8).write(fileContents);
+        writeString(dataFile.toPath(), fileContents);
 
         // Table properties
         StringJoiner propertiesSql = new StringJoiner(",\n   ");
@@ -7264,7 +7263,7 @@ public abstract class BaseHiveConnectorTest
                 "  \"fields\": [\n" +
                 "    { \"name\":\"string_col\", \"type\":\"string\" }\n" +
                 "]}";
-        asCharSink(schemaFile, UTF_8).write(schema);
+        writeString(schemaFile.toPath(), schema);
         return schemaFile;
     }
 
