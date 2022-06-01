@@ -82,8 +82,9 @@ public class TestingHadoop
         // HACK: even though Hadoop is accessed by proxy, Hadoop still tries to resolve hadoop-master
         // (e.g: in: NameNodeProxies.createProxy)
         // This adds a static resolution for hadoop-master to internal container ip address
-        //noinspection deprecation
-        NetUtils.addStaticResolution(HADOOP_MASTER, container.getContainerInfo().getNetworkSettings().getIpAddress());
+        @SuppressWarnings("deprecation")
+        String ipAddress = container.getContainerInfo().getNetworkSettings().getIpAddress();
+        NetUtils.addStaticResolution(HADOOP_MASTER, ipAddress);
     }
 
     private DockerContainer startHadoopContainer(
