@@ -7763,8 +7763,22 @@ public abstract class BaseHiveConnectorTest
                         .hasMessage("Unsupported codec: LZ4");
                 return;
             }
+
+            if (!isSupportedCodec(hiveStorageFormat, compressionCodec)) {
+                assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
+                        .hasMessage("Compression codec " + compressionCodec + " not supported for " + hiveStorageFormat);
+                return;
+            }
             testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec);
         });
+    }
+
+    private boolean isSupportedCodec(HiveStorageFormat storageFormat, HiveCompressionCodec codec)
+    {
+        if (storageFormat == HiveStorageFormat.AVRO && codec == HiveCompressionCodec.LZ4) {
+            return false;
+        }
+        return true;
     }
 
     @DataProvider

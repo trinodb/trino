@@ -63,6 +63,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HiveCompressionOption.LZ4;
 import static io.trino.plugin.hive.HiveCompressionOption.NONE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
@@ -91,6 +92,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
 
 public class TestHivePageSink
@@ -122,6 +124,13 @@ public class TestHivePageSink
                         continue;
                     }
                     config.setHiveCompressionCodec(codec);
+
+                    if (!isSupportedCodec(format, codec)) {
+                        assertThatThrownBy(() -> writeTestFile(config, metastore, makeFileName(tempDir, config)))
+                                .hasMessage("Compression codec " + codec + " not supported for " + format);
+                        continue;
+                    }
+
                     long length = writeTestFile(config, metastore, makeFileName(tempDir, config));
                     assertTrue(uncompressedLength > length, format("%s with %s compressed to %s which is not less than %s", format, codec, length, uncompressedLength));
                 }
@@ -130,6 +139,14 @@ public class TestHivePageSink
         finally {
             deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
         }
+    }
+
+    private boolean isSupportedCodec(HiveStorageFormat storageFormat, HiveCompressionOption compressionOption)
+    {
+        if (storageFormat == HiveStorageFormat.AVRO && compressionOption == LZ4) {
+            return false;
+        }
+        return true;
     }
 
     private static String makeFileName(File tempDir, HiveConfig config)
