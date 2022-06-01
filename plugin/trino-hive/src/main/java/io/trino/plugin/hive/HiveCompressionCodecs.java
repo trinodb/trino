@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 
 public final class HiveCompressionCodecs
@@ -34,6 +35,18 @@ public final class HiveCompressionCodecs
     }
 
     public static HiveCompressionCodec selectCompressionCodec(HiveCompressionOption compressionOption, HiveStorageFormat storageFormat)
+    {
+        HiveCompressionCodec selectedCodec = selectCompressionCodec(compressionOption);
+
+        // perform codec vs format validation
+        if (storageFormat == HiveStorageFormat.AVRO && selectedCodec.getAvroCompressionCodec().isEmpty()) {
+            throw new TrinoException(HiveErrorCode.HIVE_UNSUPPORTED_FORMAT, "Compression codec " + selectedCodec + " not supported for " + storageFormat);
+        }
+
+        return selectedCodec;
+    }
+
+    private static HiveCompressionCodec selectCompressionCodec(HiveCompressionOption compressionOption)
     {
         switch (compressionOption) {
             case NONE:
