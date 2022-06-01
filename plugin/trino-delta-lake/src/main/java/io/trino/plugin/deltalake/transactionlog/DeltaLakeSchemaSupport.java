@@ -63,6 +63,7 @@ public final class DeltaLakeSchemaSupport
 {
     private DeltaLakeSchemaSupport() {}
 
+    public static final String APPEND_ONLY_CONFIGURATION_KEY = "delta.appendOnly";
     // only non-parametrized types are stored here
     private static final Map<Type, String> PRIMITIVE_TYPE_MAPPING = ImmutableMap.<Type, String>builder()
             .put(BIGINT, "long")
@@ -77,6 +78,11 @@ public final class DeltaLakeSchemaSupport
             .buildOrThrow();
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+
+    public static boolean isAppendOnly(MetadataEntry metadataEntry)
+    {
+        return Boolean.parseBoolean(metadataEntry.getConfiguration().getOrDefault(APPEND_ONLY_CONFIGURATION_KEY, "false"));
+    }
 
     public static List<DeltaLakeColumnHandle> extractPartitionColumns(MetadataEntry metadataEntry, TypeManager typeManager)
     {
