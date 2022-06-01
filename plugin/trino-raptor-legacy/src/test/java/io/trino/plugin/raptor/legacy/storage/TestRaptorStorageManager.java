@@ -16,6 +16,7 @@ package io.trino.plugin.raptor.legacy.storage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.hash.Hashing;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -66,7 +67,6 @@ import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.hash.Hashing.md5;
 import static com.google.common.io.Files.hash;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -625,10 +625,11 @@ public class TestRaptorStorageManager
                 DataSize.ofBytes(0));
     }
 
+    @SuppressWarnings("deprecation") // Hashing.md5() is deprecated
     private static void assertFileEquals(File actual, File expected)
             throws IOException
     {
-        assertEquals(hash(actual, md5()), hash(expected, md5()));
+        assertEquals(hash(actual, Hashing.md5()), hash(expected, Hashing.md5()));
     }
 
     private static void assertColumnStats(List<ColumnStats> list, long columnId, Object min, Object max)

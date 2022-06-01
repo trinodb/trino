@@ -14,7 +14,6 @@
 package io.trino.tests.product.cli;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.AfterTestWithContext;
@@ -28,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 
+import static com.google.common.io.Files.asCharSink;
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
@@ -137,7 +137,7 @@ public class TestTrinoLdapCli
     {
         File temporayFile = File.createTempFile("test-sql", null);
         temporayFile.deleteOnExit();
-        Files.write(SELECT_FROM_NATION + "\n", temporayFile, UTF_8);
+        asCharSink(temporayFile, UTF_8).write(SELECT_FROM_NATION + "\n");
 
         launchTrinoCliWithServerArgument("--file", temporayFile.getAbsolutePath());
         assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);

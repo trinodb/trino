@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -48,6 +47,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -401,7 +401,7 @@ public class TestTransactionLogAccess
     {
         String tableName = "person";
         // setupTransactionLogAccess(tableName, new Path(getClass().getClassLoader().getResource("databricks/" + tableName).toURI()));
-        File tempDir = Files.createTempDir();
+        File tempDir = Files.createTempDirectory(null).toFile();
         File tableDir = new File(tempDir, tableName);
         File transactionLogDir = new File(tableDir, TRANSACTION_LOG_DIRECTORY);
         transactionLogDir.mkdirs();
@@ -410,15 +410,15 @@ public class TestTransactionLogAccess
         for (int i = 0; i < 12; i++) {
             String extension = i == 10 ? ".checkpoint.parquet" : ".json";
             String fileName = format("%020d%s", i, extension);
-            Files.copy(resourceDir.resolve(fileName).toFile(), new File(transactionLogDir, fileName));
+            Files.copy(resourceDir.resolve(fileName), new File(transactionLogDir, fileName).toPath());
         }
-        Files.copy(resourceDir.resolve(LAST_CHECKPOINT_FILENAME).toFile(), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME));
+        Files.copy(resourceDir.resolve(LAST_CHECKPOINT_FILENAME), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME).toPath());
 
         setupTransactionLogAccess(tableName, new Path(tableDir.toURI()));
         assertEquals(tableSnapshot.getVersion(), 11L);
 
         String lastTransactionName = format("%020d.json", 12);
-        Files.copy(resourceDir.resolve(lastTransactionName).toFile(), new File(transactionLogDir, lastTransactionName));
+        Files.copy(resourceDir.resolve(lastTransactionName), new File(transactionLogDir, lastTransactionName).toPath());
         TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), new Path(tableDir.toURI()), SESSION);
         assertEquals(updatedSnapshot.getVersion(), 12);
     }
@@ -428,7 +428,7 @@ public class TestTransactionLogAccess
             throws Exception
     {
         String tableName = "person";
-        File tempDir = Files.createTempDir();
+        File tempDir = Files.createTempDirectory(null).toFile();
         File tableDir = new File(tempDir, tableName);
         File transactionLogDir = new File(tableDir, TRANSACTION_LOG_DIRECTORY);
         transactionLogDir.mkdirs();
@@ -470,7 +470,7 @@ public class TestTransactionLogAccess
             throws Exception
     {
         String tableName = "person";
-        File tempDir = Files.createTempDir();
+        File tempDir = Files.createTempDirectory(null).toFile();
         File tableDir = new File(tempDir, tableName);
         File transactionLogDir = new File(tableDir, TRANSACTION_LOG_DIRECTORY);
         transactionLogDir.mkdirs();
@@ -492,7 +492,7 @@ public class TestTransactionLogAccess
         assertEqualsIgnoreOrder(activeDataFiles.stream().map(AddFileEntry::getPath).collect(Collectors.toSet()), dataFiles);
 
         copyTransactionLogEntry(8, 12, resourceDir, transactionLogDir);
-        Files.copy(new File(resourceDir, LAST_CHECKPOINT_FILENAME), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME));
+        Files.copy(new File(resourceDir, LAST_CHECKPOINT_FILENAME).toPath(), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME).toPath());
         TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), new Path(tableDir.toURI()), SESSION);
         activeDataFiles = transactionLogAccess.getActiveFiles(updatedSnapshot, SESSION);
 
@@ -516,14 +516,14 @@ public class TestTransactionLogAccess
             throws Exception
     {
         String tableName = "person";
-        File tempDir = Files.createTempDir();
+        File tempDir = Files.createTempDirectory(null).toFile();
         File tableDir = new File(tempDir, tableName);
         File transactionLogDir = new File(tableDir, TRANSACTION_LOG_DIRECTORY);
         transactionLogDir.mkdirs();
 
         File resourceDir = new File(getClass().getClassLoader().getResource("databricks/person/_delta_log").toURI());
         copyTransactionLogEntry(0, 12, resourceDir, transactionLogDir);
-        Files.copy(new File(resourceDir, LAST_CHECKPOINT_FILENAME), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME));
+        Files.copy(new File(resourceDir, LAST_CHECKPOINT_FILENAME).toPath(), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME).toPath());
 
         setupTransactionLogAccess(tableName, new Path(tableDir.toURI()));
         List<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
@@ -573,14 +573,14 @@ public class TestTransactionLogAccess
             throws Exception
     {
         String tableName = "person";
-        File tempDir = Files.createTempDir();
+        File tempDir = Files.createTempDirectory(null).toFile();
         File tableDir = new File(tempDir, tableName);
         File transactionLogDir = new File(tableDir, TRANSACTION_LOG_DIRECTORY);
         transactionLogDir.mkdirs();
 
         File resourceDir = new File(getClass().getClassLoader().getResource("databricks/person/_delta_log").toURI());
         copyTransactionLogEntry(0, 12, resourceDir, transactionLogDir);
-        Files.copy(new File(resourceDir, LAST_CHECKPOINT_FILENAME), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME));
+        Files.copy(new File(resourceDir, LAST_CHECKPOINT_FILENAME).toPath(), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME).toPath());
 
         setupTransactionLogAccess(tableName, new Path(tableDir.toURI()));
         List<AddFileEntry> expectedDataFiles = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
@@ -628,7 +628,7 @@ public class TestTransactionLogAccess
             throws Exception
     {
         String tableName = "person";
-        File tempDir = Files.createTempDir();
+        File tempDir = Files.createTempDirectory(null).toFile();
         File tableDir = new File(tempDir, tableName);
         File transactionLogDir = new File(tableDir, TRANSACTION_LOG_DIRECTORY);
         transactionLogDir.mkdirs();
@@ -703,10 +703,10 @@ public class TestTransactionLogAccess
         for (int i = startVersion; i < endVersion; i++) {
             if (i % 10 == 0 && i != 0) {
                 String checkpointFileName = format("%020d.checkpoint.parquet", i);
-                Files.copy(new File(sourceDir, checkpointFileName), new File(targetDir, checkpointFileName));
+                Files.copy(new File(sourceDir, checkpointFileName).toPath(), new File(targetDir, checkpointFileName).toPath());
             }
             String lastTransactionName = format("%020d.json", i);
-            Files.copy(new File(sourceDir, lastTransactionName), new File(targetDir, lastTransactionName));
+            Files.copy(new File(sourceDir, lastTransactionName).toPath(), new File(targetDir, lastTransactionName).toPath());
         }
     }
 }

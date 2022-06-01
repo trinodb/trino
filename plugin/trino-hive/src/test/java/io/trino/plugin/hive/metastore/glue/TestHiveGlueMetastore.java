@@ -194,6 +194,7 @@ public class TestHiveGlueMetastore
     @BeforeClass(alwaysRun = true)
     @Override
     public void initialize()
+            throws Exception
     {
         super.initialize();
         // uncomment to get extra AWS debug information

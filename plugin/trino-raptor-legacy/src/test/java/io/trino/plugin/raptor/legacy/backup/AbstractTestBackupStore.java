@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.raptor.legacy.backup;
 
-import com.google.common.io.Files;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Path;
 import java.util.UUID;
 
+import static com.google.common.io.Files.asCharSink;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
@@ -38,7 +38,7 @@ public abstract class AbstractTestBackupStore<T extends BackupStore>
     {
         // backup first file
         File file1 = temporary.resolve("file1").toFile();
-        Files.write("hello world", file1, UTF_8);
+        asCharSink(file1, UTF_8).write("hello world");
         UUID uuid1 = randomUUID();
 
         assertFalse(store.shardExists(uuid1));
@@ -47,7 +47,7 @@ public abstract class AbstractTestBackupStore<T extends BackupStore>
 
         // backup second file
         File file2 = temporary.resolve("file2").toFile();
-        Files.write("bye bye", file2, UTF_8);
+        asCharSink(file2, UTF_8).write("bye bye");
         UUID uuid2 = randomUUID();
 
         assertFalse(store.shardExists(uuid2));

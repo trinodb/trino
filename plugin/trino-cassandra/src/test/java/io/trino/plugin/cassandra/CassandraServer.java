@@ -38,7 +38,7 @@ import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.CONTRO
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES;
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.PROTOCOL_VERSION;
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TIMEOUT;
-import static com.google.common.io.Files.write;
+import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.Resources.getResource;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -122,7 +122,7 @@ public class CassandraServer
 
         File yamlFile = tmpDirPath.resolve("cu-cassandra.yaml").toFile();
         yamlFile.deleteOnExit();
-        write(modified, yamlFile, UTF_8);
+        asCharSink(yamlFile, UTF_8).write(modified);
 
         return yamlFile.getAbsolutePath();
     }

@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake.metastore.glue;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -55,6 +54,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,6 +65,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.io.Files.asByteSink;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Closeables.closeAll;
@@ -96,8 +97,9 @@ public class TestDeltaLakeGlueMetastore
 
     @BeforeClass
     public void setUp()
+            throws Exception
     {
-        tempDir = Files.createTempDir();
+        tempDir = Files.createTempDirectory(null).toFile();
         String temporaryLocation = tempDir.toURI().toString();
 
         Map<String, String> config = ImmutableMap.<String, String>builder()
@@ -264,8 +266,7 @@ public class TestDeltaLakeGlueMetastore
         File deltaTableLogLocation = new File(new File(new URI(deltaLakeTableLocation)), "_delta_log");
         verify(deltaTableLogLocation.mkdirs(), "mkdirs() on '%s' failed", deltaTableLogLocation);
         byte[] entry = Resources.toByteArray(Resources.getResource("deltalake/person/_delta_log/00000000000000000000.json"));
-        Files.asByteSink(new File(deltaTableLogLocation, "00000000000000000000.json"))
-                .write(entry);
+        asByteSink(new File(deltaTableLogLocation, "00000000000000000000.json")).write(entry);
     }
 
     private String tableLocation(SchemaTableName tableName)

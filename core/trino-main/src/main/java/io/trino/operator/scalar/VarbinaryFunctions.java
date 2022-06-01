@@ -295,6 +295,7 @@ public final class VarbinaryFunctions
         return Double.longBitsToDouble(Long.reverseBytes(slice.getLong(0)));
     }
 
+    @SuppressWarnings("deprecation") // Hashing.md5() is deprecated
     @Description("Compute md5 hash")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
@@ -303,6 +304,7 @@ public final class VarbinaryFunctions
         return computeHash(Hashing.md5(), slice);
     }
 
+    @SuppressWarnings("deprecation") // Hashing.sha1() is deprecated
     @Description("Compute sha1 hash")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
