@@ -46,6 +46,26 @@ exec_in_hadoop_master_container /usr/bin/hive -e "
     LOCATION '${table_path}'
     TBLPROPERTIES ('skip.header.line.count'='2', 'skip.footer.line.count'='2')"
 
+table_path="s3a://${S3_BUCKET}/${test_directory}/trino_s3select_test_external_fs_with_pipe_delimiter/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /docker/files/test_table_with_pipe_delimiter.csv{,.gz,.bz2} "${table_path}"
+exec_in_hadoop_master_container /usr/bin/hive -e "
+    CREATE EXTERNAL TABLE trino_s3select_test_external_fs_with_pipe_delimiter(t_bigint bigint, s_bigint bigint)
+    ROW FORMAT DELIMITED
+    FIELDS TERMINATED BY '|'
+    STORED AS TEXTFILE
+    LOCATION '${table_path}'"
+
+table_path="s3a://${S3_BUCKET}/${test_directory}/trino_s3select_test_external_fs_with_comma_delimiter/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /docker/files/test_table_with_comma_delimiter.csv{,.gz,.bz2} "${table_path}"
+exec_in_hadoop_master_container /usr/bin/hive -e "
+    CREATE EXTERNAL TABLE trino_s3select_test_external_fs_with_comma_delimiter(t_bigint bigint, s_bigint bigint)
+    ROW FORMAT DELIMITED
+    FIELDS TERMINATED BY ','
+    STORED AS TEXTFILE
+    LOCATION '${table_path}'"
+
 stop_unnecessary_hadoop_services
 
 # restart hive-metastore to apply S3 changes in core-site.xml

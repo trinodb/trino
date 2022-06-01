@@ -27,6 +27,7 @@ import java.net.URI;
 import java.util.Properties;
 
 import static org.apache.hadoop.hive.serde.serdeConstants.ESCAPE_CHAR;
+import static org.apache.hadoop.hive.serde.serdeConstants.FIELD_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.QUOTE_CHAR;
 
 class S3SelectCsvRecordReader
@@ -90,5 +91,12 @@ class S3SelectCsvRecordReader
         selectObjectRequest.setOutputSerialization(selectObjectOutputSerialization);
 
         return selectObjectRequest;
+    }
+
+    protected String getFieldDelimiter(Properties schema)
+    {
+        // Use the field delimiter only if it is specified in the schema. If not, send it as null in the request to S3 Select.
+        // In this case, S3 Select defaults to using ',' as the field delimiter.
+        return schema.getProperty(FIELD_DELIM);
     }
 }
