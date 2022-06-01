@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.redshift;
 
-import com.amazon.redshift.Driver;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -25,6 +24,7 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import org.postgresql.Driver;
 
 public class RedshiftClientModule
         implements Module
