@@ -15,7 +15,6 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
-import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.trino.spi.Plugin;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -31,6 +30,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
@@ -219,7 +219,7 @@ public class PluginReader
     private static Optional<List<String>> readImpactedModules(File gibImpactedModules)
     {
         try {
-            return Optional.of(Files.asCharSource(gibImpactedModules, UTF_8).readLines());
+            return Optional.of(Files.readAllLines(gibImpactedModules.toPath()));
         }
         catch (IOException e) {
             log.warn(e, "Couldn't read file %s", gibImpactedModules);

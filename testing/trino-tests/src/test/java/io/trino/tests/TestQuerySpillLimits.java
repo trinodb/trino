@@ -14,7 +14,6 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import io.airlift.units.DataSize;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
@@ -27,6 +26,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.file.Files;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -44,8 +44,9 @@ public class TestQuerySpillLimits
 
     @BeforeMethod
     public void setUp()
+            throws Exception
     {
-        this.spillPath = Files.createTempDir();
+        this.spillPath = Files.createTempDirectory(null).toFile();
     }
 
     @AfterMethod(alwaysRun = true)
