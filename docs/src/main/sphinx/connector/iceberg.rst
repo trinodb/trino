@@ -116,6 +116,9 @@ is used.
   * - ``iceberg.target-max-file-size``
     - Target maximum size of written files; the actual size may be larger
     - ``1GB``
+  * - ``iceberg.unique-table-location``
+    - Use randomized, unique table locations
+    - ``false``
   * - ``iceberg.delete-schema-locations-fallback``
     - Whether schema locations should be deleted when Trino can't determine whether they contain external files.
     - ``false``
