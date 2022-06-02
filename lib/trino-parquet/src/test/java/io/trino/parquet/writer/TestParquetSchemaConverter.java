@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 
+import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.MAX_PRECISION;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
@@ -32,7 +33,8 @@ public class TestParquetSchemaConverter
         for (int precision = 1; precision <= MAX_PRECISION; precision++) {
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
                     ImmutableList.of(createDecimalType(precision)),
-                    ImmutableList.of("test"));
+                    ImmutableList.of("test"),
+                    false);
             PrimitiveType primitiveType = schemaConverter.getMessageType().getType(0).asPrimitiveType();
             if (precision <= 9) {
                 assertThat(primitiveType.getPrimitiveTypeName())
@@ -49,6 +51,23 @@ public class TestParquetSchemaConverter
                 BigInteger bigInteger = new BigInteger("9".repeat(precision));
                 assertThat(bigInteger.toByteArray().length).isEqualTo(primitiveType.getTypeLength());
             }
+        }
+    }
+
+    @Test
+    public void testDecimalTypeLengthWithLegacyEncoding()
+    {
+        for (int precision = 1; precision <= MAX_PRECISION; precision++) {
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                    ImmutableList.of(createDecimalType(precision)),
+                    ImmutableList.of("test"),
+                    HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING);
+            PrimitiveType primitiveType = schemaConverter.getMessageType().getType(0).asPrimitiveType();
+            assertThat(primitiveType.getPrimitiveTypeName())
+                    .isEqualTo(PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY);
+            assertThat(primitiveType.getTypeLength()).isBetween(1, 16);
+            BigInteger bigInteger = new BigInteger("9".repeat(precision));
+            assertThat(bigInteger.toByteArray().length).isEqualTo(primitiveType.getTypeLength());
         }
     }
 }

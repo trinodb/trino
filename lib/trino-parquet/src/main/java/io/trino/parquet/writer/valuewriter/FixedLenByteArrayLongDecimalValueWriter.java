@@ -24,49 +24,36 @@ import org.apache.parquet.schema.PrimitiveType;
 import java.math.BigInteger;
 import java.util.Arrays;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class DecimalValueWriter
+public class FixedLenByteArrayLongDecimalValueWriter
         extends PrimitiveValueWriter
 {
     private final DecimalType decimalType;
 
-    public DecimalValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public FixedLenByteArrayLongDecimalValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
         this.decimalType = (DecimalType) requireNonNull(type, "type is null");
+        checkArgument(!this.decimalType.isShort(), "type is not a long decimal");
+        checkArgument(
+                parquetType.getTypeLength() > 0 && parquetType.getTypeLength() <= Int128.SIZE,
+                "Type length %s must be in range 1-%s",
+                parquetType.getTypeLength(),
+                Int128.SIZE);
     }
 
     @Override
     public void write(Block block)
     {
-        if (decimalType.getPrecision() <= 9) {
-            for (int i = 0; i < block.getPositionCount(); ++i) {
-                if (!block.isNull(i)) {
-                    int value = (int) decimalType.getLong(block, i);
-                    getValueWriter().writeInteger(value);
-                    getStatistics().updateStats(value);
-                }
-            }
-        }
-        else if (decimalType.isShort()) {
-            for (int i = 0; i < block.getPositionCount(); ++i) {
-                if (!block.isNull(i)) {
-                    long value = decimalType.getLong(block, i);
-                    getValueWriter().writeLong(value);
-                    getStatistics().updateStats(value);
-                }
-            }
-        }
-        else {
-            for (int i = 0; i < block.getPositionCount(); ++i) {
-                if (!block.isNull(i)) {
-                    Int128 decimal = (Int128) decimalType.getObject(block, i);
-                    BigInteger bigInteger = decimal.toBigInteger();
-                    Binary binary = Binary.fromConstantByteArray(paddingBigInteger(bigInteger));
-                    getValueWriter().writeBytes(binary);
-                    getStatistics().updateStats(binary);
-                }
+        for (int i = 0; i < block.getPositionCount(); ++i) {
+            if (!block.isNull(i)) {
+                Int128 decimal = (Int128) decimalType.getObject(block, i);
+                BigInteger bigInteger = decimal.toBigInteger();
+                Binary binary = Binary.fromConstantByteArray(paddingBigInteger(bigInteger));
+                getValueWriter().writeBytes(binary);
+                getStatistics().updateStats(binary);
             }
         }
     }

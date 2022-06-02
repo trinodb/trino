@@ -86,11 +86,9 @@ public class TestHiveCompatibility
         columnDataList.add(new HiveCompatibilityColumnData("c_bigint", "bigint", "9223372036854775807", 9223372036854775807L));
         columnDataList.add(new HiveCompatibilityColumnData("c_real", "real", "123.345", 123.345d));
         columnDataList.add(new HiveCompatibilityColumnData("c_double", "double", "234.567", 234.567d));
-        if (!(isParquetStorageFormat && isParquetOptimizedWriterEnabled)) {
-            // Hive expects `FIXED_LEN_BYTE_ARRAY` for decimal values irrespective of the Parquet specification which allows `INT32`, `INT64` for short precision decimal types
-            columnDataList.add(new HiveCompatibilityColumnData("c_decimal_10_0", "decimal(10,0)", "346", new BigDecimal("346")));
-            columnDataList.add(new HiveCompatibilityColumnData("c_decimal_10_2", "decimal(10,2)", "12345678.91", new BigDecimal("12345678.91")));
-        }
+        // Hive expects `FIXED_LEN_BYTE_ARRAY` for decimal values irrespective of the Parquet specification which allows `INT32`, `INT64` for short precision decimal types
+        columnDataList.add(new HiveCompatibilityColumnData("c_decimal_10_0", "decimal(10,0)", "346", new BigDecimal("346")));
+        columnDataList.add(new HiveCompatibilityColumnData("c_decimal_10_2", "decimal(10,2)", "12345678.91", new BigDecimal("12345678.91")));
         columnDataList.add(new HiveCompatibilityColumnData("c_decimal_38_5", "decimal(38,5)", "1234567890123456789012.34567", new BigDecimal("1234567890123456789012.34567")));
         columnDataList.add(new HiveCompatibilityColumnData("c_char", "char(10)", "'ala ma    '", "ala ma    "));
         columnDataList.add(new HiveCompatibilityColumnData("c_varchar", "varchar(10)", "'ala ma kot'", "ala ma kot"));
@@ -193,7 +191,7 @@ public class TestHiveCompatibility
     }
 
     @Test(groups = STORAGE_FORMATS_DETAILED)
-    public void testSmallDecimalFieldWrittenByOptimizedParquetWriterCannotBeReadByHive()
+    public void testSmallDecimalFieldWrittenByOptimizedParquetWriterCanBeReadByHive()
             throws Exception
     {
         // only admin user is allowed to change session properties
@@ -206,8 +204,8 @@ public class TestHiveCompatibility
         onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (123)");
 
         // Hive expects `FIXED_LEN_BYTE_ARRAY` for decimal values irrespective of the Parquet specification which allows `INT32`, `INT64` for short precision decimal types
-        assertQueryFailure(() -> onHive().executeQuery("SELECT a_decimal FROM " + tableName))
-                .hasMessageMatching(".*ParquetDecodingException: Can not read value at 1 in block 0 in file .*");
+        assertThat(onHive().executeQuery("SELECT a_decimal FROM " + tableName))
+                .containsOnly(row(new BigDecimal("123")));
 
         onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }

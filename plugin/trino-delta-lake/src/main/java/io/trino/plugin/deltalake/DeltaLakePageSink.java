@@ -468,7 +468,7 @@ public class DeltaLakePageSink
                 identityMapping[i] = i;
             }
 
-            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(parquetTypes, dataColumnNames);
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(parquetTypes, dataColumnNames, false);
             return new ParquetFileWriter(
                     fileSystem.create(path),
                     rollbackAction,
