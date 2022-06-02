@@ -50,6 +50,7 @@ import static io.trino.spi.type.StandardTypes.ROW;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
 public class ParquetSchemaConverter
@@ -104,22 +105,19 @@ public class ParquetSchemaConverter
             DecimalType decimalType = (DecimalType) type;
             if (decimalType.getPrecision() <= 9) {
                 return Types.optional(PrimitiveType.PrimitiveTypeName.INT32)
-                        .as(OriginalType.DECIMAL)
-                        .precision(decimalType.getPrecision())
-                        .scale(decimalType.getScale()).named(name);
+                        .as(decimalType(decimalType.getScale(), decimalType.getPrecision()))
+                        .named(name);
             }
             else if (decimalType.isShort()) {
                 return Types.optional(PrimitiveType.PrimitiveTypeName.INT64)
-                        .as(OriginalType.DECIMAL)
-                        .precision(decimalType.getPrecision())
-                        .scale(decimalType.getScale()).named(name);
+                        .as(decimalType(decimalType.getScale(), decimalType.getPrecision()))
+                        .named(name);
             }
             else {
                 return Types.optional(PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY)
                         .length(16)
-                        .as(OriginalType.DECIMAL)
-                        .precision(decimalType.getPrecision())
-                        .scale(decimalType.getScale()).named(name);
+                        .as(decimalType(decimalType.getScale(), decimalType.getPrecision()))
+                        .named(name);
             }
         }
         if (DATE.equals(type)) {
