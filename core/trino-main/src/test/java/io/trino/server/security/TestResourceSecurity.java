@@ -35,7 +35,10 @@ import io.trino.security.AccessControlManager;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.protocol.PreparedStatementEncoder;
+import io.trino.server.security.oauth2.ChallengeFailedException;
 import io.trino.server.security.oauth2.OAuth2Client;
+import io.trino.server.security.oauth2.TokenPairSerializer;
+import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
@@ -539,13 +542,14 @@ public class TestResourceSecurity
     public void testOAuth2Authenticator()
             throws Exception
     {
-        verifyOAuth2Authenticator(true, Optional.empty());
-        verifyOAuth2Authenticator(false, Optional.empty());
-        verifyOAuth2Authenticator(true, Optional.of("custom-principal"));
-        verifyOAuth2Authenticator(false, Optional.of("custom-principal"));
+        verifyOAuth2Authenticator(true, false, Optional.empty());
+        verifyOAuth2Authenticator(false, false, Optional.empty());
+        verifyOAuth2Authenticator(true, false, Optional.of("custom-principal"));
+        verifyOAuth2Authenticator(false, false, Optional.of("custom-principal"));
+        verifyOAuth2Authenticator(false, true, Optional.empty());
     }
 
-    private void verifyOAuth2Authenticator(boolean webUiEnabled, Optional<String> principalField)
+    private void verifyOAuth2Authenticator(boolean webUiEnabled, boolean refreshTokensEnabled, Optional<String> principalField)
             throws Exception
     {
         CookieManager cookieManager = new CookieManager();
@@ -561,6 +565,7 @@ public class TestResourceSecurity
                                 .put("http-server.authentication.type", "oauth2")
                                 .putAll(getOAuth2Properties(tokenServer))
                                 .put("http-server.authentication.oauth2.principal-field", principalField.orElse("sub"))
+                                .put("http-server.authentication.oauth2.refresh-tokens", String.valueOf(refreshTokensEnabled))
                                 .buildOrThrow())
                         .setAdditionalModule(oauth2Module(tokenServer))
                         .build()) {
@@ -584,7 +589,15 @@ public class TestResourceSecurity
                             .addParameter("code", "TEST_CODE")
                             .addParameter("state", bearer.getState())
                             .toString());
-            assertEquals(getOauthToken(client, bearer.getTokenServer()), tokenServer.getAccessToken());
+            if (refreshTokensEnabled) {
+                TokenPairSerializer serializer = server.getInstance(Key.get(TokenPairSerializer.class));
+                TokenPair tokenPair = serializer.deserialize(getOauthToken(client, bearer.getTokenServer()));
+                assertEquals(tokenPair.getAccessToken(), tokenServer.getAccessToken());
+                assertEquals(tokenPair.getRefreshToken(), Optional.of(tokenServer.getRefreshToken()));
+            }
+            else {
+                assertEquals(getOauthToken(client, bearer.getTokenServer()), tokenServer.getAccessToken());
+            }
 
             // if Web UI is using oauth so we should get a cookie
             if (webUiEnabled) {
@@ -603,7 +616,7 @@ public class TestResourceSecurity
 
             OkHttpClient clientWithOAuthToken = client.newBuilder()
                     .authenticator((route, response) -> response.request().newBuilder()
-                            .header(AUTHORIZATION, "Bearer " + tokenServer.getAccessToken())
+                            .header(AUTHORIZATION, "Bearer " + getOauthToken(client, bearer.getTokenServer()))
                             .build())
                     .build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithOAuthToken);
@@ -766,12 +779,12 @@ public class TestResourceSecurity
                 TestingTrinoServer server = TestingTrinoServer.builder()
                         .setProperties(
                                 ImmutableMap.<String, String>builder()
-                                .putAll(SECURE_PROPERTIES)
-                                .put("http-server.authentication.type", "jwt,oauth2")
-                                .put("http-server.authentication.jwt.key-file", jwkServer.getBaseUrl().toString())
-                                .putAll(getOAuth2Properties(tokenServer))
-                                .put("web-ui.enabled", "true")
-                                .buildOrThrow())
+                                        .putAll(SECURE_PROPERTIES)
+                                        .put("http-server.authentication.type", "jwt,oauth2")
+                                        .put("http-server.authentication.jwt.key-file", jwkServer.getBaseUrl().toString())
+                                        .putAll(getOAuth2Properties(tokenServer))
+                                        .put("web-ui.enabled", "true")
+                                        .buildOrThrow())
                         .setAdditionalModule(oauth2Module(tokenServer))
                         .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
@@ -842,6 +855,7 @@ public class TestResourceSecurity
     private static class TokenServer
             implements AutoCloseable
     {
+        private static final String REFRESH_TOKEN = "REFRESH_TOKEN";
         private final String issuer = "http://example.com/";
         private final String clientId = "clientID";
         private final Date tokenExpiration = Date.from(ZonedDateTime.now().plusMinutes(5).toInstant());
@@ -887,13 +901,20 @@ public class TestResourceSecurity
                     if (!"TEST_CODE".equals(code)) {
                         throw new IllegalArgumentException("Expected TEST_CODE");
                     }
-                    return new Response(accessToken, now().plus(5, ChronoUnit.MINUTES), Optional.of(issueIdToken(nonce.map(this::hashNonce))));
+                    return new Response(accessToken, now().plus(5, ChronoUnit.MINUTES), Optional.of(issueIdToken(nonce.map(this::hashNonce))), Optional.of(REFRESH_TOKEN));
                 }
 
                 @Override
                 public Optional<Map<String, Object>> getClaims(String accessToken)
                 {
                     return Optional.of(jwtParser.parseClaimsJws(accessToken).getBody());
+                }
+
+                @Override
+                public Response refreshTokens(String refreshToken)
+                        throws ChallengeFailedException
+                {
+                    throw new UnsupportedOperationException("refresh tokens not supported");
                 }
 
                 private String hashNonce(String nonce)
@@ -928,6 +949,11 @@ public class TestResourceSecurity
         public String getAccessToken()
         {
             return accessToken;
+        }
+
+        public String getRefreshToken()
+        {
+            return REFRESH_TOKEN;
         }
 
         public String issueAccessToken(Optional<Set<String>> groups)
