@@ -96,8 +96,11 @@ public abstract class BaseSapHanaConnectorTest
                                 dataMappingTestSetup.getTrinoTypeName(),
                                 dataMappingTestSetup.getSampleValueLiteral(),
                                 "TIME '23:59:59.000'")); // SAP HANA does not store second fraction, so 23:59:59.999 would became 00:00:00
-
+            case "time(6)":
+                // TODO https://starburstdata.atlassian.net/browse/SEP-9302
+                return Optional.empty();
             case "timestamp(3) with time zone":
+            case "timestamp(6) with time zone":
                 return Optional.of(dataMappingTestSetup.asUnsupported());
 
             case "date":
