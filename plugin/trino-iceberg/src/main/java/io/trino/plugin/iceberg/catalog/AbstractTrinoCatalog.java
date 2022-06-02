@@ -260,19 +260,30 @@ public abstract class AbstractTrinoCatalog
         // Generate a storage table name and create a storage table. The properties in the definition are table properties for the
         // storage table as indicated in the materialized view definition.
         String storageTableName = "st_" + randomUUID().toString().replace("-", "");
-        Map<String, Object> storageTableProperties = new HashMap<>(definition.getProperties());
-        storageTableProperties.putIfAbsent(FILE_FORMAT_PROPERTY, DEFAULT_FILE_FORMAT_DEFAULT);
+        Map<String, Object> storageTableProperties = getMaterializedViewStorageTableProperties(definition.getProperties());
 
         SchemaTableName storageTable = new SchemaTableName(viewName.getSchemaName(), storageTableName);
         List<ColumnMetadata> columns = definition.getColumns().stream()
                 .map(column -> new ColumnMetadata(column.getName(), typeManager.getType(column.getType())))
                 .collect(toImmutableList());
-
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, storageTableProperties, Optional.empty());
+        createMaterializedViewStorageTableWithMetadata(session, tableMetadata);
+        return storageTable;
+    }
+
+    protected void createMaterializedViewStorageTableWithMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
         Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session);
         transaction.newAppend().commit();
         transaction.commitTransaction();
-        return storageTable;
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewStorageTableProperties(Map<String, Object> materializedViewProperties)
+    {
+        Map<String, Object> storageTableProperties = new HashMap<>(materializedViewProperties);
+        storageTableProperties.putIfAbsent(FILE_FORMAT_PROPERTY, DEFAULT_FILE_FORMAT_DEFAULT);
+        return storageTableProperties;
     }
 
     protected ConnectorMaterializedViewDefinition getMaterializedViewDefinition(

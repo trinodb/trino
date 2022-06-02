@@ -641,7 +641,16 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
+        return finishInsertInternal(session, (IcebergWritableTableHandle) insertHandle, fragments, ImmutableList.of(), false);
+    }
+
+    private Optional<ConnectorOutputMetadata> finishInsertInternal(
+            ConnectorSession session,
+            IcebergWritableTableHandle table,
+            Collection<Slice> fragments,
+            List<ConnectorTableHandle> sourceTableHandles,
+            boolean useFastAppend)
+    {
         Table icebergTable = transaction.table();
 
         List<CommitTaskData> commitTasks = fragments.stream()
@@ -653,7 +662,7 @@ public class IcebergMetadata
                         icebergTable.schema().findType(field.sourceId())))
                 .toArray(Type[]::new);
 
-        AppendFiles appendFiles = transaction.newAppend();
+        AppendFiles appendFiles = useFastAppend ? transaction.newFastAppend() : transaction.newAppend();
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
         for (CommitTaskData task : commitTasks) {
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
@@ -675,6 +684,16 @@ public class IcebergMetadata
         // try to leave as little garbage as possible behind
         if (table.getRetryMode() != NO_RETRIES) {
             cleanExtraOutputFiles(session, writtenFiles.build());
+        }
+
+        String dependencies = sourceTableHandles.stream()
+                .map(handle -> (IcebergTableHandle) handle)
+                .filter(handle -> handle.getSnapshotId().isPresent())
+                .map(handle -> handle.getSchemaTableName() + "=" + handle.getSnapshotId().get())
+                .distinct()
+                .collect(joining(","));
+        if (!dependencies.isEmpty()) {
+            appendFiles.set(DEPENDS_ON_TABLES, dependencies);
         }
 
         appendFiles.commit();
@@ -1817,6 +1836,40 @@ public class IcebergMetadata
     }
 
     @Override
+    public ConnectorInsertTableHandle beginCreateMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            List<ConnectorTableHandle> sourceTableHandles,
+            ConnectorTableMetadata storageTableMetadata,
+            Optional<ConnectorTableLayout> storageTableLayout,
+            RetryMode retryMode)
+    {
+        catalog.createMaterializedViewWithStorageTableMetadata(session, viewName, definition, replace, ignoreExisting, storageTableMetadata);
+        IcebergTableHandle table = getTableHandle(session, storageTableMetadata.getTable());
+        return beginRefreshMaterializedView(session, table, sourceTableHandles, retryMode);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateMaterializedView(
+            ConnectorSession session,
+            ConnectorInsertTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<ConnectorTableHandle> sourceTableHandles)
+    {
+        return finishInsertInternal(session, (IcebergWritableTableHandle) tableHandle, fragments, sourceTableHandles, true);
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewStorageTableProperties(ConnectorSession session, Map<String, Object> materializedViewProperties)
+    {
+        return catalog.getMaterializedViewStorageTableProperties(materializedViewProperties);
+    }
+
+    @Override
     public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         catalog.dropMaterializedView(session, viewName);
@@ -1860,58 +1913,7 @@ public class IcebergMetadata
         // delete before insert .. simulating overwrite
         executeDelete(session, tableHandle);
 
-        IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
-
-        Table icebergTable = transaction.table();
-        List<CommitTaskData> commitTasks = fragments.stream()
-                .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
-                .collect(toImmutableList());
-
-        Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
-                .map(field -> field.transform().getResultType(
-                        icebergTable.schema().findType(field.sourceId())))
-                .toArray(Type[]::new);
-
-        AppendFiles appendFiles = transaction.newFastAppend();
-        ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
-        for (CommitTaskData task : commitTasks) {
-            DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withPath(task.getPath())
-                    .withFileSizeInBytes(task.getFileSizeInBytes())
-                    .withFormat(table.getFileFormat().toIceberg())
-                    .withMetrics(task.getMetrics().metrics());
-
-            if (!icebergTable.spec().fields().isEmpty()) {
-                String partitionDataJson = task.getPartitionDataJson()
-                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
-            }
-
-            appendFiles.appendFile(builder.build());
-            writtenFiles.add(task.getPath());
-        }
-
-        String dependencies = sourceTableHandles.stream()
-                .map(handle -> (IcebergTableHandle) handle)
-                .filter(handle -> handle.getSnapshotId().isPresent())
-                .map(handle -> handle.getSchemaTableName() + "=" + handle.getSnapshotId().get())
-                .distinct()
-                .collect(joining(","));
-
-        // try to leave as little garbage as possible behind
-        if (table.getRetryMode() != NO_RETRIES) {
-            cleanExtraOutputFiles(session, writtenFiles.build());
-        }
-
-        // Update the 'dependsOnTables' property that tracks tables on which the materialized view depends and the corresponding snapshot ids of the tables
-        appendFiles.set(DEPENDS_ON_TABLES, dependencies);
-        appendFiles.commit();
-
-        transaction.commitTransaction();
-        transaction = null;
-        return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
-                .map(CommitTaskData::getPath)
-                .collect(toImmutableList())));
+        return finishInsertInternal(session, (IcebergWritableTableHandle) insertHandle, fragments, sourceTableHandles, true);
     }
 
     private void cleanExtraOutputFiles(ConnectorSession session, Set<String> writtenFiles)

@@ -45,6 +45,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -616,6 +617,29 @@ public class TrinoGlueCatalog
             boolean replace,
             boolean ignoreExisting)
     {
+        createMaterializedViewInternal(session, viewName, definition, replace, ignoreExisting, Optional.empty());
+    }
+
+    @Override
+    public void createMaterializedViewWithStorageTableMetadata(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            ConnectorTableMetadata storageTableMetadata)
+    {
+        createMaterializedViewInternal(session, viewName, definition, replace, ignoreExisting, Optional.of(storageTableMetadata));
+    }
+
+    private void createMaterializedViewInternal(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            Optional<ConnectorTableMetadata> storageTableMetadata)
+    {
         Optional<com.amazonaws.services.glue.model.Table> existing = getTable(viewName);
 
         if (existing.isPresent()) {
@@ -631,7 +655,14 @@ public class TrinoGlueCatalog
         }
 
         // Create the storage table
-        SchemaTableName storageTable = createMaterializedViewStorageTable(session, viewName, definition);
+        SchemaTableName storageTable;
+        if (storageTableMetadata.isPresent()) {
+            createMaterializedViewStorageTableWithMetadata(session, storageTableMetadata.get());
+            storageTable = storageTableMetadata.get().getTable();
+        }
+        else {
+            storageTable = createMaterializedViewStorageTable(session, viewName, definition);
+        }
         // Create a view indicating the storage table
         TableInput materializedViewTableInput = getMaterializedViewTableInput(
                 viewName.getTableName(),

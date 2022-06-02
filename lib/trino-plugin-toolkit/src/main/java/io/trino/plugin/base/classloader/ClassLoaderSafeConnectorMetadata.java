@@ -914,6 +914,44 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public ConnectorInsertTableHandle beginCreateMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            List<ConnectorTableHandle> sourceTableHandles,
+            ConnectorTableMetadata storageTableMetadata,
+            Optional<ConnectorTableLayout> storageTableLayout,
+            RetryMode retryMode)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.beginCreateMaterializedView(session, viewName, definition, replace, ignoreExisting, sourceTableHandles, storageTableMetadata, storageTableLayout, retryMode);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateMaterializedView(
+            ConnectorSession session,
+            ConnectorInsertTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<ConnectorTableHandle> sourceTableHandles)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.finishCreateMaterializedView(session, tableHandle, fragments, computedStatistics, sourceTableHandles);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewStorageTableProperties(ConnectorSession session, Map<String, Object> materializedViewProperties)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getMaterializedViewStorageTableProperties(session, materializedViewProperties);
+        }
+    }
+
+    @Override
     public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

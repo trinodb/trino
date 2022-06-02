@@ -35,6 +35,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -438,6 +439,29 @@ public class TrinoHiveCatalog
             boolean replace,
             boolean ignoreExisting)
     {
+        createMaterializedViewInternal(session, viewName, definition, replace, ignoreExisting, Optional.empty());
+    }
+
+    @Override
+    public void createMaterializedViewWithStorageTableMetadata(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            ConnectorTableMetadata storageTableMetadata)
+    {
+        createMaterializedViewInternal(session, viewName, definition, replace, ignoreExisting, Optional.of(storageTableMetadata));
+    }
+
+    private void createMaterializedViewInternal(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            Optional<ConnectorTableMetadata> storageTableMetadata)
+    {
         Optional<io.trino.plugin.hive.metastore.Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
 
         if (existing.isPresent()) {
@@ -452,10 +476,17 @@ public class TrinoHiveCatalog
             }
         }
 
-        SchemaTableName storageTable = createMaterializedViewStorageTable(session, viewName, definition);
+        SchemaTableName storageTableName;
+        if (storageTableMetadata.isPresent()) {
+            createMaterializedViewStorageTableWithMetadata(session, storageTableMetadata.get());
+            storageTableName = storageTableMetadata.get().getTable();
+        }
+        else {
+            storageTableName = createMaterializedViewStorageTable(session, viewName, definition);
+        }
 
         // Create a view indicating the storage table
-        Map<String, String> viewProperties = createMaterializedViewProperties(session, storageTable.getTableName());
+        Map<String, String> viewProperties = createMaterializedViewProperties(session, storageTableName.getTableName());
         Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());
 
         io.trino.plugin.hive.metastore.Table.Builder tableBuilder = io.trino.plugin.hive.metastore.Table.builder()
