@@ -47,4 +47,9 @@ public interface EnvironmentExtender
     {
         return ImmutableList.of();
     }
+
+    default String getName()
+    {
+        return getClass().getSimpleName();
+    }
 }

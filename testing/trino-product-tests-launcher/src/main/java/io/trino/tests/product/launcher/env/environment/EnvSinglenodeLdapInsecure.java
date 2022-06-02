@@ -18,7 +18,7 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.common.Hadoop;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
@@ -33,9 +33,9 @@ public class EnvSinglenodeLdapInsecure
     private final PortBinder portBinder;
 
     @Inject
-    public EnvSinglenodeLdapInsecure(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentConfig config)
+    public EnvSinglenodeLdapInsecure(MultinodeProvider multinodeProvider, Hadoop hadoop, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentConfig config)
     {
-        super(ImmutableList.of(standard, hadoop), dockerFiles, portBinder, config);
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoop), dockerFiles, portBinder, config);
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
 

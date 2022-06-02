@@ -19,7 +19,7 @@ import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
@@ -34,9 +34,9 @@ public class EnvSinglenodeHiveIcebergRedirections
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvSinglenodeHiveIcebergRedirections(DockerFiles dockerFiles, Standard standard, Hadoop hadoop)
+    public EnvSinglenodeHiveIcebergRedirections(DockerFiles dockerFiles, MultinodeProvider multinodeProvider, Hadoop hadoop)
     {
-        super(ImmutableList.of(standard, hadoop));
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoop));
         configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-hive-iceberg-redirections");
     }
 

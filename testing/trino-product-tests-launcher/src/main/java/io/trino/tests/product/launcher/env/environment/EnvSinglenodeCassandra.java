@@ -18,7 +18,7 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
@@ -28,7 +28,6 @@ import javax.inject.Inject;
 import java.time.Duration;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -39,13 +38,12 @@ public final class EnvSinglenodeCassandra
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
 
-    public static final String CONTAINER_PRESTO_CASSANDRA_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/cassandra.properties";
     public static final int CASSANDRA_PORT = 9042;
 
     @Inject
-    protected EnvSinglenodeCassandra(DockerFiles dockerFiles, PortBinder portBinder, Standard standard)
+    protected EnvSinglenodeCassandra(DockerFiles dockerFiles, PortBinder portBinder, MultinodeProvider multinodeProvider)
     {
-        super(ImmutableList.of(standard));
+        super(ImmutableList.of(multinodeProvider.singleWorker()));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }

@@ -19,7 +19,7 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
@@ -41,9 +41,9 @@ public final class EnvSinglenodePostgresql
     private final PortBinder portBinder;
 
     @Inject
-    public EnvSinglenodePostgresql(Standard standard, DockerFiles dockerFiles, PortBinder portBinder)
+    public EnvSinglenodePostgresql(MultinodeProvider multinodeProvider, DockerFiles dockerFiles, PortBinder portBinder)
     {
-        super(ImmutableList.of(standard));
+        super(ImmutableList.of(multinodeProvider.singleWorker()));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }

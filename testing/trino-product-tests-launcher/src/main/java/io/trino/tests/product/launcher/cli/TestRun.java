@@ -56,9 +56,9 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static io.trino.tests.product.launcher.testcontainers.PortBinder.unsafelyExposePort;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
@@ -342,7 +342,7 @@ public final class TestRun
                         // the test jar is hundreds MB and file system bind is much more efficient
                         .withFileSystemBind(testJar.getPath(), "/docker/test.jar", READ_ONLY)
                         .withFileSystemBind(cliJar.getPath(), "/docker/trino-cli", READ_ONLY)
-                        .withCopyFileToContainer(forClasspathResource("docker/presto-product-tests/common/standard/set-trino-cli.sh"), "/etc/profile.d/set-trino-cli.sh")
+                        .withCopyFileToContainer(forClasspathResource("docker/presto-product-tests/common/multinode/set-trino-cli.sh"), "/etc/profile.d/set-trino-cli.sh")
                         .withEnv("JAVA_HOME", jdkVersion.getJavaHome())
                         .withCommand(ImmutableList.<String>builder()
                                 .add(

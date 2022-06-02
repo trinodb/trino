@@ -21,7 +21,7 @@ import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.Minio;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
@@ -37,12 +37,11 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Set;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TEMPTO_PROFILE_CONFIG;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_ETC;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.common.Minio.MINIO_CONTAINER_NAME;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -69,14 +68,14 @@ public class EnvSinglenodeDeltaLakeOss
 
     @Inject
     public EnvSinglenodeDeltaLakeOss(
-            Standard standard,
+            MultinodeProvider multinodeProvider,
             Hadoop hadoop,
             DockerFiles dockerFiles,
             EnvironmentConfig config,
             PortBinder portBinder,
             Minio minio)
     {
-        super(ImmutableList.of(standard, hadoop, minio));
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoop, minio));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();
@@ -97,9 +96,9 @@ public class EnvSinglenodeDeltaLakeOss
         builder.addConnector(
                 "delta-lake",
                 forHostPath(configDir.getPath("delta.properties")),
-                CONTAINER_PRESTO_ETC + "/catalog/delta.properties");
+                CONTAINER_TRINO_ETC + "/catalog/delta.properties");
 
-        builder.configureContainer(TESTS, dockerContainer -> {
+        builder.configureTests(dockerContainer -> {
             dockerContainer.withEnv("S3_BUCKET", s3Bucket)
                     .withCopyFileToContainer(
                             forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),

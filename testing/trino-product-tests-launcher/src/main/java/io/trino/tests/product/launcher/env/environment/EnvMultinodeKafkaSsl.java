@@ -20,16 +20,14 @@ import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.KafkaSsl;
-import io.trino.tests.product.launcher.env.common.StandardMultinode;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_ETC;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -40,9 +38,9 @@ public final class EnvMultinodeKafkaSsl
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvMultinodeKafkaSsl(KafkaSsl kafka, StandardMultinode standardMultinode, DockerFiles dockerFiles)
+    public EnvMultinodeKafkaSsl(KafkaSsl kafka, MultinodeProvider multinodeProvider, DockerFiles dockerFiles)
     {
-        super(standardMultinode, kafka);
+        super(multinodeProvider.singleWorker(), kafka);
         requireNonNull(dockerFiles, "dockerFiles is null");
         configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-kafka-ssl/");
     }
@@ -50,8 +48,7 @@ public final class EnvMultinodeKafkaSsl
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(COORDINATOR, this::addCatalogs);
-        builder.configureContainer(WORKER, this::addCatalogs);
+        builder.configureTrinoContainers(this::addCatalogs);
         builder.addConnector("kafka");
 
         configureTempto(builder, configDir);
@@ -66,12 +63,12 @@ public final class EnvMultinodeKafkaSsl
         container
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("kafka_schema_registry.properties")),
-                        CONTAINER_PRESTO_ETC + "/catalog/kafka_schema_registry.properties")
+                        CONTAINER_TRINO_ETC + "/catalog/kafka_schema_registry.properties")
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("kafka.properties")),
-                        CONTAINER_PRESTO_ETC + "/catalog/kafka.properties")
+                        CONTAINER_TRINO_ETC + "/catalog/kafka.properties")
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("secrets")),
-                        CONTAINER_PRESTO_ETC + "/catalog/secrets");
+                        CONTAINER_TRINO_ETC + "/catalog/secrets");
     }
 }

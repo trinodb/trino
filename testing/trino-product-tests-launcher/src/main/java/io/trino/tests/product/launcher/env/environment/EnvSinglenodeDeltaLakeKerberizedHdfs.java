@@ -18,12 +18,12 @@ import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -34,9 +34,9 @@ public class EnvSinglenodeDeltaLakeKerberizedHdfs
     private final DockerFiles.ResourceProvider configDir;
 
     @Inject
-    public EnvSinglenodeDeltaLakeKerberizedHdfs(Standard standard, Hadoop hadoop, HadoopKerberos hadoopKerberos, DockerFiles dockerFiles)
+    public EnvSinglenodeDeltaLakeKerberizedHdfs(MultinodeProvider multinodeProvider, Hadoop hadoop, HadoopKerberos hadoopKerberos, DockerFiles dockerFiles)
     {
-        super(standard, hadoop, hadoopKerberos);
+        super(multinodeProvider.singleWorker(), hadoop, hadoopKerberos);
         this.configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-delta-lake-kerberized-hdfs");
     }
 
@@ -46,6 +46,6 @@ public class EnvSinglenodeDeltaLakeKerberizedHdfs
         builder.addConnector(
                 "delta-lake",
                 forHostPath(configDir.getPath("delta.properties")),
-                CONTAINER_PRESTO_ETC + "/catalog/delta.properties");
+                CONTAINER_TRINO_ETC + "/catalog/delta.properties");
     }
 }

@@ -23,11 +23,9 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_CONFIG_PROPERTIES;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -60,19 +58,23 @@ public class HadoopKerberos
     public void extendEnvironment(Environment.Builder builder)
     {
         String dockerImageName = hadoopBaseImage + "-kerberized:" + hadoopImagesVersion;
-        builder.configureContainer(HADOOP, container -> {
+        builder.configureContainers(container -> true, container -> {
             container.setDockerImageName(dockerImageName);
+        });
+        builder.configureContainer(HADOOP, container -> {
             portBinder.exposePort(container, 88);
         });
-        builder.configureContainer(COORDINATOR, container -> {
-            container.setDockerImageName(dockerImageName);
+        builder.configureCoordinator(container -> {
             portBinder.exposePort(container, 7778);
             container
                     .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
-                    .withCopyFileToContainer(forHostPath(configDir.getPath("config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("coordinator/config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES);
         });
-        builder.configureContainer(TESTS, container -> {
-            container.setDockerImageName(dockerImageName);
+        builder.configureWorkers(container -> {
+            portBinder.exposePort(container, 8443);
+            container
+                    .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("worker/config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES);
         });
         configureTempto(builder, configDir);
     }

@@ -18,7 +18,7 @@ import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Kerberos;
-import io.trino.tests.product.launcher.env.common.StandardMultinode;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
 import static io.trino.tests.product.launcher.env.common.Kerberos.DEFAULT_WAIT_STRATEGY;
 import static io.trino.tests.product.launcher.env.common.Kerberos.KERBEROS;
 import static java.lang.String.format;
@@ -55,9 +54,9 @@ public class EnvMultinodeKerberosKudu
     private final DockerFiles.ResourceProvider configDir;
 
     @Inject
-    public EnvMultinodeKerberosKudu(PortBinder portBinder, DockerFiles dockerFiles, StandardMultinode standardMultinode, Kerberos kerberos)
+    public EnvMultinodeKerberosKudu(PortBinder portBinder, DockerFiles dockerFiles, MultinodeProvider multinodeProvider, Kerberos kerberos)
     {
-        super(standardMultinode, kerberos);
+        super(multinodeProvider.singleWorker(), kerberos);
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/multinode-kerberos-kudu/");
     }
@@ -85,12 +84,10 @@ public class EnvMultinodeKerberosKudu
             builder.containerDependsOn(tablet.getLogicalName(), KERBEROS);
         });
 
-        builder.configureContainers(container -> {
-            if (isPrestoContainer(container.getLogicalName())) {
-                builder.addConnector("kudu", forHostPath(configDir.getPath("kudu.properties")));
-                container.withFileSystemBind(kerberosCredentialsDirectory.toString(), "/kerberos", READ_ONLY);
-                addKrb5(container);
-            }
+        builder.configureTrinoContainers(container -> {
+            builder.addConnector("kudu", forHostPath(configDir.getPath("kudu.properties")));
+            container.withFileSystemBind(kerberosCredentialsDirectory.toString(), "/kerberos", READ_ONLY);
+            addKrb5(container);
         });
     }
 

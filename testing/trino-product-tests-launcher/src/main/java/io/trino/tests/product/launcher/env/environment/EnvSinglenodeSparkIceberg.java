@@ -20,7 +20,7 @@ import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
@@ -28,10 +28,9 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -46,9 +45,9 @@ public class EnvSinglenodeSparkIceberg
     private final String hadoopImagesVersion;
 
     @Inject
-    public EnvSinglenodeSparkIceberg(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, EnvironmentConfig config, PortBinder portBinder)
+    public EnvSinglenodeSparkIceberg(MultinodeProvider multinodeProvider, Hadoop hadoop, DockerFiles dockerFiles, EnvironmentConfig config, PortBinder portBinder)
     {
-        super(ImmutableList.of(standard, hadoop));
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();
@@ -66,7 +65,7 @@ public class EnvSinglenodeSparkIceberg
                     CONTAINER_HADOOP_INIT_D + "/apply-hive-config-for-iceberg.sh");
         });
 
-        builder.configureContainer(TESTS, dockerContainer -> {
+        builder.configureTests(dockerContainer -> {
             dockerContainer.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
                     CONTAINER_TEMPTO_PROFILE_CONFIG);

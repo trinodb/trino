@@ -17,12 +17,10 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_ETC;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -30,16 +28,16 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 /**
  * Trino with Delta Lake connector and real S3 storage
  */
-public abstract class AbstractSinglenodeDeltaLakeDatabricks
+public abstract class AbstractMultinodeDeltaLakeDatabricks
         extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
 
     abstract String databricksTestJdbcUrl();
 
-    public AbstractSinglenodeDeltaLakeDatabricks(Standard standard, DockerFiles dockerFiles)
+    public AbstractMultinodeDeltaLakeDatabricks(MultinodeProvider standard, DockerFiles dockerFiles)
     {
-        super(standard);
+        super(standard.singleWorker());
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
     }
 
@@ -53,18 +51,18 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
         String s3Bucket = requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set");
         DockerFiles.ResourceProvider configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-delta-lake-databricks");
 
-        builder.configureContainer(COORDINATOR, dockerContainer -> exportAWSCredentials(dockerContainer)
+        builder.configureCoordinator(dockerContainer -> exportAWSCredentials(dockerContainer)
                 .withEnv("AWS_REGION", awsRegion)
-                .withEnv("DATABRICKS_JDBC_URL", databricksTestJdbcUrl)
-                .withEnv("DATABRICKS_LOGIN", databricksTestLogin)
-                .withEnv("DATABRICKS_TOKEN", databricksTestToken));
+                .withEnv("DATABRICKS_TEST_JDBC_URL", databricksTestJdbcUrl)
+                .withEnv("DATABRICKS_TEST_LOGIN", databricksTestLogin)
+                .withEnv("DATABRICKS_TEST_TOKEN", databricksTestToken));
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector(
                 "delta-lake",
                 forHostPath(configDir.getPath("delta.properties")),
-                CONTAINER_PRESTO_ETC + "/catalog/delta.properties");
+                CONTAINER_TRINO_ETC + "/catalog/delta.properties");
 
-        builder.configureContainer(TESTS, container -> exportAWSCredentials(container)
+        builder.configureTests(container -> exportAWSCredentials(container)
                 .withEnv("S3_BUCKET", s3Bucket)
                 .withEnv("AWS_REGION", awsRegion)
                 .withEnv("DATABRICKS_JDBC_URL", databricksTestJdbcUrl)

@@ -19,7 +19,9 @@ import java.nio.file.Path;
 import java.security.SecureRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Character.MAX_RADIX;
+import static java.lang.Integer.parseInt;
 import static java.lang.Math.abs;
 import static java.lang.Math.min;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -29,13 +31,20 @@ public final class EnvironmentContainers
     private static final SecureRandom random = new SecureRandom();
     private static final int RANDOM_SUFFIX_LENGTH = 5;
 
-    public static final String PRESTO = "presto";
-    public static final String COORDINATOR = PRESTO + "-master";
-    public static final String WORKER = PRESTO + "-worker";
-    public static final String WORKER_NTH = WORKER + "-";
+    private static final String TRINO = "presto";
+    public static final String COORDINATOR = TRINO + "-master";
+    public static final String WORKER_NTH = TRINO + "-worker-";
     public static final String HADOOP = "hadoop-master";
     public static final String TESTS = "tests";
     public static final String LDAP = "ldapserver";
+
+    public static final String CONTAINER_HEALTH_D = "/etc/health.d/";
+    public static final String CONTAINER_CONF_ROOT = "/docker/presto-product-tests/";
+    public static final String CONTAINER_TRINO_ETC = CONTAINER_CONF_ROOT + "conf/presto/etc";
+    public static final String CONTAINER_TRINO_JVM_CONFIG = CONTAINER_TRINO_ETC + "/jvm.config";
+    public static final String CONTAINER_TRINO_ACCESS_CONTROL_PROPERTIES = CONTAINER_TRINO_ETC + "/access-control.properties";
+    public static final String CONTAINER_TRINO_CONFIG_PROPERTIES = CONTAINER_TRINO_ETC + "/config.properties";
+    public static final String CONTAINER_TEMPTO_PROFILE_CONFIG = CONTAINER_CONF_ROOT + "conf/tempto/tempto-configuration-profile-config-file.yaml";
 
     private EnvironmentContainers() {}
 
@@ -44,9 +53,26 @@ public final class EnvironmentContainers
         return WORKER_NTH + number;
     }
 
-    public static boolean isPrestoContainer(String name)
+    public static boolean isTrinoContainer(DockerContainer container)
     {
-        return name.startsWith(PRESTO);
+        return container.getLogicalName().startsWith(TRINO);
+    }
+
+    public static boolean isCoordinator(DockerContainer container)
+    {
+        return container.getLogicalName().equals(COORDINATOR);
+    }
+
+    public static boolean isWorker(DockerContainer container)
+    {
+        return container.getLogicalName().startsWith(WORKER_NTH);
+    }
+
+    public static int getWorkerNumber(DockerContainer container)
+    {
+        String logicalName = container.getLogicalName();
+        checkState(logicalName.startsWith(WORKER_NTH), "Provided container '%s' is not a Trino worker", logicalName);
+        return parseInt(logicalName.substring(WORKER_NTH.length()));
     }
 
     /**

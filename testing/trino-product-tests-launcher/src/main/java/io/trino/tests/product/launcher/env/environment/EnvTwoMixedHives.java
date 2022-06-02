@@ -21,15 +21,15 @@ import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import javax.inject.Inject;
 
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_ETC;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.common.Hadoop.createHadoopContainer;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -53,11 +53,11 @@ public final class EnvTwoMixedHives
     public EnvTwoMixedHives(
             DockerFiles dockerFiles,
             PortBinder portBinder,
-            Standard standard,
+            MultinodeProvider multinodeProvider,
             HadoopKerberos hadoopKerberos,
             EnvironmentConfig environmentConfig)
     {
-        super(ImmutableList.of(standard, hadoopKerberos));
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoopKerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/two-mixed-hives");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
@@ -68,10 +68,10 @@ public final class EnvTwoMixedHives
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addConnector("hive", forHostPath(configDir.getPath("hive1.properties")), CONTAINER_PRESTO_ETC + "/catalog/hive1.properties");
-        builder.addConnector("hive", forHostPath(configDir.getPath("hive2.properties")), CONTAINER_PRESTO_ETC + "/catalog/hive2.properties");
-        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg1.properties")), CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties");
-        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg2.properties")), CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive1.properties")), CONTAINER_TRINO_ETC + "/catalog/hive1.properties");
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive2.properties")), CONTAINER_TRINO_ETC + "/catalog/hive2.properties");
+        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg1.properties")), CONTAINER_TRINO_ETC + "/catalog/iceberg1.properties");
+        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg2.properties")), CONTAINER_TRINO_ETC + "/catalog/iceberg2.properties");
 
         builder.addContainer(createHadoopMaster2());
     }

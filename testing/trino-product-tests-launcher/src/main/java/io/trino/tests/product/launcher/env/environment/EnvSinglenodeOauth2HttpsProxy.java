@@ -20,15 +20,15 @@ import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import javax.inject.Inject;
 
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_CONFIG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_ETC;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -41,9 +41,9 @@ public class EnvSinglenodeOauth2HttpsProxy
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvSinglenodeOauth2HttpsProxy(DockerFiles dockerFiles, PortBinder binder, Standard standard, HydraIdentityProvider hydraIdentityProvider)
+    public EnvSinglenodeOauth2HttpsProxy(DockerFiles dockerFiles, PortBinder binder, MultinodeProvider multinodeProvider, HydraIdentityProvider hydraIdentityProvider)
     {
-        super(ImmutableList.of(standard, hydraIdentityProvider));
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hydraIdentityProvider));
 
         this.binder = requireNonNull(binder, "binder is null");
         this.hydraIdentityProvider = requireNonNull(hydraIdentityProvider, "hydraIdentityProvider is null");
@@ -54,17 +54,17 @@ public class EnvSinglenodeOauth2HttpsProxy
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(COORDINATOR, dockerContainer -> {
+        builder.configureCoordinator(dockerContainer -> {
             dockerContainer
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("config.properties")),
-                            CONTAINER_PRESTO_CONFIG_PROPERTIES)
+                            CONTAINER_TRINO_CONFIG_PROPERTIES)
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("cert/truststore.jks")),
-                            CONTAINER_PRESTO_ETC + "/cert/truststore.jks")
+                            CONTAINER_TRINO_ETC + "/cert/truststore.jks")
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("log.properties")),
-                            CONTAINER_PRESTO_ETC + "/log.properties");
+                            CONTAINER_TRINO_ETC + "/log.properties");
 
             binder.exposePort(dockerContainer, 7778);
         });

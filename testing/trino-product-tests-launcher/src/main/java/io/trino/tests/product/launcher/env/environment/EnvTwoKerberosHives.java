@@ -22,7 +22,7 @@ import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
@@ -37,11 +37,10 @@ import java.nio.file.Paths;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_ETC;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static io.trino.tests.product.launcher.env.common.Hadoop.createHadoopContainer;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
@@ -68,11 +67,11 @@ public final class EnvTwoKerberosHives
     public EnvTwoKerberosHives(
             DockerFiles dockerFiles,
             PortBinder portBinder,
-            Standard standard,
+            MultinodeProvider multinodeProvider,
             HadoopKerberos hadoopKerberos,
             EnvironmentConfig environmentConfig)
     {
-        super(ImmutableList.of(standard, hadoopKerberos));
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoopKerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/two-kerberos-hives");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
@@ -92,15 +91,15 @@ public final class EnvTwoKerberosHives
     {
         String keytabsHostDirectory = createKeytabsHostDirectory().toString();
 
-        builder.configureContainer(COORDINATOR, container -> {
+        builder.configureCoordinator(container -> {
             container
                     .withFileSystemBind(keytabsHostDirectory, "/etc/trino/conf", READ_WRITE)
                     .withCopyFileToContainer(forHostPath(configDir.getPath("presto-krb5.conf")), "/etc/krb5.conf");
         });
-        builder.addConnector("hive", forHostPath(configDir.getPath("hive1.properties")), CONTAINER_PRESTO_ETC + "/catalog/hive1.properties");
-        builder.addConnector("hive", forHostPath(configDir.getPath("hive2.properties")), CONTAINER_PRESTO_ETC + "/catalog/hive2.properties");
-        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg1.properties")), CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties");
-        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg2.properties")), CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive1.properties")), CONTAINER_TRINO_ETC + "/catalog/hive1.properties");
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive2.properties")), CONTAINER_TRINO_ETC + "/catalog/hive2.properties");
+        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg1.properties")), CONTAINER_TRINO_ETC + "/catalog/iceberg1.properties");
+        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg2.properties")), CONTAINER_TRINO_ETC + "/catalog/iceberg2.properties");
 
         builder.configureContainer(HADOOP, container -> {
             container.setDockerImageName(hadoopBaseImage + "-kerberized:" + hadoopImagesVersion);

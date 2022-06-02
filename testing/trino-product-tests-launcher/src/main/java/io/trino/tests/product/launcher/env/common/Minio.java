@@ -59,12 +59,10 @@ public class Minio
     {
         builder.addContainer(createMinioContainer());
 
-        builder.configureContainers(container -> {
-            if (container.getLogicalName().equals(HADOOP)) {
-                container.withCopyFileToContainer(
-                        forHostPath(dockerFiles.getDockerFilesHostPath("common/minio/apply-minio-config.sh")),
-                        CONTAINER_HADOOP_INIT_D + "apply-minio-config.sh");
-            }
+        builder.configureContainer(HADOOP, container -> {
+            container.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath("common/minio/apply-minio-config.sh")),
+                    CONTAINER_HADOOP_INIT_D + "apply-minio-config.sh");
         });
     }
 

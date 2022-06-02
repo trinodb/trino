@@ -19,7 +19,7 @@ import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
@@ -34,9 +34,9 @@ public final class EnvSinglenodeKerberosHdfsNoImpersonation
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvSinglenodeKerberosHdfsNoImpersonation(DockerFiles dockerFiles, Standard standard, HadoopKerberos hadoopKerberos)
+    public EnvSinglenodeKerberosHdfsNoImpersonation(DockerFiles dockerFiles, MultinodeProvider multinodeProvider, HadoopKerberos hadoopKerberos)
     {
-        super(ImmutableList.of(standard, hadoopKerberos));
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoopKerberos));
         configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-hdfs-no-impersonation");
     }
 

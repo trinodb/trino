@@ -79,7 +79,7 @@ public abstract class EnvironmentProvider
                 extraOptionsForExtender = Map.of();
             }
 
-            log.info("Building environment %s with extender: %s; options: %s", builder.getEnvironmentName(), extender.getClass().getSimpleName(), extraOptionsForExtender);
+            log.info("Building environment %s with extender: %s; options: %s", builder.getEnvironmentName(), extender.getName(), extraOptionsForExtender);
             extender.extendEnvironment(builder, extraOptionsForExtender);
         }
     }

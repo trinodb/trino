@@ -19,7 +19,7 @@ import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
-import io.trino.tests.product.launcher.env.common.StandardMultinode;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
@@ -31,10 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static java.nio.file.attribute.PosixFilePermissions.fromString;
 import static java.util.Objects.requireNonNull;
@@ -50,9 +47,9 @@ public class EnvMultinodeAzure
     private final String hadoopImagesVersion;
 
     @Inject
-    public EnvMultinodeAzure(DockerFiles dockerFiles, StandardMultinode standardMultinode, Hadoop hadoop, EnvironmentConfig environmentConfig)
+    public EnvMultinodeAzure(DockerFiles dockerFiles, MultinodeProvider multinodeProvider, Hadoop hadoop, EnvironmentConfig environmentConfig)
     {
-        super(ImmutableList.of(standardMultinode, hadoop));
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-azure");
         requireNonNull(environmentConfig, "environmentConfig is null");
@@ -75,15 +72,15 @@ public class EnvMultinodeAzure
                     CONTAINER_HADOOP_INIT_D + "apply-azure-config.sh");
         });
 
-        builder.configureContainer(COORDINATOR, container -> container
+        builder.configureCoordinator(container -> container
                 .withEnv("ABFS_ACCOUNT", requireEnv("ABFS_ACCOUNT"))
                 .withEnv("ABFS_ACCESS_KEY", requireEnv("ABFS_ACCESS_KEY")));
 
-        builder.configureContainer(WORKER, container -> container
+        builder.configureWorkers(container -> container
                 .withEnv("ABFS_ACCOUNT", requireEnv("ABFS_ACCOUNT"))
                 .withEnv("ABFS_ACCESS_KEY", requireEnv("ABFS_ACCESS_KEY")));
 
-        builder.configureContainer(TESTS, container -> container
+        builder.configureTests(container -> container
                 .withEnv("ABFS_CONTAINER", requireEnv("ABFS_CONTAINER"))
                 .withEnv("ABFS_ACCOUNT", requireEnv("ABFS_ACCOUNT")));
 

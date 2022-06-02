@@ -20,14 +20,14 @@ import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import javax.inject.Inject;
 
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_CONFIG_PROPERTIES;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -40,9 +40,9 @@ public class EnvSinglenodeOidcRefresh
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvSinglenodeOidcRefresh(DockerFiles dockerFiles, PortBinder binder, Standard standard, HydraIdentityProvider hydraIdentityProvider)
+    public EnvSinglenodeOidcRefresh(DockerFiles dockerFiles, PortBinder binder, MultinodeProvider multinodeProvider, HydraIdentityProvider hydraIdentityProvider)
     {
-        super(ImmutableList.of(standard, hydraIdentityProvider));
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hydraIdentityProvider));
         this.binder = requireNonNull(binder, "binder is null");
         this.hydraIdentityProvider = requireNonNull(hydraIdentityProvider, "hydraIdentityProvider is null");
         requireNonNull(dockerFiles, "dockerFiles is null");
@@ -52,11 +52,11 @@ public class EnvSinglenodeOidcRefresh
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(COORDINATOR, dockerContainer -> {
+        builder.configureCoordinator(dockerContainer -> {
             dockerContainer
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("config.properties")),
-                            CONTAINER_PRESTO_CONFIG_PROPERTIES);
+                            CONTAINER_TRINO_CONFIG_PROPERTIES);
 
             binder.exposePort(dockerContainer, 7778);
         });

@@ -17,15 +17,14 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.common.StandardMultinode;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_ETC;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -35,9 +34,9 @@ public final class EnvMultinodeAllConnectors
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvMultinodeAllConnectors(StandardMultinode standardMultinode, DockerFiles dockerFiles)
+    public EnvMultinodeAllConnectors(MultinodeProvider multinodeProvider, DockerFiles dockerFiles)
     {
-        super(standardMultinode);
+        super(multinodeProvider.singleWorker());
         this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-all/");
     }
 
@@ -81,15 +80,13 @@ public final class EnvMultinodeAllConnectors
                 .forEach(connector -> builder.addConnector(
                         connector,
                         forHostPath(configDir.getPath(connector + ".properties"))));
-        builder.configureContainers(container -> {
-            if (isPrestoContainer(container.getLogicalName())) {
-                container.withCopyFileToContainer(
-                        forHostPath(configDir.getPath("google-sheets-auth.json")),
-                        CONTAINER_PRESTO_ETC + "/catalog/google-sheets-auth.json");
-                container.withCopyFileToContainer(
-                        forHostPath(configDir.getPath("prometheus-bearer.txt")),
-                        CONTAINER_PRESTO_ETC + "/catalog/prometheus-bearer.txt");
-            }
+        builder.configureTrinoContainers(container -> {
+            container.withCopyFileToContainer(
+                    forHostPath(configDir.getPath("google-sheets-auth.json")),
+                    CONTAINER_TRINO_ETC + "/catalog/google-sheets-auth.json");
+            container.withCopyFileToContainer(
+                    forHostPath(configDir.getPath("prometheus-bearer.txt")),
+                    CONTAINER_TRINO_ETC + "/catalog/prometheus-bearer.txt");
         });
     }
 }

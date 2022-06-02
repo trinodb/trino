@@ -19,16 +19,15 @@ import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.common.Hadoop;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import javax.inject.Inject;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_CONFIG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_ETC;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -36,9 +35,9 @@ public class EnvSinglenodeLdapAndFile
         extends AbstractEnvSinglenodeLdap
 {
     @Inject
-    public EnvSinglenodeLdapAndFile(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentConfig config)
+    public EnvSinglenodeLdapAndFile(MultinodeProvider multinodeProvider, Hadoop hadoop, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentConfig config)
     {
-        super(ImmutableList.of(standard, hadoop), dockerFiles, portBinder, config);
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoop), dockerFiles, portBinder, config);
     }
 
     @Override
@@ -49,15 +48,15 @@ public class EnvSinglenodeLdapAndFile
         builder.addPasswordAuthenticator(
                 "file",
                 forHostPath(configDir.getPath("file-authenticator.properties")),
-                CONTAINER_PRESTO_ETC + "/file-authenticator.properties");
-        builder.configureContainer(COORDINATOR, dockerContainer -> {
+                CONTAINER_TRINO_ETC + "/file-authenticator.properties");
+        builder.configureCoordinator(dockerContainer -> {
             dockerContainer
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("config.properties")),
-                            CONTAINER_PRESTO_CONFIG_PROPERTIES)
+                            CONTAINER_TRINO_CONFIG_PROPERTIES)
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("password.db")),
-                            CONTAINER_PRESTO_ETC + "/password.db");
+                            CONTAINER_TRINO_ETC + "/password.db");
         });
 
         configureTempto(builder, configDir);

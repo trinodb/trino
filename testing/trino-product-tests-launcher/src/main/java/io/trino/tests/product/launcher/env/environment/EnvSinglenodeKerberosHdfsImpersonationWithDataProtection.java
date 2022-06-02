@@ -19,14 +19,13 @@ import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_ETC;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -37,9 +36,9 @@ public final class EnvSinglenodeKerberosHdfsImpersonationWithDataProtection
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvSinglenodeKerberosHdfsImpersonationWithDataProtection(DockerFiles dockerFiles, Standard standard, HadoopKerberos hadoopKerberos)
+    public EnvSinglenodeKerberosHdfsImpersonationWithDataProtection(DockerFiles dockerFiles, MultinodeProvider multinodeProvider, HadoopKerberos hadoopKerberos)
     {
-        super(ImmutableList.of(standard, hadoopKerberos));
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoopKerberos));
         configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-hdfs-impersonation-with-data-protection");
     }
 
@@ -53,9 +52,9 @@ public final class EnvSinglenodeKerberosHdfsImpersonationWithDataProtection
                     .withCopyFileToContainer(forHostPath(configDir.getPath("hdfs-site.xml")), "/etc/hadoop/conf/hdfs-site.xml");
         });
 
-        builder.configureContainer(COORDINATOR, container -> {
+        builder.configureCoordinator(container -> {
             container
-                    .withCopyFileToContainer(forHostPath(configDir.getPath("hive-data-protection-site.xml")), CONTAINER_PRESTO_ETC + "/hive-data-protection-site.xml");
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("hive-data-protection-site.xml")), CONTAINER_TRINO_ETC + "/hive-data-protection-site.xml");
         });
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
     }

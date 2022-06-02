@@ -19,7 +19,7 @@ import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
@@ -31,7 +31,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -51,9 +50,9 @@ public class EnvSinglenodeCompatibility
     private final PortBinder portBinder;
 
     @Inject
-    public EnvSinglenodeCompatibility(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, PortBinder portBinder)
+    public EnvSinglenodeCompatibility(MultinodeProvider multinodeProvider, Hadoop hadoop, DockerFiles dockerFiles, PortBinder portBinder)
     {
-        super(ImmutableList.of(standard, hadoop));
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoop));
         this.dockerFiles = dockerFiles;
         this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-compatibility");
         this.portBinder = portBinder;
@@ -114,7 +113,7 @@ public class EnvSinglenodeCompatibility
     {
         int version = getVersionFromDockerImageName(config.getCompatibilityTestDockerImage());
         String temptoConfig = version <= 350 ? "presto-tempto-configuration.yaml" : "trino-tempto-configuration.yaml";
-        builder.configureContainer(TESTS, container -> container
+        builder.configureTests(container -> container
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath(temptoConfig)),
                         "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml"));

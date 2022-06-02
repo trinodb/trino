@@ -18,7 +18,7 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
@@ -33,9 +33,9 @@ public final class EnvSinglenodeHdfsImpersonation
     private final DockerFiles dockerFiles;
 
     @Inject
-    public EnvSinglenodeHdfsImpersonation(DockerFiles dockerFiles, Standard standard, Hadoop hadoop)
+    public EnvSinglenodeHdfsImpersonation(DockerFiles dockerFiles, MultinodeProvider multinodeProvider, Hadoop hadoop)
     {
-        super(ImmutableList.of(standard, hadoop));
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
     }
 

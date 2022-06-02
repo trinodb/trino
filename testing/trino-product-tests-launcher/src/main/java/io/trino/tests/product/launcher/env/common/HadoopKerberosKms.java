@@ -22,9 +22,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -59,9 +57,9 @@ public class HadoopKerberosKms
                     .withCopyFileToContainer(forHostPath(configDir.getPath("kms-core-site.xml")), "/etc/hadoop-kms/conf/core-site.xml");
         });
 
-        builder.configureContainer(COORDINATOR, container -> container.setDockerImageName(dockerImageName));
+        builder.configureCoordinator(container -> container.setDockerImageName(dockerImageName));
 
-        builder.configureContainer(TESTS, container -> {
+        builder.configureTests(container -> {
             container.setDockerImageName(dockerImageName);
         });
         configureTempto(builder, configDir);

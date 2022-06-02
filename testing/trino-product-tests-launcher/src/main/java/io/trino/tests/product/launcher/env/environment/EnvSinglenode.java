@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
@@ -27,9 +27,9 @@ public final class EnvSinglenode
         extends EnvironmentProvider
 {
     @Inject
-    public EnvSinglenode(Standard standard, Hadoop hadoop)
+    public EnvSinglenode(MultinodeProvider multinodeProvider, Hadoop hadoop)
     {
-        super(ImmutableList.of(standard, hadoop));
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoop));
     }
 
     @Override

@@ -15,20 +15,19 @@ package io.trino.tests.product.launcher.env.environment;
 
 import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import static java.util.Objects.requireNonNull;
 
 @TestsEnvironment
 public class EnvSinglenodeDeltaLakeDatabricks73
-        extends AbstractSinglenodeDeltaLakeDatabricks
-
+        extends AbstractMultinodeDeltaLakeDatabricks
 {
     @Inject
-    public EnvSinglenodeDeltaLakeDatabricks73(Standard standard, DockerFiles dockerFiles)
+    public EnvSinglenodeDeltaLakeDatabricks73(MultinodeProvider multinodeProvider, DockerFiles dockerFiles)
     {
-        super(standard, dockerFiles);
+        super(multinodeProvider, dockerFiles);
     }
 
     @Override

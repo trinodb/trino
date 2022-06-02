@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.common.Hadoop;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
@@ -28,9 +28,9 @@ public class EnvSinglenodeLdapBindDn
         extends AbstractEnvSinglenodeLdap
 {
     @Inject
-    public EnvSinglenodeLdapBindDn(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentConfig environmentConfig)
+    public EnvSinglenodeLdapBindDn(MultinodeProvider multinodeProvider, Hadoop hadoop, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentConfig environmentConfig)
     {
-        super(ImmutableList.of(standard, hadoop), dockerFiles, portBinder, environmentConfig);
+        super(ImmutableList.of(multinodeProvider.singleWorker(), hadoop), dockerFiles, portBinder, environmentConfig);
     }
 
     @Override

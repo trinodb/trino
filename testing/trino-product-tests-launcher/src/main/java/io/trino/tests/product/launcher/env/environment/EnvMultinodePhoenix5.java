@@ -17,14 +17,13 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
+import io.trino.tests.product.launcher.env.common.MultinodeProvider;
 import io.trino.tests.product.launcher.env.common.Phoenix;
-import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -35,20 +34,17 @@ public final class EnvMultinodePhoenix5
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvMultinodePhoenix5(StandardMultinode standardMultinode, Phoenix phoenix, DockerFiles dockerFiles)
+    public EnvMultinodePhoenix5(MultinodeProvider multinodeProvider, Phoenix phoenix, DockerFiles dockerFiles)
     {
-        super(standardMultinode, phoenix);
+        super(multinodeProvider.singleWorker(), phoenix);
         this.configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/multinode-phoenix5/");
     }
 
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainers(container -> {
-            if (isPrestoContainer(container.getLogicalName())) {
-                container.withCopyFileToContainer(forHostPath(configDir.getPath("phoenix.properties")), CONTAINER_PRESTO_ETC + "/catalog/phoenix.properties");
-            }
-        });
+        builder.configureTrinoContainers(container ->
+                container.withCopyFileToContainer(forHostPath(configDir.getPath("phoenix.properties")), CONTAINER_TRINO_ETC + "/catalog/phoenix.properties"));
         builder.addConnector("phoenix5");
     }
 }

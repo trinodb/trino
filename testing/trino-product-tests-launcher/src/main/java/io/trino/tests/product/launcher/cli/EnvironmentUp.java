@@ -23,6 +23,7 @@ import io.trino.tests.product.launcher.docker.ContainerUtil;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.env.EnvironmentContainers;
 import io.trino.tests.product.launcher.env.EnvironmentFactory;
 import io.trino.tests.product.launcher.env.EnvironmentModule;
 import io.trino.tests.product.launcher.env.EnvironmentOptions;
@@ -40,7 +41,6 @@ import java.util.concurrent.Callable;
 
 import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Mixin;
@@ -140,7 +140,7 @@ public final class EnvironmentUp
                     .removeContainer(TESTS);
 
             if (withoutPrestoMaster) {
-                builder.removeContainers(container -> isPrestoContainer(container.getLogicalName()));
+                builder.removeContainers(EnvironmentContainers::isTrinoContainer);
             }
 
             log.info("Creating environment '%s' with configuration %s and options %s", environment, environmentConfig, extraOptions);

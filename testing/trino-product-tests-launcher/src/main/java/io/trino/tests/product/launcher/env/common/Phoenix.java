@@ -26,9 +26,8 @@ import javax.inject.Inject;
 import java.time.Duration;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_ETC;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -60,11 +59,8 @@ public class Phoenix
 
         builder.addContainer(phoenix);
 
-        builder.configureContainers(container -> {
-            if (isPrestoContainer(container.getLogicalName())) {
-                container.withCopyFileToContainer(forHostPath(configDir.getPath("hbase-site.xml")), CONTAINER_PRESTO_ETC + "/hbase-site.xml");
-            }
-        });
+        builder.configureTrinoContainers(container ->
+                container.withCopyFileToContainer(forHostPath(configDir.getPath("hbase-site.xml")), CONTAINER_TRINO_ETC + "/hbase-site.xml"));
 
         configureTempto(builder, configDir);
     }

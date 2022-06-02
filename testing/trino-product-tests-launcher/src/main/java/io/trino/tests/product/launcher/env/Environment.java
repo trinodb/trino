@@ -67,11 +67,10 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.tests.product.launcher.env.DockerContainer.ensurePathExists;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CONTAINER_TRINO_ETC;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
 import static io.trino.tests.product.launcher.env.Environments.pruneEnvironment;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.lang.String.format;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
@@ -431,18 +430,14 @@ public final class Environment
         {
             requireNonNull(connectorName, "connectorName is null");
             requireNonNull(configFile, "configFile is null");
-            return addConnector(connectorName, configFile, CONTAINER_PRESTO_ETC + "/catalog/" + connectorName + ".properties");
+            return addConnector(connectorName, configFile, CONTAINER_TRINO_ETC + "/catalog/" + connectorName + ".properties");
         }
 
         public Builder addConnector(String connectorName, MountableFile configFile, String containerPath)
         {
             requireNonNull(configFile, "configFile is null");
             requireNonNull(containerPath, "containerPath is null");
-            configureContainers(container -> {
-                if (isPrestoContainer(container.getLogicalName())) {
-                    container.withCopyFileToContainer(configFile, containerPath);
-                }
-            });
+            configureTrinoContainers(container -> container.withCopyFileToContainer(configFile, containerPath));
             return addConnector(connectorName);
         }
 
@@ -458,14 +453,14 @@ public final class Environment
         {
             requireNonNull(name, "name is null");
             requireNonNull(configFile, "configFile is null");
-            return addPasswordAuthenticator(name, configFile, CONTAINER_PRESTO_ETC + "/password-authenticator.properties");
+            return addPasswordAuthenticator(name, configFile, CONTAINER_TRINO_ETC + "/password-authenticator.properties");
         }
 
         public Builder addPasswordAuthenticator(String name, MountableFile configFile, String containerPath)
         {
             requireNonNull(configFile, "catalogConfig is null");
             requireNonNull(containerPath, "containerPath is null");
-            configureContainer(COORDINATOR, container -> container.withCopyFileToContainer(configFile, containerPath));
+            configureCoordinator(container -> container.withCopyFileToContainer(configFile, containerPath));
             return addPasswordAuthenticator(name);
         }
 
@@ -503,10 +498,36 @@ public final class Environment
             return this;
         }
 
-        public Builder configureContainers(Consumer<DockerContainer> configurer)
+        public Builder configureCoordinator(Consumer<DockerContainer> configurer)
+        {
+            checkState(containers.containsKey(COORDINATOR), "Container with name %s is not registered", COORDINATOR);
+            requireNonNull(configurer, "configurer is null").accept(containers.get(COORDINATOR));
+            return this;
+        }
+
+        public Builder configureTests(Consumer<DockerContainer> configurer)
+        {
+            checkState(containers.containsKey(TESTS), "Container with name %s is not registered", TESTS);
+            requireNonNull(configurer, "configurer is null").accept(containers.get(TESTS));
+            return this;
+        }
+
+        public Builder configureWorkers(Consumer<DockerContainer> configurer)
         {
             requireNonNull(configurer, "configurer is null");
-            containers.values().forEach(configurer);
+            return configureContainers(EnvironmentContainers::isWorker, configurer);
+        }
+
+        public Builder configureTrinoContainers(Consumer<DockerContainer> configurer)
+        {
+            requireNonNull(configurer, "configurer is null");
+            return configureContainers(EnvironmentContainers::isTrinoContainer, configurer);
+        }
+
+        public Builder configureContainers(Predicate<DockerContainer> containerPredicate, Consumer<DockerContainer> configurer)
+        {
+            requireNonNull(configurer, "configurer is null");
+            containers.values().stream().filter(containerPredicate).forEach(configurer);
             return this;
         }
 
@@ -564,11 +585,11 @@ public final class Environment
             switch (outputMode) {
                 case DISCARD:
                     log.warn("Containers logs are not printed to stdout");
-                    setContainerOutputConsumer(Environment.Builder::discardContainerLogs);
+                    setContainerOutputConsumer(Builder::discardContainerLogs);
                     break;
 
                 case PRINT:
-                    setContainerOutputConsumer(Environment.Builder::printContainerLogs);
+                    setContainerOutputConsumer(Builder::printContainerLogs);
                     break;
 
                 case PRINT_WRITE:
@@ -685,7 +706,7 @@ public final class Environment
 
         private void setContainerOutputConsumer(Function<DockerContainer, Consumer<OutputFrame>> consumer)
         {
-            configureContainers(container -> container.withLogConsumer(consumer.apply(container)));
+            configureContainers(dockerContainer -> true, container -> container.withLogConsumer(consumer.apply(container)));
         }
 
         public Builder setLogsBaseDir(Optional<Path> baseDir)
