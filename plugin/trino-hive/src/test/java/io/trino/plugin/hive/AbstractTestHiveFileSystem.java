@@ -231,6 +231,7 @@ public abstract class AbstractTestHiveFileSystem
                 new CounterStat(),
                 config.getMaxOutstandingSplits(),
                 config.getMaxOutstandingSplitsSize(),
+                config.getMinimumAssignedSplitWeight(),
                 config.getMinPartitionBatchSize(),
                 config.getMaxPartitionBatchSize(),
                 config.getMaxInitialSplits(),

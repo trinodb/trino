@@ -889,6 +889,7 @@ public abstract class AbstractTestHive
                 new CounterStat(),
                 100,
                 hiveConfig.getMaxOutstandingSplitsSize(),
+                hiveConfig.getMinimumAssignedSplitWeight(),
                 hiveConfig.getMinPartitionBatchSize(),
                 hiveConfig.getMaxPartitionBatchSize(),
                 hiveConfig.getMaxInitialSplits(),

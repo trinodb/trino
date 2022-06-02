@@ -1188,6 +1188,7 @@ public class TestBackgroundHiveSplitLoader
                 1,
                 1,
                 DataSize.of(32, MEGABYTE),
+                new HiveConfig().getMinimumAssignedSplitWeight(),
                 Integer.MAX_VALUE,
                 hiveSplitLoader,
                 executor,

@@ -73,7 +73,6 @@ public final class IcebergSessionProperties
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
-    private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "expire_snapshots_min_retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "remove_orphan_files_min_retention";
 
@@ -230,11 +229,6 @@ public final class IcebergSessionProperties
                         // Session-level redirections configuration does not work well with views, as view body is analyzed in context
                         // of a session with properties stripped off. Thus, this property is more of a test-only, or at most POC usefulness.
                         true))
-                .add(doubleProperty(
-                        MINIMUM_ASSIGNED_SPLIT_WEIGHT,
-                        "Minimum assigned split weight",
-                        icebergConfig.getMinimumAssignedSplitWeight(),
-                        false))
                 .add(durationProperty(
                         EXPIRE_SNAPSHOTS_MIN_RETENTION,
                         "Minimal retention period for expire_snapshot procedure",
@@ -399,10 +393,5 @@ public final class IcebergSessionProperties
     public static Duration getRemoveOrphanFilesMinRetention(ConnectorSession session)
     {
         return session.getProperty(REMOVE_ORPHAN_FILES_MIN_RETENTION, Duration.class);
-    }
-
-    public static double getMinimumAssignedSplitWeight(ConnectorSession session)
-    {
-        return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
     }
 }

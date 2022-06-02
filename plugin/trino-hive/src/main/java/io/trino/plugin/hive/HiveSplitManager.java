@@ -100,6 +100,7 @@ public class HiveSplitManager
     private final Executor executor;
     private final int maxOutstandingSplits;
     private final DataSize maxOutstandingSplitsSize;
+    private final double minimumAssignedSplitWeight;
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
     private final int maxInitialSplits;
@@ -129,6 +130,7 @@ public class HiveSplitManager
                 new CounterStat(),
                 hiveConfig.getMaxOutstandingSplits(),
                 hiveConfig.getMaxOutstandingSplitsSize(),
+                hiveConfig.getMinimumAssignedSplitWeight(),
                 hiveConfig.getMinPartitionBatchSize(),
                 hiveConfig.getMaxPartitionBatchSize(),
                 hiveConfig.getMaxInitialSplits(),
@@ -147,6 +149,7 @@ public class HiveSplitManager
             CounterStat highMemorySplitSourceCounter,
             int maxOutstandingSplits,
             DataSize maxOutstandingSplitsSize,
+            double minimumAssignedSplitWeight,
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
             int maxInitialSplits,
@@ -164,6 +167,7 @@ public class HiveSplitManager
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
         this.maxOutstandingSplits = maxOutstandingSplits;
         this.maxOutstandingSplitsSize = maxOutstandingSplitsSize;
+        this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
         this.minPartitionBatchSize = minPartitionBatchSize;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxInitialSplits = maxInitialSplits;
@@ -263,6 +267,7 @@ public class HiveSplitManager
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
+                        minimumAssignedSplitWeight,
                         maxSplitsPerSecond,
                         hiveSplitLoader,
                         executor,
@@ -277,6 +282,7 @@ public class HiveSplitManager
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
+                        minimumAssignedSplitWeight,
                         maxSplitsPerSecond,
                         hiveSplitLoader,
                         executor,

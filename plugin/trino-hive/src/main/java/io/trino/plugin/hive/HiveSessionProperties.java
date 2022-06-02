@@ -42,7 +42,6 @@ import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
-import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -115,7 +114,6 @@ public final class HiveSessionProperties
     private static final String ICEBERG_CATALOG_NAME = "iceberg_catalog_name";
     public static final String DELTA_LAKE_CATALOG_NAME = "delta_lake_catalog_name";
     public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
-    public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     public static final String NON_TRANSACTIONAL_OPTIMIZE_ENABLED = "non_transactional_optimize_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -478,16 +476,6 @@ public final class HiveSessionProperties
                         "Enable estimating split weights based on size in bytes",
                         hiveConfig.isSizeBasedSplitWeightsEnabled(),
                         false),
-                doubleProperty(
-                        MINIMUM_ASSIGNED_SPLIT_WEIGHT,
-                        "Minimum assigned split weight when size based split weighting is enabled",
-                        hiveConfig.getMinimumAssignedSplitWeight(),
-                        value -> {
-                            if (!Double.isFinite(value) || value <= 0 || value > 1) {
-                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be > 0 and <= 1.0: %s", MINIMUM_ASSIGNED_SPLIT_WEIGHT, value));
-                            }
-                        },
-                        false),
                 booleanProperty(
                         NON_TRANSACTIONAL_OPTIMIZE_ENABLED,
                         "Enable OPTIMIZE table procedure",
@@ -815,11 +803,6 @@ public final class HiveSessionProperties
     public static boolean isSizeBasedSplitWeightsEnabled(ConnectorSession session)
     {
         return session.getProperty(SIZE_BASED_SPLIT_WEIGHTS_ENABLED, Boolean.class);
-    }
-
-    public static double getMinimumAssignedSplitWeight(ConnectorSession session)
-    {
-        return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
     }
 
     public static boolean isNonTransactionalOptimizeEnabled(ConnectorSession session)

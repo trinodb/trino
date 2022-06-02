@@ -58,7 +58,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getMaxSplitSize;
-import static io.trino.plugin.hive.HiveSessionProperties.getMinimumAssignedSplitWeight;
 import static io.trino.plugin.hive.HiveSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static io.trino.plugin.hive.HiveSplitSource.StateKind.CLOSED;
 import static io.trino.plugin.hive.HiveSplitSource.StateKind.FAILED;
@@ -104,6 +103,7 @@ class HiveSplitSource
             PerBucket queues,
             int maxInitialSplits,
             DataSize maxOutstandingSplitsSize,
+            double minimumAssignedSplitWeight,
             HiveSplitLoader splitLoader,
             AtomicReference<State> stateReference,
             CounterStat highMemorySplitSourceCounter,
@@ -123,7 +123,7 @@ class HiveSplitSource
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
         this.numberOfProcessedSplits = new AtomicLong(0);
-        this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
+        this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(minimumAssignedSplitWeight, maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
         this.recordScannedFiles = recordScannedFiles;
     }
 
@@ -134,6 +134,7 @@ class HiveSplitSource
             int maxInitialSplits,
             int maxOutstandingSplits,
             DataSize maxOutstandingSplitsSize,
+            double minimumAssignedSplitWeight,
             int maxSplitsPerSecond,
             HiveSplitLoader splitLoader,
             Executor executor,
@@ -178,6 +179,7 @@ class HiveSplitSource
                 },
                 maxInitialSplits,
                 maxOutstandingSplitsSize,
+                minimumAssignedSplitWeight,
                 splitLoader,
                 stateReference,
                 highMemorySplitSourceCounter,
@@ -191,6 +193,7 @@ class HiveSplitSource
             int estimatedOutstandingSplitsPerBucket,
             int maxInitialSplits,
             DataSize maxOutstandingSplitsSize,
+            double minimumAssignedSplitWeight,
             int maxSplitsPerSecond,
             HiveSplitLoader splitLoader,
             Executor executor,
@@ -255,6 +258,7 @@ class HiveSplitSource
                 },
                 maxInitialSplits,
                 maxOutstandingSplitsSize,
+                minimumAssignedSplitWeight,
                 splitLoader,
                 stateReference,
                 highMemorySplitSourceCounter,
