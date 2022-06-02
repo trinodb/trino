@@ -693,7 +693,9 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
-      - uses: dorny/paths-filter@v2
+      - name: Check for changes which require a full PT check
+        uses: dorny/paths-filter@v2
+        if: github.event_name == 'pull_request'
         id: filter
         with:
           filters: |
@@ -712,7 +714,7 @@ jobs:
         run: |
           find . -type f -name \*-executable.jar -exec chmod 0777 {} \;
       - name: Enable impact analysis
-        if: steps.filter.outputs.product-tests == 'false' && !contains(github.event.pull_request.labels.*.name, 'tests:all') && !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        if: github.event_name == 'pull_request' && steps.filter.outputs.product-tests == 'false' && !contains(github.event.pull_request.labels.*.name, 'tests:all') && !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
         run: echo "PTL_OPTS=--impacted-features impacted-features.log" >> $GITHUB_ENV
       - name: Product Tests
         env:
