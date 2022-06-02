@@ -73,14 +73,16 @@ public class DecimalValueWriter
 
     private byte[] paddingBigInteger(BigInteger bigInteger)
     {
-        byte[] result = new byte[getTypeLength()];
-        if (bigInteger.signum() < 0) {
-            Arrays.fill(result, (byte) 0xFF);
-        }
+        int numBytes = getTypeLength();
         byte[] bytes = bigInteger.toByteArray();
-        for (int i = bytes.length - 1, j = result.length - 1; i >= 0; --i, --j) {
-            result[j] = bytes[i];
+        if (bytes.length == numBytes) {
+            return bytes;
         }
+        byte[] result = new byte[numBytes];
+        if (bigInteger.signum() < 0) {
+            Arrays.fill(result, 0, numBytes - bytes.length, (byte) 0xFF);
+        }
+        System.arraycopy(bytes, 0, result, numBytes - bytes.length, bytes.length);
         return result;
     }
 }
