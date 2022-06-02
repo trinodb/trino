@@ -346,7 +346,8 @@ public class PinotMetadata
         // can be pushed down: there are currently no subqueries in pinot.
         // If there is an offset then do not push the aggregation down as the results will not be correct
         if (tableHandle.getQuery().isPresent() &&
-                (!tableHandle.getQuery().get().getAggregateColumns().isEmpty() ||
+                (!isAggregationPushdownSupported(session, tableHandle.getQuery(), aggregates, assignments) ||
+                        !tableHandle.getQuery().get().getAggregateColumns().isEmpty() ||
                         tableHandle.getQuery().get().isAggregateInProjections() ||
                         tableHandle.getQuery().get().getOffset().isPresent())) {
             return Optional.empty();
@@ -368,10 +369,12 @@ public class PinotMetadata
             projections.add(new Variable(pinotColumnHandle.getColumnName(), pinotColumnHandle.getDataType()));
             resultAssignments.add(new Assignment(pinotColumnHandle.getColumnName(), pinotColumnHandle, pinotColumnHandle.getDataType()));
         }
+
         List<PinotColumnHandle> groupingColumns = getOnlyElement(groupingSets).stream()
                 .map(PinotColumnHandle.class::cast)
                 .map(PinotMetadata::toNonAggregateColumnHandle)
                 .collect(toImmutableList());
+
         OptionalLong limitForDynamicTable = OptionalLong.empty();
         // Ensure that pinot default limit of 10 rows is not used
         // By setting the limit to maxRowsPerBrokerQuery + 1 the connector will
@@ -419,6 +422,25 @@ public class PinotMetadata
     public static PinotColumnHandle toNonAggregateColumnHandle(PinotColumnHandle columnHandle)
     {
         return new PinotColumnHandle(columnHandle.getColumnName(), columnHandle.getDataType(), quoteIdentifier(columnHandle.getColumnName()), false, false, true, Optional.empty(), Optional.empty());
+    }
+
+    private boolean isAggregationPushdownSupported(ConnectorSession session, Optional<DynamicTable> dynamicTable, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments)
+    {
+        if (dynamicTable.isEmpty()) {
+            return true;
+        }
+        List<PinotColumnHandle> groupingColumns = dynamicTable.get().getGroupingColumns();
+        if (groupingColumns.isEmpty()) {
+            return true;
+        }
+        // Either second pass of applyAggregation or dynamic table exists
+        if (aggregates.size() != 1) {
+            return false;
+        }
+        AggregateFunction aggregate = getOnlyElement(aggregates);
+        AggregateFunctionRule.RewriteContext<Void> context = new CountDistinctContext(assignments, session);
+
+        return implementCountDistinct.getPattern().matches(aggregate, context);
     }
 
     private Optional<AggregateExpression> applyCountDistinct(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments, PinotTableHandle tableHandle, Optional<AggregateExpression> rewriteResult)
