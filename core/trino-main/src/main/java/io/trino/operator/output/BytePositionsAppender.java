@@ -121,10 +121,13 @@ public class BytePositionsAppender
     @Override
     public Block build()
     {
-        if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+        Block result;
+        if (hasNonNullValue) {
+            result = new ByteArrayBlock(positionCount, hasNullValue ? Optional.of(valueIsNull) : Optional.empty(), values);
         }
-        ByteArrayBlock result = new ByteArrayBlock(positionCount, hasNullValue ? Optional.of(valueIsNull) : Optional.empty(), values);
+        else {
+            result = new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+        }
         reset();
         return result;
     }

@@ -176,6 +176,45 @@ public class TestPositionsAppender
         assertInstanceOf(actual, RunLengthEncodedBlock.class);
     }
 
+    @Test(dataProvider = "types")
+    public void testConsecutiveBuilds(Type type)
+    {
+        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+
+        // empty block
+        positionsAppender.append(positions(), emptyBlock(type));
+        assertEquals(positionsAppender.build().getPositionCount(), 0);
+
+        Block block = createRandomBlockForType(type, 2, 0.5f);
+        // append only null position
+        int nullPosition = block.isNull(0) ? 0 : 1;
+        positionsAppender.append(positions(nullPosition), block);
+        Block actualNullBlock = positionsAppender.build();
+        assertEquals(actualNullBlock.getPositionCount(), 1);
+        assertTrue(actualNullBlock.isNull(0));
+
+        // append null and not null position
+        positionsAppender.append(allPositions(2), block);
+        assertBlockEquals(type, positionsAppender.build(), block);
+
+        // append not null rle
+        Block rleBlock = rleBlock(type, 1);
+        positionsAppender.append(allPositions(1), rleBlock);
+        assertBlockEquals(type, positionsAppender.build(), rleBlock);
+
+        // append empty rle
+        positionsAppender.append(positions(), rleBlock(type, 0));
+        assertEquals(positionsAppender.build().getPositionCount(), 0);
+
+        // append null rle
+        Block nullRleBlock = nullRleBlock(type, 1);
+        positionsAppender.append(allPositions(1), nullRleBlock);
+        assertBlockEquals(type, positionsAppender.build(), nullRleBlock);
+
+        // just build to confirm appender was reset
+        assertEquals(positionsAppender.build().getPositionCount(), 0);
+    }
+
     @DataProvider(name = "nullRleTypes")
     public static Object[][] nullRleTypes()
     {
@@ -223,6 +262,11 @@ public class TestPositionsAppender
     private BlockView input(Block block, int... positions)
     {
         return new BlockView(block, new IntArrayList(positions));
+    }
+
+    private static IntArrayList positions(int... positions)
+    {
+        return new IntArrayList(positions);
     }
 
     private DictionaryBlock dictionaryBlock(Block dictionary, int positionCount)
