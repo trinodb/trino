@@ -214,6 +214,9 @@ public class StargateClient
         if (!enableWrites) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns");
         }
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
+        }
 
         String sql = format(
                 "ALTER TABLE %s ADD COLUMN %s",
