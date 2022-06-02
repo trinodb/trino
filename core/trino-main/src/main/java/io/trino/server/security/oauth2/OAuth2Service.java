@@ -17,6 +17,7 @@ import com.google.common.io.Resources;
 import io.airlift.log.Logger;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
+import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
 import io.trino.server.ui.OAuth2WebUiInstalled;
 import io.trino.server.ui.OAuthWebUiCookie;
 
@@ -61,6 +62,7 @@ public class OAuth2Service
     public static final String HANDLER_STATE_CLAIM = "handler_state";
 
     private final OAuth2Client client;
+    private final TokenPairSerializer tokenPairSerializer;
 
     private final String successHtml;
     private final String failureHtml;
@@ -78,6 +80,7 @@ public class OAuth2Service
             OAuth2Client client,
             OAuth2Config oauth2Config,
             OAuth2TokenHandler tokenHandler,
+            TokenPairSerializer tokenPairSerializer,
             Optional<OAuth2WebUiInstalled> webUiOAuthEnabled)
             throws IOException
     {
@@ -98,6 +101,7 @@ public class OAuth2Service
                 .build();
 
         this.tokenHandler = requireNonNull(tokenHandler, "tokenHandler is null");
+        this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
 
         this.webUiOAuthEnabled = requireNonNull(webUiOAuthEnabled, "webUiOAuthEnabled is null").isPresent();
     }
@@ -170,7 +174,7 @@ public class OAuth2Service
                         .build();
             }
 
-            tokenHandler.setAccessToken(handlerState.get(), oauth2Response.getAccessToken());
+            tokenHandler.setAccessToken(handlerState.get(), tokenPairSerializer.serialize(TokenPair.fromOAuth2Response(oauth2Response)));
 
             Response.ResponseBuilder builder = Response.ok(getSuccessHtml());
             if (webUiOAuthEnabled) {

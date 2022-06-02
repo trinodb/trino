@@ -72,7 +72,7 @@ public class JwtAuthenticator
     }
 
     @Override
-    protected AuthenticationException needAuthentication(ContainerRequestContext request, String message)
+    protected AuthenticationException needAuthentication(ContainerRequestContext request, Optional<String> currentToken, String message)
     {
         return new AuthenticationException(message, "Bearer realm=\"Trino\", token_type=\"JWT\"");
     }

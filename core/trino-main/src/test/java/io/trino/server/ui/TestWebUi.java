@@ -33,6 +33,7 @@ import io.trino.server.ProtocolConfig;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ResourceSecurity;
+import io.trino.server.security.oauth2.ChallengeFailedException;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
@@ -1126,13 +1127,20 @@ public class TestWebUi
             if (!"TEST_CODE".equals(code)) {
                 throw new IllegalArgumentException("Expected TEST_CODE");
             }
-            return new Response(accessToken, Instant.now().plusSeconds(5), idToken);
+            return new Response(accessToken, Instant.now().plusSeconds(5), idToken, Optional.empty());
         }
 
         @Override
         public Optional<Map<String, Object>> getClaims(String accessToken)
         {
             return Optional.of(claims);
+        }
+
+        @Override
+        public Response refreshTokens(String refreshToken)
+                throws ChallengeFailedException
+        {
+            throw new UnsupportedOperationException("Refresh tokens are not supported");
         }
 
         public String getAccessToken()
