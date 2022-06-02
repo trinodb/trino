@@ -31,6 +31,9 @@ public interface OAuth2Client
 
     Optional<Map<String, Object>> getClaims(String accessToken);
 
+    Response refreshTokens(String refreshToken)
+            throws ChallengeFailedException;
+
     class Request
     {
         private final URI authorizationUri;
@@ -59,11 +62,14 @@ public interface OAuth2Client
         private final Instant expiration;
         private final Optional<String> idToken;
 
-        public Response(String accessToken, Instant expiration, Optional<String> idToken)
+        private final Optional<String> refreshToken;
+
+        public Response(String accessToken, Instant expiration, Optional<String> idToken, Optional<String> refreshToken)
         {
             this.accessToken = requireNonNull(accessToken, "accessToken is null");
             this.expiration = requireNonNull(expiration, "expiration is null");
             this.idToken = requireNonNull(idToken, "idToken is null");
+            this.refreshToken = requireNonNull(refreshToken, "refreshToken is null");
         }
 
         public String getAccessToken()
@@ -79,6 +85,11 @@ public interface OAuth2Client
         public Optional<String> getIdToken()
         {
             return idToken;
+        }
+
+        public Optional<String> getRefreshToken()
+        {
+            return refreshToken;
         }
     }
 }
