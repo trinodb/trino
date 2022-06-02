@@ -241,6 +241,12 @@ public class TestingMetadata
     }
 
     @Override
+    public Map<String, Object> getMaterializedViewStorageTableProperties(ConnectorSession session, Map<String, Object> materializedViewProperties)
+    {
+        return ImmutableMap.of();
+    }
+
+    @Override
     public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         // TODO: use locking to do this properly

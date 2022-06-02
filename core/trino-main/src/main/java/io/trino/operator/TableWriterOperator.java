@@ -101,9 +101,10 @@ public class TableWriterOperator
             checkArgument(
                     writerTarget instanceof CreateTarget
                             || writerTarget instanceof InsertTarget
+                            || writerTarget instanceof TableWriterNode.CreateMaterializedViewTarget
                             || writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget
                             || writerTarget instanceof TableWriterNode.TableExecuteTarget,
-                    "writerTarget must be CreateTarget, InsertTarget, RefreshMaterializedViewTarget or TableExecuteTarget");
+                    "writerTarget must be CreateTarget, InsertTarget, CreateMaterializedViewTarget, RefreshMaterializedViewTarget or TableExecuteTarget");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
             this.session = session;
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
@@ -127,6 +128,9 @@ public class TableWriterOperator
             }
             if (target instanceof InsertTarget) {
                 return pageSinkManager.createPageSink(session, ((InsertTarget) target).getHandle());
+            }
+            if (target instanceof TableWriterNode.CreateMaterializedViewTarget) {
+                return pageSinkManager.createPageSink(session, ((TableWriterNode.CreateMaterializedViewTarget) target).getInsertHandle());
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewTarget) {
                 return pageSinkManager.createPageSink(session, ((TableWriterNode.RefreshMaterializedViewTarget) target).getInsertHandle());

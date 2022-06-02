@@ -344,6 +344,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 
 class StatementAnalyzer
 {
@@ -1274,6 +1275,8 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "'CREATE OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together");
             }
 
+            validateProperties(node.getProperties(), scope);
+
             // analyze the query that creates the view
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
@@ -1296,6 +1299,17 @@ class StatementAnalyzer
                     true);
             accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), viewName, properties);
 
+            QualifiedObjectName storageTableName = new QualifiedObjectName(
+                    viewName.getCatalogName(),
+                    viewName.getSchemaName(),
+                    viewName.getObjectName().toString() + "_" + randomUUID().toString().replace("-", ""));
+            List<ColumnMetadata> tableColumns = queryScope.getRelationType().getVisibleFields().stream()
+                    .map(field -> new ColumnMetadata(field.getName().orElseThrow(), field.getType()))
+                    .collect(toImmutableList());
+
+            Map<String, Object> storageTableProperties = metadata.getMaterializedViewStorageTableProperties(session, storageTableName.getCatalogName(), properties);
+            accessControl.checkCanCreateTable(session.toSecurityContext(), storageTableName, storageTableProperties);
+
             MaterializedViewDefinition definition = new MaterializedViewDefinition(
                     getFormattedSql(node.getQuery(), sqlParser),
                     session.getCatalog(),
@@ -1303,8 +1317,9 @@ class StatementAnalyzer
                     viewColumns,
                     node.getComment(),
                     session.getIdentity(),
-                    Optional.empty(),
+                    Optional.of(storageTableName.asCatalogSchemaTableName()),
                     properties);
+            ConnectorTableMetadata storageTableMetadata = new ConnectorTableMetadata(storageTableName.asSchemaTableName(), tableColumns, storageTableProperties);
             Analysis.CreateMaterializedViewAnalysis createMV = new Analysis.CreateMaterializedViewAnalysis(
                     viewName,
                     definition,
@@ -1312,7 +1327,9 @@ class StatementAnalyzer
                     node.isReplace(),
                     node.isNotExists(),
                     node.isWithData(),
-                    new ArrayList<>(analysis.getTables()));
+                    new ArrayList<>(analysis.getTables()),
+                    storageTableMetadata,
+                    metadata.getNewTableLayout(session, storageTableName.getCatalogName(), storageTableMetadata));
             analysis.setCreateMaterializedView(createMV);
 
             analysis.setUpdateType("CREATE MATERIALIZED VIEW");

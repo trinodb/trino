@@ -275,6 +275,22 @@ public class BeginTableWrite
                         update.getUpdatedColumns(),
                         update.getUpdatedColumnHandles());
             }
+            if (target instanceof TableWriterNode.CreateMaterializedViewReference) {
+                TableWriterNode.CreateMaterializedViewReference createMV = (TableWriterNode.CreateMaterializedViewReference) target;
+                return new TableWriterNode.CreateMaterializedViewTarget(
+                        createMV.getViewName(),
+                        metadata.beginCreateMaterializedView(
+                                session,
+                                createMV.getViewName(),
+                                createMV.getDefinition(),
+                                createMV.isReplace(),
+                                createMV.isIgnoreExisting(),
+                                createMV.getSourceTableHandles(),
+                                createMV.getStorageTableMetadata(),
+                                createMV.getStorageTableLayout()),
+                        createMV.getSourceTableHandles(),
+                        createMV.supportsReportingWrittenBytes(metadata, session));
+            }
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
                 TableWriterNode.RefreshMaterializedViewReference refreshMV = (TableWriterNode.RefreshMaterializedViewReference) target;
                 return new TableWriterNode.RefreshMaterializedViewTarget(

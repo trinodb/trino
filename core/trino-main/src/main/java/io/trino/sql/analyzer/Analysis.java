@@ -1319,6 +1319,8 @@ public class Analysis
         private final boolean ignoreExisting;
         private final boolean withData;
         private final List<TableHandle> sourceTableHandles;
+        private final ConnectorTableMetadata storageTableMetadata;
+        private final Optional<TableLayout> storageTableLayout;
 
         public CreateMaterializedViewAnalysis(
                 QualifiedObjectName viewName,
@@ -1327,7 +1329,9 @@ public class Analysis
                 boolean replace,
                 boolean ignoreExisting,
                 boolean withData,
-                List<TableHandle> sourceTableHandles)
+                List<TableHandle> sourceTableHandles,
+                ConnectorTableMetadata storageTableMetadata,
+                Optional<TableLayout> storageTableLayout)
         {
             this.viewName = requireNonNull(viewName, "viewName is null");
             this.definition = requireNonNull(definition, "definition is null");
@@ -1336,6 +1340,8 @@ public class Analysis
             this.ignoreExisting = ignoreExisting;
             this.withData = withData;
             this.sourceTableHandles = requireNonNull(sourceTableHandles, "sourceTableHandles is null");
+            this.storageTableMetadata = requireNonNull(storageTableMetadata, "storageTableMetadata is null");
+            this.storageTableLayout = requireNonNull(storageTableLayout, "storageTableLayout is null");
         }
 
         public QualifiedObjectName getViewName()
@@ -1371,6 +1377,16 @@ public class Analysis
         public List<TableHandle> getSourceTableHandles()
         {
             return sourceTableHandles;
+        }
+
+        public ConnectorTableMetadata getStorageTableMetadata()
+        {
+            return storageTableMetadata;
+        }
+
+        public Optional<TableLayout> getStorageTableLayout()
+        {
+            return storageTableLayout;
         }
     }
 

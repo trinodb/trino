@@ -645,6 +645,34 @@ public interface Metadata
             List<TableHandle> sourceTableHandles);
 
     /**
+     * Begin the creation of a materialized view with data.
+     */
+    InsertTableHandle beginCreateMaterializedView(
+            Session session,
+            QualifiedObjectName viewName,
+            MaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            List<TableHandle> sourceTableHandles,
+            ConnectorTableMetadata storageTableMetadata,
+            Optional<TableLayout> storageTableLayout);
+
+    /**
+     * Finish the creation of a materialized view.
+     */
+    Optional<ConnectorOutputMetadata> finishCreateMaterializedView(
+            Session session,
+            InsertTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<TableHandle> sourceTableHandles);
+
+    /**
+     * Returns the properties of storage table properties for materialized view
+     */
+    Map<String, Object> getMaterializedViewStorageTableProperties(Session session, String catalogName, Map<String, Object> materializedViewProperties);
+
+    /**
      * Drops the specified materialized view.
      */
     void dropMaterializedView(Session session, QualifiedObjectName viewName);

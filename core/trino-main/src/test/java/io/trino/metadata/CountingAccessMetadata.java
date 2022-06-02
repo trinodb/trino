@@ -783,6 +783,37 @@ public class CountingAccessMetadata
     }
 
     @Override
+    public InsertTableHandle beginCreateMaterializedView(
+            Session session,
+            QualifiedObjectName viewName,
+            MaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            List<TableHandle> sourceTableHandles,
+            ConnectorTableMetadata storageTableMetadata,
+            Optional<TableLayout> storageTableLayout)
+    {
+        return delegate.beginCreateMaterializedView(session, viewName, definition, replace, ignoreExisting, sourceTableHandles, storageTableMetadata, storageTableLayout);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateMaterializedView(
+            Session session,
+            InsertTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<TableHandle> sourceTableHandles)
+    {
+        return delegate.finishCreateMaterializedView(session, tableHandle, fragments, computedStatistics, sourceTableHandles);
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewStorageTableProperties(Session session, String catalogName, Map<String, Object> materializedViewProperties)
+    {
+        return delegate.getMaterializedViewStorageTableProperties(session, catalogName, materializedViewProperties);
+    }
+
+    @Override
     public void dropMaterializedView(Session session, QualifiedObjectName viewName)
     {
         delegate.dropMaterializedView(session, viewName);

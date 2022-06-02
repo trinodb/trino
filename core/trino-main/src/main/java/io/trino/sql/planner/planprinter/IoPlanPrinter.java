@@ -668,6 +668,10 @@ public class IoPlanPrinter
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
+            else if (writerTarget instanceof TableWriterNode.CreateMaterializedViewTarget) {
+                TableWriterNode.CreateMaterializedViewTarget target = (TableWriterNode.CreateMaterializedViewTarget) writerTarget;
+                context.setOutputTable(target.getViewName().asCatalogSchemaTableName());
+            }
             else if (writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget) {
                 TableWriterNode.RefreshMaterializedViewTarget target = (TableWriterNode.RefreshMaterializedViewTarget) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(

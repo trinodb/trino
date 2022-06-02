@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.metadata.InsertTableHandle;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.QualifiedObjectName;
@@ -202,6 +203,7 @@ public class TableWriterNode
             @JsonSubTypes.Type(value = InsertTarget.class, name = "InsertTarget"),
             @JsonSubTypes.Type(value = DeleteTarget.class, name = "DeleteTarget"),
             @JsonSubTypes.Type(value = UpdateTarget.class, name = "UpdateTarget"),
+            @JsonSubTypes.Type(value = CreateMaterializedViewTarget.class, name = "CreateMaterializedViewTarget"),
             @JsonSubTypes.Type(value = RefreshMaterializedViewTarget.class, name = "RefreshMaterializedViewTarget"),
             @JsonSubTypes.Type(value = TableExecuteTarget.class, name = "TableExecuteTarget"),
     })
@@ -386,6 +388,145 @@ public class TableWriterNode
         public String toString()
         {
             return handle.toString();
+        }
+
+        @Override
+        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+        {
+            return reportingWrittenBytesSupported;
+        }
+    }
+
+    public static class CreateMaterializedViewReference
+            extends WriterTarget
+    {
+        private final QualifiedObjectName viewName;
+        private final MaterializedViewDefinition definition;
+        private final boolean replace;
+        private final boolean ignoreExisting;
+        private final List<TableHandle> sourceTableHandles;
+        private final ConnectorTableMetadata storageTableMetadata;
+        private final Optional<TableLayout> storageTableLayout;
+
+        public CreateMaterializedViewReference(
+                QualifiedObjectName viewName,
+                MaterializedViewDefinition definition,
+                boolean replace,
+                boolean ignoreExisting,
+                List<TableHandle> sourceTableHandles,
+                ConnectorTableMetadata storageTableMetadata,
+                Optional<TableLayout> storageTableLayout)
+        {
+            this.viewName = requireNonNull(viewName, "viewName is null");
+            this.definition = requireNonNull(definition, "definition is null");
+            this.replace = replace;
+            this.ignoreExisting = ignoreExisting;
+            this.sourceTableHandles = requireNonNull(sourceTableHandles, "sourceTableHandles is null");
+            this.storageTableMetadata = requireNonNull(storageTableMetadata, "storageTableMetadata is null");
+            this.storageTableLayout = requireNonNull(storageTableLayout, "storageTableLayout is null");
+        }
+
+        public QualifiedObjectName getViewName()
+        {
+            return viewName;
+        }
+
+        public MaterializedViewDefinition getDefinition()
+        {
+            return definition;
+        }
+
+        public boolean isReplace()
+        {
+            return replace;
+        }
+
+        public boolean isIgnoreExisting()
+        {
+            return ignoreExisting;
+        }
+
+        public List<TableHandle> getSourceTableHandles()
+        {
+            return sourceTableHandles;
+        }
+
+        public ConnectorTableMetadata getStorageTableMetadata()
+        {
+            return storageTableMetadata;
+        }
+
+        public Optional<TableLayout> getStorageTableLayout()
+        {
+            return storageTableLayout;
+        }
+
+        @Override
+        public String toString()
+        {
+            return viewName + ": " + definition.toString();
+        }
+
+        @Override
+        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+        {
+            QualifiedObjectName fullTableName = new QualifiedObjectName(
+                    viewName.getCatalogName(),
+                    storageTableMetadata.getTableSchema().getTable().getSchemaName(),
+                    storageTableMetadata.getTableSchema().getTable().getTableName());
+            return metadata.supportsReportingWrittenBytes(session, fullTableName, storageTableMetadata.getProperties());
+        }
+    }
+
+    public static class CreateMaterializedViewTarget
+            extends WriterTarget
+    {
+        private final QualifiedObjectName viewName;
+        private final InsertTableHandle insertHandle;
+        private final List<TableHandle> sourceTableHandles;
+        private final boolean reportingWrittenBytesSupported;
+
+        @JsonCreator
+        public CreateMaterializedViewTarget(
+                @JsonProperty("viewName") QualifiedObjectName viewName,
+                @JsonProperty("insertHandle") InsertTableHandle insertHandle,
+                @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles,
+                @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported)
+        {
+            this.viewName = requireNonNull(viewName, "viewName is null");
+            this.insertHandle = requireNonNull(insertHandle, "insertHandle is null");
+            this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
+            this.reportingWrittenBytesSupported = reportingWrittenBytesSupported;
+        }
+
+        @JsonProperty
+        public QualifiedObjectName getViewName()
+        {
+            return viewName;
+        }
+
+        @JsonProperty
+        public InsertTableHandle getInsertHandle()
+        {
+            return insertHandle;
+        }
+
+        @JsonProperty
+        public List<TableHandle> getSourceTableHandles()
+        {
+            return sourceTableHandles;
+        }
+
+        @JsonProperty
+        public boolean getReportingWrittenBytesSupported()
+        {
+            return reportingWrittenBytesSupported;
+        }
+
+        @Override
+        public String toString()
+        {
+            return insertHandle.toString();
         }
 
         @Override

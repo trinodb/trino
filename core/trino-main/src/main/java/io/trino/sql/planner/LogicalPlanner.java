@@ -25,7 +25,6 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -35,7 +34,6 @@ import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -122,7 +120,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
@@ -280,7 +277,9 @@ public class LogicalPlanner
             return dummyPlan();
         }
         else if (statement instanceof CreateMaterializedView && !analysis.getCreateMaterializedView().orElseThrow().isWithData()) {
-            createMaterializedView(analysis.getCreateMaterializedView().orElseThrow());
+            Analysis.CreateMaterializedViewAnalysis create = analysis.getCreateMaterializedView().orElseThrow();
+            // TODO: move MV metadata creation to a better place by introducing a new operator where the following interface is called
+            metadata.createMaterializedView(session, create.getViewName(), create.getDefinition(), create.isReplace(), create.isIgnoreExisting(), create.getSourceTableHandles());
             return dummyPlan();
         }
 
@@ -570,42 +569,39 @@ public class LogicalPlanner
 
     private RelationPlan createMaterializedViewCreationPlan(Analysis analysis)
     {
-        checkState(analysis.getCreateMaterializedView().isPresent(), "CreateMaterializedViewAnalysis handle is missing");
-        Analysis.CreateMaterializedViewAnalysis create = analysis.getCreateMaterializedView().get();
-        createMaterializedView(create);
-
-        Optional<MaterializedViewDefinition> definition = metadata.getMaterializedView(session, create.getViewName());
-        if (definition.isEmpty()) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Materialized view metadata is not available after it is created");
-        }
-        CatalogSchemaTableName storageTable = definition.get().getStorageTable()
-                .orElseThrow(() -> new TrinoException(GENERIC_INTERNAL_ERROR, "Materialized view storage table is empty"));
-        TableHandle tableHandle = metadata.getTableHandle(session,
-                        new QualifiedObjectName(storageTable.getCatalogName(),
-                                storageTable.getSchemaTableName().getSchemaName(),
-                                storageTable.getSchemaTableName().getTableName()))
-                .orElseThrow(() -> new TrinoException(GENERIC_INTERNAL_ERROR, "Materialized view storage table is empty"));
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-        List<ColumnHandle> columns = metadata.getTableMetadata(session, tableHandle).getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .map(columnMetadata -> columnHandles.get(columnMetadata.getName()))
-                .collect(toImmutableList());
-
         if (analysis.getDelegatedRefreshMaterializedView().isPresent()) {
             return createDelegatedRefreshMaterializedViewPlan(analysis);
         }
-        else {
-            return createRefreshMaterializedViewPlanInternal(analysis, Optional.empty(), tableHandle, create.getQuery(), columns);
-        }
-    }
 
-    private void createMaterializedView(Analysis.CreateMaterializedViewAnalysis create)
-    {
-        // TODO: This is not an ideal place to create a materialized view metadata and the corresponding storage table.
-        //       However, since currently storage table creation is completely hidden inside a connector interface, relevant information on the storage table cannot be retrieved without really creating it.
-        //       With more communications between planner and connector by introducing new interfaces, the storage table information such as table name, properties, and table layout can be retrieved without creating it.
-        //       With this, this logic can be moved to a better place.
-        metadata.createMaterializedView(session, create.getViewName(), create.getDefinition(), create.isReplace(), create.isIgnoreExisting(), create.getSourceTableHandles());
+        checkState(analysis.getCreateMaterializedView().isPresent(), "CreateMaterializedViewAnalysis handle is missing");
+        Analysis.CreateMaterializedViewAnalysis create = analysis.getCreateMaterializedView().get();
+        RelationPlan plan = createRelationPlan(analysis, create.getQuery());
+
+        ConnectorTableMetadata storageTableMetadata = create.getStorageTableMetadata();
+        Optional<TableLayout> storageTableLayout = create.getStorageTableLayout();
+        List<String> columnNames = storageTableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
+
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, create.getViewName().getCatalogName(), storageTableMetadata);
+        TableWriterNode.CreateMaterializedViewReference createMVTarget = new TableWriterNode.CreateMaterializedViewReference(
+                create.getViewName(),
+                create.getDefinition(),
+                create.isReplace(),
+                create.isIgnoreExisting(),
+                create.getSourceTableHandles(),
+                create.getStorageTableMetadata(),
+                create.getStorageTableLayout());
+        return createTableWriterPlan(
+                analysis,
+                plan.getRoot(),
+                visibleFields(plan),
+                createMVTarget,
+                columnNames,
+                storageTableMetadata.getColumns(),
+                storageTableLayout,
+                statisticsMetadata);
     }
 
     private RelationPlan createRefreshMaterializedViewPlan(Analysis analysis)

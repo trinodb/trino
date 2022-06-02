@@ -3963,6 +3963,15 @@ public class LocalExecutionPlanner
             else if (target instanceof InsertTarget) {
                 return metadata.finishInsert(session, ((InsertTarget) target).getHandle(), fragments, statistics);
             }
+            else if (target instanceof TableWriterNode.CreateMaterializedViewTarget) {
+                TableWriterNode.CreateMaterializedViewTarget createTarget = (TableWriterNode.CreateMaterializedViewTarget) target;
+                return metadata.finishCreateMaterializedView(
+                        session,
+                        createTarget.getInsertHandle(),
+                        fragments,
+                        statistics,
+                        createTarget.getSourceTableHandles());
+            }
             else if (target instanceof TableWriterNode.RefreshMaterializedViewTarget) {
                 TableWriterNode.RefreshMaterializedViewTarget refreshTarget = (TableWriterNode.RefreshMaterializedViewTarget) target;
                 return metadata.finishRefreshMaterializedView(

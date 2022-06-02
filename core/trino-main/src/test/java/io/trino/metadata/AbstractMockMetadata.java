@@ -806,6 +806,37 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public InsertTableHandle beginCreateMaterializedView(
+            Session session,
+            QualifiedObjectName viewName,
+            MaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            List<TableHandle> sourceTableHandles,
+            ConnectorTableMetadata storageTableMetadata,
+            Optional<TableLayout> storageTableLayout)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateMaterializedView(
+            Session session,
+            InsertTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<TableHandle> sourceTableHandles)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewStorageTableProperties(Session session, String catalogName, Map<String, Object> materializedViewProperties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropMaterializedView(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();

@@ -1266,6 +1266,76 @@ public final class MetadataManager
     }
 
     @Override
+    public InsertTableHandle beginCreateMaterializedView(
+            Session session,
+            QualifiedObjectName viewName,
+            MaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            List<TableHandle> sourceTableHandles,
+            ConnectorTableMetadata storageTableMetadata,
+            Optional<TableLayout> storageTableLayout)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogName);
+
+        List<ConnectorMetadata> sourceConnectorHandles = sourceTableHandles.stream()
+                .map(tableHandle -> getMetadata(session, tableHandle.getCatalogName()))
+                .collect(Collectors.toList());
+        sourceConnectorHandles.add(metadata);
+        if (sourceConnectorHandles.stream()
+                .map(Object::getClass)
+                .distinct()
+                .count() > 1) {
+            throw new TrinoException(NOT_SUPPORTED, "Cross connector materialized views are not supported");
+        }
+
+        ConnectorInsertTableHandle handle = metadata.beginCreateMaterializedView(
+                session.toConnectorSession(catalogName),
+                viewName.asSchemaTableName(),
+                definition.toConnectorMaterializedViewDefinition(),
+                replace,
+                ignoreExisting,
+                sourceTableHandles.stream().map(TableHandle::getConnectorHandle).collect(Collectors.toList()),
+                storageTableMetadata,
+                storageTableLayout.map(TableLayout::getLayout),
+                getRetryPolicy(session).getRetryMode());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.tableCreated(session, viewName.asCatalogSchemaTableName());
+        }
+
+        return new InsertTableHandle(catalogName, transactionHandle, handle);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateMaterializedView(
+            Session session,
+            InsertTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<TableHandle> sourceTableHandles)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+
+        List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
+                .map(TableHandle::getConnectorHandle)
+                .collect(toImmutableList());
+        return metadata.finishCreateMaterializedView(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(),
+                fragments, computedStatistics, sourceConnectorHandles);
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewStorageTableProperties(Session session, String catalogName, Map<String, Object> materializedViewProperties)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        return metadata.getMaterializedViewStorageTableProperties(session.toConnectorSession(), materializedViewProperties);
+    }
+
+    @Override
     public void dropMaterializedView(Session session, QualifiedObjectName viewName)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());

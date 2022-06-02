@@ -488,6 +488,38 @@ public class MockConnector
         public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting) {}
 
         @Override
+        public ConnectorInsertTableHandle beginCreateMaterializedView(
+                ConnectorSession session,
+                SchemaTableName viewName,
+                ConnectorMaterializedViewDefinition definition,
+                boolean replace,
+                boolean ignoreExisting,
+                List<ConnectorTableHandle> sourceTableHandles,
+                ConnectorTableMetadata storageTableMetadata,
+                Optional<ConnectorTableLayout> storageTableLayout,
+                RetryMode retryMode)
+        {
+            return new MockConnectorInsertTableHandle(storageTableMetadata.getTable());
+        }
+
+        @Override
+        public Optional<ConnectorOutputMetadata> finishCreateMaterializedView(
+                ConnectorSession session,
+                ConnectorInsertTableHandle tableHandle,
+                Collection<Slice> fragments,
+                Collection<ComputedStatistics> computedStatistics,
+                List<ConnectorTableHandle> sourceTableHandles)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Map<String, Object> getMaterializedViewStorageTableProperties(ConnectorSession session, Map<String, Object> materializedViewProperties)
+        {
+            return ImmutableMap.of();
+        }
+
+        @Override
         public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
         {
             return Optional.ofNullable(getMaterializedViews.apply(session, viewName.toSchemaTablePrefix()).get(viewName));
