@@ -98,6 +98,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
+import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
 import static io.trino.plugin.hive.AbstractTestHiveFileFormats.getFieldFromCursor;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -722,7 +723,7 @@ public class ParquetTester
             throws Exception
     {
         checkArgument(types.size() == columnNames.size() && types.size() == values.length);
-        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames);
+        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames, HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING);
         ParquetWriter writer = new ParquetWriter(
                 new FileOutputStream(outputFile),
                 schemaConverter.getMessageType(),
