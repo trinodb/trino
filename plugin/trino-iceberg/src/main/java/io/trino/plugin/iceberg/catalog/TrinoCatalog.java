@@ -18,6 +18,7 @@ import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
@@ -112,6 +113,16 @@ public interface TrinoCatalog
             ConnectorMaterializedViewDefinition definition,
             boolean replace,
             boolean ignoreExisting);
+
+    void createMaterializedViewWithStorageTableMetadata(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting,
+            ConnectorTableMetadata storageTableMetadata);
+
+    Map<String, Object> getMaterializedViewStorageTableProperties(Map<String, Object> materializedViewProperties);
 
     void dropMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
