@@ -144,14 +144,17 @@ public class SlicePositionsAppender
     @Override
     public Block build()
     {
-        if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+        Block result;
+        if (hasNonNullValue) {
+            result = new VariableWidthBlock(
+                    positionCount,
+                    Slices.wrappedBuffer(bytes, 0, currentOffset),
+                    offsets,
+                    hasNullValue ? Optional.of(valueIsNull) : Optional.empty());
         }
-        VariableWidthBlock result = new VariableWidthBlock(
-                positionCount,
-                Slices.wrappedBuffer(bytes, 0, currentOffset),
-                offsets,
-                hasNullValue ? Optional.of(valueIsNull) : Optional.empty());
+        else {
+            result = new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+        }
         reset();
         return result;
     }
