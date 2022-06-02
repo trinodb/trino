@@ -41,7 +41,7 @@ public class TestMemoryManagerConfig
                 .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
                 .setMaxQueryMemory(DataSize.of(20, GIGABYTE))
                 .setMaxQueryTotalMemory(DataSize.of(40, GIGABYTE))
-                .setFaultTolerantExecutionTaskMemory(DataSize.of(4, GIGABYTE))
+                .setFaultTolerantExecutionTaskMemory(DataSize.of(5, GIGABYTE))
                 .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(1, GIGABYTE))
                 .setFaultTolerantExecutionTaskMemoryGrowthFactor(3.0)
                 .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.9));

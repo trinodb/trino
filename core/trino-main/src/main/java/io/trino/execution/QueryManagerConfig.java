@@ -86,10 +86,10 @@ public class QueryManagerConfig
 
     private int maxTasksWaitingForNodePerStage = 5;
 
-    private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(1, GIGABYTE);
+    private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(4, GIGABYTE);
 
     private int faultTolerantExecutionMinTaskSplitCount = 16;
-    private int faultTolerantExecutionTargetTaskSplitCount = 16;
+    private int faultTolerantExecutionTargetTaskSplitCount = 64;
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
     private int faultTolerantExecutionPartitionCount = 50;
