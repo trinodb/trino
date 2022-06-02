@@ -39,6 +39,7 @@ public class TestPartitionFields
     {
         assertParse("order_key", partitionSpec(builder -> builder.identity("order_key")));
         assertParse("comment", partitionSpec(builder -> builder.identity("comment")));
+        assertParse("COMMENT", partitionSpec(builder -> builder.identity("comment")), "comment");
         assertParse("year(ts)", partitionSpec(builder -> builder.year("ts")));
         assertParse("month(ts)", partitionSpec(builder -> builder.month("ts")));
         assertParse("day(ts)", partitionSpec(builder -> builder.day("ts")));
@@ -47,6 +48,14 @@ public class TestPartitionFields
         assertParse("truncate(comment, 13)", partitionSpec(builder -> builder.truncate("comment", 13)));
         assertParse("truncate(order_key, 88)", partitionSpec(builder -> builder.truncate("order_key", 88)));
         assertParse("void(order_key)", partitionSpec(builder -> builder.alwaysNull("order_key")));
+        assertParse("YEAR(ts)", partitionSpec(builder -> builder.year("ts")), "year(ts)");
+        assertParse("MONtH(ts)", partitionSpec(builder -> builder.month("ts")), "month(ts)");
+        assertParse("DaY(ts)", partitionSpec(builder -> builder.day("ts")), "day(ts)");
+        assertParse("HoUR(ts)", partitionSpec(builder -> builder.hour("ts")), "hour(ts)");
+        assertParse("BuCKET(order_key, 42)", partitionSpec(builder -> builder.bucket("order_key", 42)), "bucket(order_key, 42)");
+        assertParse("TRuncate(comment, 13)", partitionSpec(builder -> builder.truncate("comment", 13)), "truncate(comment, 13)");
+        assertParse("TRUNCATE(order_key, 88)", partitionSpec(builder -> builder.truncate("order_key", 88)), "truncate(order_key, 88)");
+        assertParse("VOId(order_key)", partitionSpec(builder -> builder.alwaysNull("order_key")), "void(order_key)");
 
         assertInvalid("bucket()", "Invalid partition field declaration: bucket()");
         assertInvalid("abc", "Cannot find source column: abc");
@@ -55,13 +64,20 @@ public class TestPartitionFields
         assertInvalid("bucket(notes, 88)", "Cannot bucket by type: list<string>");
         assertInvalid("truncate(ts, 13)", "Cannot truncate type: timestamp");
         assertInvalid("year(order_key)", "Cannot partition type long by year");
+        assertInvalid("ABC", "Cannot find source column: abc");
+        assertInvalid("year(ABC)", "Cannot find source column: abc");
+    }
+
+    private static void assertParse(String value, PartitionSpec expected, String canonicalRepresentation)
+    {
+        assertEquals(expected.fields().size(), 1);
+        assertEquals(parseField(value), expected);
+        assertEquals(getOnlyElement(toPartitionFields(expected)), canonicalRepresentation);
     }
 
     private static void assertParse(String value, PartitionSpec expected)
     {
-        assertEquals(expected.fields().size(), 1);
-        assertEquals(parseField(value), expected);
-        assertEquals(getOnlyElement(toPartitionFields(expected)), value);
+        assertParse(value, expected, value);
     }
 
     private static void assertInvalid(String value, String message)
