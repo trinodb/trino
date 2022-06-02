@@ -1,5 +1,9 @@
 # Release 383 (1 June 2022)
 
+```{warning}
+This release has a regression that may cause queries to fail.
+```
+
 ## General
 
 * Introduce `json_exists`, `json_query`, and `json_value` [JSON functions](/functions/json). ({issue}`9081`)
