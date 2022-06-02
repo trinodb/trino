@@ -29,6 +29,7 @@ public final class TestGroups
     public static final String SMOKE = "smoke";
     public static final String JDBC = "jdbc";
     public static final String OAUTH2 = "oauth2";
+    public static final String OAUTH2_REFRESH = "oauth2_refresh";
     public static final String MYSQL = "mysql";
     public static final String TRINO_JDBC = "trino_jdbc";
     public static final String QUERY_ENGINE = "qe";
