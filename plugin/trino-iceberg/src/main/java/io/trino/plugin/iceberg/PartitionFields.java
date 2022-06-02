@@ -26,21 +26,22 @@ import java.util.regex.Pattern;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public final class PartitionFields
 {
-    private static final String NAME = "[a-z_][a-z0-9_]*";
+    private static final String NAME = "[a-zA-Z_][a-zA-Z0-9_]*";
     private static final String FUNCTION_ARGUMENT_NAME = "\\((" + NAME + ")\\)";
     private static final String FUNCTION_ARGUMENT_NAME_AND_INT = "\\((" + NAME + "), *(\\d+)\\)";
 
     private static final Pattern IDENTITY_PATTERN = Pattern.compile(NAME);
-    private static final Pattern YEAR_PATTERN = Pattern.compile("year" + FUNCTION_ARGUMENT_NAME);
-    private static final Pattern MONTH_PATTERN = Pattern.compile("month" + FUNCTION_ARGUMENT_NAME);
-    private static final Pattern DAY_PATTERN = Pattern.compile("day" + FUNCTION_ARGUMENT_NAME);
-    private static final Pattern HOUR_PATTERN = Pattern.compile("hour" + FUNCTION_ARGUMENT_NAME);
-    private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket" + FUNCTION_ARGUMENT_NAME_AND_INT);
-    private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate" + FUNCTION_ARGUMENT_NAME_AND_INT);
-    private static final Pattern VOID_PATTERN = Pattern.compile("void" + FUNCTION_ARGUMENT_NAME);
+    private static final Pattern YEAR_PATTERN = Pattern.compile("(?i:year)" + FUNCTION_ARGUMENT_NAME);
+    private static final Pattern MONTH_PATTERN = Pattern.compile("(?i:month)" + FUNCTION_ARGUMENT_NAME);
+    private static final Pattern DAY_PATTERN = Pattern.compile("(?i:day)" + FUNCTION_ARGUMENT_NAME);
+    private static final Pattern HOUR_PATTERN = Pattern.compile("(?i:hour)" + FUNCTION_ARGUMENT_NAME);
+    private static final Pattern BUCKET_PATTERN = Pattern.compile("(?i:bucket)" + FUNCTION_ARGUMENT_NAME_AND_INT);
+    private static final Pattern TRUNCATE_PATTERN = Pattern.compile("(?i:truncate)" + FUNCTION_ARGUMENT_NAME_AND_INT);
+    private static final Pattern VOID_PATTERN = Pattern.compile("(?i:void)" + FUNCTION_ARGUMENT_NAME);
 
     private static final Pattern ICEBERG_BUCKET_PATTERN = Pattern.compile("bucket\\[(\\d+)]");
     private static final Pattern ICEBERG_TRUNCATE_PATTERN = Pattern.compile("truncate\\[(\\d+)]");
@@ -60,18 +61,23 @@ public final class PartitionFields
     {
         @SuppressWarnings("PointlessBooleanExpression")
         boolean matched = false ||
-                tryMatch(field, IDENTITY_PATTERN, match -> builder.identity(match.group())) ||
-                tryMatch(field, YEAR_PATTERN, match -> builder.year(match.group(1))) ||
-                tryMatch(field, MONTH_PATTERN, match -> builder.month(match.group(1))) ||
-                tryMatch(field, DAY_PATTERN, match -> builder.day(match.group(1))) ||
-                tryMatch(field, HOUR_PATTERN, match -> builder.hour(match.group(1))) ||
-                tryMatch(field, BUCKET_PATTERN, match -> builder.bucket(match.group(1), parseInt(match.group(2)))) ||
-                tryMatch(field, TRUNCATE_PATTERN, match -> builder.truncate(match.group(1), parseInt(match.group(2)))) ||
-                tryMatch(field, VOID_PATTERN, match -> builder.alwaysNull(match.group(1))) ||
+                tryMatch(field, IDENTITY_PATTERN, match -> builder.identity(fromIdentifier(match.group()))) ||
+                tryMatch(field, YEAR_PATTERN, match -> builder.year(fromIdentifier(match.group(1)))) ||
+                tryMatch(field, MONTH_PATTERN, match -> builder.month(fromIdentifier(match.group(1)))) ||
+                tryMatch(field, DAY_PATTERN, match -> builder.day(fromIdentifier(match.group(1)))) ||
+                tryMatch(field, HOUR_PATTERN, match -> builder.hour(fromIdentifier(match.group(1)))) ||
+                tryMatch(field, BUCKET_PATTERN, match -> builder.bucket(fromIdentifier(match.group(1)), parseInt(match.group(2)))) ||
+                tryMatch(field, TRUNCATE_PATTERN, match -> builder.truncate(fromIdentifier(match.group(1)), parseInt(match.group(2)))) ||
+                tryMatch(field, VOID_PATTERN, match -> builder.alwaysNull(fromIdentifier(match.group(1)))) ||
                 false;
         if (!matched) {
             throw new IllegalArgumentException("Invalid partition field declaration: " + field);
         }
+    }
+
+    private static String fromIdentifier(String identifier)
+    {
+        return identifier.toLowerCase(ENGLISH);
     }
 
     private static boolean tryMatch(CharSequence value, Pattern pattern, Consumer<MatchResult> match)
