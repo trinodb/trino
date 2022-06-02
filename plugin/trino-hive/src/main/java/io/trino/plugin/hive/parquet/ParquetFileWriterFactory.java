@@ -43,6 +43,7 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
+import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
@@ -114,7 +115,7 @@ public class ParquetFileWriterFactory
                 return null;
             };
 
-            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(fileColumnTypes, fileColumnNames);
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(fileColumnTypes, fileColumnNames, HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING);
 
             return Optional.of(new ParquetFileWriter(
                     fileSystem.create(path, false),

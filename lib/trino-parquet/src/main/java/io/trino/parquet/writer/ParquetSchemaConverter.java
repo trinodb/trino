@@ -41,6 +41,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.MAX_PRECISION;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -57,23 +58,27 @@ public class ParquetSchemaConverter
 {
     // Map precision to the number bytes needed for binary conversion.
     // Based on org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
-    private static final int[] PRECISION_TO_BYTE_COUNT = new int[39];
+    private static final int[] PRECISION_TO_BYTE_COUNT = new int[MAX_PRECISION + 1];
 
     static {
-        for (int precision = 1; precision <= 38; precision++) {
+        for (int precision = 1; precision <= MAX_PRECISION; precision++) {
             // Estimated number of bytes needed.
             PRECISION_TO_BYTE_COUNT[precision] = (int) Math.ceil((Math.log(Math.pow(10, precision) - 1) / Math.log(2) + 1) / 8);
         }
     }
 
+    public static final boolean HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING = true;
+
     private Map<List<String>, Type> primitiveTypes = new HashMap<>();
+    private final boolean useLegacyDecimalEncoding;
     private final MessageType messageType;
 
-    public ParquetSchemaConverter(List<Type> types, List<String> columnNames)
+    public ParquetSchemaConverter(List<Type> types, List<String> columnNames, boolean useLegacyDecimalEncoding)
     {
         requireNonNull(types, "types is null");
         requireNonNull(columnNames, "columnNames is null");
         checkArgument(types.size() == columnNames.size(), "types size not equals to columnNames size");
+        this.useLegacyDecimalEncoding = useLegacyDecimalEncoding;
         this.messageType = convert(types, columnNames);
     }
 
@@ -114,22 +119,23 @@ public class ParquetSchemaConverter
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
-            if (decimalType.getPrecision() <= 9) {
-                return Types.optional(PrimitiveType.PrimitiveTypeName.INT32)
-                        .as(decimalType(decimalType.getScale(), decimalType.getPrecision()))
-                        .named(name);
+            // Apache Hive version 3 or lower does not support reading decimals encoded as INT32/INT64
+            if (!useLegacyDecimalEncoding) {
+                if (decimalType.getPrecision() <= 9) {
+                    return Types.optional(PrimitiveType.PrimitiveTypeName.INT32)
+                            .as(decimalType(decimalType.getScale(), decimalType.getPrecision()))
+                            .named(name);
+                }
+                if (decimalType.isShort()) {
+                    return Types.optional(PrimitiveType.PrimitiveTypeName.INT64)
+                            .as(decimalType(decimalType.getScale(), decimalType.getPrecision()))
+                            .named(name);
+                }
             }
-            else if (decimalType.isShort()) {
-                return Types.optional(PrimitiveType.PrimitiveTypeName.INT64)
-                        .as(decimalType(decimalType.getScale(), decimalType.getPrecision()))
-                        .named(name);
-            }
-            else {
-                return Types.optional(PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY)
-                        .length(PRECISION_TO_BYTE_COUNT[decimalType.getPrecision()])
-                        .as(decimalType(decimalType.getScale(), decimalType.getPrecision()))
-                        .named(name);
-            }
+            return Types.optional(PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY)
+                    .length(PRECISION_TO_BYTE_COUNT[decimalType.getPrecision()])
+                    .as(decimalType(decimalType.getScale(), decimalType.getPrecision()))
+                    .named(name);
         }
         if (DATE.equals(type)) {
             return Types.optional(PrimitiveType.PrimitiveTypeName.INT32).as(OriginalType.DATE).named(name);

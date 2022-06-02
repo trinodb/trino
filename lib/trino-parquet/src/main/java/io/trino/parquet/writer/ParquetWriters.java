@@ -18,8 +18,11 @@ import io.trino.parquet.writer.valuewriter.BigintValueWriter;
 import io.trino.parquet.writer.valuewriter.BinaryValueWriter;
 import io.trino.parquet.writer.valuewriter.BooleanValueWriter;
 import io.trino.parquet.writer.valuewriter.DateValueWriter;
-import io.trino.parquet.writer.valuewriter.DecimalValueWriter;
 import io.trino.parquet.writer.valuewriter.DoubleValueWriter;
+import io.trino.parquet.writer.valuewriter.FixedLenByteArrayLongDecimalValueWriter;
+import io.trino.parquet.writer.valuewriter.FixedLenByteArrayShortDecimalValueWriter;
+import io.trino.parquet.writer.valuewriter.Int32ShortDecimalValueWriter;
+import io.trino.parquet.writer.valuewriter.Int64ShortDecimalValueWriter;
 import io.trino.parquet.writer.valuewriter.IntegerValueWriter;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.trino.parquet.writer.valuewriter.RealValueWriter;
@@ -70,6 +73,8 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 final class ParquetWriters
 {
@@ -179,7 +184,16 @@ final class ParquetWriters
             return new BigintValueWriter(valuesWriter, type, parquetType);
         }
         if (type instanceof DecimalType) {
-            return new DecimalValueWriter(valuesWriter, type, parquetType);
+            if (parquetType.getPrimitiveTypeName() == INT32) {
+                return new Int32ShortDecimalValueWriter(valuesWriter, type, parquetType);
+            }
+            if (parquetType.getPrimitiveTypeName() == INT64) {
+                return new Int64ShortDecimalValueWriter(valuesWriter, type, parquetType);
+            }
+            if (((DecimalType) type).isShort()) {
+                return new FixedLenByteArrayShortDecimalValueWriter(valuesWriter, type, parquetType);
+            }
+            return new FixedLenByteArrayLongDecimalValueWriter(valuesWriter, type, parquetType);
         }
         if (DATE.equals(type)) {
             return new DateValueWriter(valuesWriter, parquetType);

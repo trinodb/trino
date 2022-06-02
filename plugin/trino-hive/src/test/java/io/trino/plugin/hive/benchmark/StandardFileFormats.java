@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
+import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
 import static io.trino.plugin.hive.HiveTestUtils.createGenericHiveRecordCursorProvider;
 import static io.trino.plugin.hive.benchmark.AbstractFileFormat.createSchema;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -298,7 +299,7 @@ public final class StandardFileFormats
         public PrestoParquetFormatWriter(File targetFile, List<String> columnNames, List<Type> types, HiveCompressionCodec compressionCodec)
                 throws IOException
         {
-            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames);
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames, HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING);
 
             writer = new ParquetWriter(
                     new FileOutputStream(targetFile),
