@@ -32,28 +32,41 @@ import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.Method;
+import java.util.Set;
+
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestClassLoaderSafeWrappers
 {
     @Test
-    public void testAllMethodsOverridden()
+    public void test()
             throws NoSuchMethodException
     {
-        assertAllMethodsOverridden(ConnectorAccessControl.class, ClassLoaderSafeConnectorAccessControl.class, ImmutableSet.of(
+        testClassLoaderSafe(ConnectorAccessControl.class, ClassLoaderSafeConnectorAccessControl.class, ImmutableSet.of(
                 ClassLoaderSafeConnectorAccessControl.class.getMethod("getRowFilter", ConnectorSecurityContext.class, SchemaTableName.class),
                 ClassLoaderSafeConnectorAccessControl.class.getMethod("getColumnMask", ConnectorSecurityContext.class, SchemaTableName.class, String.class, Type.class)));
-        assertAllMethodsOverridden(ConnectorMetadata.class, ClassLoaderSafeConnectorMetadata.class);
-        assertAllMethodsOverridden(ConnectorPageSink.class, ClassLoaderSafeConnectorPageSink.class);
-        assertAllMethodsOverridden(ConnectorPageSinkProvider.class, ClassLoaderSafeConnectorPageSinkProvider.class);
-        assertAllMethodsOverridden(ConnectorPageSourceProvider.class, ClassLoaderSafeConnectorPageSourceProvider.class);
-        assertAllMethodsOverridden(ConnectorSplitManager.class, ClassLoaderSafeConnectorSplitManager.class);
-        assertAllMethodsOverridden(ConnectorNodePartitioningProvider.class, ClassLoaderSafeNodePartitioningProvider.class);
-        assertAllMethodsOverridden(ConnectorSplitSource.class, ClassLoaderSafeConnectorSplitSource.class);
-        assertAllMethodsOverridden(SystemTable.class, ClassLoaderSafeSystemTable.class);
-        assertAllMethodsOverridden(ConnectorRecordSetProvider.class, ClassLoaderSafeConnectorRecordSetProvider.class);
-        assertAllMethodsOverridden(RecordSet.class, ClassLoaderSafeRecordSet.class);
-        assertAllMethodsOverridden(EventListener.class, ClassLoaderSafeEventListener.class);
-        assertAllMethodsOverridden(ConnectorTableFunction.class, ClassLoaderSafeConnectorTableFunction.class);
+        testClassLoaderSafe(ConnectorMetadata.class, ClassLoaderSafeConnectorMetadata.class);
+        testClassLoaderSafe(ConnectorPageSink.class, ClassLoaderSafeConnectorPageSink.class);
+        testClassLoaderSafe(ConnectorPageSinkProvider.class, ClassLoaderSafeConnectorPageSinkProvider.class);
+        testClassLoaderSafe(ConnectorPageSourceProvider.class, ClassLoaderSafeConnectorPageSourceProvider.class);
+        testClassLoaderSafe(ConnectorSplitManager.class, ClassLoaderSafeConnectorSplitManager.class);
+        testClassLoaderSafe(ConnectorNodePartitioningProvider.class, ClassLoaderSafeNodePartitioningProvider.class);
+        testClassLoaderSafe(ConnectorSplitSource.class, ClassLoaderSafeConnectorSplitSource.class);
+        testClassLoaderSafe(SystemTable.class, ClassLoaderSafeSystemTable.class);
+        testClassLoaderSafe(ConnectorRecordSetProvider.class, ClassLoaderSafeConnectorRecordSetProvider.class);
+        testClassLoaderSafe(RecordSet.class, ClassLoaderSafeRecordSet.class);
+        testClassLoaderSafe(EventListener.class, ClassLoaderSafeEventListener.class);
+        testClassLoaderSafe(ConnectorTableFunction.class, ClassLoaderSafeConnectorTableFunction.class);
+    }
+
+    private static <I, C extends I> void testClassLoaderSafe(Class<I> iface, Class<C> clazz)
+    {
+        testClassLoaderSafe(iface, clazz, Set.of());
+    }
+
+    private static <I, C extends I> void testClassLoaderSafe(Class<I> iface, Class<C> clazz, Set<Method> exclusions)
+    {
+        assertAllMethodsOverridden(iface, clazz, exclusions);
     }
 }
