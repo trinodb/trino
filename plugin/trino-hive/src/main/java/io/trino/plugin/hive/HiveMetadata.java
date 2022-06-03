@@ -132,6 +132,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -750,7 +751,7 @@ public class HiveMetadata
 
     @SuppressWarnings("TryWithIdenticalCatches")
     @Override
-    public Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
         return listTables(session, prefix).stream().flatMap(tableName -> {
@@ -775,7 +776,8 @@ public class HiveMetadata
                 }
                 return Stream.empty();
             }
-        });
+        })
+                .iterator();
     }
 
     @Override

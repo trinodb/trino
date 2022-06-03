@@ -80,7 +80,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -306,10 +305,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public ClassLoaderSafeIterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.streamTableColumns(session, prefix);
+            return new ClassLoaderSafeIterator<>(delegate.streamTableColumns(session, prefix), classLoader);
         }
     }
 

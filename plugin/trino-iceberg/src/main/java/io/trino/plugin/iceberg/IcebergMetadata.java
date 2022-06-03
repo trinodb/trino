@@ -550,7 +550,7 @@ public class IcebergMetadata
 
     @Override
     @SuppressWarnings("TryWithIdenticalCatches")
-    public Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
         List<SchemaTableName> schemaTableNames;
@@ -581,7 +581,8 @@ public class IcebergMetadata
                         log.warn(e, "Failed to access metadata of table %s during streaming table columns for %s", tableName, prefix);
                         return Stream.empty();
                     }
-                });
+                })
+                .iterator();
     }
 
     @Override

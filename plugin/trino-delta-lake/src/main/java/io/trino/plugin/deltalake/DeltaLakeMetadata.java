@@ -204,6 +204,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.util.Collections.emptyIterator;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;
@@ -479,11 +480,11 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         if (prefix.getSchema().isPresent() && prefix.getSchema().get().equals("information_schema")) {
             // TODO https://github.com/trinodb/trino/issues/1559 information_schema should be handled by the engine fully
-            return Stream.empty();
+            return emptyIterator();
         }
 
         List<SchemaTableName> tables = prefix.getTable()
@@ -515,7 +516,8 @@ public class DeltaLakeMetadata
                 LOG.debug(e, "Ignored exception when trying to list columns from %s", table);
                 return Stream.empty();
             }
-        });
+        })
+                .iterator();
     }
 
     private List<DeltaLakeColumnHandle> getColumns(MetadataEntry deltaMetadata)
