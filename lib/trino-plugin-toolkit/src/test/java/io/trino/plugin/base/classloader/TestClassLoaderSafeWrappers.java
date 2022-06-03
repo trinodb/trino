@@ -33,15 +33,19 @@ import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
+import java.util.Iterator;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static java.lang.String.format;
+import static org.testng.Assert.fail;
 
 public class TestClassLoaderSafeWrappers
 {
     @Test
     public void test()
-            throws NoSuchMethodException
+            throws Exception
     {
         testClassLoaderSafe(ConnectorAccessControl.class, ClassLoaderSafeConnectorAccessControl.class, ImmutableSet.of(
                 ClassLoaderSafeConnectorAccessControl.class.getMethod("getRowFilter", ConnectorSecurityContext.class, SchemaTableName.class),
@@ -61,12 +65,27 @@ public class TestClassLoaderSafeWrappers
     }
 
     private static <I, C extends I> void testClassLoaderSafe(Class<I> iface, Class<C> clazz)
+            throws Exception
     {
         testClassLoaderSafe(iface, clazz, Set.of());
     }
 
     private static <I, C extends I> void testClassLoaderSafe(Class<I> iface, Class<C> clazz, Set<Method> exclusions)
+            throws Exception
     {
         assertAllMethodsOverridden(iface, clazz, exclusions);
+
+        for (Method method : iface.getMethods()) {
+            if (exclusions.contains(method)) {
+                continue;
+            }
+            Method implementation = clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
+            if (Stream.class.isAssignableFrom(implementation.getReturnType())) {
+                fail(format("Method %s returns a Stream, breaks class-loader safety", method));
+            }
+            if (Iterator.class.isAssignableFrom(implementation.getReturnType()) && !ClassLoaderSafeIterator.class.isAssignableFrom(implementation.getReturnType())) {
+                fail(format("Method %s returns an Iterator (but not ClassLoaderSafeIterator), breaks class-loader safety", method));
+            }
+        }
     }
 }
