@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
+import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.Location;
@@ -47,11 +48,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -63,6 +67,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public final class DeltaLakeSchemaSupport
@@ -74,6 +79,7 @@ public final class DeltaLakeSchemaSupport
 
     public enum ColumnMappingMode
     {
+        NAME,
         NONE,
         UNKNOWN,
         /**/;
@@ -110,14 +116,14 @@ public final class DeltaLakeSchemaSupport
         return extractPartitionColumns(extractSchema(metadataEntry, typeManager), metadataEntry.getCanonicalPartitionColumns());
     }
 
-    public static List<DeltaLakeColumnHandle> extractPartitionColumns(List<ColumnMetadata> schema, List<String> canonicalPartitionColumns)
+    public static List<DeltaLakeColumnHandle> extractPartitionColumns(List<DeltaLakeColumnMetadata> schema, List<String> canonicalPartitionColumns)
     {
         if (canonicalPartitionColumns.isEmpty()) {
             return ImmutableList.of();
         }
         return schema.stream()
                 .filter(entry -> canonicalPartitionColumns.contains(entry.getName()))
-                .map(entry -> new DeltaLakeColumnHandle(entry.getName(), entry.getType(), PARTITION_KEY))
+                .map(entry -> new DeltaLakeColumnHandle(entry.getName(), entry.getType(), entry.getPhysicalName(), entry.getPhysicalColumnType(), PARTITION_KEY))
                 .collect(toImmutableList());
     }
 
@@ -279,19 +285,30 @@ public final class DeltaLakeSchemaSupport
         return OBJECT_MAPPER.writeValueAsString(fileStatistics);
     }
 
-    public static List<ColumnMetadata> extractSchema(MetadataEntry metadataEntry, TypeManager typeManager)
+    public static List<ColumnMetadata> extractColumnMetadata(MetadataEntry metadataEntry, TypeManager typeManager)
     {
+        return extractSchema(metadataEntry, typeManager).stream()
+                .map(DeltaLakeColumnMetadata::getColumnMetadata)
+                .collect(toImmutableList());
+    }
+
+    public static List<DeltaLakeColumnMetadata> extractSchema(MetadataEntry metadataEntry, TypeManager typeManager)
+    {
+        ColumnMappingMode mappingMode = getColumnMappingMode(metadataEntry);
+        if (mappingMode != ColumnMappingMode.NAME && mappingMode != ColumnMappingMode.NONE) {
+            throw new TrinoException(NOT_SUPPORTED, format("Only 'name' or 'none' is supported for the '%s' table property", COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
+        }
         return Optional.ofNullable(metadataEntry.getSchemaString())
-                .map(json -> getColumnMetadata(json, typeManager))
+                .map(json -> getColumnMetadata(json, typeManager, mappingMode))
                 .orElseThrow(() -> new IllegalStateException("Serialized schema not found in transaction log for " + metadataEntry.getName()));
     }
 
     @VisibleForTesting
-    static List<ColumnMetadata> getColumnMetadata(String json, TypeManager typeManager)
+    static List<DeltaLakeColumnMetadata> getColumnMetadata(String json, TypeManager typeManager, ColumnMappingMode mappingMode)
     {
         try {
             return stream(OBJECT_MAPPER.readTree(json).get("fields").elements())
-                    .map(node -> mapColumn(typeManager, node))
+                    .map(node -> mapColumn(typeManager, node, mappingMode))
                     .collect(toImmutableList());
         }
         catch (JsonProcessingException e) {
@@ -299,17 +316,30 @@ public final class DeltaLakeSchemaSupport
         }
     }
 
-    private static ColumnMetadata mapColumn(TypeManager typeManager, JsonNode node)
+    private static DeltaLakeColumnMetadata mapColumn(TypeManager typeManager, JsonNode node, ColumnMappingMode mappingMode)
     {
         String fieldName = node.get("name").asText();
         JsonNode typeNode = node.get("type");
         boolean nullable = node.get("nullable").asBoolean();
-        return ColumnMetadata.builder()
+        Type columnType = buildType(typeManager, typeNode, false);
+        String physicalName;
+        Type physicalColumnType;
+        if (mappingMode == ColumnMappingMode.NAME) {
+            physicalName = node.get("metadata").get("delta.columnMapping.physicalName").asText();
+            verify(!isNullOrEmpty(physicalName), "physicalName is null or empty");
+            physicalColumnType = buildType(typeManager, typeNode, true);
+        }
+        else {
+            physicalName = fieldName;
+            physicalColumnType = columnType;
+        }
+        ColumnMetadata columnMetadata = ColumnMetadata.builder()
                 .setName(fieldName)
-                .setType(buildType(typeManager, typeNode))
+                .setType(columnType)
                 .setNullable(nullable)
                 .setComment(Optional.ofNullable(getComment(node)))
                 .build();
+        return new DeltaLakeColumnMetadata(columnMetadata, physicalName, physicalColumnType);
     }
 
     public static Map<String, String> getColumnComments(MetadataEntry metadataEntry)
@@ -339,10 +369,10 @@ public final class DeltaLakeSchemaSupport
         return comment == null ? null : comment.asText();
     }
 
-    private static Type buildType(TypeManager typeManager, JsonNode typeNode)
+    private static Type buildType(TypeManager typeManager, JsonNode typeNode, boolean usePhysicalName)
     {
         if (typeNode.isContainerNode()) {
-            return buildContainerType(typeManager, typeNode);
+            return buildContainerType(typeManager, typeNode, usePhysicalName);
         }
         String primitiveType = typeNode.asText();
         if (primitiveType.startsWith(StandardTypes.DECIMAL)) {
@@ -379,45 +409,49 @@ public final class DeltaLakeSchemaSupport
         }
     }
 
-    private static Type buildContainerType(TypeManager typeManager, JsonNode typeNode)
+    private static Type buildContainerType(TypeManager typeManager, JsonNode typeNode, boolean usePhysicalName)
     {
         String containerType = typeNode.get("type").asText();
         switch (containerType) {
             case "array":
-                return buildArrayType(typeManager, typeNode);
+                return buildArrayType(typeManager, typeNode, usePhysicalName);
             case "map":
-                return buildMapType(typeManager, typeNode);
+                return buildMapType(typeManager, typeNode, usePhysicalName);
             case "struct":
-                return buildRowType(typeManager, typeNode);
+                return buildRowType(typeManager, typeNode, usePhysicalName);
             default:
                 throw new TypeNotFoundException(new TypeSignature(containerType));
         }
     }
 
-    private static RowType buildRowType(TypeManager typeManager, JsonNode typeNode)
+    private static RowType buildRowType(TypeManager typeManager, JsonNode typeNode, boolean usePhysicalName)
     {
         return (RowType) typeManager.getType(TypeSignature.rowType(stream(typeNode.get("fields").elements())
-                .map(element -> TypeSignatureParameter.namedField(
-                        // We lower case the struct field names.
-                        // Otherwise, Trino will refuse to write to columns whose struct type has field names containing upper case characters.
-                        // Users can't work around this by casting in their queries because Trino parser always lower case types.
-                        // TODO: This is a hack. Engine should be able to handle identifiers in a case insensitive way where necessary.
-                        // See also HiveTypeTranslator#toTypeSingature.
-                        TransactionLogAccess.canonicalizeColumnName(element.get("name").asText()),
-                        buildType(typeManager, element.get("type")).getTypeSignature()))
+                .map(element -> {
+                    String fieldName = usePhysicalName ? element.get("metadata").get("delta.columnMapping.physicalName").asText() : element.get("name").asText();
+                    verify(!isNullOrEmpty(fieldName), "fieldName is null or empty");
+                    return TypeSignatureParameter.namedField(
+                            // We lower case the struct field names.
+                            // Otherwise, Trino will refuse to write to columns whose struct type has field names containing upper case characters.
+                            // Users can't work around this by casting in their queries because Trino parser always lower case types.
+                            // TODO: This is a hack. Engine should be able to handle identifiers in a case insensitive way where necessary.
+                            // See also HiveTypeTranslator#toTypeSingature.
+                            TransactionLogAccess.canonicalizeColumnName(fieldName),
+                            buildType(typeManager, element.get("type"), usePhysicalName).getTypeSignature());
+                })
                 .collect(toImmutableList())));
     }
 
-    private static ArrayType buildArrayType(TypeManager typeManager, JsonNode typeNode)
+    private static ArrayType buildArrayType(TypeManager typeManager, JsonNode typeNode, boolean usePhysicalName)
     {
-        return (ArrayType) typeManager.getType(TypeSignature.arrayType(buildType(typeManager, typeNode.get("elementType")).getTypeSignature()));
+        return (ArrayType) typeManager.getType(TypeSignature.arrayType(buildType(typeManager, typeNode.get("elementType"), usePhysicalName).getTypeSignature()));
     }
 
-    private static MapType buildMapType(TypeManager typeManager, JsonNode typeNode)
+    private static MapType buildMapType(TypeManager typeManager, JsonNode typeNode, boolean usePhysicalName)
     {
         return (MapType) typeManager.getType(TypeSignature.mapType(
-                buildType(typeManager, typeNode.get("keyType")).getTypeSignature(),
-                buildType(typeManager, typeNode.get("valueType")).getTypeSignature()));
+                buildType(typeManager, typeNode.get("keyType"), usePhysicalName).getTypeSignature(),
+                buildType(typeManager, typeNode.get("valueType"), usePhysicalName).getTypeSignature()));
     }
 
     private static Optional<Location> getLocation(JsonProcessingException e)

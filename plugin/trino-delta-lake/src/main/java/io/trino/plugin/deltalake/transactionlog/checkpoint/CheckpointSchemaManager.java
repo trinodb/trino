@@ -14,8 +14,8 @@
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
-import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -108,17 +108,17 @@ public class CheckpointSchemaManager
 
     public RowType getAddEntryType(MetadataEntry metadataEntry)
     {
-        List<ColumnMetadata> allColumns = extractSchema(metadataEntry, typeManager);
-        List<ColumnMetadata> minMaxColumns = columnsWithStats(metadataEntry, typeManager);
+        List<DeltaLakeColumnMetadata> allColumns = extractSchema(metadataEntry, typeManager);
+        List<DeltaLakeColumnMetadata> minMaxColumns = columnsWithStats(metadataEntry, typeManager);
 
         ImmutableList.Builder<RowType.Field> minMaxFields = ImmutableList.builder();
-        for (ColumnMetadata dataColumn : minMaxColumns) {
-            Type type = dataColumn.getType();
+        for (DeltaLakeColumnMetadata dataColumn : minMaxColumns) {
+            Type type = dataColumn.getPhysicalColumnType();
             if (type instanceof TimestampWithTimeZoneType) {
-                minMaxFields.add(RowType.field(dataColumn.getName(), TimestampType.TIMESTAMP_MILLIS));
+                minMaxFields.add(RowType.field(dataColumn.getPhysicalName(), TimestampType.TIMESTAMP_MILLIS));
             }
             else {
-                minMaxFields.add(RowType.field(dataColumn.getName(), type));
+                minMaxFields.add(RowType.field(dataColumn.getPhysicalName(), type));
             }
         }
 
@@ -134,7 +134,7 @@ public class CheckpointSchemaManager
 
         statsColumns.add(RowType.field(
                 "nullCount",
-                RowType.from(allColumns.stream().map(column -> buildNullCountType(Optional.of(column.getName()), column.getType())).collect(toImmutableList()))));
+                RowType.from(allColumns.stream().map(column -> buildNullCountType(Optional.of(column.getPhysicalName()), column.getPhysicalColumnType())).collect(toImmutableList()))));
 
         MapType stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VarcharType.VARCHAR.getTypeSignature(), VarcharType.VARCHAR.getTypeSignature()));
         List<RowType.Field> addFields = ImmutableList.of(
