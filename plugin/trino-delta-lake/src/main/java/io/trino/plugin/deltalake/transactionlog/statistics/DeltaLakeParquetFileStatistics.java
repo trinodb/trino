@@ -79,13 +79,13 @@ public class DeltaLakeParquetFileStatistics
     @Override
     public Optional<Object> getMaxColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        return getStat(columnHandle.getName(), maxValues);
+        return getStat(columnHandle.getPhysicalName(), maxValues);
     }
 
     @Override
     public Optional<Object> getMinColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        return getStat(columnHandle.getName(), minValues);
+        return getStat(columnHandle.getPhysicalName(), minValues);
     }
 
     @Override

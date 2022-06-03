@@ -21,7 +21,6 @@ import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -147,9 +146,9 @@ public class DeltaLakeSplitManager
                         .map(DeltaLakeColumnHandle.class::cast))
                 .map(column -> column.getName().toLowerCase(ENGLISH)) // TODO is DeltaLakeColumnHandle.name normalized?
                 .collect(toImmutableSet());
-        List<ColumnMetadata> schema = extractSchema(tableHandle.getMetadataEntry(), typeManager);
-        List<ColumnMetadata> predicatedColumns = schema.stream()
-                .filter(column -> predicatedColumnNames.contains(column.getName())) // ColumnMetadata.name is lowercase
+        List<DeltaLakeColumnMetadata> schema = extractSchema(tableHandle.getMetadataEntry(), typeManager);
+        List<DeltaLakeColumnMetadata> predicatedColumns = schema.stream()
+                .filter(column -> predicatedColumnNames.contains(column.getName())) // DeltaLakeColumnMetadata.name is lowercase
                 .collect(toImmutableList());
 
         return validDataFiles.stream()

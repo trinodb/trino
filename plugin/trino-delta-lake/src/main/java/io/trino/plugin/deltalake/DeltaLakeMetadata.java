@@ -36,7 +36,7 @@ import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
-import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry.Format;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -166,6 +166,7 @@ import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMe
 import static io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId.OPTIMIZE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.APPEND_ONLY_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.COLUMN_MAPPING_MODE_CONFIGURATION_KEY;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractColumnMetadata;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnComments;
@@ -368,8 +369,11 @@ public class DeltaLakeMetadata
 
         TableSnapshot tableSnapshot = metastore.getSnapshot(tableName, session);
         Optional<MetadataEntry> metadata = metastore.getMetadata(tableSnapshot, session);
-        if (metadata.isPresent() && getColumnMappingMode(metadata.get()) != DeltaLakeSchemaSupport.ColumnMappingMode.NONE) {
-            throw new TrinoException(NOT_SUPPORTED, format("Only 'none' is supported for '%s' table property", COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
+        if (metadata.isPresent()) {
+            ColumnMappingMode columnMappingMode = getColumnMappingMode(metadata.get());
+            if (columnMappingMode != ColumnMappingMode.NAME && columnMappingMode != ColumnMappingMode.NONE) {
+                throw new TrinoException(NOT_SUPPORTED, format("Only 'name' or 'none' is supported for the '%s' table property", COLUMN_MAPPING_MODE_CONFIGURATION_KEY));
+            }
         }
         return new DeltaLakeTableHandle(
                 tableName.getSchemaName(),
@@ -536,7 +540,7 @@ public class DeltaLakeMetadata
     {
         ImmutableList.Builder<DeltaLakeColumnHandle> columns = ImmutableList.builder();
         extractSchema(deltaMetadata, typeManager).stream()
-                .map((ColumnMetadata column) -> toColumnHandle(column, deltaMetadata.getCanonicalPartitionColumns()))
+                .map(column -> toColumnHandle(column.getColumnMetadata(), column.getPhysicalName(), column.getPhysicalColumnType(), deltaMetadata.getCanonicalPartitionColumns()))
                 .forEach(columns::add);
         columns.add(pathColumnHandle());
         columns.add(fileSizeColumnHandle());
@@ -634,7 +638,7 @@ public class DeltaLakeMetadata
                 List<String> partitionColumns = getPartitionedBy(tableMetadata.getProperties());
                 List<DeltaLakeColumnHandle> deltaLakeColumns = tableMetadata.getColumns()
                         .stream()
-                        .map(column -> toColumnHandle(column, partitionColumns))
+                        .map(column -> toColumnHandle(column, column.getName(), column.getType(), partitionColumns))
                         .collect(toImmutableList());
                 Map<String, String> columnComments = tableMetadata.getColumns().stream()
                         .filter(column -> column.getComment() != null)
@@ -758,7 +762,7 @@ public class DeltaLakeMetadata
         return new DeltaLakeOutputTableHandle(
                 schemaName,
                 tableName,
-                tableMetadata.getColumns().stream().map(column -> toColumnHandle(column, partitionedBy)).collect(toImmutableList()),
+                tableMetadata.getColumns().stream().map(column -> toColumnHandle(column, column.getName(), column.getType(), partitionedBy)).collect(toImmutableList()),
                 location,
                 DeltaLakeTableProperties.getCheckpointInterval(tableMetadata.getProperties()),
                 external,
@@ -970,9 +974,9 @@ public class DeltaLakeMetadata
             ImmutableList.Builder<DeltaLakeColumnHandle> columnsBuilder = ImmutableList.builder();
             columnsBuilder.addAll(tableMetadata.getColumns().stream()
                     .filter(column -> !column.isHidden())
-                    .map(column -> toColumnHandle(column, partitionColumns))
+                    .map(column -> toColumnHandle(column, column.getName(), column.getType(), partitionColumns))
                     .collect(toImmutableList()));
-            columnsBuilder.add(toColumnHandle(newColumnMetadata, partitionColumns));
+            columnsBuilder.add(toColumnHandle(newColumnMetadata, newColumnMetadata.getName(), newColumnMetadata.getType(), partitionColumns));
             ImmutableMap.Builder<String, String> columnComments = ImmutableMap.builder();
             columnComments.putAll(getColumnComments(handle.getMetadataEntry()));
             if (newColumnMetadata.getComment() != null) {
@@ -1189,7 +1193,7 @@ public class DeltaLakeMetadata
     @Override
     public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, ROW_ID_COLUMN_TYPE, SYNTHESIZED);
+        return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, ROW_ID_COLUMN_TYPE, ROW_ID_COLUMN_NAME, ROW_ID_COLUMN_TYPE, SYNTHESIZED);
     }
 
     @Override
@@ -1244,7 +1248,7 @@ public class DeltaLakeMetadata
                     RowType.field(RowType.from(unmodifiedColumnFields)));
         }
 
-        return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, rowIdType, SYNTHESIZED);
+        return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, rowIdType, ROW_ID_COLUMN_NAME, rowIdType, SYNTHESIZED);
     }
 
     @Override
@@ -1504,9 +1508,9 @@ public class DeltaLakeMetadata
                 .map(columnHandle -> (DeltaLakeColumnHandle) columnHandle)
                 .collect(toImmutableSet());
         Set<String> partitionColumnNames = ImmutableSet.copyOf(tableHandle.getMetadataEntry().getCanonicalPartitionColumns());
-        List<ColumnMetadata> allColumns = extractSchema(tableHandle.getMetadataEntry(), typeManager);
+        List<DeltaLakeColumnMetadata> allColumns = extractSchema(tableHandle.getMetadataEntry(), typeManager);
         return allColumns.stream()
-                .map(columnMetadata -> toColumnHandle(columnMetadata, partitionColumnNames))
+                .map(column -> toColumnHandle(column.getColumnMetadata(), column.getPhysicalName(), column.getPhysicalColumnType(), partitionColumnNames))
                 .filter(columnHandle -> !updatedColumnHandles.contains(columnHandle))
                 .filter(columnHandle -> !partitionColumnNames.contains(columnHandle.getName()))
                 .collect(toImmutableList());
@@ -1902,7 +1906,7 @@ public class DeltaLakeMetadata
                 throw new TrinoException(INVALID_ANALYZE_PROPERTY, "Cannot specify empty list of columns for analysis");
             }
 
-            Set<String> allColumnNames = extractSchema(metadata, typeManager).stream()
+            Set<String> allColumnNames = extractColumnMetadata(metadata, typeManager).stream()
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableSet());
             if (!allColumnNames.containsAll(columnNames)) {
@@ -1938,7 +1942,7 @@ public class DeltaLakeMetadata
                 false);
 
         ImmutableSet.Builder<ColumnStatisticMetadata> columnStatistics = ImmutableSet.builder();
-        extractSchema(metadata, typeManager).stream()
+        extractColumnMetadata(metadata, typeManager).stream()
                 .filter(DeltaLakeMetadata::shouldCollectExtendedStatistics)
                 .filter(columnMetadata ->
                         analyzeColumnNames
@@ -2242,15 +2246,15 @@ public class DeltaLakeMetadata
 
     public static TupleDomain<DeltaLakeColumnHandle> createStatisticsPredicate(
             AddFileEntry addFileEntry,
-            List<ColumnMetadata> schema,
+            List<DeltaLakeColumnMetadata> schema,
             List<String> canonicalPartitionColumns)
     {
         return addFileEntry.getStats()
                 .map(deltaLakeFileStatistics -> withColumnDomains(
                         schema.stream()
-                                .filter(DeltaLakeMetadata::canUseInPredicate)
+                                .filter(column -> canUseInPredicate(column.getColumnMetadata()))
                                 .collect(toImmutableMap(
-                                        column -> DeltaLakeMetadata.toColumnHandle(column, canonicalPartitionColumns),
+                                        column -> DeltaLakeMetadata.toColumnHandle(column.getColumnMetadata(), column.getPhysicalName(), column.getPhysicalColumnType(), canonicalPartitionColumns),
                                         column -> buildColumnDomain(column, deltaLakeFileStatistics, canonicalPartitionColumns)))))
                 .orElseGet(TupleDomain::all);
     }
@@ -2271,9 +2275,9 @@ public class DeltaLakeMetadata
                 || type.equals(VARCHAR);
     }
 
-    private static Domain buildColumnDomain(ColumnMetadata column, DeltaLakeFileStatistics stats, List<String> canonicalPartitionColumns)
+    private static Domain buildColumnDomain(DeltaLakeColumnMetadata column, DeltaLakeFileStatistics stats, List<String> canonicalPartitionColumns)
     {
-        Optional<Long> nullCount = stats.getNullCount(column.getName());
+        Optional<Long> nullCount = stats.getNullCount(column.getPhysicalName());
         if (nullCount.isEmpty()) {
             // No stats were collected for this column; this can happen in 2 scenarios:
             // 1. The column didn't exist in the schema when the data file was created
@@ -2287,14 +2291,15 @@ public class DeltaLakeMetadata
         }
 
         boolean hasNulls = nullCount.get() > 0;
-        Optional<Object> minValue = stats.getMinColumnValue(toColumnHandle(column, canonicalPartitionColumns));
+        DeltaLakeColumnHandle deltaLakeColumnHandle = toColumnHandle(column.getColumnMetadata(), column.getPhysicalName(), column.getPhysicalColumnType(), canonicalPartitionColumns);
+        Optional<Object> minValue = stats.getMinColumnValue(deltaLakeColumnHandle);
         if (minValue.isPresent() && isFloatingPointNaN(column.getType(), minValue.get())) {
             return allValues(column.getType(), hasNulls);
         }
         if (isNotFinite(minValue, column.getType())) {
             minValue = Optional.empty();
         }
-        Optional<Object> maxValue = stats.getMaxColumnValue(toColumnHandle(column, canonicalPartitionColumns));
+        Optional<Object> maxValue = stats.getMaxColumnValue(deltaLakeColumnHandle);
         if (maxValue.isPresent() && isFloatingPointNaN(column.getType(), maxValue.get())) {
             return allValues(column.getType(), hasNulls);
         }
@@ -2342,10 +2347,15 @@ public class DeltaLakeMetadata
         return Domain.notNull(type);
     }
 
-    private static DeltaLakeColumnHandle toColumnHandle(ColumnMetadata column, Collection<String> partitionColumns)
+    private static DeltaLakeColumnHandle toColumnHandle(ColumnMetadata column, String physicalName, Type physicalType, Collection<String> partitionColumns)
     {
         boolean isPartitionKey = partitionColumns.stream().anyMatch(partition -> partition.equalsIgnoreCase(column.getName()));
-        return new DeltaLakeColumnHandle(column.getName(), column.getType(), isPartitionKey ? PARTITION_KEY : REGULAR);
+        return new DeltaLakeColumnHandle(
+                column.getName(),
+                column.getType(),
+                physicalName,
+                physicalType,
+                isPartitionKey ? PARTITION_KEY : REGULAR);
     }
 
     private static Optional<String> getQueryId(Table table)

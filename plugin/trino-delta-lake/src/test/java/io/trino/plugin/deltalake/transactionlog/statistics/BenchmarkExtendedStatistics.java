@@ -79,7 +79,7 @@ public class BenchmarkExtendedStatistics
         {
             columns = new ArrayList<>(columnsCount);
             for (int i = 0; i < columnsCount; i++) {
-                columns.add(new DeltaLakeColumnHandle("column_" + i, BigintType.BIGINT, REGULAR));
+                columns.add(new DeltaLakeColumnHandle("column_" + i, BigintType.BIGINT, "column_" + i, BigintType.BIGINT, REGULAR));
             }
 
             fileStatistics = new ArrayList<>(filesCount);

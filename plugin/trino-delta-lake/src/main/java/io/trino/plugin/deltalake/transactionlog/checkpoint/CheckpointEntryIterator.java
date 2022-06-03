@@ -18,6 +18,7 @@ import com.google.common.math.LongMath;
 import io.airlift.log.Logger;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
+import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
@@ -34,7 +35,6 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
@@ -127,7 +127,7 @@ public class CheckpointEntryIterator
     private final List<CheckPointFieldExtractor> extractors;
     private final boolean checkpointRowStatisticsWritingEnabled;
     private MetadataEntry metadataEntry;
-    private List<ColumnMetadata> schema;
+    private List<DeltaLakeColumnMetadata> schema; // Use DeltaLakeColumnMetadata?
     private Page page;
     private long pageIndex;
     private int pagePosition;
@@ -224,7 +224,7 @@ public class CheckpointEntryIterator
             default:
                 throw new IllegalArgumentException("Unsupported Delta Lake checkpoint entry type: " + entryType);
         }
-        return new DeltaLakeColumnHandle(entryType.getColumnName(), type, REGULAR);
+        return new DeltaLakeColumnHandle(entryType.getColumnName(), type, entryType.getColumnName(), type, REGULAR);
     }
 
     private DeltaLakeTransactionLogEntry buildCommitInfoEntry(ConnectorSession session, Block block, int pagePosition)
@@ -405,13 +405,13 @@ public class CheckpointEntryIterator
         return DeltaLakeTransactionLogEntry.addFileEntry(result);
     }
 
-    private DeltaLakeParquetFileStatistics parseStatisticsFromParquet(Block statsRowBlock)
+    private DeltaLakeParquetFileStatistics parseStatisticsFromParquet(Block statsRowBlock) // TODO: Fix
     {
         if (metadataEntry == null) {
             throw new TrinoException(DELTA_LAKE_BAD_DATA, "Checkpoint file found without metadata entry");
         }
         // Block ordering is determined by TransactionLogAccess#buildAddColumnHandle, using the same method to ensure blocks are matched with the correct column
-        List<ColumnMetadata> columnsWithMinMaxStats = columnsWithStats(schema, metadataEntry.getCanonicalPartitionColumns());
+        List<DeltaLakeColumnMetadata> columnsWithMinMaxStats = columnsWithStats(schema, metadataEntry.getCanonicalPartitionColumns());
 
         long numRecords = getLong(statsRowBlock, 0);
 
@@ -434,7 +434,7 @@ public class CheckpointEntryIterator
                 nullCount);
     }
 
-    private Map<String, Object> readMinMax(Block block, int blockPosition, List<ColumnMetadata> eligibleColumns)
+    private Map<String, Object> readMinMax(Block block, int blockPosition, List<DeltaLakeColumnMetadata> eligibleColumns)
     {
         if (block.isNull(blockPosition)) {
             // Statistics were not collected
@@ -445,9 +445,9 @@ public class CheckpointEntryIterator
         ImmutableMap.Builder<String, Object> values = ImmutableMap.builder();
 
         for (int i = 0; i < eligibleColumns.size(); i++) {
-            ColumnMetadata metadata = eligibleColumns.get(i);
-            String name = metadata.getName();
-            Type type = metadata.getType();
+            DeltaLakeColumnMetadata metadata = eligibleColumns.get(i);
+            String name = metadata.getPhysicalName();
+            Type type = metadata.getPhysicalColumnType();
 
             if (valuesBlock.isNull(i)) {
                 continue;
@@ -471,7 +471,7 @@ public class CheckpointEntryIterator
         return values.buildOrThrow();
     }
 
-    private Map<String, Object> readNullCount(Block block, int blockPosition, List<ColumnMetadata> columns)
+    private Map<String, Object> readNullCount(Block block, int blockPosition, List<DeltaLakeColumnMetadata> columns)
     {
         if (block.isNull(blockPosition)) {
             // Statistics were not collected
@@ -482,7 +482,7 @@ public class CheckpointEntryIterator
         ImmutableMap.Builder<String, Object> values = ImmutableMap.builder();
 
         for (int i = 0; i < columns.size(); i++) {
-            ColumnMetadata metadata = columns.get(i);
+            DeltaLakeColumnMetadata metadata = columns.get(i);
 
             if (valuesBlock.isNull(i)) {
                 continue;
@@ -490,12 +490,12 @@ public class CheckpointEntryIterator
             if (metadata.getType() instanceof RowType) {
                 if (checkpointRowStatisticsWritingEnabled) {
                     // RowType column statistics are not used for query planning, but need to be copied when writing out new Checkpoint files.
-                    values.put(metadata.getName(), valuesBlock.getSingleValueBlock(i));
+                    values.put(metadata.getPhysicalName(), valuesBlock.getSingleValueBlock(i));
                 }
                 continue;
             }
 
-            values.put(metadata.getName(), getLong(valuesBlock, i));
+            values.put(metadata.getPhysicalName(), getLong(valuesBlock, i));
         }
         return values.buildOrThrow();
     }
