@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -34,7 +35,7 @@ public class TestTrinoFileSystemCacheStats
         assertEquals(trinoFileSystemCacheStats.getCacheSize(), 0);
         assertEquals(trinoFileSystemCache.getCacheSize(), 0);
 
-        Configuration configuration = new Configuration(false);
+        Configuration configuration = newEmptyConfiguration();
         configuration.set("fs.s3.impl", TrinoS3FileSystem.class.getName());
         trinoFileSystemCache.get(new URI("s3://bucket/path/"), configuration);
         assertEquals(trinoFileSystemCacheStats.getGetCalls().getTotalCount(), 1);
@@ -68,7 +69,7 @@ public class TestTrinoFileSystemCacheStats
     {
         TrinoFileSystemCache trinoFileSystemCache = new TrinoFileSystemCache();
         TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getFileSystemCacheStats();
-        Configuration configuration = new Configuration(false);
+        Configuration configuration = newEmptyConfiguration();
         configuration.setInt("fs.cache.max-size", 0);
         assertThatThrownBy(() -> trinoFileSystemCache.get(new URI("s3://bucket/path/"), configuration))
                 .hasMessageMatching("FileSystem max cache size has been reached: 0");
