@@ -146,6 +146,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.phoenix.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.phoenix.MetadataUtil.getEscapedTableName;
 import static io.trino.plugin.phoenix.MetadataUtil.toPhoenixSchemaName;
 import static io.trino.plugin.phoenix.PhoenixClientModule.getConnectionProperties;
@@ -216,7 +217,7 @@ public class PhoenixClient
                 queryBuilder,
                 ImmutableSet.of(),
                 identifierMapping);
-        this.configuration = new Configuration(false);
+        this.configuration = newEmptyConfiguration();
         getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));
     }
 

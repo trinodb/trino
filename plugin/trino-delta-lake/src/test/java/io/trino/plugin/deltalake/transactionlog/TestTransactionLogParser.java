@@ -19,6 +19,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getMandatoryCurrentVersion;
 import static org.testng.Assert.assertEquals;
 
@@ -28,7 +29,7 @@ public class TestTransactionLogParser
     public void testGetCurrentVersion()
             throws Exception
     {
-        Configuration conf = new Configuration(false);
+        Configuration conf = newEmptyConfiguration();
         Path basePath = new Path(getClass().getClassLoader().getResource("databricks").toURI());
         FileSystem filesystem = basePath.getFileSystem(conf);
 

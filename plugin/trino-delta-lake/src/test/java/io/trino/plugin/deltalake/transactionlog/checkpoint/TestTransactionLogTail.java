@@ -24,6 +24,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -53,7 +54,7 @@ public class TestTransactionLogTail
     {
         URI resource = getClass().getClassLoader().getResource(tableLocation).toURI();
         Path tablePath = new Path(resource);
-        Configuration config = new Configuration(false);
+        Configuration config = newEmptyConfiguration();
         FileSystem fileSystem = tablePath.getFileSystem(config);
         TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tablePath, Optional.of(10L), Optional.of(12L));
         Optional<TransactionLogTail> updatedLogTail = transactionLogTail.getUpdatedTail(fileSystem, tablePath);
@@ -66,7 +67,7 @@ public class TestTransactionLogTail
     {
         URI resource = getClass().getClassLoader().getResource(tableLocation).toURI();
         Path tablePath = new Path(resource);
-        Configuration config = new Configuration(false);
+        Configuration config = newEmptyConfiguration();
         FileSystem filesystem = tablePath.getFileSystem(config);
         TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(filesystem, tablePath, Optional.of(10L));
         return transactionLogTail.getFileEntries();

@@ -45,6 +45,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.raptor.legacy.util.Closer.closer;
 import static java.lang.Math.toIntExact;
 import static org.apache.hadoop.hive.ql.io.orc.OrcFile.createReader;
@@ -54,7 +55,7 @@ import static org.apache.hadoop.hive.ql.io.orc.OrcUtil.getFieldValue;
 public final class OrcFileRewriter
 {
     private static final Logger log = Logger.get(OrcFileRewriter.class);
-    private static final Configuration CONFIGURATION = new Configuration(false);
+    private static final Configuration CONFIGURATION = newEmptyConfiguration();
 
     private OrcFileRewriter() {}
 

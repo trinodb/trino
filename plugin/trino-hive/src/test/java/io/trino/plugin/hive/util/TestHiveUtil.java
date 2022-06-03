@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.SEQUENCEFILE;
@@ -69,7 +70,7 @@ public class TestHiveUtil
         schema.setProperty(SERIALIZATION_CLASS, IntString.class.getName());
         schema.setProperty(SERIALIZATION_FORMAT, TBinaryProtocol.class.getName());
 
-        assertInstanceOf(getDeserializer(new Configuration(false), schema), ThriftDeserializer.class);
+        assertInstanceOf(getDeserializer(newEmptyConfiguration(), schema), ThriftDeserializer.class);
     }
 
     @Test
@@ -87,7 +88,7 @@ public class TestHiveUtil
     @Test
     public void testGetInputFormat()
     {
-        Configuration configuration = new Configuration(false);
+        Configuration configuration = newEmptyConfiguration();
 
         // LazySimpleSerDe is used by TEXTFILE and SEQUENCEFILE. getInputFormat should default to TEXTFILE
         // per Hive spec.
