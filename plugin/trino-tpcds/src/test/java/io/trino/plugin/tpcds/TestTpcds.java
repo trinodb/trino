@@ -20,12 +20,16 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalTime;
 
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTpcds
         extends AbstractTestQueryFramework
@@ -59,6 +63,17 @@ public class TestTpcds
                 .row("James               ", "Brown                         ")
                 .build();
         assertEquals(expected, actual);
+    }
+
+    @Test
+    public void testTimeRepresentation()
+    {
+        LocalTime timeNow = LocalTime.now();
+        LocalTime readTime = (LocalTime) computeScalar("SELECT dv_create_time FROM dbgen_version");
+        long differenceNanos = (NANOSECONDS_PER_DAY + readTime.toNanoOfDay() - timeNow.toNanoOfDay()) % NANOSECONDS_PER_DAY;
+        differenceNanos = Math.min(differenceNanos, NANOSECONDS_PER_DAY - differenceNanos);
+        assertThat(differenceNanos)
+                .isBetween(0L, 10 * NANOSECONDS_PER_SECOND);
     }
 
     @Test
