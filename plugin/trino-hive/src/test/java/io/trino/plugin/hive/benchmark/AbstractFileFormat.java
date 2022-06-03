@@ -40,7 +40,6 @@ import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 
@@ -54,6 +53,7 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveType.toHiveType;
@@ -72,7 +72,7 @@ public abstract class AbstractFileFormat
     static final JobConf conf;
 
     static {
-        conf = new JobConf(new Configuration(false));
+        conf = new JobConf(newEmptyConfiguration());
         conf.set("fs.file.impl", "org.apache.hadoop.fs.RawLocalFileSystem");
     }
 
