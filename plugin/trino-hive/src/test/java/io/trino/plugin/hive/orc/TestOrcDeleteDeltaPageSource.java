@@ -21,7 +21,6 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.AcidOutputFormat;
 import org.apache.hadoop.hive.ql.io.BucketCodec;
@@ -30,6 +29,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -46,7 +46,7 @@ public class TestOrcDeleteDeltaPageSource
         OrcDeleteDeltaPageSourceFactory pageSourceFactory = new OrcDeleteDeltaPageSourceFactory(
                 new OrcReaderOptions(),
                 ConnectorIdentity.ofUser("test"),
-                new JobConf(new Configuration(false)),
+                new JobConf(newEmptyConfiguration()),
                 HDFS_ENVIRONMENT,
                 new FileFormatDataSourceStats());
 
@@ -55,7 +55,7 @@ public class TestOrcDeleteDeltaPageSource
 
         assertEquals(materializedRows.getRowCount(), 1);
 
-        AcidOutputFormat.Options bucketOptions = new AcidOutputFormat.Options(new Configuration(false)).bucket(0);
+        AcidOutputFormat.Options bucketOptions = new AcidOutputFormat.Options(newEmptyConfiguration()).bucket(0);
         assertEquals(materializedRows.getMaterializedRows().get(0), new MaterializedRow(5, 2L, BucketCodec.V1.encode(bucketOptions), 0L));
     }
 }

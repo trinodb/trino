@@ -143,7 +143,13 @@
     <violation>
         <name>org/apache/hadoop/conf/Configuration."&lt;init&gt;":()V</name>
         <version>1.1</version>
-        <comment>Prefer new Configuration(false)</comment>
+        <comment>Prefer ConfigurationInstantiator.newEmptyConfiguration() for two reasons: (1) loading default resources is unlikely desired and (2) ConfigurationInstantiator adds additional safety checks</comment>
+    </violation>
+
+    <violation>
+        <name>org/apache/hadoop/conf/Configuration."&lt;init&gt;":(Z)V</name>
+        <version>1.1</version>
+        <comment>Prefer ConfigurationInstantiator.newEmptyConfiguration()</comment>
     </violation>
 
     <violation>

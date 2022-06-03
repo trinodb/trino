@@ -25,6 +25,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-hadoop-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-memory-context</artifactId>
         </dependency>
 

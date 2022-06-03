@@ -61,6 +61,7 @@ import java.util.Properties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.trino.plugin.raptor.legacy.storage.Row.extractRow;
 import static io.trino.plugin.raptor.legacy.storage.StorageType.arrayOf;
@@ -92,7 +93,7 @@ public class OrcFileWriter
         }
     }
 
-    private static final Configuration CONFIGURATION = new Configuration(false);
+    private static final Configuration CONFIGURATION = newEmptyConfiguration();
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 

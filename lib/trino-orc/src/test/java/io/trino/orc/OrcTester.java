@@ -50,7 +50,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveChar;
@@ -113,6 +112,7 @@ import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.orc.OrcTester.Format.ORC_11;
@@ -770,7 +770,7 @@ public class OrcTester
             Iterable<?> expectedValues)
             throws Exception
     {
-        JobConf configuration = new JobConf(new Configuration(false));
+        JobConf configuration = new JobConf(newEmptyConfiguration());
         configuration.set(READ_COLUMN_IDS_CONF_STR, "0");
         configuration.setBoolean(READ_ALL_COLUMNS, false);
 

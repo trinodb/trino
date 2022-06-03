@@ -22,6 +22,7 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.Set;
 
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.util.ConfigurationUtils.copy;
 import static io.trino.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
 import static java.util.Objects.requireNonNull;
@@ -37,7 +38,7 @@ public class HiveHdfsConfiguration
         @Override
         protected Configuration initialValue()
         {
-            Configuration configuration = new Configuration(false);
+            Configuration configuration = newEmptyConfiguration();
             copy(INITIAL_CONFIGURATION, configuration);
             initializer.initializeConfiguration(configuration);
             return configuration;
