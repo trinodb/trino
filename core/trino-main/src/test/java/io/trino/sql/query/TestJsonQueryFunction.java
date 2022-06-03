@@ -250,6 +250,11 @@ public class TestJsonQueryFunction
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $[$number]' PASSING 5 AS \"number\")"))
                 .matches("VALUES cast(null AS varchar)");
+
+        // parameter cannot be converted to JSON -- returns null, because NULL ON ERROR is implicit
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING DATE '2001-01-31' AS \"parameter\")"))
+                .matches("VALUES cast(null AS varchar)");
     }
 
     @Test
