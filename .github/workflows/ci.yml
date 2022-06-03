@@ -458,15 +458,20 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
           AWS_REGION: us-east-2
+          GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
+          GCP_PROJECT_NAME: ${{ secrets.GCP_PROJECT_NAME }}
         # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
         if: >-
           contains(matrix.modules, 'trino-delta-lake') &&
-          (env.ABFS_ACCOUNT != '' || env.ABFS_CONTAINER != '' || env.ABFS_ACCESSKEY != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+          (env.ABFS_ACCOUNT != '' || env.ABFS_CONTAINER != '' || env.ABFS_ACCESSKEY != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '' || env.GCP_PROJECT_NAME != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -P cloud-tests -pl :trino-delta-lake \
             -Dhive.hadoop2.azure-abfs-container="${ABFS_CONTAINER}" \
             -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
-            -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESSKEY}"
+            -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESSKEY}" \
+            -Dgcp-project-name="${GCP_PROJECT_NAME}" \
+            -Dgcp-storage-bucket="trino-ci-test" \
+            -Dgcp-credentials-key="${GCP_CREDENTIALS_KEY}"
       - name: Memsql Tests
         env:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}

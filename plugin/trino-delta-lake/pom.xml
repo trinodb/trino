@@ -433,6 +433,7 @@
                                 <exclude>**/TestDeltaLakeCleanUpGlueMetastore.java</exclude>
                                 <exclude>**/TestDelta*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</exclude>
+                                <exclude>**/TestDeltaLakeGcsConnectorSmokeTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -478,6 +479,7 @@
                                 <include>**/TestDeltaLakeGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeCleanUpGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</include>
+                                <include>**/TestDeltaLakeGcsConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
