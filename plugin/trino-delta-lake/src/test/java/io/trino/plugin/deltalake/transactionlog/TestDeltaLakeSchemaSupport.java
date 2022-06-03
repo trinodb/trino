@@ -18,7 +18,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
+import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.TestingComplexTypeManager;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
@@ -105,7 +107,9 @@ public class TestDeltaLakeSchemaSupport
 
     private void testSinglePrimitiveFieldSchema(String json, ColumnMetadata metadata)
     {
-        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager);
+        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE).stream()
+                .map(DeltaLakeColumnMetadata::getColumnMetadata)
+                .collect(toImmutableList());
         assertEquals(schema.size(), 1);
         assertEquals(schema.get(0), metadata);
     }
@@ -133,7 +137,9 @@ public class TestDeltaLakeSchemaSupport
         URL expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/complex_schema.json");
         String json = Files.readString(Path.of(expected.toURI()));
 
-        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager);
+        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE).stream()
+                .map(DeltaLakeColumnMetadata::getColumnMetadata)
+                .collect(toImmutableList());
         assertEquals(schema.size(), 5);
         // asserting on the string representations, since they're more readable
         assertEquals(schema.get(0).toString(), "ColumnMetadata{name='a', type=integer, nullable}");
@@ -163,9 +169,17 @@ public class TestDeltaLakeSchemaSupport
         DeltaLakeColumnHandle arrayColumn = new DeltaLakeColumnHandle(
                 "arr",
                 new ArrayType(new ArrayType(INTEGER)),
+                "arr",
+                new ArrayType(new ArrayType(INTEGER)),
                 REGULAR);
 
         DeltaLakeColumnHandle structColumn = new DeltaLakeColumnHandle(
+                "str",
+                RowType.from(ImmutableList.of(
+                        new RowType.Field(Optional.of("s1"), VarcharType.createUnboundedVarcharType()),
+                        new RowType.Field(Optional.of("s2"), RowType.from(ImmutableList.of(
+                                new RowType.Field(Optional.of("i1"), INTEGER),
+                                new RowType.Field(Optional.of("d2"), DecimalType.createDecimalType(38, 0))))))),
                 "str",
                 RowType.from(ImmutableList.of(
                         new RowType.Field(Optional.of("s1"), VarcharType.createUnboundedVarcharType()),
@@ -176,6 +190,11 @@ public class TestDeltaLakeSchemaSupport
 
         TypeOperators typeOperators = new TypeOperators();
         DeltaLakeColumnHandle mapColumn = new DeltaLakeColumnHandle(
+                "m",
+                new MapType(
+                        INTEGER,
+                        new MapType(INTEGER, INTEGER, typeOperators),
+                        typeOperators),
                 "m",
                 new MapType(
                         INTEGER,
@@ -197,9 +216,11 @@ public class TestDeltaLakeSchemaSupport
         URL expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/complex_schema.json");
         String json = Files.readString(Path.of(expected.toURI()));
 
-        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager);
+        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE).stream()
+                .map(DeltaLakeColumnMetadata::getColumnMetadata)
+                .collect(toImmutableList());
         List<DeltaLakeColumnHandle> columnHandles = schema.stream()
-                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), REGULAR))
+                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), metadata.getName(), metadata.getType(), REGULAR))
                 .collect(toImmutableList());
         ObjectMapper objectMapper = new ObjectMapper();
         assertEquals(objectMapper.readTree(serializeSchemaAsJson(columnHandles, ImmutableMap.of())), objectMapper.readTree(json));

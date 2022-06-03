@@ -49,7 +49,7 @@ public class TestDeltaLakeCreateTableStatisticsLegacyWriter
             throws Exception
     {
         String columnName = "t_timestamp";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
         try (TestTable table = new TestTable(
                 "test_timestamp_records_",
                 ImmutableList.of(columnName),
@@ -72,7 +72,7 @@ public class TestDeltaLakeCreateTableStatisticsLegacyWriter
             throws Exception
     {
         String columnName = "t_timestamp";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
         try (TestTable table = new TestTable(
                 "test_timestamp_single_record_",
                 ImmutableList.of(columnName),

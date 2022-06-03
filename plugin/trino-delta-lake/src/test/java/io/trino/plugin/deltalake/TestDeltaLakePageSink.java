@@ -187,6 +187,8 @@ public class TestDeltaLakePageSink
             handles.add(new DeltaLakeColumnHandle(
                     column.getColumnName(),
                     getTrinoType(column.getType()),
+                    column.getColumnName(),
+                    getTrinoType(column.getType()),
                     REGULAR));
         }
         return handles.build();
