@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.inject.Binder;
 import com.google.inject.Key;
+import com.google.inject.Scopes;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -21,13 +22,16 @@ import io.trino.plugin.jdbc.JdbcRecordSetProvider;
 import io.trino.plugin.jdbc.JdbcSplitManager;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
+import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.plugin.sqlserver.SqlServerSessionProperties;
 import io.trino.plugin.sqlserver.SqlServerTableProperties;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.ptf.ConnectorTableFunction;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
@@ -59,5 +63,7 @@ public class StarburstSqlServerClientModule
         install(new CatalogOverridingModule());
         install(new JdbcJoinPushdownSupportModule());
         install(new JdbcTableScanRedirectionModule());
+
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 }
