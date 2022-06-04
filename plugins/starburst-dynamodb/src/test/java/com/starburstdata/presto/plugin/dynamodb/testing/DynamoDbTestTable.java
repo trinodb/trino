@@ -33,7 +33,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -43,9 +42,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.Character.MAX_RADIX;
-import static java.lang.Math.abs;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -53,12 +49,10 @@ import static java.util.Objects.requireNonNull;
 public class DynamoDbTestTable
         extends TestTable
 {
-    private static final SecureRandom random = new SecureRandom();
-    private static final int RANDOM_SUFFIX_LENGTH = 5;
-
     private final DynamoDbConfig config;
+    // TestTable is given a dummy executor, subclasses require their own executor, so the super class needs to be redesigned to avoid this field
+    @SuppressWarnings("HidingField")
     private final SqlExecutor sqlExecutor;
-    private final String name;
     private final List<ColumnSetup> columns;
 
     public DynamoDbTestTable(DynamoDbConfig config, SqlExecutor sqlExecutor, String namePrefix, List<ColumnSetup> columns)
@@ -68,7 +62,6 @@ public class DynamoDbTestTable
 
         this.config = requireNonNull(config, "config is null");
         this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
-        this.name = requireNonNull(namePrefix, "namePrefix is null") + "_" + randomTableSuffix();
         this.columns = requireNonNull(columns, "columns is null");
 
         String createTableSql = buildCreateTableSql();
@@ -78,15 +71,9 @@ public class DynamoDbTestTable
         sqlExecutor.execute("RESET SCHEMA CACHE");
     }
 
-    @Override
-    public String getName()
-    {
-        return name;
-    }
-
     private String buildCreateTableSql()
     {
-        return "EXEC CreateTable TableName = '" + name + "',\n" +
+        return "EXEC CreateTable TableName = '" + this.getName() + "',\n" +
                 "PartitionKeyName = 'col_0',\n" +
                 format("PartitionKeyType = '%s',\n", getDynamoDbTypeFromSql(columns.get(0).getDeclaredType().get())) +
                 "ReadCapacityUnits = '1',\n" +
@@ -107,7 +94,7 @@ public class DynamoDbTestTable
     {
         Jinjava jinjava = new Jinjava();
         Map<String, Object> context = new HashMap<>();
-        context.put("tablename", name);
+        context.put("tablename", getName());
 
         List<DynamoDbJdbcClient.RsdColumnDefinition> templateColumns = new ArrayList<>();
         templateColumns.add(new DynamoDbJdbcClient.RsdColumnDefinition(
@@ -143,7 +130,7 @@ public class DynamoDbTestTable
 
         String renderedTemplate = jinjava.render(template, context);
 
-        Path outputFile = Paths.get(config.getSchemaDirectory(), name + ".rsd");
+        Path outputFile = Paths.get(config.getSchemaDirectory(), getName() + ".rsd");
         try {
             Files.writeString(outputFile, renderedTemplate, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
         }
@@ -185,10 +172,10 @@ public class DynamoDbTestTable
         DynamoDbClient client = builder.build();
 
         client.deleteTable(DeleteTableRequest.builder()
-                .tableName(name)
+                .tableName(getName())
                 .build());
 
-        Path schemaFile = Paths.get(config.getSchemaDirectory(), name + ".rsd");
+        Path schemaFile = Paths.get(config.getSchemaDirectory(), getName() + ".rsd");
         try {
             Files.deleteIfExists(schemaFile);
         }
@@ -197,11 +184,5 @@ public class DynamoDbTestTable
         }
 
         sqlExecutor.execute("RESET SCHEMA CACHE");
-    }
-
-    public static String randomTableSuffix()
-    {
-        String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
-        return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
     }
 }
