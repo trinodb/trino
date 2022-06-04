@@ -28,6 +28,7 @@ import org.apache.parquet.schema.MessageType;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import static java.util.Objects.requireNonNull;
@@ -64,7 +65,8 @@ public class IcebergParquetFileWriter
                 parquetWriterOptions,
                 fileInputColumnIndexes,
                 compressionCodecName,
-                trinoVersion);
+                trinoVersion,
+                Optional.empty());
         this.metricsConfig = requireNonNull(metricsConfig, "metricsConfig is null");
         this.outputPath = requireNonNull(outputPath, "outputPath is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");

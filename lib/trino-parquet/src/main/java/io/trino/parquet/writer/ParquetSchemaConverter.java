@@ -70,17 +70,20 @@ public class ParquetSchemaConverter
     }
 
     public static final boolean HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING = true;
+    public static final boolean HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING = true;
 
     private Map<List<String>, Type> primitiveTypes = new HashMap<>();
     private final boolean useLegacyDecimalEncoding;
+    private final boolean useInt96TimestampEncoding;
     private final MessageType messageType;
 
-    public ParquetSchemaConverter(List<Type> types, List<String> columnNames, boolean useLegacyDecimalEncoding)
+    public ParquetSchemaConverter(List<Type> types, List<String> columnNames, boolean useLegacyDecimalEncoding, boolean useInt96TimestampEncoding)
     {
         requireNonNull(types, "types is null");
         requireNonNull(columnNames, "columnNames is null");
         checkArgument(types.size() == columnNames.size(), "types size not equals to columnNames size");
         this.useLegacyDecimalEncoding = useLegacyDecimalEncoding;
+        this.useInt96TimestampEncoding = useInt96TimestampEncoding;
         this.messageType = convert(types, columnNames);
     }
 
@@ -148,6 +151,10 @@ public class ParquetSchemaConverter
 
         if (type instanceof TimestampType) {
             TimestampType timestampType = (TimestampType) type;
+            // Apache Hive version 3.x or lower does not support reading timestamps encoded as INT64
+            if (useInt96TimestampEncoding) {
+                return Types.primitive(PrimitiveType.PrimitiveTypeName.INT96, repetition).named(name);
+            }
 
             if (timestampType.getPrecision() <= 3) {
                 return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).as(LogicalTypeAnnotation.timestampType(false, LogicalTypeAnnotation.TimeUnit.MILLIS)).named(name);

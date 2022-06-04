@@ -34,6 +34,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -448,7 +449,7 @@ public class TestParquetDecimalScaling
         jobConf.setEnum(WRITER_VERSION, writerVersion);
 
         try {
-            FileSinkOperator.RecordWriter recordWriter = new TestMapredParquetOutputFormat(Optional.of(parquetSchema), true)
+            FileSinkOperator.RecordWriter recordWriter = new TestMapredParquetOutputFormat(Optional.of(parquetSchema), true, DateTimeZone.getDefault())
                     .getHiveRecordWriter(
                             jobConf,
                             path,

@@ -29,9 +29,13 @@ public class TestParquetWriter
             throws VersionParser.VersionParseException, IOException
     {
         String createdBy = ParquetWriter.formatCreatedBy("test-version");
+        // createdBy must start with "parquet-mr" to make Apache Hive perform timezone conversion on INT96 timestamps correctly
+        // when hive.parquet.timestamp.skip.conversion is set to true.
+        // Apache Hive 3.2 and above, and CDH 5 enable hive.parquet.timestamp.skip.conversion by default
+        assertThat(createdBy).startsWith("parquet-mr");
         VersionParser.ParsedVersion version = VersionParser.parse(createdBy);
         assertThat(version).isNotNull();
-        assertThat(version.application).isEqualTo("Trino");
+        assertThat(version.application).isEqualTo("parquet-mr-trino");
         assertThat(version.version).isEqualTo("test-version");
         assertThat(version.appBuildHash).isEqualTo("n/a");
 
@@ -40,7 +44,7 @@ public class TestParquetWriter
         Pattern pattern = Pattern.compile("(.+) version ((.*) )?\\(build ?(.*)\\)");
         Matcher matcher = pattern.matcher(createdBy);
         assertThat(matcher.matches()).isTrue();
-        assertThat(matcher.group(1)).isEqualTo("Trino");
+        assertThat(matcher.group(1)).isEqualTo("parquet-mr-trino");
         assertThat(matcher.group(3)).isEqualTo("test-version");
         assertThat(matcher.group(4)).isEqualTo("n/a");
     }
