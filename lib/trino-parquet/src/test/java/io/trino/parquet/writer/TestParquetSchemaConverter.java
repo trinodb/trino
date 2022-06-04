@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 
+import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING;
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -29,8 +30,14 @@ import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.StructuralTestUtil.mapType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MICROS;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MILLIS;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.NANOS;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.timestampType;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
@@ -45,6 +52,7 @@ public class TestParquetSchemaConverter
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
                     ImmutableList.of(createDecimalType(precision)),
                     ImmutableList.of("test"),
+                    false,
                     false);
             PrimitiveType primitiveType = schemaConverter.getMessageType().getType(0).asPrimitiveType();
             if (precision <= 9) {
@@ -72,7 +80,8 @@ public class TestParquetSchemaConverter
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
                     ImmutableList.of(createDecimalType(precision)),
                     ImmutableList.of("test"),
-                    HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING);
+                    HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING,
+                    false);
             PrimitiveType primitiveType = schemaConverter.getMessageType().getType(0).asPrimitiveType();
             assertThat(primitiveType.getPrimitiveTypeName())
                     .isEqualTo(PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY);
@@ -88,6 +97,7 @@ public class TestParquetSchemaConverter
         ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
                 ImmutableList.of(mapType(VARCHAR, INTEGER)),
                 ImmutableList.of("test"),
+                false,
                 false);
         GroupType mapType = schemaConverter.getMessageType().getType(0).asGroupType();
         GroupType keyValueValue = mapType.getType(0).asGroupType();
@@ -100,6 +110,7 @@ public class TestParquetSchemaConverter
         schemaConverter = new ParquetSchemaConverter(
                 ImmutableList.of(mapType(rowType(field("a", VARCHAR), field("b", BIGINT)), INTEGER)),
                 ImmutableList.of("test"),
+                false,
                 false);
         mapType = schemaConverter.getMessageType().getType(0).asGroupType();
         keyValueValue = mapType.getType(0).asGroupType();
@@ -110,5 +121,48 @@ public class TestParquetSchemaConverter
         assertThat(keyType.asGroupType().getType(1).asPrimitiveType().isRepetition(OPTIONAL)).isTrue();
         valueType = keyValueValue.getType(1).asPrimitiveType();
         assertThat(valueType.isRepetition(OPTIONAL)).isTrue();
+    }
+
+    @Test
+    public void testInt64BackedTimestamps()
+    {
+        for (int precision = 1; precision <= 9; precision++) {
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                    ImmutableList.of(createTimestampType(precision)),
+                    ImmutableList.of("test"),
+                    false,
+                    false);
+            PrimitiveType primitiveType = schemaConverter.getMessageType().getType(0).asPrimitiveType();
+            assertThat(primitiveType.getPrimitiveTypeName())
+                    .isEqualTo(PrimitiveType.PrimitiveTypeName.INT64);
+            if (precision <= 3) {
+                assertThat(primitiveType.getLogicalTypeAnnotation())
+                        .isEqualTo(timestampType(false, MILLIS));
+            }
+            else if (precision <= 6) {
+                assertThat(primitiveType.getLogicalTypeAnnotation())
+                        .isEqualTo(timestampType(false, MICROS));
+            }
+            else {
+                assertThat(primitiveType.getLogicalTypeAnnotation())
+                        .isEqualTo(timestampType(false, NANOS));
+            }
+        }
+    }
+
+    @Test
+    public void testInt96BackedTimestamps()
+    {
+        for (int precision = 1; precision <= TIMESTAMP_NANOS.getPrecision(); precision++) {
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                    ImmutableList.of(createTimestampType(precision)),
+                    ImmutableList.of("test"),
+                    false,
+                    HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING);
+            PrimitiveType primitiveType = schemaConverter.getMessageType().getType(0).asPrimitiveType();
+            assertThat(primitiveType.getPrimitiveTypeName())
+                    .isEqualTo(PrimitiveType.PrimitiveTypeName.INT96);
+            assertThat(primitiveType.getLogicalTypeAnnotation()).isNull();
+        }
     }
 }

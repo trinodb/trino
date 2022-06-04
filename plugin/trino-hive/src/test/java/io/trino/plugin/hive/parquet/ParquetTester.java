@@ -49,6 +49,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;
@@ -72,6 +73,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.File;
@@ -99,6 +101,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
+import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING;
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
 import static io.trino.plugin.hive.AbstractTestHiveFileFormats.getFieldFromCursor;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
@@ -116,7 +119,9 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.Varchars.truncateToLength;
@@ -346,7 +351,8 @@ public class ParquetTester
                                 getStandardStructObjectInspector(columnNames, objectInspectors),
                                 getIterators(writeValues),
                                 parquetSchema,
-                                schemaOptions.isSingleLevelArray());
+                                schemaOptions.isSingleLevelArray(),
+                                DateTimeZone.getDefault());
                         assertFileContents(
                                 session,
                                 tempFile.getFile(),
@@ -426,7 +432,8 @@ public class ParquetTester
                     getStandardStructObjectInspector(columnNames, objectInspectors),
                     getIterators(writeValues),
                     parquetSchema,
-                    false);
+                    false,
+                    DateTimeZone.getDefault());
 
             Iterator<?>[] expectedValues = getIterators(readValues);
             try (ConnectorPageSource pageSource = fileFormat.createFileFormatReader(
@@ -590,10 +597,11 @@ public class ParquetTester
             SettableStructObjectInspector objectInspector,
             Iterator<?>[] valuesByField,
             Optional<MessageType> parquetSchema,
-            boolean singleLevelArray)
+            boolean singleLevelArray,
+            DateTimeZone dateTimeZone)
             throws Exception
     {
-        RecordWriter recordWriter = new TestMapredParquetOutputFormat(parquetSchema, singleLevelArray)
+        RecordWriter recordWriter = new TestMapredParquetOutputFormat(parquetSchema, singleLevelArray, dateTimeZone)
                 .getHiveRecordWriter(
                         jobConf,
                         new Path(outputFile.toURI()),
@@ -728,7 +736,11 @@ public class ParquetTester
             throws Exception
     {
         checkArgument(types.size() == columnNames.size() && types.size() == values.length);
-        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames, schemaOptions.useLegacyDecimalEncoding());
+        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                types,
+                columnNames,
+                schemaOptions.useLegacyDecimalEncoding(),
+                schemaOptions.useInt96TimestampEncoding());
         ParquetWriter writer = new ParquetWriter(
                 new FileOutputStream(outputFile),
                 schemaConverter.getMessageType(),
@@ -738,7 +750,8 @@ public class ParquetTester
                         .setMaxBlockSize(DataSize.ofBytes(100000))
                         .build(),
                 compressionCodecName,
-                "test-version");
+                "test-version",
+                Optional.of(DateTimeZone.getDefault()));
 
         PageBuilder pageBuilder = new PageBuilder(types);
         for (int i = 0; i < types.size(); ++i) {
@@ -802,8 +815,11 @@ public class ParquetTester
                 long days = ((SqlDate) value).getDays();
                 type.writeLong(blockBuilder, days);
             }
-            else if (TIMESTAMP_MILLIS.equals(type)) {
+            else if (TIMESTAMP_MILLIS.equals(type) || TIMESTAMP_MICROS.equals(type)) {
                 type.writeLong(blockBuilder, ((SqlTimestamp) value).getEpochMicros());
+            }
+            else if (TIMESTAMP_NANOS.equals(type)) {
+                type.writeObject(blockBuilder, new LongTimestamp(((SqlTimestamp) value).getEpochMicros(), ((SqlTimestamp) value).getPicosOfMicros()));
             }
             else {
                 if (type instanceof ArrayType) {
@@ -853,26 +869,33 @@ public class ParquetTester
     {
         private final boolean singleLevelArray;
         private final boolean useLegacyDecimalEncoding;
+        private final boolean useInt96TimestampEncoding;
 
-        private ParquetSchemaOptions(boolean singleLevelArray, boolean useLegacyDecimalEncoding)
+        private ParquetSchemaOptions(boolean singleLevelArray, boolean useLegacyDecimalEncoding, boolean useInt96TimestampEncoding)
         {
             this.singleLevelArray = singleLevelArray;
             this.useLegacyDecimalEncoding = useLegacyDecimalEncoding;
+            this.useInt96TimestampEncoding = useInt96TimestampEncoding;
         }
 
         public static ParquetSchemaOptions defaultOptions()
         {
-            return new ParquetSchemaOptions(false, HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING);
+            return new ParquetSchemaOptions(false, HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING, HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING);
         }
 
         public static ParquetSchemaOptions withSingleLevelArray()
         {
-            return new ParquetSchemaOptions(true, HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING);
+            return new ParquetSchemaOptions(true, HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING, HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING);
         }
 
         public static ParquetSchemaOptions withIntegerBackedDecimals()
         {
-            return new ParquetSchemaOptions(false, false);
+            return new ParquetSchemaOptions(false, false, HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING);
+        }
+
+        public static ParquetSchemaOptions withInt64BackedTimestamps()
+        {
+            return new ParquetSchemaOptions(false, false, false);
         }
 
         public boolean isSingleLevelArray()
@@ -883,6 +906,11 @@ public class ParquetTester
         public boolean useLegacyDecimalEncoding()
         {
             return useLegacyDecimalEncoding;
+        }
+
+        public boolean useInt96TimestampEncoding()
+        {
+            return useInt96TimestampEncoding;
         }
     }
 }
