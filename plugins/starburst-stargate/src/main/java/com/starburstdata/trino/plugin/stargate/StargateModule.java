@@ -28,9 +28,12 @@ import io.trino.plugin.jdbc.JdbcRecordSetProvider;
 import io.trino.plugin.jdbc.JdbcSplitManager;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
+import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.ptf.ConnectorTableFunction;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -71,6 +74,8 @@ public class StargateModule
         install(new StargateAuthenticationModule());
         install(new JdbcJoinPushdownSupportModule());
         install(new JdbcTableScanRedirectionModule());
+
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Provides
