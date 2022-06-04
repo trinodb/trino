@@ -13,8 +13,9 @@
  */
 package io.trino.spi;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.SetMultimap;
 import com.google.common.reflect.ClassPath;
 import com.google.common.reflect.ClassPath.ClassInfo;
 import io.trino.spi.connector.ConnectorContext;
@@ -29,7 +30,6 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -42,34 +42,33 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSpiBackwardCompatibility
 {
-    private static final Map<String, Set<String>> BACKWARD_INCOMPATIBLE_CHANGES = ImmutableMap.<String, Set<String>>builder()
+    private static final SetMultimap<String, String> BACKWARD_INCOMPATIBLE_CHANGES = ImmutableSetMultimap.<String, String>builder()
             // When updating this map, please try to remove backward incompatible changes for old versions.
             // Also consider mentioning backward incompatible changes in release notes.
             // We try to be backward compatible with at least the last released version.
-            .put("123", ImmutableSet.of(// example
-                    "Class: public static class io.trino.spi.predicate.BenchmarkSortedRangeSet$Data",
-                    "Constructor: public io.trino.spi.predicate.BenchmarkSortedRangeSet$Data()",
-                    "Method: public void io.trino.spi.predicate.BenchmarkSortedRangeSet$Data.init()",
-                    "Field: public java.util.List<io.trino.spi.predicate.Range> io.trino.spi.predicate.BenchmarkSortedRangeSet$Data.ranges"))
-            .put("377", ImmutableSet.of(
-                    "Constructor: public io.trino.spi.memory.MemoryPoolInfo(long,long,long,java.util.Map<io.trino.spi.QueryId, java.lang.Long>,java.util.Map<io.trino.spi.QueryId, java.util.List<io.trino.spi.memory.MemoryAllocation>>,java.util.Map<io.trino.spi.QueryId, java.lang.Long>)"))
-            .put("382", ImmutableSet.of(
-                    "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.rowSemantics(boolean)",
-                    "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.pruneWhenEmpty(boolean)",
-                    "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.passThroughColumns(boolean)",
-                    "Class: public abstract class io.trino.spi.ptf.ConnectorTableFunction",
-                    "Constructor: public io.trino.spi.ptf.ConnectorTableFunction(java.lang.String,java.lang.String,java.util.List<io.trino.spi.ptf.ArgumentSpecification>,io.trino.spi.ptf.ReturnTypeSpecification)",
-                    "Method: public java.util.List<io.trino.spi.ptf.ArgumentSpecification> io.trino.spi.ptf.ConnectorTableFunction.getArguments()",
-                    "Method: public io.trino.spi.ptf.ReturnTypeSpecification io.trino.spi.ptf.ConnectorTableFunction.getReturnTypeSpecification()",
-                    "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getName()",
-                    "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getSchema()"))
-            .put("383", ImmutableSet.of(
-                    "Method: public abstract java.lang.String io.trino.spi.function.AggregationState.value()",
-                    "Method: public default void io.trino.spi.security.SystemAccessControl.checkCanExecuteFunction(io.trino.spi.security.SystemSecurityContext,io.trino.spi.connector.CatalogSchemaRoutineName)",
-                    "Method: public default void io.trino.spi.connector.ConnectorAccessControl.checkCanExecuteFunction(io.trino.spi.connector.ConnectorSecurityContext,io.trino.spi.connector.SchemaRoutineName)"))
-            .put("384", ImmutableSet.of(
-                    "Constructor: public io.trino.spi.eventlistener.QueryInputMetadata(java.lang.String,java.lang.String,java.lang.String,java.util.List<java.lang.String>,java.util.Optional<java.lang.Object>,java.util.OptionalLong,java.util.OptionalLong)"))
-            .buildOrThrow();
+            // example
+            .put("123", "Class: public static class io.trino.spi.predicate.BenchmarkSortedRangeSet$Data")
+            // example
+            .put("123", "Constructor: public io.trino.spi.predicate.BenchmarkSortedRangeSet$Data()")
+            // example
+            .put("123", "Method: public void io.trino.spi.predicate.BenchmarkSortedRangeSet$Data.init()")
+            // example
+            .put("123", "Field: public java.util.List<io.trino.spi.predicate.Range> io.trino.spi.predicate.BenchmarkSortedRangeSet$Data.ranges")
+            .put("377", "Constructor: public io.trino.spi.memory.MemoryPoolInfo(long,long,long,java.util.Map<io.trino.spi.QueryId, java.lang.Long>,java.util.Map<io.trino.spi.QueryId, java.util.List<io.trino.spi.memory.MemoryAllocation>>,java.util.Map<io.trino.spi.QueryId, java.lang.Long>)")
+            .put("382", "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.rowSemantics(boolean)")
+            .put("382", "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.pruneWhenEmpty(boolean)")
+            .put("382", "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.passThroughColumns(boolean)")
+            .put("382", "Class: public abstract class io.trino.spi.ptf.ConnectorTableFunction")
+            .put("382", "Constructor: public io.trino.spi.ptf.ConnectorTableFunction(java.lang.String,java.lang.String,java.util.List<io.trino.spi.ptf.ArgumentSpecification>,io.trino.spi.ptf.ReturnTypeSpecification)")
+            .put("382", "Method: public java.util.List<io.trino.spi.ptf.ArgumentSpecification> io.trino.spi.ptf.ConnectorTableFunction.getArguments()")
+            .put("382", "Method: public io.trino.spi.ptf.ReturnTypeSpecification io.trino.spi.ptf.ConnectorTableFunction.getReturnTypeSpecification()")
+            .put("382", "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getName()")
+            .put("382", "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getSchema()")
+            .put("383", "Method: public abstract java.lang.String io.trino.spi.function.AggregationState.value()")
+            .put("383", "Method: public default void io.trino.spi.security.SystemAccessControl.checkCanExecuteFunction(io.trino.spi.security.SystemSecurityContext,io.trino.spi.connector.CatalogSchemaRoutineName)")
+            .put("383", "Method: public default void io.trino.spi.connector.ConnectorAccessControl.checkCanExecuteFunction(io.trino.spi.connector.ConnectorSecurityContext,io.trino.spi.connector.SchemaRoutineName)")
+            .put("384", "Constructor: public io.trino.spi.eventlistener.QueryInputMetadata(java.lang.String,java.lang.String,java.lang.String,java.util.List<java.lang.String>,java.util.Optional<java.lang.Object>,java.util.OptionalLong,java.util.OptionalLong)")
+            .build();
 
     @Test
     public void testSpiSingleVersionBackwardCompatibility()
@@ -88,7 +87,7 @@ public class TestSpiBackwardCompatibility
     private static Set<String> getBackwardIncompatibleChanges()
     {
         String version = new ConnectorContext() {}.getSpiVersion().replace("-SNAPSHOT", "");
-        return BACKWARD_INCOMPATIBLE_CHANGES.getOrDefault(version, ImmutableSet.of());
+        return BACKWARD_INCOMPATIBLE_CHANGES.get(version);
     }
 
     private static Set<String> getCurrentSpi()
