@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
 import io.airlift.units.DataSize;
+import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
@@ -38,6 +39,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -66,9 +68,9 @@ import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Iterables.transform;
+import static io.trino.plugin.hive.parquet.ParquetTester.ParquetSchemaOptions;
 import static io.trino.plugin.hive.parquet.ParquetTester.TEST_COLUMN;
 import static io.trino.plugin.hive.parquet.ParquetTester.insertNullEvery;
-import static io.trino.plugin.hive.parquet.ParquetTester.ParquetSchemaOptions;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -81,12 +83,15 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.StructuralTestUtil.mapType;
 import static java.lang.Math.floorDiv;
@@ -1100,6 +1105,43 @@ public abstract class AbstractTestParquetReader
                 .isInstanceOf(TrinoException.class);
     }
 
+    @Test(dataProvider = "timestampPrecision")
+    public void testTimestamp(HiveTimestampPrecision precision)
+            throws Exception
+    {
+        List<Long> epochMillisValues = ContiguousSet.create(Range.closedOpen((long) -1_000, (long) 1_000), DiscreteDomain.longs()).stream()
+                .map(millis -> System.currentTimeMillis() + millis)
+                .collect(toImmutableList());
+        List<Timestamp> writeValues = epochMillisValues.stream()
+                .map(AbstractTestParquetReader::longToTimestamp)
+                .collect(toImmutableList());
+        List<SqlTimestamp> readValues = epochMillisValues.stream()
+                .map(epochMillis -> SqlTimestamp.newInstance(precision.getPrecision(), epochMillis * 1_000, 0))
+                .collect(toImmutableList());
+        // INT96 backed timestamps are written by the default ParquetSchemaOptions
+        tester.testRoundTrip(
+                javaTimestampObjectInspector,
+                writeValues,
+                readValues,
+                createTimestampType(precision.getPrecision()),
+                Optional.empty());
+        tester.testRoundTrip(
+                javaTimestampObjectInspector,
+                writeValues,
+                readValues,
+                getOnlyElement(TEST_COLUMN),
+                createTimestampType(precision.getPrecision()),
+                Optional.empty(),
+                ParquetSchemaOptions.withInt64BackedTimestamps());
+    }
+
+    @DataProvider
+    public Object[][] timestampPrecision()
+    {
+        return Stream.of(HiveTimestampPrecision.values())
+                .collect(toDataProvider());
+    }
+
     @Test
     public void testSchemaWithRepeatedOptionalRequiredFields()
             throws Exception
@@ -1590,9 +1632,11 @@ public abstract class AbstractTestParquetReader
 
         tester.testRoundTrip(javaIntObjectInspector, writeValues, INTEGER);
         tester.testRoundTrip(javaLongObjectInspector, transform(writeValues, AbstractTestParquetReader::intToLong), BIGINT);
+        // Add millis of a day to the writeValues to avoid creating illegal instant for small values due to time zone offset transition
+        Iterable<Integer> timestampValues = transform(writeValues, value -> value + MILLISECONDS_PER_DAY);
         tester.testRoundTrip(javaTimestampObjectInspector,
-                transform(writeValues, AbstractTestParquetReader::intToTimestamp),
-                transform(writeValues, AbstractTestParquetReader::intToSqlTimestamp),
+                transform(timestampValues, AbstractTestParquetReader::intToTimestamp),
+                transform(timestampValues, AbstractTestParquetReader::intToSqlTimestamp),
                 TIMESTAMP_MILLIS);
 
         tester.testRoundTrip(javaDateObjectInspector,
@@ -2010,6 +2054,14 @@ public abstract class AbstractTestParquetReader
     }
 
     private static Timestamp intToTimestamp(Integer epochMillis)
+    {
+        if (epochMillis == null) {
+            return null;
+        }
+        return longToTimestamp(Long.valueOf(epochMillis));
+    }
+
+    private static Timestamp longToTimestamp(Long epochMillis)
     {
         if (epochMillis == null) {
             return null;

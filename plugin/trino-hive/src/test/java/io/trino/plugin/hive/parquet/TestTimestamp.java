@@ -29,6 +29,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -83,7 +84,8 @@ public class TestTimestamp
                     getStandardStructObjectInspector(columnNames, objectInspectors),
                     new Iterator<?>[] {epochMillisValues.iterator()},
                     Optional.of(parquetSchema),
-                    false);
+                    false,
+                    DateTimeZone.getDefault());
 
             testReadingAs(TIMESTAMP_MILLIS, session, tempFile, columnNames, timestampsMillis.build());
             testReadingAs(BIGINT, session, tempFile, columnNames, bigints.build());

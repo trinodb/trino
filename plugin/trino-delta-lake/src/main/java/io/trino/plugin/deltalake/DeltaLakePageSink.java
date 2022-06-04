@@ -488,7 +488,7 @@ public class DeltaLakePageSink
                 identityMapping[i] = i;
             }
 
-            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(parquetTypes, dataColumnNames, false);
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(parquetTypes, dataColumnNames, false, false);
             return new ParquetFileWriter(
                     fileSystem.create(path),
                     rollbackAction,
@@ -498,7 +498,8 @@ public class DeltaLakePageSink
                     parquetWriterOptions,
                     identityMapping,
                     compressionCodecName,
-                    trinoVersion);
+                    trinoVersion,
+                    Optional.empty());
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Error creating Parquet file", e);
