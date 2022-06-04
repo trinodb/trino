@@ -33,6 +33,8 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
 
 public class TestSynapseConnectorTest
         extends BaseSqlServerConnectorTest
@@ -73,6 +75,12 @@ public class TestSynapseConnectorTest
                         "col_required2 BIGINT NOT NULL)");
     }
 
+    @Override
+    protected TestTable createTableWithUnsupportedColumn()
+    {
+        throw new SkipException("All Synapse types are mapped either by Trino or the SQL Server JDBC");
+    }
+
     @Test
     @Override // default test execution too long due to wildcards in LIKE clause
     public void testSelectInformationSchemaColumns()
@@ -87,13 +95,6 @@ public class TestSynapseConnectorTest
         assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%egio%'"))
                 .skippingTypesCheck()
                 .matches("VALUES 'regionkey', 'name', 'comment'");
-    }
-
-    @Test
-    @Override
-    public void testInsertInPresenceOfNotSupportedColumn()
-    {
-        throw new SkipException("sql_variant not supported in Synapse");
     }
 
     @Test
@@ -308,5 +309,13 @@ public class TestSynapseConnectorTest
     public static Object[][] doubleTrueFalse()
     {
         return cartesianProduct(trueFalse(), trueFalse());
+    }
+
+    @Override // Override because the JDBC prepares the query, but does not provide ResultSetMetadata
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }
 }

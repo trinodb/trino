@@ -27,10 +27,12 @@ import io.trino.plugin.jdbc.JdbcSplitManager;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.plugin.sqlserver.SqlServerConnectionFactory;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.ptf.ConnectorTableFunction;
 
 import javax.inject.Qualifier;
 
@@ -39,6 +41,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
@@ -81,6 +84,8 @@ public class StarburstSynapseModule
                 .setDefault()
                 .to(Key.get(ConnectionFactory.class, DefaultSynapseBinding.class))
                 .in(Scopes.SINGLETON);
+
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Provides
