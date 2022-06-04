@@ -320,6 +320,12 @@ public abstract class BaseSapHanaConnectorTest
     }
 
     @Override
+    public void testNativeQuerySimple()
+    {
+        assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT 1 from dummy'))", "VALUES 1");
+    }
+
+    @Override
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
