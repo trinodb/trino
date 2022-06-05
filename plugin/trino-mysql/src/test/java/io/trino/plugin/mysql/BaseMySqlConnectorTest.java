@@ -378,6 +378,21 @@ public abstract class BaseMySqlConnectorTest
                 .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
     }
 
+    @Test
+    public void testNativeQueryWithClause()
+    {
+        // The old MySQL JDBC driver didn't return metadata when the query contains WITH clause
+        assertQuery(
+                    """
+                    SELECT * FROM TABLE(mysql.system.query(query => '
+                    WITH t AS (SELECT DISTINCT custkey FROM tpch.orders)
+                    SELECT custkey, name FROM tpch.customer
+                    WHERE custkey = 1
+                    '))
+                    """,
+                "VALUES (1, 'Customer#000000001')");
+    }
+
     private String getLongInClause(int start, int length)
     {
         String longValues = range(start, start + length)
