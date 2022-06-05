@@ -259,7 +259,7 @@ public class TestCreateTableTask
     }
 
     @Test
-    public void testCreateLikeWithProperties()
+    public void testCreateLikeIncludingProperties()
     {
         CreateTable statement = getCreateLikeStatement(true);
 
@@ -312,7 +312,7 @@ public class TestCreateTableTask
     }
 
     @Test
-    public void testCreateLikeWithPropertiesDenyPermission()
+    public void testCreateLikeIncludingPropertiesDenyPermission()
     {
         CreateTable statement = getCreateLikeStatement(true);
 
