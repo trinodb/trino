@@ -36,6 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -71,7 +72,7 @@ public class TestTimestamp
         ConnectorSession session = getHiveSession(new HiveConfig());
 
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("test", "parquet")) {
-            JobConf jobConf = new JobConf();
+            JobConf jobConf = new JobConf(newEmptyConfiguration());
             jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
 
             ParquetTester.writeParquetColumn(

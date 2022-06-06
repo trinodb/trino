@@ -97,6 +97,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.AbstractTestHiveFileFormats.getFieldFromCursor;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -334,7 +335,7 @@ public class ParquetTester
             for (CompressionCodecName compressionCodecName : compressions) {
                 for (ConnectorSession session : sessions) {
                     try (TempFile tempFile = new TempFile("test", "parquet")) {
-                        JobConf jobConf = new JobConf();
+                        JobConf jobConf = new JobConf(newEmptyConfiguration());
                         jobConf.setEnum(COMPRESSION, compressionCodecName);
                         jobConf.setBoolean(ENABLE_DICTIONARY, true);
                         jobConf.setEnum(WRITER_VERSION, version);
@@ -414,7 +415,7 @@ public class ParquetTester
                 .build();
 
         try (TempFile tempFile = new TempFile("test", "parquet")) {
-            JobConf jobConf = new JobConf();
+            JobConf jobConf = new JobConf(newEmptyConfiguration());
             jobConf.setEnum(COMPRESSION, compressionCodecName);
             jobConf.setBoolean(ENABLE_DICTIONARY, true);
             jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);

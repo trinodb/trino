@@ -668,7 +668,7 @@ public class TestOrcPageSourceMemoryTracking
 
         serializer.initialize(CONFIGURATION, tableProperties);
 
-        JobConf jobConf = new JobConf();
+        JobConf jobConf = new JobConf(newEmptyConfiguration());
         if (compressionCodec != null) {
             CompressionCodec codec = new CompressionCodecFactory(CONFIGURATION).getCodecByName(compressionCodec);
             jobConf.set(COMPRESS_CODEC, codec.getClass().getName());

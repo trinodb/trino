@@ -562,7 +562,7 @@ public abstract class AbstractTestHiveFileFormats
         }
         Page page = pageBuilder.build();
 
-        JobConf jobConf = new JobConf();
+        JobConf jobConf = new JobConf(newEmptyConfiguration());
         configureCompression(jobConf, compressionCodec);
 
         Properties tableProperties = new Properties();
@@ -628,7 +628,7 @@ public abstract class AbstractTestHiveFileFormats
                         .collect(Collectors.joining(",")));
         serializer.initialize(newEmptyConfiguration(), tableProperties);
 
-        JobConf jobConf = new JobConf();
+        JobConf jobConf = new JobConf(newEmptyConfiguration());
         configureCompression(jobConf, compressionCodec);
 
         RecordWriter recordWriter = outputFormat.getHiveRecordWriter(
