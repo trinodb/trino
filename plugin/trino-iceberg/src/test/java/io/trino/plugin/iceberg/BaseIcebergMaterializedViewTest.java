@@ -28,7 +28,6 @@ import org.assertj.core.api.Condition;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Set;
 
@@ -161,14 +160,13 @@ public abstract class BaseIcebergMaterializedViewTest
                 "SELECT _bigint, _date FROM base_table1");
         assertQuery("SELECT COUNT(*) FROM materialized_view_with_property", "VALUES 6");
 
-        Path schemaDirectory = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("iceberg_data/tpch");
         assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW materialized_view_with_property"))
                 .matches(
                         "\\QCREATE MATERIALIZED VIEW iceberg." + getSchemaName() + ".materialized_view_with_property\n" +
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
                                 "   format_version = 2,\n" +
-                                "   location = '" + schemaDirectory + "/st_\\E[0-9a-f]+\\Q',\n" +
+                                "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+\\Q',\n" +
                                 "   orc_bloom_filter_columns = ARRAY['_date'],\n" +
                                 "   orc_bloom_filter_fpp = 1E-1,\n" +
                                 "   partitioning = ARRAY['_date']\n" +

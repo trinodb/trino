@@ -74,7 +74,7 @@ public class TestIcebergGlueCatalogMaterializedViewTest
     @Override
     protected String getSchemaDirectory()
     {
-        return new File(schemaDirectory, schemaName + ".db").toString();
+        return new File(schemaDirectory, schemaName + ".db").getPath();
     }
 
     @AfterClass(alwaysRun = true)
