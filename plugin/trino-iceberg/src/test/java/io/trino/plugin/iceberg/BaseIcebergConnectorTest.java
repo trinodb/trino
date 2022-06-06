@@ -3786,6 +3786,61 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testOptimizeCleansUpDeleteFiles()
+            throws IOException
+    {
+        String tableName = "test_optimize_" + randomTableSuffix();
+        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM nation", 25);
+
+        List<String> allDataFilesInitially = getAllDataFilesFromTableDirectory(tableName);
+        assertThat(allDataFilesInitially).hasSize(5);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 7", 1);
+
+        assertQuery(
+                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
+                "VALUES '1'");
+
+        List<String> allDataFilesAfterDelete = getAllDataFilesFromTableDirectory(tableName);
+        assertThat(allDataFilesAfterDelete).hasSize(6);
+
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 4");
+        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
+        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
+
+        assertQuery(
+                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
+                "VALUES '1'");
+        List<String> allDataFilesAfterOptimizeWithWhere = getAllDataFilesFromTableDirectory(tableName);
+        assertThat(allDataFilesAfterOptimizeWithWhere)
+                .hasSize(6)
+                .doesNotContain(allDataFilesInitially.stream().filter(file -> file.contains("regionkey=4"))
+                        .collect(toImmutableList())
+                        .toArray(new String[0]));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("SELECT * FROM nation WHERE nationkey != 7");
+
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
+        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
+
+        assertQuery(
+                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
+                "VALUES '0'");
+        List<String> allDataFilesAfterFullOptimize = getAllDataFilesFromTableDirectory(tableName);
+        assertThat(allDataFilesAfterFullOptimize)
+                .hasSize(5)
+                .doesNotContain(allDataFilesInitially.toArray(new String[0]));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("SELECT * FROM nation WHERE nationkey != 7");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private List<String> getActiveFiles(String tableName)
     {
         return computeActual(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumn()
