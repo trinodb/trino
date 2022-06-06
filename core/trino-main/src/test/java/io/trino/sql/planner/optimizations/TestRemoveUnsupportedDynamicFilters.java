@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.CatalogName;
 import io.trino.cost.StatsAndCosts;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
@@ -477,7 +478,7 @@ public class TestRemoveUnsupportedDynamicFilters
         return getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(plannerContext).optimize(root, session, builder.getTypes(), new SymbolAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP);
+            PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(plannerContext).optimize(root, session, builder.getTypes(), new SymbolAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP, TableStatsProvider.EMPTY);
             new DynamicFiltersChecker().validate(rewrittenPlan,
                     session,
                     plannerContext, createTestingTypeAnalyzer(plannerContext),
