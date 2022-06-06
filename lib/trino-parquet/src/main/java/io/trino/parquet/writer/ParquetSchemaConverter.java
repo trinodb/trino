@@ -55,6 +55,17 @@ import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
 public class ParquetSchemaConverter
 {
+    // Map precision to the number bytes needed for binary conversion.
+    // Based on org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+    private static final int[] PRECISION_TO_BYTE_COUNT = new int[39];
+
+    static {
+        for (int precision = 1; precision <= 38; precision++) {
+            // Estimated number of bytes needed.
+            PRECISION_TO_BYTE_COUNT[precision] = (int) Math.ceil((Math.log(Math.pow(10, precision) - 1) / Math.log(2) + 1) / 8);
+        }
+    }
+
     private Map<List<String>, Type> primitiveTypes = new HashMap<>();
     private final MessageType messageType;
 
@@ -115,7 +126,7 @@ public class ParquetSchemaConverter
             }
             else {
                 return Types.optional(PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY)
-                        .length(16)
+                        .length(PRECISION_TO_BYTE_COUNT[decimalType.getPrecision()])
                         .as(decimalType(decimalType.getScale(), decimalType.getPrecision()))
                         .named(name);
             }
