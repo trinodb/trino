@@ -29,17 +29,6 @@ public interface PlanOptimizer
             TypeProvider types,
             SymbolAllocator symbolAllocator,
             PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector);
-
-    default PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector,
-            TableStatsProvider tableStatsProvider)
-    {
-        return optimize(plan, session, types, symbolAllocator, idAllocator, warningCollector);
-    }
+            TableStatsProvider tableStatsProvider);
 }
