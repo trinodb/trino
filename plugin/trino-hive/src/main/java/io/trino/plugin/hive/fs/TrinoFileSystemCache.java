@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.fs;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
@@ -60,8 +61,11 @@ public class TrinoFileSystemCache
     private static final Logger log = Logger.get(TrinoFileSystemCache.class);
 
     public static final String CACHE_KEY = "fs.cache.credentials";
+    public static final String NO_WRAPPER_KEY = "trino.experimental.hive.no-wrapper-filesystems";
 
     public static final TrinoFileSystemCache INSTANCE = new TrinoFileSystemCache();
+
+    private static final Splitter COMMA_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings();
 
     private final AtomicLong unique = new AtomicLong();
 
@@ -162,6 +166,17 @@ public class TrinoFileSystemCache
         }
         FileSystem original = (FileSystem) ReflectionUtils.newInstance(clazz, conf);
         original.initialize(uri, conf);
+
+        // In some client libraries, FileSystem instances are expected to be objects
+        // of specified classes. Wrapping them with another class (i.e. FileSystemWrapper)
+        // could cause the clients unable to work.
+        //
+        // The value of NO_WRAPPER_KEY in conf is a comma separated string of class names
+        // that will not be wrapped by FileSystemWrapper.
+        if (COMMA_SPLITTER.splitToList(conf.get(NO_WRAPPER_KEY, "")).contains(original.getClass().getName())) {
+            return original;
+        }
+
         FilterFileSystem wrapper = new FileSystemWrapper(original);
         FileSystemFinalizerService.getInstance().addFinalizer(wrapper, () -> {
             try {
