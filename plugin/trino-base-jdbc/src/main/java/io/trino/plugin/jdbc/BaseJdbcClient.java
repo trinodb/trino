@@ -232,7 +232,8 @@ public abstract class BaseJdbcClient
         try (Connection connection = connectionFactory.openConnection(session);
                 PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
             ResultSetMetaData metadata = preparedStatement.getMetaData();
-            if (metadata == null) {
+            // SingleStore returns empty metadata instead of a null value
+            if (metadata == null || metadata.getColumnCount() == 0) {
                 throw new UnsupportedOperationException("Query not supported: ResultSetMetaData not available for query: " + preparedQuery.getQuery());
             }
             for (int column = 1; column <= metadata.getColumnCount(); column++) {

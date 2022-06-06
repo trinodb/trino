@@ -172,7 +172,8 @@ public class TestCachingJdbcClient
     {
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
-        createTable(phantomTable);
+        JdbcTableHandle tableHandle = createTable(phantomTable);
+        addColumn(tableHandle);
         PreparedQuery query = new PreparedQuery(format("SELECT * FROM %s.phantom_table", schema), ImmutableList.of());
         JdbcTableHandle cachedTable = cachingJdbcClient.getTableHandle(SESSION, query);
         dropTable(phantomTable);
