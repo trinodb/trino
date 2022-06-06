@@ -178,6 +178,12 @@ public abstract class BaseSqlServerConnectorTest
         }
     }
 
+    @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e).hasMessageContaining("was deadlocked on lock resources");
+    }
+
     @Test
     public void testColumnComment()
     {
