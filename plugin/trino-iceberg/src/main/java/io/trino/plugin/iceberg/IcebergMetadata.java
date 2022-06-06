@@ -38,6 +38,7 @@ import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
 import io.trino.plugin.iceberg.procedure.IcebergRemoveOrphanFilesHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableProcedureId;
+import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -89,6 +90,7 @@ import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileMetadata;
@@ -882,7 +884,8 @@ public class IcebergMetadata
                         getFileFormat(icebergTable),
                         icebergTable.properties(),
                         maxScannedFileSize,
-                        retryMode != NO_RETRIES),
+                        retryMode != NO_RETRIES,
+                        tableHandle.getEnforcedPredicate().isAll()),
                 icebergTable.location()));
     }
 
@@ -996,10 +999,16 @@ public class IcebergMetadata
         IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.getProcedureHandle();
         Table icebergTable = transaction.table();
 
-        // paths to be deleted
-        Set<DataFile> scannedFiles = splitSourceInfo.stream()
-                .map(DataFile.class::cast)
-                .collect(toImmutableSet());
+        // files to be deleted
+        ImmutableSet.Builder<DataFile> scannedDataFilesBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<DeleteFile> scannedDeleteFilesBuilder = ImmutableSet.builder();
+        splitSourceInfo.stream().map(DataFileWithDeleteFiles.class::cast).forEach(dataFileWithDeleteFiles -> {
+            scannedDataFilesBuilder.add(dataFileWithDeleteFiles.getDataFile());
+            scannedDeleteFilesBuilder.addAll(filterDeleteFilesThatWereNotScannedDuringOptimize(dataFileWithDeleteFiles.getDeleteFiles(), optimizeHandle.isWholeTableScan()));
+        });
+
+        Set<DataFile> scannedDataFiles = scannedDataFilesBuilder.build();
+        Set<DeleteFile> fullyAppliedDeleteFiles = scannedDeleteFilesBuilder.build();
 
         List<CommitTaskData> commitTasks = fragments.stream()
                 .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
@@ -1027,7 +1036,7 @@ public class IcebergMetadata
             newFiles.add(builder.build());
         }
 
-        if (scannedFiles.isEmpty() && newFiles.isEmpty()) {
+        if (scannedDataFiles.isEmpty() && fullyAppliedDeleteFiles.isEmpty() && newFiles.isEmpty()) {
             // Table scan turned out to be empty, nothing to commit
             transaction = null;
             return;
@@ -1041,14 +1050,29 @@ public class IcebergMetadata
                             .map(dataFile -> dataFile.path().toString())
                             .collect(toImmutableSet()));
         }
+
         RewriteFiles rewriteFiles = transaction.newRewrite();
-        rewriteFiles.rewriteFiles(scannedFiles, newFiles);
+        rewriteFiles.rewriteFiles(scannedDataFiles, fullyAppliedDeleteFiles, newFiles, ImmutableSet.of());
         // Table.snapshot method returns null if there is no matching snapshot
         Snapshot snapshot = requireNonNull(icebergTable.snapshot(optimizeHandle.getSnapshotId()), "snapshot is null");
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
         rewriteFiles.commit();
         transaction.commitTransaction();
         transaction = null;
+    }
+
+    private Set<DeleteFile> filterDeleteFilesThatWereNotScannedDuringOptimize(List<DeleteFile> deleteFiles, boolean isWholeTableScan)
+    {
+        // if whole table was scanned all delete files were read and applied
+        // so it is safe to remove them
+        if (isWholeTableScan) {
+            return ImmutableSet.copyOf(deleteFiles);
+        }
+        return deleteFiles.stream()
+                // equality delete files can be global so we can't clean them up unless we optimize whole table
+                // position delete files cannot be global so it is safe to clean them if they were scanned
+                .filter(deleteFile -> (deleteFile.content() == POSITION_DELETES) || deleteFile.partition() != null)
+                .collect(toImmutableSet());
     }
 
     @Override
