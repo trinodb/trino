@@ -54,6 +54,8 @@ public abstract class BaseIcebergMaterializedViewTest
 {
     protected abstract String getSchemaName();
 
+    protected abstract String getSchemaDirectory();
+
     @BeforeClass
     public void setUp()
     {
@@ -435,13 +437,12 @@ public abstract class BaseIcebergMaterializedViewTest
         assertQueryFails("show create view  materialized_view_window",
                 "line 1:1: Relation '" + qualifiedMaterializedViewName + "' is a materialized view, not a view");
 
-        Path schemaDirectory = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("iceberg_data/tpch");
         assertThat((String) computeScalar("show create materialized view materialized_view_window"))
                 .matches("\\QCREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + "\n" +
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
                         "   format_version = 2,\n" +
-                        "   location = '" + schemaDirectory + "/st_\\E[0-9a-f]+\\Q',\n" +
+                        "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+\\Q',\n" +
                         "   partitioning = ARRAY['_date']\n" +
                         ") AS\n" +
                         "SELECT\n" +
