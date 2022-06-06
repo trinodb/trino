@@ -38,12 +38,6 @@ public final class StatsRecordingPlanOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
-    {
-        throw new IllegalStateException("This is not expected to be called because the other overload is implemented.");
-    }
-
-    @Override
     public PlanNode optimize(
             PlanNode plan,
             Session session,

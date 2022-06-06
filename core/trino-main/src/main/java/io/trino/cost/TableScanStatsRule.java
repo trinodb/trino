@@ -51,12 +51,6 @@ public class TableScanStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
-    {
-        throw new UnsupportedOperationException("This is not expected to be called because the other overload is implemented");
-    }
-
-    @Override
     protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         if (isStatisticsPrecalculationForPushdownEnabled(session) && node.getStatistics().isPresent()) {

@@ -34,22 +34,11 @@ public abstract class SimpleStatsRule<T extends PlanNode>
     }
 
     @Override
-    public final Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
-    {
-        throw new IllegalStateException("This is not expected to be called because the other overload is implemented.");
-    }
-
-    @Override
     public final Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         return doCalculate(node, sourceStats, lookup, session, types, tableStatsProvider)
                 .map(estimate -> normalizer.normalize(estimate, node.getOutputSymbols(), types));
     }
 
-    protected abstract Optional<PlanNodeStatsEstimate> doCalculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types);
-
-    protected Optional<PlanNodeStatsEstimate> doCalculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
-    {
-        return doCalculate(node, sourceStats, lookup, session, types);
-    }
+    protected abstract Optional<PlanNodeStatsEstimate> doCalculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider);
 }

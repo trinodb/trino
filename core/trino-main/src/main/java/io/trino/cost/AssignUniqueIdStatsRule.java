@@ -36,7 +36,7 @@ public class AssignUniqueIdStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(AssignUniqueId assignUniqueId, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
+    public Optional<PlanNodeStatsEstimate> calculate(AssignUniqueId assignUniqueId, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         PlanNodeStatsEstimate sourceStats = statsProvider.getStats(assignUniqueId.getSource());
         return Optional.of(PlanNodeStatsEstimate.buildFrom(sourceStats)

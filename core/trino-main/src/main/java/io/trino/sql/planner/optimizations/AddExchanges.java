@@ -137,12 +137,6 @@ public class AddExchanges
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
-    {
-        throw new IllegalStateException("This is not expected to be called because the other overload is implemented.");
-    }
-
-    @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
     {
         PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, session, tableStatsProvider), PreferredProperties.any());

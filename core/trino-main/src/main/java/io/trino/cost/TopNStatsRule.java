@@ -42,7 +42,7 @@ public class TopNStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(TopNNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(TopNNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
         double rowCount = sourceStats.getOutputRowCount();

@@ -47,7 +47,7 @@ public class ProjectStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(ProjectNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(ProjectNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
         PlanNodeStatsEstimate.Builder calculatedStats = PlanNodeStatsEstimate.builder()

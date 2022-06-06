@@ -47,7 +47,7 @@ public class AggregationStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(AggregationNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(AggregationNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         if (node.getGroupingSetCount() != 1) {
             return Optional.empty();
