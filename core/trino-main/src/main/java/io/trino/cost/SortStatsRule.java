@@ -36,7 +36,7 @@ public class SortStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(SortNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+    public Optional<PlanNodeStatsEstimate> calculate(SortNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         return Optional.of(sourceStats.getStats(node.getSource()));
     }
