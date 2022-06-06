@@ -20,6 +20,8 @@ JSON path.
 Trino also supports two functions for generating JSON data --
 :ref:`json_array<json_array>`, and :ref:`json_object<json_object>`.
 
+.. _json-path-language:
+
 JSON path language
 ------------------
 
