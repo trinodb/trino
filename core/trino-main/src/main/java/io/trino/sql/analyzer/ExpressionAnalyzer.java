@@ -2799,17 +2799,17 @@ public class ExpressionAnalyzer
                     else if (isNumericType(parameterType) || parameterType.equals(BOOLEAN)) {
                         passedType = parameterType;
                     }
-                    else if (isDateTimeType(parameterType)) {
-                        if (parameterType.equals(INTERVAL_DAY_TIME) || parameterType.equals(INTERVAL_YEAR_MONTH)) {
-                            throw semanticException(INVALID_FUNCTION_ARGUMENT, parameter, "Invalid type of JSON path parameter: %s", parameterType.getDisplayName());
-                        }
+                    else if (isDateTimeType(parameterType) && !parameterType.equals(INTERVAL_DAY_TIME) && !parameterType.equals(INTERVAL_YEAR_MONTH)) {
                         passedType = parameterType;
                     }
                     else {
-                        if (!typeCoercion.canCoerce(parameterType, VARCHAR)) {
-                            throw semanticException(INVALID_FUNCTION_ARGUMENT, parameter, "Invalid type of JSON path parameter: %s", parameterType.getDisplayName());
+                        try {
+                            plannerContext.getMetadata().getCoercion(session, parameterType, VARCHAR);
                         }
-                        coerceType(parameter, parameterType, VARCHAR, "JSON path parameter");
+                        catch (OperatorNotFoundException e) {
+                            throw semanticException(NOT_SUPPORTED, node, "Unsupported type of JSON path parameter: %s", parameterType.getDisplayName());
+                        }
+                        addOrReplaceExpressionCoercion(parameter, parameterType, VARCHAR);
                         passedType = VARCHAR;
                     }
                 }
