@@ -462,7 +462,7 @@ jobs:
           GCP_PROJECT_NAME: ${{ secrets.GCP_PROJECT_NAME }}
         # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
         if: >-
-          contains(matrix.modules, 'trino-delta-lake') &&
+          contains(matrix.modules, 'trino-delta-lake') && matrix.profile == '' &&
           (env.ABFS_ACCOUNT != '' || env.ABFS_CONTAINER != '' || env.ABFS_ACCESSKEY != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '' || env.GCP_PROJECT_NAME != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -P cloud-tests -pl :trino-delta-lake \
