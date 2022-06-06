@@ -43,18 +43,20 @@ public class TestIcebergGlueCatalogMaterializedViewTest
 {
     private final String schemaName = "test_iceberg_materialized_view_" + randomTableSuffix();
 
+    private File schemaDirectory;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        File tempDir = Files.createTempDirectory("test_iceberg").toFile();
-        tempDir.deleteOnExit();
+        this.schemaDirectory = Files.createTempDirectory("test_iceberg").toFile();
+        schemaDirectory.deleteOnExit();
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.of(
                                 "iceberg.catalog.type", "glue",
-                                "hive.metastore.glue.default-warehouse-dir", tempDir.getAbsolutePath()))
+                                "hive.metastore.glue.default-warehouse-dir", schemaDirectory.getAbsolutePath()))
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(ImmutableList.of())
@@ -67,6 +69,12 @@ public class TestIcebergGlueCatalogMaterializedViewTest
     protected String getSchemaName()
     {
         return schemaName;
+    }
+
+    @Override
+    protected String getSchemaDirectory()
+    {
+        return new File(schemaDirectory, schemaName + ".db").getPath();
     }
 
     @AfterClass(alwaysRun = true)
