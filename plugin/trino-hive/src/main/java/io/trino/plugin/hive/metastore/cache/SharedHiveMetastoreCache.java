@@ -59,6 +59,7 @@ public class SharedHiveMetastoreCache
 
     private final Duration userMetastoreCacheTtl;
     private final long userMetastoreCacheMaximumSize;
+    private final boolean metastorePartitionCacheEnabled;
 
     private ExecutorService executorService;
 
@@ -78,6 +79,7 @@ public class SharedHiveMetastoreCache
         metastoreCacheTtl = config.getMetastoreCacheTtl();
         metastoreRefreshInterval = config.getMetastoreRefreshInterval();
         metastoreCacheMaximumSize = config.getMetastoreCacheMaximumSize();
+        metastorePartitionCacheEnabled = config.isPartitionCacheEnabled();
 
         userMetastoreCacheTtl = impersonationCachingConfig.getUserMetastoreCacheTtl();
         userMetastoreCacheMaximumSize = impersonationCachingConfig.getUserMetastoreCacheMaximumSize();
@@ -134,7 +136,8 @@ public class SharedHiveMetastoreCache
                 new ReentrantBoundedExecutor(executorService, maxMetastoreRefreshThreads),
                 metastoreCacheTtl,
                 metastoreRefreshInterval,
-                metastoreCacheMaximumSize);
+                metastoreCacheMaximumSize,
+                metastorePartitionCacheEnabled);
         return new CachingHiveMetastoreFactory(cachingHiveMetastore);
     }
 
@@ -211,7 +214,8 @@ public class SharedHiveMetastoreCache
                     new ReentrantBoundedExecutor(executorService, maxMetastoreRefreshThreads),
                     metastoreCacheTtl,
                     metastoreRefreshInterval,
-                    metastoreCacheMaximumSize);
+                    metastoreCacheMaximumSize,
+                    metastorePartitionCacheEnabled);
         }
 
         @Managed

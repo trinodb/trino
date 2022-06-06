@@ -110,6 +110,15 @@ is used.
   * - ``iceberg.max-partitions-per-writer``
     - Maximum number of partitions handled per writer.
     - 100
+  * - ``hive.orc.bloom-filters.enabled``
+    - Enable bloom filters for predicate pushdown.
+    - ``false``
+  * - ``iceberg.target-max-file-size``
+    - Target maximum size of written files; the actual size may be larger
+    - ``1GB``
+  * - ``iceberg.delete-schema-locations-fallback``
+    - Whether schema locations should be deleted when Trino can't determine whether they contain external files.
+    - ``false``
 
 .. _iceberg-authorization:
 
@@ -251,12 +260,21 @@ The following table properties can be updated after a table is created:
 
 * ``format``
 * ``format_version``
+* ``partitioning``
 
 For example, to update a table from v1 of the Iceberg specification to v2:
 
 .. code-block:: sql
 
     ALTER TABLE table_name SET PROPERTIES format_version = 2;
+
+Or to set the column ``my_new_partition_column`` as a partition column on a table:
+
+.. code-block:: sql
+
+    ALTER TABLE table_name SET PROPERTIES partitioning = ARRAY[<existing partition columns>, 'my_new_partition_column'];
+
+The current values of a table's properties can be shown using :doc:`SHOW CREATE TABLE </sql/show-create-table>`.
 
 .. _iceberg-type-mapping:
 
@@ -494,6 +512,16 @@ Property Name                                      Description
 ``format_version``                                 Optionally specifies the format version of the Iceberg
                                                    specification to use for new tables; either ``1`` or ``2``.
                                                    Defaults to ``2``. Version ``2`` is required for row level deletes.
+
+``orc_bloom_filter_columns``                       Comma separated list of columns to use for ORC bloom filter.
+                                                   It improves the performance of queries using Equality and IN predicates
+                                                   when reading ORC file.
+                                                   Requires ORC format.
+                                                   Defaults to ``[]``.
+
+``orc_bloom_filter_fpp``                           The ORC bloom filters false positive probability.
+                                                   Requires ORC format.
+                                                   Defaults to ``0.05``.
 ================================================== ================================================================
 
 The table definition below specifies format Parquet, partitioning by columns ``c1`` and ``c2``,
@@ -507,6 +535,19 @@ and a file system location of ``/var/my_tables/test_table``::
         format = 'PARQUET',
         partitioning = ARRAY['c1', 'c2'],
         location = '/var/my_tables/test_table')
+
+The table definition below specifies format ORC, bloom filter index by columns ``c1`` and ``c2``,
+fpp is 0.05, and a file system location of ``/var/my_tables/test_table``::
+
+    CREATE TABLE test_table (
+        c1 integer,
+        c2 date,
+        c3 double)
+    WITH (
+        format = 'ORC',
+        location = '/var/my_tables/test_table',
+        orc_bloom_filter_columns = ARRAY['c1', 'c2'],
+        orc_bloom_filter_fpp = 0.05)
 
 .. _iceberg_metadata_columns:
 

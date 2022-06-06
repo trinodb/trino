@@ -118,6 +118,8 @@ public class TestPostgreSqlConnectorTest
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
@@ -158,7 +160,7 @@ public class TestPostgreSqlConnectorTest
     {
         return new TestTable(
                 onRemoteDatabase(),
-                "test_unsupported_column_present",
+                "tpch.test_unsupported_column_present",
                 "(one bigint, two decimal(50,0), three varchar(10))");
     }
 

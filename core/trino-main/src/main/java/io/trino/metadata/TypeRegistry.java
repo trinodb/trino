@@ -94,6 +94,7 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
+import static io.trino.type.Json2016Type.JSON_2016;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
@@ -146,6 +147,7 @@ public final class TypeRegistry
         addType(new Re2JRegexpType(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()));
         addType(LIKE_PATTERN);
         addType(JSON_PATH);
+        addType(JSON_2016);
         addType(COLOR);
         addType(JSON);
         addType(CODE_POINTS);

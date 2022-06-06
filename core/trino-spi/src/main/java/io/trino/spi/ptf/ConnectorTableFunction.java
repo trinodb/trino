@@ -16,60 +16,18 @@ package io.trino.spi.ptf;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import static java.util.Objects.requireNonNull;
-
-public abstract class ConnectorTableFunction
+public interface ConnectorTableFunction
 {
-    private final String schema;
-    private final String name;
-    private final List<ArgumentSpecification> arguments;
-    private final ReturnTypeSpecification returnTypeSpecification;
+    String getSchema();
 
-    public ConnectorTableFunction(String schema, String name, List<ArgumentSpecification> arguments, ReturnTypeSpecification returnTypeSpecification)
-    {
-        this.schema = checkNotNullOrEmpty(schema, "schema");
-        this.name = checkNotNullOrEmpty(name, "name");
-        requireNonNull(arguments, "arguments is null");
-        Set<String> argumentNames = new HashSet<>();
-        for (ArgumentSpecification specification : arguments) {
-            if (!argumentNames.add(specification.getName())) {
-                throw new IllegalArgumentException("duplicate argument name: " + specification.getName());
-            }
-        }
-        long tableArgumentsWithRowSemantics = arguments.stream()
-                .filter(specification -> specification instanceof TableArgumentSpecification)
-                .map(TableArgumentSpecification.class::cast)
-                .filter(TableArgumentSpecification::isRowSemantics)
-                .count();
-        checkArgument(tableArgumentsWithRowSemantics <= 1, "more than one table argument with row semantics");
-        this.arguments = List.copyOf(arguments);
-        this.returnTypeSpecification = requireNonNull(returnTypeSpecification, "returnTypeSpecification is null");
-    }
+    String getName();
 
-    public String getSchema()
-    {
-        return schema;
-    }
+    List<ArgumentSpecification> getArguments();
 
-    public String getName()
-    {
-        return name;
-    }
-
-    public List<ArgumentSpecification> getArguments()
-    {
-        return arguments;
-    }
-
-    public ReturnTypeSpecification getReturnTypeSpecification()
-    {
-        return returnTypeSpecification;
-    }
+    ReturnTypeSpecification getReturnTypeSpecification();
 
     /**
      * This method is called by the Analyzer. Its main purposes are to:
@@ -87,19 +45,5 @@ public abstract class ConnectorTableFunction
      *
      * @param arguments actual invocation arguments, mapped by argument names
      */
-    public abstract TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments);
-
-    static String checkNotNullOrEmpty(String value, String name)
-    {
-        requireNonNull(value, name + " is null");
-        checkArgument(!value.isEmpty(), name + " is empty");
-        return value;
-    }
-
-    static void checkArgument(boolean assertion, String message)
-    {
-        if (!assertion) {
-            throw new IllegalArgumentException(message);
-        }
-    }
+    TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments);
 }

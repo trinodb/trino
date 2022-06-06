@@ -15,7 +15,11 @@ package io.trino.operator.aggregation.state;
 
 import io.airlift.stats.QuantileDigest;
 import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
+@AccumulatorStateMetadata(
+        stateFactoryClass = QuantileDigestStateFactory.class,
+        stateSerializerClass = QuantileDigestStateSerializer.class)
 public interface QuantileDigestState
         extends AccumulatorState
 {

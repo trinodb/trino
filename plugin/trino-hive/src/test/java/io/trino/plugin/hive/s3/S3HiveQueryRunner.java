@@ -25,7 +25,7 @@ import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.TestingMetastoreLocator;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
@@ -156,8 +156,8 @@ public final class S3HiveQueryRunner
                                             Optional.empty(),
                                             hiveMetastoreEndpoint,
                                             metastoreTimeout),
-                                    new HiveConfig(),
-                                    new MetastoreConfig(),
+                                    new HiveMetastoreConfig().isHideDeltaLakeTables(),
+                                    new HiveConfig().isTranslateHiveViews(),
                                     new ThriftMetastoreConfig(),
                                     new HdfsEnvironment(new HiveHdfsConfiguration(
                                             new HdfsConfigurationInitializer(

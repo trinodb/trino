@@ -47,6 +47,7 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.ViewExpression;
@@ -66,6 +67,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.metrics.Metrics.EMPTY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -96,6 +98,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final Function<SchemaTableName, List<List<?>>> data;
+    private final Function<SchemaTableName, Metrics> metrics;
     private final Set<Procedure> procedures;
     private final boolean allowMissingColumnsOnInsert;
     private final Supplier<List<PropertyMetadata<?>>> schemaProperties;
@@ -132,6 +135,7 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             Supplier<Iterable<EventListener>> eventListeners,
             Function<SchemaTableName, List<List<?>>> data,
+            Function<SchemaTableName, Metrics> metrics,
             Set<Procedure> procedures,
             Supplier<List<PropertyMetadata<?>>> schemaProperties,
             Supplier<List<PropertyMetadata<?>>> tableProperties,
@@ -170,6 +174,7 @@ public class MockConnectorFactory
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
+        this.metrics = requireNonNull(metrics, "metrics is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
         this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
         this.supportsReportingWrittenBytes = supportsReportingWrittenBytes;
@@ -211,6 +216,7 @@ public class MockConnectorFactory
                 partitioningProvider,
                 accessControl,
                 data,
+                metrics,
                 procedures,
                 allowMissingColumnsOnInsert,
                 schemaProperties,
@@ -322,6 +328,7 @@ public class MockConnectorFactory
         private ApplyTableScanRedirect applyTableScanRedirect = (session, handle) -> Optional.empty();
         private BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable = (session, tableName) -> Optional.empty();
         private Function<SchemaTableName, List<List<?>>> data = schemaTableName -> ImmutableList.of();
+        private Function<SchemaTableName, Metrics> metrics = schemaTableName -> EMPTY;
         private Set<Procedure> procedures = ImmutableSet.of();
         private Supplier<List<PropertyMetadata<?>>> schemaProperties = ImmutableList::of;
         private Supplier<List<PropertyMetadata<?>>> tableProperties = ImmutableList::of;
@@ -501,6 +508,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withMetrics(Function<SchemaTableName, Metrics> metrics)
+        {
+            this.metrics = requireNonNull(metrics, "metrics is null");
+            return this;
+        }
+
         public Builder withProcedures(Iterable<Procedure> procedures)
         {
             this.procedures = ImmutableSet.copyOf(procedures);
@@ -603,6 +616,7 @@ public class MockConnectorFactory
                     getTableProperties,
                     eventListeners,
                     data,
+                    metrics,
                     procedures,
                     schemaProperties,
                     tableProperties,

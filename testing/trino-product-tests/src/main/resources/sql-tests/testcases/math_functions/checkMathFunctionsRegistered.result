@@ -10,7 +10,7 @@
  approx_percentile | double | double, double | aggregate | true | |
  approx_set | hyperloglog | bigint | aggregate | true | |
  approx_set | hyperloglog | double | aggregate | true | |
- arbitrary | T | T | aggregate | true | Return an arbitrary non-null input value |
+ arbitrary | t | t | aggregate | true | Return an arbitrary non-null input value |
  asin | double | double | scalar | true | Arc sine |
  atan | double | double | scalar | true | Arc tangent |
  atan2 | double | double, double | scalar | true | Arc tangent of given fraction |
@@ -27,7 +27,7 @@
  cos | double | double | scalar | true | Cosine |
  cosh | double | double | scalar | true | Hyperbolic cosine |
  count | bigint | | aggregate | true | |
- count | bigint | T | aggregate | true | Counts the non-null values |
+ count | bigint | t | aggregate | true | Counts the non-null values |
  count_if | bigint | boolean | aggregate | true | |
  covar_pop | double | double, double | aggregate | true | |
  covar_samp | double | double, double | aggregate | true | |
@@ -46,10 +46,10 @@
  ln | double | double | scalar | true | Natural logarithm |
  log10 | double | double | scalar | true | Logarithm to base 10 |
  log2 | double | double | scalar | true | Logarithm to base 2 |
- max | E | E | aggregate | true | Returns the maximum value of the argument |
- max_by | V | V, K | aggregate | true | Returns the value of the first argument, associated with the maximum value of the second argument |
- min | E | E | aggregate | true | Returns the minimum value of the argument |
- min_by | V | V, K | aggregate | true | Returns the value of the first argument, associated with the minimum value of the second argument |
+ max | t | t | aggregate | true | Returns the maximum value of the argument |
+ max_by | v | v, k | aggregate | true | Returns the value of the first argument, associated with the maximum value of the second argument |
+ min | t | t | aggregate | true | Returns the minimum value of the argument |
+ min_by | v | v, k | aggregate | true | Returns the value of the first argument, associated with the minimum value of the second argument |
  mod | bigint | bigint, bigint | scalar | true | Remainder of given quotient |
  mod | double | double, double | scalar | true | Remainder of given quotient |
  nan | double | | scalar | true | Constant representing not-a-number |

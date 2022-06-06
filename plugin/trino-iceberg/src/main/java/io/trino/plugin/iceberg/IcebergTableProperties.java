@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
@@ -29,6 +30,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MAX;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MIN;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -42,11 +44,15 @@ public class IcebergTableProperties
     public static final String PARTITIONING_PROPERTY = "partitioning";
     public static final String LOCATION_PROPERTY = "location";
     public static final String FORMAT_VERSION_PROPERTY = "format_version";
+    public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
+    public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
     @Inject
-    public IcebergTableProperties(IcebergConfig icebergConfig)
+    public IcebergTableProperties(
+            IcebergConfig icebergConfig,
+            OrcWriterConfig orcWriterConfig)
     {
         tableProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(enumProperty(
@@ -76,6 +82,24 @@ public class IcebergTableProperties
                         "Iceberg table format version",
                         icebergConfig.getFormatVersion(),
                         IcebergTableProperties::validateFormatVersion,
+                        false))
+                .add(new PropertyMetadata<>(
+                        ORC_BLOOM_FILTER_COLUMNS,
+                        "ORC Bloom filter index columns",
+                        new ArrayType(VARCHAR),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ((List<?>) value).stream()
+                                .map(String.class::cast)
+                                .map(name -> name.toLowerCase(ENGLISH))
+                                .collect(toImmutableList()),
+                        value -> value))
+                .add(doubleProperty(
+                        ORC_BLOOM_FILTER_FPP,
+                        "ORC Bloom filter false positive probability",
+                        orcWriterConfig.getDefaultBloomFilterFpp(),
+                        IcebergTableProperties::validateOrcBloomFilterFpp,
                         false))
                 .build();
     }
@@ -112,6 +136,24 @@ public class IcebergTableProperties
         if (version < FORMAT_VERSION_SUPPORT_MIN || version > FORMAT_VERSION_SUPPORT_MAX) {
             throw new TrinoException(INVALID_TABLE_PROPERTY,
                     format("format_version must be between %d and %d", FORMAT_VERSION_SUPPORT_MIN, FORMAT_VERSION_SUPPORT_MAX));
+        }
+    }
+
+    public static List<String> getOrcBloomFilterColumns(Map<String, Object> tableProperties)
+    {
+        List<String> orcBloomFilterColumns = (List<String>) tableProperties.get(ORC_BLOOM_FILTER_COLUMNS);
+        return orcBloomFilterColumns == null ? ImmutableList.of() : ImmutableList.copyOf(orcBloomFilterColumns);
+    }
+
+    public static Double getOrcBloomFilterFpp(Map<String, Object> tableProperties)
+    {
+        return (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP);
+    }
+
+    private static void validateOrcBloomFilterFpp(double fpp)
+    {
+        if (fpp < 0.0 || fpp > 1.0) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Bloom filter fpp value must be between 0.0 and 1.0");
         }
     }
 }

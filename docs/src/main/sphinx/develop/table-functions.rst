@@ -14,7 +14,8 @@ through implementing dedicated interfaces.
 Table function declaration
 --------------------------
 
-To declare a table function, you need to subclass ``ConnectorTableFunction``.
+To declare a table function, you need to implement ``ConnectorTableFunction``.
+Subclassing ``AbstractConnectorTableFunction`` is a convenient way to do it.
 The connector's ``getTableFunctions()`` method must return a ``Provider`` of
 your implementation.
 
@@ -24,7 +25,7 @@ The constructor
 .. code-block:: java
 
     public class MyFunction
-            extends ConnectorTableFunction
+            extends AbstractConnectorTableFunction
     {
         public MyFunction()
         {

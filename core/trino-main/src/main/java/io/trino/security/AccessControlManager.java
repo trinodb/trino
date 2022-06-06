@@ -35,6 +35,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.Privilege;
@@ -1135,19 +1136,23 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext securityContext, QualifiedObjectName functionName)
+    public void checkCanExecuteFunction(SecurityContext securityContext, FunctionKind functionKind, QualifiedObjectName functionName)
     {
         requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(functionKind, "functionKind is null");
         requireNonNull(functionName, "functionName is null");
 
         checkCanAccessCatalog(securityContext, functionName.getCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanExecuteFunction(securityContext.toSystemSecurityContext(), functionName.asCatalogSchemaRoutineName()));
+        systemAuthorizationCheck(control -> control.checkCanExecuteFunction(
+                securityContext.toSystemSecurityContext(),
+                functionKind,
+                functionName.asCatalogSchemaRoutineName()));
 
         catalogAuthorizationCheck(
                 functionName.getCatalogName(),
                 securityContext,
-                (control, context) -> control.checkCanExecuteFunction(context, functionName.asSchemaRoutineName()));
+                (control, context) -> control.checkCanExecuteFunction(context, functionKind, functionName.asSchemaRoutineName()));
     }
 
     @Override

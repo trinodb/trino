@@ -70,6 +70,7 @@ public abstract class AbstractKuduConnectorTest
             case SUPPORTS_DELETE:
                 return true;
             case SUPPORTS_RENAME_SCHEMA:
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_ARRAY:
@@ -276,6 +277,22 @@ public abstract class AbstractKuduConnectorTest
     }
 
     @Override
+    public void testCreateTableWithColumnComment()
+    {
+        // TODO https://github.com/trinodb/trino/issues/12469 Support column comment when creating tables
+        String tableName = "test_create_" + randomTableSuffix();
+
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(" +
+                        "id INT WITH (primary_key=true)," +
+                        "a VARCHAR COMMENT 'test comment')" +
+                        "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)",
+                "This connector does not support creating tables with column comment");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Override
     public void testDropTable()
     {
         assertThatThrownBy(super::testDropTable)
@@ -341,6 +358,13 @@ public abstract class AbstractKuduConnectorTest
 
     @Override
     public void testInsertRowConcurrently()
+    {
+        // TODO Support these test once kudu connector can create tables with default partitions
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testAddColumnConcurrently()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
         throw new SkipException("TODO");
@@ -449,7 +473,10 @@ public abstract class AbstractKuduConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("time")
-                || typeName.equals("timestamp(3) with time zone")) {
+                || typeName.equals("time(6)")
+                || typeName.equals("timestamp(6)")
+                || typeName.equals("timestamp(3) with time zone")
+                || typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 

@@ -77,7 +77,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     }
 
     @Override
-    DockerizedDataLake createDockerizedDataLake()
+    protected DockerizedDataLake createDockerizedDataLake()
             throws Exception
     {
         String abfsSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("io/trino/plugin/deltalake/hdp3.1-core-site.xml.abfs-template"), UTF_8)
@@ -96,7 +96,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     }
 
     @Override
-    QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
+    protected QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
             throws Exception
     {
         return createAbfsDeltaLakeQueryRunner(DELTA_CATALOG, SCHEMA, ImmutableMap.of(), connectorProperties, dockerizedDataLake.getTestingHadoop());
@@ -118,7 +118,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     }
 
     @Override
-    void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
+    protected void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
         String targetDirectory = bucketName + "/" + table;
 
@@ -142,13 +142,13 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     }
 
     @Override
-    String getLocationForTable(String bucketName, String tableName)
+    protected String getLocationForTable(String bucketName, String tableName)
     {
         return bucketUrl() + tableName;
     }
 
     @Override
-    List<String> getTableFiles(String tableName)
+    protected List<String> getTableFiles(String tableName)
     {
         return listAllFilesRecursive(tableName);
     }

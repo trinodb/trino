@@ -41,6 +41,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.isDistinctOperator;
+import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.restoreDistinctAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.Patterns.Aggregation.groupingColumns;
@@ -57,7 +58,8 @@ import static java.util.Objects.requireNonNull;
 /**
  * This rule decorrelates a correlated subquery of INNER correlated join with:
  * - single grouped aggregation, or
- * - grouped aggregation over distinct operator (grouped aggregation with no aggregation assignments)
+ * - grouped aggregation over distinct operator (grouped aggregation with no aggregation assignments),
+ * in case when the distinct operator cannot be de-correlated by PlanNodeDecorrelator
  * <p>
  * In the case of single aggregation, it transforms:
  * <pre>
@@ -140,19 +142,24 @@ public class TransformCorrelatedGroupedAggregationWithProjection
     @Override
     public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
     {
-        // if there is another aggregation below the AggregationNode, handle both
         PlanNode source = captures.get(SOURCE);
+
+        // if we fail to decorrelate the nested plan, and it contains a distinct operator, we can extract and special-handle the distinct operator
         AggregationNode distinct = null;
-        if (isDistinctOperator(source)) {
-            distinct = (AggregationNode) source;
-            source = distinct.getSource();
-        }
 
         // decorrelate nested plan
         PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(plannerContext, context.getSymbolAllocator(), context.getLookup());
         Optional<PlanNodeDecorrelator.DecorrelatedNode> decorrelatedSource = decorrelator.decorrelateFilters(source, correlatedJoinNode.getCorrelation());
         if (decorrelatedSource.isEmpty()) {
-            return Result.empty();
+            // we failed to decorrelate the nested plan, so check if we can extract a distinct operator from the nested plan
+            if (isDistinctOperator(source)) {
+                distinct = (AggregationNode) source;
+                source = distinct.getSource();
+                decorrelatedSource = decorrelator.decorrelateFilters(source, correlatedJoinNode.getCorrelation());
+            }
+            if (decorrelatedSource.isEmpty()) {
+                return Result.empty();
+            }
         }
 
         source = decorrelatedSource.get().getNode();
@@ -182,34 +189,27 @@ public class TransformCorrelatedGroupedAggregationWithProjection
 
         // restore distinct aggregation
         if (distinct != null) {
-            distinct = new AggregationNode(
-                    distinct.getId(),
+            distinct = restoreDistinctAggregation(
+                    distinct,
                     join,
-                    distinct.getAggregations(),
-                    singleGroupingSet(ImmutableList.<Symbol>builder()
+                    ImmutableList.<Symbol>builder()
                             .addAll(join.getLeftOutputSymbols())
                             .addAll(distinct.getGroupingKeys())
-                            .build()),
-                    ImmutableList.of(),
-                    distinct.getStep(),
-                    Optional.empty(),
-                    Optional.empty());
+                            .build());
         }
 
         // restore grouped aggregation
         AggregationNode groupedAggregation = captures.get(AGGREGATION);
-        groupedAggregation = new AggregationNode(
-                groupedAggregation.getId(),
-                distinct != null ? distinct : join,
-                groupedAggregation.getAggregations(),
-                singleGroupingSet(ImmutableList.<Symbol>builder()
+        groupedAggregation = AggregationNode.builderFrom(groupedAggregation)
+                .setSource(distinct != null ? distinct : join)
+                .setGroupingSets(singleGroupingSet(ImmutableList.<Symbol>builder()
                         .addAll(join.getLeftOutputSymbols())
                         .addAll(groupedAggregation.getGroupingKeys())
-                        .build()),
-                ImmutableList.of(),
-                groupedAggregation.getStep(),
-                Optional.empty(),
-                Optional.empty());
+                        .build()))
+                .setPreGroupedSymbols(ImmutableList.of())
+                .setHashSymbol(Optional.empty())
+                .setGroupIdSymbol(Optional.empty())
+                .build();
 
         // restrict outputs and apply projection
         Set<Symbol> outputSymbols = new HashSet<>(correlatedJoinNode.getOutputSymbols());

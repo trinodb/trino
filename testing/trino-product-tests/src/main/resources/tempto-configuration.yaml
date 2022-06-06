@@ -164,6 +164,16 @@ databases:
     presto_kafka_catalog: kafka
     table_manager_type: kafka
 
+  delta:
+      jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
+      schema: default
+      prepare_statement:
+          - USE ${databases.delta.schema}
+      table_manager_type: jdbc
+      jdbc_url: jdbc:hive2://spark:10213
+      jdbc_user: hive
+      jdbc_password: na
+
 tests:
   hdfs:
     path: /tmp/product-test

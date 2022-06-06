@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.iceberg.delete.TrinoDeleteFile;
 import io.trino.spi.HostAddress;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -37,11 +38,13 @@ public class IcebergSplit
     private final long start;
     private final long length;
     private final long fileSize;
+    private final long fileRecordCount;
     private final IcebergFileFormat fileFormat;
     private final List<HostAddress> addresses;
     private final String partitionSpecJson;
     private final String partitionDataJson;
     private final List<TrinoDeleteFile> deletes;
+    private final SplitWeight splitWeight;
 
     @JsonCreator
     public IcebergSplit(
@@ -49,21 +52,25 @@ public class IcebergSplit
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
+            @JsonProperty("fileRecordCount") long fileRecordCount,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("partitionSpecJson") String partitionSpecJson,
             @JsonProperty("partitionDataJson") String partitionDataJson,
-            @JsonProperty("deletes") List<TrinoDeleteFile> deletes)
+            @JsonProperty("deletes") List<TrinoDeleteFile> deletes,
+            @JsonProperty("splitWeight") SplitWeight splitWeight)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
         this.length = length;
         this.fileSize = fileSize;
+        this.fileRecordCount = fileRecordCount;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
+        this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
     }
 
     @Override
@@ -104,6 +111,12 @@ public class IcebergSplit
     }
 
     @JsonProperty
+    public long getFileRecordCount()
+    {
+        return fileRecordCount;
+    }
+
+    @JsonProperty
     public IcebergFileFormat getFileFormat()
     {
         return fileFormat;
@@ -127,6 +140,13 @@ public class IcebergSplit
         return deletes;
     }
 
+    @JsonProperty
+    @Override
+    public SplitWeight getSplitWeight()
+    {
+        return splitWeight;
+    }
+
     @Override
     public Object getInfo()
     {
@@ -145,7 +165,8 @@ public class IcebergSplit
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
-                + estimatedSizeOf(deletes, TrinoDeleteFile::getRetainedSizeInBytes);
+                + estimatedSizeOf(deletes, TrinoDeleteFile::getRetainedSizeInBytes)
+                + splitWeight.getRetainedSizeInBytes();
     }
 
     @Override

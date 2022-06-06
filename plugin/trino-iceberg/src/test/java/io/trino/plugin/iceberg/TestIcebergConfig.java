@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.testng.annotations.Test;
@@ -23,6 +24,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.GLUE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
@@ -50,7 +53,10 @@ public class TestIcebergConfig
                 .setHiveCatalogName(null)
                 .setFormatVersion(2)
                 .setExpireSnapshotsMinRetention(new Duration(7, DAYS))
-                .setRemoveOrphanFilesMinRetention(new Duration(7, DAYS)));
+                .setRemoveOrphanFilesMinRetention(new Duration(7, DAYS))
+                .setDeleteSchemaLocationsFallback(false)
+                .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
+                .setMinimumAssignedSplitWeight(0.05));
     }
 
     @Test
@@ -70,6 +76,9 @@ public class TestIcebergConfig
                 .put("iceberg.format-version", "1")
                 .put("iceberg.expire_snapshots.min-retention", "13h")
                 .put("iceberg.remove_orphan_files.min-retention", "14h")
+                .put("iceberg.delete-schema-locations-fallback", "true")
+                .put("iceberg.target-max-file-size", "1MB")
+                .put("iceberg.minimum-assigned-split-weight", "0.01")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -85,7 +94,10 @@ public class TestIcebergConfig
                 .setHiveCatalogName("hive")
                 .setFormatVersion(1)
                 .setExpireSnapshotsMinRetention(new Duration(13, HOURS))
-                .setRemoveOrphanFilesMinRetention(new Duration(14, HOURS));
+                .setRemoveOrphanFilesMinRetention(new Duration(14, HOURS))
+                .setDeleteSchemaLocationsFallback(true)
+                .setTargetMaxFileSize(DataSize.of(1, MEGABYTE))
+                .setMinimumAssignedSplitWeight(0.01);
 
         assertFullMapping(properties, expected);
     }

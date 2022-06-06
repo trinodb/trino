@@ -105,6 +105,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
+    {
+        return stats.getGetTableHandleForQuery().wrap(() -> delegate().getTableHandle(session, preparedQuery));
+    }
+
+    @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return stats.getGetColumns().wrap(() -> delegate().getColumns(session, tableHandle));

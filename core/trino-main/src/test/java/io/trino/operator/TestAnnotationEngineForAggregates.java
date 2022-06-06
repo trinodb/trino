@@ -72,6 +72,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinitions;
+import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.toAccumulatorStateDetails;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
@@ -174,7 +175,7 @@ public class TestAnnotationEngineForAggregates
     public void testInputParameterOrderEnforced()
     {
         assertThatThrownBy(() -> parseFunctionDefinitions(InputParametersWrongOrder.class))
-                .hasMessage("Expected input function non-dependency parameters to begin with state type NullableDoubleState: " +
+                .hasMessage("Expected input function non-dependency parameters to begin with state types [NullableDoubleState]: " +
                         "public static void io.trino.operator.TestAnnotationEngineForAggregates$InputParametersWrongOrder.input(double,io.trino.operator.aggregation.state.NullableDoubleState)");
     }
 
@@ -342,7 +343,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with two generic implementations");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertEquals(aggregation.getStateClass(), NullableLongState.class);
+        assertEquals(aggregation.getStateDetails(), ImmutableList.of(toAccumulatorStateDetails(NullableLongState.class, ImmutableList.of())));
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 0, 2);
         AggregationImplementation implementationDouble = implementations.getGenericImplementations().stream()
@@ -1007,7 +1008,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with fixed parameter type injected");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertEquals(aggregation.getStateClass(), NullableDoubleState.class);
+        assertEquals(aggregation.getStateDetails(), ImmutableList.of(toAccumulatorStateDetails(NullableDoubleState.class, ImmutableList.of())));
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 1, 0, 0);
         AggregationImplementation implementationDouble = implementations.getExactImplementations().get(expectedSignature);
@@ -1071,7 +1072,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with fixed parameter type injected");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertEquals(aggregation.getStateClass(), NullableDoubleState.class);
+        assertEquals(aggregation.getStateDetails(), ImmutableList.of(toAccumulatorStateDetails(NullableDoubleState.class, ImmutableList.of())));
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 0, 1);
         AggregationImplementation implementationDouble = getOnlyElement(implementations.getGenericImplementations());

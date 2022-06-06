@@ -63,7 +63,6 @@ public final class RaptorQueryRunner
         Map<String, String> raptorProperties = ImmutableMap.<String, String>builder()
                 .putAll(extraRaptorProperties)
                 .put("metadata.db.type", "h2")
-                .put("metadata.db.connections.max", "100")
                 .put("metadata.db.filename", new File(baseDir, "db").getAbsolutePath())
                 .put("storage.data-directory", new File(baseDir, "data").getAbsolutePath())
                 .put("storage.max-shard-rows", "2000")

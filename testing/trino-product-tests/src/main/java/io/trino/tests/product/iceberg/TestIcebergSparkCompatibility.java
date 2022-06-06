@@ -14,6 +14,7 @@
 package io.trino.tests.product.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import io.airlift.concurrent.MoreFutures;
 import io.trino.tempto.ProductTest;
@@ -36,6 +37,8 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -63,6 +66,7 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -1583,19 +1587,19 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testOptimizeFailsOnV2IcebergTable()
+    public void testOptimizeOnV2IcebergTable()
     {
-        String tableName = format("test_optimize_fails_on_v2_iceberg_table_%s", randomTableSuffix());
+        String tableName = format("test_optimize_on_v2_iceberg_table_%s", randomTableSuffix());
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
-
         onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(a INT, b INT) " +
                 "USING ICEBERG PARTITIONED BY (b) " +
                 "TBLPROPERTIES ('format-version'='2', 'write.delete.mode'='merge-on-read')");
         onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
 
-        assertQueryFailure(() -> onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName)))
-                .hasMessageContaining("is not supported for Iceberg table format version > 1");
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
+                .containsOnly(row(1, 2), row(2, 2), row(3, 2), row(11, 12), row(12, 12), row(13, 12));
     }
 
     private static String escapeSparkString(String value)
@@ -1738,15 +1742,15 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
-    public void testSparkReadsTrinoTableAfterOptimizeAndCleaningUp(StorageFormat storageFormat)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testSparkReadsTrinoTableAfterOptimizeAndCleaningUp(StorageFormat storageFormat, int specVersion)
     {
         String baseTableName = "test_spark_reads_trino_partitioned_table_after_expiring_snapshots_after_optimize" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = 1)", trinoTableName, storageFormat));
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = %s)", trinoTableName, storageFormat, specVersion));
         // separate inserts give us snapshot per insert
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));
@@ -1782,15 +1786,15 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
-    public void testTrinoReadsTrinoTableWithSparkDeletesAfterOptimizeAndCleanUp(StorageFormat storageFormat)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testTrinoReadsTrinoTableWithSparkDeletesAfterOptimizeAndCleanUp(StorageFormat storageFormat, int specVersion)
     {
         String baseTableName = "test_spark_reads_trino_partitioned_table_with_deletes_after_expiring_snapshots_after_optimize" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = 1)", trinoTableName, storageFormat));
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = %s)", trinoTableName, storageFormat, specVersion));
         // separate inserts give us snapshot per insert
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));
@@ -1924,6 +1928,118 @@ public class TestIcebergSparkCompatibility
         assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testHandlingPartitionSchemaEvolutionInPartitionMetadata()
+    {
+        String baseTableName = "test_handling_partition_schema_evolution_" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery(format("CREATE TABLE %s (old_partition_key INT, new_partition_key INT, value date) WITH (PARTITIONING = array['old_partition_key'])", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 10, date '2022-04-10'), (2, 20, date '2022-05-11'), (3, 30, date '2022-06-12'), (2, 20, date '2022-06-13')", trinoTableName));
+
+        validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
+                ImmutableMap.of("old_partition_key", "1"),
+                ImmutableMap.of("old_partition_key", "2"),
+                ImmutableMap.of("old_partition_key", "3")));
+
+        onSpark().executeQuery(format("ALTER TABLE %s DROP PARTITION FIELD old_partition_key", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s ADD PARTITION FIELD new_partition_key", sparkTableName));
+
+        validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
+                ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null"),
+                ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null"),
+                ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null")));
+
+        onTrino().executeQuery(format("INSERT INTO %s VALUES (4, 40, date '2022-08-15')", trinoTableName));
+        validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
+                ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null"),
+                ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null"),
+                ImmutableMap.of("old_partition_key", "null", "new_partition_key", "40"),
+                ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null")));
+
+        onSpark().executeQuery(format("ALTER TABLE %s DROP PARTITION FIELD new_partition_key", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s ADD PARTITION FIELD old_partition_key", sparkTableName));
+
+        validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
+                ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null"),
+                ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null"),
+                ImmutableMap.of("old_partition_key", "null", "new_partition_key", "40"),
+                ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null")));
+
+        onTrino().executeQuery(format("INSERT INTO %s VALUES (5, 50, date '2022-08-15')", trinoTableName));
+        validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
+                ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null"),
+                ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null"),
+                ImmutableMap.of("old_partition_key", "null", "new_partition_key", "40"),
+                ImmutableMap.of("old_partition_key", "5", "new_partition_key", "null"),
+                ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null")));
+
+        onSpark().executeQuery(format("ALTER TABLE %s DROP PARTITION FIELD old_partition_key", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s ADD PARTITION FIELD days(value)", sparkTableName));
+
+        validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
+                ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null", "value_day", "null"),
+                ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null", "value_day", "null"),
+                ImmutableMap.of("old_partition_key", "null", "new_partition_key", "40", "value_day", "null"),
+                ImmutableMap.of("old_partition_key", "5", "new_partition_key", "null", "value_day", "null"),
+                ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null", "value_day", "null")));
+
+        onTrino().executeQuery(format("INSERT INTO %s VALUES (6, 60, date '2022-08-16')", trinoTableName));
+        validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
+                ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null", "value_day", "null"),
+                ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null", "value_day", "null"),
+                ImmutableMap.of("old_partition_key", "null", "new_partition_key", "40", "value_day", "null"),
+                ImmutableMap.of("old_partition_key", "null", "new_partition_key", "null", "value_day", "2022-08-16"),
+                ImmutableMap.of("old_partition_key", "5", "new_partition_key", "null", "value_day", "null"),
+                ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null", "value_day", "null")));
+
+        onSpark().executeQuery(format("ALTER TABLE %s DROP PARTITION FIELD value_day", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s ADD PARTITION FIELD months(value)", sparkTableName));
+
+        validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
+                ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null", "value_day", "null", "value_month", "null"),
+                ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null", "value_day", "null", "value_month", "null"),
+                ImmutableMap.of("old_partition_key", "null", "new_partition_key", "40", "value_day", "null", "value_month", "null"),
+                ImmutableMap.of("old_partition_key", "null", "new_partition_key", "null", "value_day", "2022-08-16", "value_month", "null"),
+                ImmutableMap.of("old_partition_key", "5", "new_partition_key", "null", "value_day", "null", "value_month", "null"),
+                ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null", "value_day", "null", "value_month", "null")));
+
+        onTrino().executeQuery(format("INSERT INTO %s VALUES (7, 70, date '2022-08-17')", trinoTableName));
+
+        validatePartitioning(baseTableName, sparkTableName, ImmutableList.of(
+                ImmutableMap.of("old_partition_key", "1", "new_partition_key", "null", "value_day", "null", "value_month", "null"),
+                ImmutableMap.of("old_partition_key", "null", "new_partition_key", "null", "value_day", "null", "value_month", "631"),
+                ImmutableMap.of("old_partition_key", "2", "new_partition_key", "null", "value_day", "null", "value_month", "null"),
+                ImmutableMap.of("old_partition_key", "null", "new_partition_key", "40", "value_day", "null", "value_month", "null"),
+                ImmutableMap.of("old_partition_key", "null", "new_partition_key", "null", "value_day", "2022-08-16", "value_month", "null"),
+                ImmutableMap.of("old_partition_key", "5", "new_partition_key", "null", "value_day", "null", "value_month", "null"),
+                ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null", "value_day", "null", "value_month", "null")));
+    }
+
+    private void validatePartitioning(String baseTableName, String sparkTableName, List<Map<String, String>> expectedValues)
+    {
+        List<String> trinoResult = expectedValues.stream().map(m ->
+                m.entrySet().stream()
+                        .map(entry -> format("%s=%s", entry.getKey(), entry.getValue()))
+                        .collect(Collectors.joining(", ", "{", "}")))
+                .collect(toImmutableList());
+        List<Object> partitioning = onTrino().executeQuery(format("SELECT partition, record_count FROM iceberg.default.\"%s$partitions\"", baseTableName))
+                .column(1);
+        Set<String> partitions = partitioning.stream().map(String::valueOf).collect(toUnmodifiableSet());
+        Assertions.assertThat(partitions.size()).isEqualTo(expectedValues.size());
+        Assertions.assertThat(partitions).containsAll(trinoResult);
+        List<String> sparkResult = expectedValues.stream().map(m ->
+                m.entrySet().stream()
+                        .map(entry -> format("\"%s\":%s", entry.getKey(), entry.getValue()))
+                        .collect(Collectors.joining(",", "{", "}")))
+                .collect(toImmutableList());
+        partitioning = onSpark().executeQuery(format("SELECT partition from %s.files", sparkTableName)).column(1);
+        partitions = partitioning.stream().map(String::valueOf).collect(toUnmodifiableSet());
+        Assertions.assertThat(partitions.size()).isEqualTo(expectedValues.size());
+        Assertions.assertThat(partitions).containsAll(sparkResult);
     }
 
     private int calculateMetadataFilesForPartitionedTable(String tableName)

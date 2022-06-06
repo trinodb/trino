@@ -18,6 +18,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -34,7 +35,7 @@ public class MultimapAggregationStateSerializer
     private final Type valueType;
     private final ArrayType arrayType;
 
-    public MultimapAggregationStateSerializer(Type keyType, Type valueType)
+    public MultimapAggregationStateSerializer(@TypeParameter("K") Type keyType, @TypeParameter("V") Type valueType)
     {
         this.keyType = requireNonNull(keyType);
         this.valueType = requireNonNull(valueType);

@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>382-SNAPSHOT</version>
+    <version>385-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -59,15 +59,16 @@
         <dep.drift.version>1.14</dep.drift.version>
         <dep.tempto.version>188</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
-        <dep.errorprone.version>2.12.0</dep.errorprone.version>
+        <dep.errorprone.version>2.14.0</dep.errorprone.version>
         <dep.testcontainers.version>1.16.3</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
-        <dep.coral.version>2.0.55</dep.coral.version>
+        <dep.coral.version>2.0.77</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
         <dep.casandra.version>4.14.0</dep.casandra.version>
+        <dep.minio.version>7.1.4</dep.minio.version>
 
-        <dep.docker.images.version>56</dep.docker.images.version>
+        <dep.docker.images.version>59</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -168,6 +169,7 @@
         <module>testing/trino-testing</module>
         <module>testing/trino-testing-containers</module>
         <module>testing/trino-testing-kafka</module>
+        <module>testing/trino-testing-resources</module>
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
     </modules>
@@ -533,6 +535,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-testing-kafka</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-testing-resources</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1003,6 +1011,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.databricks</groupId>
+                <artifactId>databricks-jdbc</artifactId>
+                <version>2.6.25-1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.datastax.oss</groupId>
                 <artifactId>java-driver-core</artifactId>
                 <version>${dep.casandra.version}</version>
@@ -1349,6 +1363,12 @@
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-jackson</artifactId>
                 <version>${dep.jsonwebtoken.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.minio</groupId>
+                <artifactId>minio</artifactId>
+                <version>${dep.minio.version}</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->

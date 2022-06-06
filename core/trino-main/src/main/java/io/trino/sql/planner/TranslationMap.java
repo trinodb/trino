@@ -15,13 +15,20 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
+import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
@@ -29,18 +36,26 @@ import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericDataType;
+import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonPathParameter;
+import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.util.AstUtils;
+import io.trino.type.JsonPath2016Type;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -52,7 +67,13 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
+import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
+import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -71,6 +92,8 @@ class TranslationMap
     private final Analysis analysis;
     private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments;
     private final Optional<TranslationMap> outerContext;
+    private final Session session;
+    private final PlannerContext plannerContext;
 
     // current mappings of underlying field -> symbol for translating direct field references
     private final Symbol[] fieldSymbols;
@@ -78,22 +101,24 @@ class TranslationMap
     // current mappings of sub-expressions -> symbol
     private final Map<ScopeAware<Expression>, Symbol> astToSymbols;
 
-    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols)
+    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Session session, PlannerContext plannerContext)
     {
-        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]).clone(), ImmutableMap.of());
+        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]).clone(), ImmutableMap.of(), session, plannerContext);
     }
 
-    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols)
+    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols, Session session, PlannerContext plannerContext)
     {
-        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]), astToSymbols);
+        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]), astToSymbols, session, plannerContext);
     }
 
-    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Symbol[] fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols)
+    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Symbol[] fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols, Session session, PlannerContext plannerContext)
     {
         this.outerContext = requireNonNull(outerContext, "outerContext is null");
         this.scope = requireNonNull(scope, "scope is null");
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.lambdaArguments = requireNonNull(lambdaArguments, "lambdaArguments is null");
+        this.session = requireNonNull(session, "session is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
 
         requireNonNull(fieldSymbols, "fieldSymbols is null");
         this.fieldSymbols = fieldSymbols.clone();
@@ -113,12 +138,12 @@ class TranslationMap
 
     public TranslationMap withScope(Scope scope, List<Symbol> fields)
     {
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields.toArray(new Symbol[0]), astToSymbols);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields.toArray(new Symbol[0]), astToSymbols, session, plannerContext);
     }
 
     public TranslationMap withNewMappings(Map<ScopeAware<Expression>, Symbol> mappings, List<Symbol> fields)
     {
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields, mappings);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields, mappings, session, plannerContext);
     }
 
     public TranslationMap withAdditionalMappings(Map<ScopeAware<Expression>, Symbol> mappings)
@@ -127,7 +152,7 @@ class TranslationMap
         newMappings.putAll(this.astToSymbols);
         newMappings.putAll(mappings);
 
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, newMappings);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, newMappings, session, plannerContext);
     }
 
     public List<Symbol> getFieldSymbols()
@@ -391,6 +416,188 @@ class TranslationMap
                 return node;
             }
 
+            @Override
+            public Expression rewriteJsonExists(JsonExists node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<Expression> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
+                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
+
+                // rewrite the input expression and JSON path parameters
+                // the rewrite also applies any coercions necessary for the input functions, which are applied in the next step
+                JsonExists rewritten = treeRewriter.defaultRewrite(node, context);
+
+                // apply the input function to the input expression
+                BooleanLiteral failOnError = new BooleanLiteral(node.getErrorBehavior() == JsonExists.ErrorBehavior.ERROR ? "true" : "false");
+                ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
+                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
+
+                // apply the input functions to the JSON path parameters having FORMAT,
+                // and collect all JSON path parameters in a Row
+                ParametersRow orderedParameters = getParametersRow(
+                        node.getJsonPathInvocation().getPathParameters(),
+                        rewritten.getJsonPathInvocation().getPathParameters(),
+                        resolvedFunction.getSignature().getArgumentType(2),
+                        failOnError);
+
+                IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
+                Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
+
+                ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
+                        .add(input)
+                        .add(pathExpression)
+                        .add(orderedParameters.getParametersRow())
+                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
+
+                Expression result = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
+
+                return coerceIfNecessary(node, result);
+            }
+
+            @Override
+            public Expression rewriteJsonValue(JsonValue node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<Expression> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
+                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
+
+                // rewrite the input expression, default expressions, and JSON path parameters
+                // the rewrite also applies any coercions necessary for the input functions, which are applied in the next step
+                JsonValue rewritten = treeRewriter.defaultRewrite(node, context);
+
+                // apply the input function to the input expression
+                BooleanLiteral failOnError = new BooleanLiteral(node.getErrorBehavior() == JsonValue.EmptyOrErrorBehavior.ERROR ? "true" : "false");
+                ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
+                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
+
+                // apply the input functions to the JSON path parameters having FORMAT,
+                // and collect all JSON path parameters in a Row
+                ParametersRow orderedParameters = getParametersRow(
+                        node.getJsonPathInvocation().getPathParameters(),
+                        rewritten.getJsonPathInvocation().getPathParameters(),
+                        resolvedFunction.getSignature().getArgumentType(2),
+                        failOnError);
+
+                IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
+                Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
+
+                ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
+                        .add(input)
+                        .add(pathExpression)
+                        .add(orderedParameters.getParametersRow())
+                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
+                        .add(rewritten.getEmptyDefault().orElse(new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))))
+                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())))
+                        .add(rewritten.getErrorDefault().orElse(new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))));
+
+                Expression result = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
+
+                return coerceIfNecessary(node, result);
+            }
+
+            @Override
+            public Expression rewriteJsonQuery(JsonQuery node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<Expression> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
+                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
+
+                // rewrite the input expression and JSON path parameters
+                // the rewrite also applies any coercions necessary for the input functions, which are applied in the next step
+                JsonQuery rewritten = treeRewriter.defaultRewrite(node, context);
+
+                // apply the input function to the input expression
+                BooleanLiteral failOnError = new BooleanLiteral(node.getErrorBehavior() == JsonQuery.EmptyOrErrorBehavior.ERROR ? "true" : "false");
+                ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
+                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
+
+                // apply the input functions to the JSON path parameters having FORMAT,
+                // and collect all JSON path parameters in a Row
+                ParametersRow orderedParameters = getParametersRow(
+                        node.getJsonPathInvocation().getPathParameters(),
+                        rewritten.getJsonPathInvocation().getPathParameters(),
+                        resolvedFunction.getSignature().getArgumentType(2),
+                        failOnError);
+
+                IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
+                Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
+
+                ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
+                        .add(input)
+                        .add(pathExpression)
+                        .add(orderedParameters.getParametersRow())
+                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getWrapperBehavior().ordinal())))
+                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
+                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
+
+                Expression function = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
+
+                // apply function to format output
+                GenericLiteral errorBehavior = new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal()));
+                BooleanLiteral omitQuotes = new BooleanLiteral(node.getQuotesBehavior().orElse(KEEP) == OMIT ? "true" : "false");
+                ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
+                Expression result = new FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(function, errorBehavior, omitQuotes));
+
+                // cast to requested returned type
+                Type returnedType = node.getReturnedType()
+                        .map(TypeSignatureTranslator::toTypeSignature)
+                        .map(plannerContext.getTypeManager()::getType)
+                        .orElse(VARCHAR);
+
+                Type resultType = outputFunction.getSignature().getReturnType();
+                if (!resultType.equals(returnedType)) {
+                    result = new Cast(result, toSqlType(returnedType));
+                }
+
+                return coerceIfNecessary(node, result);
+            }
+
+            private ParametersRow getParametersRow(
+                    List<JsonPathParameter> pathParameters,
+                    List<JsonPathParameter> rewrittenPathParameters,
+                    Type parameterRowType,
+                    BooleanLiteral failOnError)
+            {
+                Expression parametersRow;
+                List<String> parametersOrder;
+                if (!pathParameters.isEmpty()) {
+                    ImmutableList.Builder<Expression> parameters = ImmutableList.builder();
+                    for (int i = 0; i < pathParameters.size(); i++) {
+                        ResolvedFunction parameterToJson = analysis.getJsonInputFunction(pathParameters.get(i).getParameter());
+                        Expression rewrittenParameter = rewrittenPathParameters.get(i).getParameter();
+                        if (parameterToJson != null) {
+                            parameters.add(new FunctionCall(parameterToJson.toQualifiedName(), ImmutableList.of(rewrittenParameter, failOnError)));
+                        }
+                        else {
+                            parameters.add(rewrittenParameter);
+                        }
+                    }
+                    parametersRow = new Cast(new Row(parameters.build()), toSqlType(parameterRowType));
+                    parametersOrder = pathParameters.stream()
+                            .map(parameter -> parameter.getName().getCanonicalValue())
+                            .collect(toImmutableList());
+                }
+                else {
+                    checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(parameterRowType), "invalid type of parameters row when no parameters are passed");
+                    parametersRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
+                    parametersOrder = ImmutableList.of();
+                }
+
+                return new ParametersRow(parametersRow, parametersOrder);
+            }
+
             private Expression coerceIfNecessary(Expression original, Expression rewritten)
             {
                 // Don't add a coercion for the top-level expression. That depends on the context the expression is used and it's the responsibility of the caller.
@@ -440,5 +647,27 @@ class TranslationMap
     public Scope getScope()
     {
         return scope;
+    }
+
+    private static class ParametersRow
+    {
+        private final Expression parametersRow;
+        private final List<String> parametersOrder;
+
+        public ParametersRow(Expression parametersRow, List<String> parametersOrder)
+        {
+            this.parametersRow = requireNonNull(parametersRow, "parametersRow is null");
+            this.parametersOrder = requireNonNull(parametersOrder, "parametersOrder is null");
+        }
+
+        public Expression getParametersRow()
+        {
+            return parametersRow;
+        }
+
+        public List<String> getParametersOrder()
+        {
+            return parametersOrder;
+        }
     }
 }

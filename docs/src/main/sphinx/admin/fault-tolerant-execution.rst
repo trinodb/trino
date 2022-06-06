@@ -34,7 +34,7 @@ The following configuration properties control the behavior of fault-tolerant
 execution on a Trino cluster:
 
 .. list-table:: Fault-tolerant execution configuration properties
-   :widths: 30, 40, 30
+   :widths: 30, 50, 20
    :header-rows: 1
 
    * - Property name
@@ -134,7 +134,7 @@ The following configuration properties control the thresholds at which
 queries/tasks are no longer retried in the event of repeated failures:
 
 .. list-table:: Fault tolerance retry limit configuration properties
-   :widths: 30, 40, 30, 30
+   :widths: 30, 50, 20, 30
    :header-rows: 1
 
    * - Property name
@@ -192,7 +192,7 @@ configuration properties to manually control task sizing. These configuration
 properties only apply to a ``TASK`` retry policy.
 
 .. list-table:: Task sizing configuration properties
-   :widths: 30, 40, 30
+   :widths: 30, 50, 20
    :header-rows: 1
 
    * - Property name
@@ -253,7 +253,7 @@ the ``fault-tolerant-task-memory`` configuration property. This property only
 applies to a ``TASK`` retry policy.
 
 .. list-table:: Node allocation configuration properties
-   :widths: 30, 40, 30
+   :widths: 30, 50, 20
    :header-rows: 1
 
    * - Property name
@@ -273,7 +273,7 @@ The following additional configuration property can be used to manage
 fault-tolerant execution:
 
 .. list-table:: Other fault-tolerant execution configuration properties
-   :widths: 30, 40, 30, 30
+   :widths: 30, 50, 20, 30
    :header-rows: 1
 
    * - Property name
@@ -310,8 +310,8 @@ Exchange manager
 
 Exchange spooling is responsible for storing and managing spooled data for
 fault-tolerant execution. You can configure a filesystem-based exchange manager
-that stores spooled data in a specified location, either an S3-compatible
-storage system or a local filesystem.
+that stores spooled data in a specified location, such as an S3-compatible
+storage system, Google Cloud Storage (GCS), or a local filesystem.
 
 Configuration
 ^^^^^^^^^^^^^
@@ -322,69 +322,108 @@ all worker nodes. In this file, set the ``exchange-manager.name`` configuration
 propertry to ``filesystem``, and additional configuration properties as needed
 for your storage solution.
 
+The following table lists the available configuration properties for
+``exchange-manager.properties``, their default values, and which filesystem(s)
+the property may be configured for:
+
 .. list-table:: Exchange manager configuration properties
-   :widths: 30, 40, 30
+   :widths: 30, 50, 20, 30
    :header-rows: 1
 
    * - Property name
      - Description
      - Default value
+     - Supported filesystem
    * - ``exchange.base-directories``
      - Comma-separated list of URI locations that the exchange manager uses to
        store spooling data. Only supports S3 and local filesystems.
      -
+     - Any
    * - ``exchange.encryption-enabled``
      - Enable encrypting of spooling data.
      - ``true``
+     - Any
    * - ``exchange.sink-buffer-pool-min-size``
      - The minimum buffer pool size for an exchange sink. The larger the buffer
        pool size, the larger the write parallelism and memory usage.
      - ``10``
+     - Any
    * - ``exchange.sink-buffers-per-partition``
      - The number of buffers per partition in the buffer pool. The larger the
        buffer pool size, the larger the write parallelism and memory usage.
      - ``2``
+     - Any
    * - ``exchange.sink-max-file-size``
      - Max size of files written by exchange sinks.
      - ``1GB``
+     - Any
    * - ``exchange.source-concurrent-reader``
-     - The number of concurrent readers to read from spooling storage. The
+     - Number of concurrent readers to read from spooling storage. The
        larger the number of concurrent readers, the larger the read parallelism
        and memory usage.
      - ``4``
+     - Any
    * - ``exchange.s3.aws-access-key``
-     - AWS access key to use. Required for a connection to AWS S3, can be
-       ignored for other S3 storage systems.
+     - AWS access key to use. Required for a connection to AWS S3 and GCS, can
+       be ignored for other S3 storage systems.
      -
+     - AWS S3, GCS
    * - ``exchange.s3.aws-secret-key``
-     - AWS secret key to use. Required for a connection to AWS S3, can be
-       ignored for other S3 storage systems.
+     - AWS secret key to use. Required for a connection to AWS S3 and GCS, can
+       be ignored for other S3 storage systems.
      -
+     - AWS S3, GCS
+   * - ``exchange.s3.iam-role``
+     - IAM role to assume.
+     -
+     - AWS S3, GCS
+   * - ``exchange.s3.external-id``
+     - External ID for the IAM role trust policy.
+     -
+     - AWS S3, GCS
    * - ``exchange.s3.region``
      - Region of the S3 bucket.
      -
+     - AWS S3, GCS
    * - ``exchange.s3.endpoint``
      - S3 storage endpoint server if using an S3-compatible storage system that
-       is not AWS. If using AWS S3, can be ignored.
+       is not AWS. If using AWS S3, this can be ignored. If using GCS, set it
+       to ``https://storage.googleapis.com``.
      -
+     - Any S3-compatible storage
    * - ``exchange.s3.max-error-retries``
      - Maximum number of times the exchange manager's S3 client should retry
        a request.
      - ``3``
+     - Any S3-compatible storage
    * - ``exchange.s3.upload.part-size``
      - Part size for S3 multi-part upload.
      - ``5MB``
+     - Any S3-compatible storage
+   * - ``exchange.gcs.json-key-file-path``
+     - Path to the JSON file that contains your Google Cloud Platform
+       service account key.
+     -
+     - GCS
+   * - ``exchange.azure.connection-string``
+     - Connection string used to access the spooling container.
+     -
+     - Azure Blob Storage
+   * - ``exchange.azure.block-size``
+     - Block size for Azure block blob parallel upload.
+     - ``4MB``
+     - Azure Blob Storage
 
-It is also recommended to set the ``exchange.compression-enabled`` property to
+It is recommended to set the ``exchange.compression-enabled`` property to
 ``true`` in the cluster's ``config.properties`` file, to reduce the exchange
-manager's overall I/O load.
-
-S3 bucket storage
-~~~~~~~~~~~~~~~~~
-
-If using an AWS S3 bucket, it is recommended to configure a bucket lifecycle
-rule in AWS to automatically expire abandoned objects in the event of a node
+manager's overall I/O load. It is also recommended to configure a bucket
+lifecycle rule to automatically expire abandoned objects in the event of a node
 crash.
+
+.. _fte-exchange-aws-s3:
+
+AWS S3
+~~~~~~
 
 The following example ``exchange-manager.properties`` configuration specifies an
 AWS S3 bucket as the spooling storage destination. Note that the destination
@@ -393,8 +432,7 @@ does not have to be in AWS, but can be any S3-compatible storage system.
 .. code-block:: properties
 
     exchange-manager.name=filesystem
-    exchange.base-directories=s3n://exchange-spooling-bucket
-    exchange.encryption-enabled=true
+    exchange.base-directories=s3://exchange-spooling-bucket
     exchange.s3.region=us-west-1
     exchange.s3.aws-access-key=example-access-key
     exchange.s3.aws-secret-key=example-secret-key
@@ -409,7 +447,51 @@ load:
 
 .. code-block:: properties
 
-    exchange.base-directories=s3n://exchange-spooling-bucket-1,s3n://exchange-spooling-bucket-2
+    exchange.base-directories=s3://exchange-spooling-bucket-1,s3://exchange-spooling-bucket-2
+
+.. _fte-exchange-azure-blob:
+
+Azure Blob Storage
+~~~~~~~~~~~~~~~~~~
+
+The following example ``exchange-manager.properties`` configuration specifies an
+Azure Blob Storage container as the spooling storage destination.
+
+.. code-block:: properties
+
+    exchange-manager.name=filesystem
+    exchange.base-directories=abfs://container_name@account_name.dfs.core.windows.net
+    exchange.azure.connection-string=connection-string
+
+.. _fte-exchange-gcs:
+
+Google Cloud Storage
+~~~~~~~~~~~~~~~~~~~~
+
+To enable exchange spooling on GCS in Trino, change the request endpoint to the
+``https://storage.googleapis.com`` Google storage URI, and configure your AWS
+access/secret keys to use the GCS HMAC keys. If you deploy Trino on GCP, you
+must either create a service account with access to your spooling bucket or
+configure the key path to your GCS credential file.
+
+For more information on GCS's S3 compatibility, refer to the `Google Cloud
+documentation on S3 migration
+<https://cloud.google.com/storage/docs/aws-simple-migration>`_.
+
+The following example ``exchange-manager.properties`` configuration specifies a
+GCS bucket as the spooling storage destination.
+
+.. code-block:: properties
+
+    exchange-manager.name=filesystem
+    exchange.base-directories=gs://exchange-spooling-bucket
+    exchange.s3.region=us-west-1
+    exchange.s3.aws-access-key=example-access-key
+    exchange.s3.aws-secret-key=example-secret-key
+    exchange.s3.endpoint=https://storage.googleapis.com
+    exchange.gcs.json-key-file-path=/path/to/gcs_keyfile.json
+
+.. _fte-exchange-local-filesystem:
 
 Local filesystem storage
 ~~~~~~~~~~~~~~~~~~~~~~~~

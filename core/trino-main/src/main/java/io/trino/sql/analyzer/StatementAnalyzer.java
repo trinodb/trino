@@ -29,7 +29,6 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.Column;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
-import io.trino.metadata.FunctionKind;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
@@ -66,6 +65,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.ptf.Argument;
 import io.trino.spi.ptf.ArgumentSpecification;
@@ -254,8 +254,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxGroupingSets;
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.FunctionKind.WINDOW;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
@@ -303,6 +301,8 @@ import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_STALE;
 import static io.trino.spi.connector.StandardWarningCode.REDUNDANT_ORDER_BY;
+import static io.trino.spi.function.FunctionKind.AGGREGATE;
+import static io.trino.spi.function.FunctionKind.WINDOW;
 import static io.trino.spi.ptf.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.ptf.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -1481,7 +1481,7 @@ class StatementAnalyzer
             CatalogName catalogName = tableFunctionMetadata.getCatalogName();
 
             QualifiedObjectName functionName = new QualifiedObjectName(catalogName.getCatalogName(), function.getSchema(), function.getName());
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), functionName);
+            accessControl.checkCanExecuteFunction(SecurityContext.of(session), FunctionKind.TABLE, functionName);
 
             Map<String, Argument> passedArguments = analyzeArguments(node, function.getArguments(), node.getArguments());
 
@@ -1664,7 +1664,7 @@ class StatementAnalyzer
                 }
                 Expression expression = (Expression) argument.getValue();
                 // 'descriptor' as a function name is not allowed in this context
-                if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("decsriptor"))) { // function name is always compared case-insensitive
+                if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "'descriptor' function is not allowed as a table function argument");
                 }
                 Type expectedArgumentType = ((ScalarArgumentSpecification) argumentSpecification).getType();

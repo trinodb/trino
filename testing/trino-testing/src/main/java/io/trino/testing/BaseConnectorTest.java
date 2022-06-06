@@ -82,7 +82,9 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABL
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
@@ -379,6 +381,15 @@ public abstract class BaseConnectorTest
         assertQuery(
                 "SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey",
                 "SELECT regionkey, avg(CAST(nationkey AS double)) FROM nation GROUP BY regionkey");
+
+        // pruned away aggregation (simplified regression test for https://github.com/trinodb/trino/issues/12598)
+        assertQuery(
+                "SELECT -13 FROM (SELECT count(*) FROM nation)",
+                "VALUES -13");
+        // regression test for https://github.com/trinodb/trino/issues/12598
+        assertQuery(
+                "SELECT count(*) FROM (SELECT count(*) FROM nation UNION ALL SELECT count(*) FROM region)",
+                "VALUES 2");
     }
 
     @Test
@@ -1892,6 +1903,42 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateTableWithTableComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        String tableName = "test_create_" + randomTableSuffix();
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT)) {
+            assertQueryFails("CREATE TABLE " + tableName + " (a bigint) COMMENT 'test comment'", "This connector does not support creating tables with table comment");
+            return;
+        }
+
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint) COMMENT 'test comment'");
+        assertEquals(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName), "test comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableWithColumnComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        String tableName = "test_create_" + randomTableSuffix();
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT)) {
+            assertQueryFails("CREATE TABLE " + tableName + " (a bigint COMMENT 'test comment')", "This connector does not support creating tables with column comment");
+            return;
+        }
+
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint COMMENT 'test comment')");
+        assertEquals(getColumnComment(tableName, "a"), "test comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testCreateTableSchemaNotFound()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
@@ -1977,6 +2024,24 @@ public abstract class BaseConnectorTest
 
         assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT mktsegment FROM customer");
         assertQuery("SELECT * from " + tableName, "SELECT mktsegment FROM customer");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableAsSelectWithTableComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        String tableName = "test_ctas_" + randomTableSuffix();
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT)) {
+            assertQueryFails("CREATE TABLE " + tableName + " COMMENT 'test comment' AS SELECT name FROM nation", "This connector does not support creating tables with table comment");
+            return;
+        }
+
+        assertUpdate("CREATE TABLE " + tableName + " COMMENT 'test comment' AS SELECT name FROM nation", 25);
+        assertEquals(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName), "test comment");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -2749,7 +2814,7 @@ public abstract class BaseConnectorTest
                                 verifyConcurrentUpdateFailurePermissible(trinoException);
                             }
                             catch (Throwable verifyFailure) {
-                                if (trinoException != e && verifyFailure != e) {
+                                if (verifyFailure != e) {
                                     verifyFailure.addSuppressed(e);
                                 }
                                 throw verifyFailure;
@@ -2808,7 +2873,7 @@ public abstract class BaseConnectorTest
                                 verifyConcurrentInsertFailurePermissible(trinoException);
                             }
                             catch (Throwable verifyFailure) {
-                                if (trinoException != e && verifyFailure != e) {
+                                if (verifyFailure != e) {
                                     verifyFailure.addSuppressed(e);
                                 }
                                 throw verifyFailure;
@@ -2845,6 +2910,71 @@ public abstract class BaseConnectorTest
     {
         // By default, do not expect INSERT to fail in case of concurrent inserts
         throw new AssertionError("Unexpected concurrent insert failure", e);
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @Test(timeOut = 60_000, invocationCount = 4)
+    public void testAddColumnConcurrently()
+            throws Exception
+    {
+        if (!hasBehavior(SUPPORTS_ADD_COLUMN)) {
+            // Covered by testAddColumn
+            return;
+        }
+
+        int threads = 4;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column", "(col integer)")) {
+            String tableName = table.getName();
+
+            List<Future<Optional<String>>> futures = IntStream.range(0, threads)
+                    .mapToObj(threadNumber -> executor.submit(() -> {
+                        barrier.await(30, SECONDS);
+                        try {
+                            String columnName = "col" + threadNumber;
+                            getQueryRunner().execute("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " integer");
+                            return Optional.of(columnName);
+                        }
+                        catch (Exception e) {
+                            RuntimeException trinoException = getTrinoExceptionCause(e);
+                            try {
+                                verifyConcurrentAddColumnFailurePermissible(trinoException);
+                            }
+                            catch (Throwable verifyFailure) {
+                                if (verifyFailure != e) {
+                                    verifyFailure.addSuppressed(e);
+                                }
+                                throw verifyFailure;
+                            }
+                            return Optional.<String>empty();
+                        }
+                    }))
+                    .collect(toImmutableList());
+
+            List<String> addedColumns = futures.stream()
+                    .map(future -> tryGetFutureValue(future, 30, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(toImmutableList());
+
+            assertThat(query("DESCRIBE " + tableName))
+                    .projected(0)
+                    .skippingTypesCheck()
+                    .matches(Stream.concat(Stream.of("col"), addedColumns.stream())
+                            .map(value -> format("'%s'", value))
+                            .collect(joining(",", "VALUES ", "")));
+        }
+        finally {
+            executor.shutdownNow();
+            executor.awaitTermination(30, SECONDS);
+        }
+    }
+
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        // By default, do not expect ALTER TABLE ADD COLUMN to fail in case of concurrent inserts
+        throw new AssertionError("Unexpected concurrent add column failure", e);
     }
 
     @Test
@@ -3233,8 +3363,11 @@ public abstract class BaseConnectorTest
                 .add(new DataMappingTestSetup("date", "DATE '1582-10-05'", "DATE '1582-10-14'")) // during julian->gregorian switch
                 .add(new DataMappingTestSetup("date", "DATE '2020-02-12'", "DATE '9999-12-31'"))
                 .add(new DataMappingTestSetup("time", "TIME '15:03:00'", "TIME '23:59:59.999'"))
+                .add(new DataMappingTestSetup("time(6)", "TIME '15:03:00'", "TIME '23:59:59.999999'"))
                 .add(new DataMappingTestSetup("timestamp", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999'"))
+                .add(new DataMappingTestSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999999'"))
                 .add(new DataMappingTestSetup("timestamp(3) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999 +12:00'"))
+                .add(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999999 +12:00'"))
                 .add(new DataMappingTestSetup("char(3)", "'ab'", "'zzz'"))
                 .add(new DataMappingTestSetup("varchar(3)", "'de'", "'zzz'"))
                 .add(new DataMappingTestSetup("varchar", "'łąka for the win'", "'ŻŻŻŻŻŻŻŻŻŻ'"))

@@ -36,6 +36,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Optional;
 
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -102,6 +103,18 @@ public abstract class BaseMongoConnectorTest
                 "TopNPartial\\[5 by \\(nationkey DESC");
     }
 
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("time(6)") ||
+                typeName.equals("timestamp(6)") ||
+                typeName.equals("timestamp(6) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+        return Optional.of(dataMappingTestSetup);
+    }
+
     @Test(dataProvider = "guessFieldTypesProvider")
     public void testGuessFieldTypes(String mongoValue, String trinoValue)
     {
@@ -133,18 +146,6 @@ public abstract class BaseMongoConnectorTest
                 {"[9, \"test\"]", "CAST(row(9, 'test') AS row(_pos1 bigint, _pos2 varchar))"}, // array with multiple types -> row
                 {"{\"$ref\":\"test_ref\",\"$id\":ObjectId(\"4e3f33de6266b5845052c02c\"),\"$db\":\"test_db\"}", "CAST(row('test_db', 'test_ref', ObjectId('4e3f33de6266b5845052c02c')) AS row(databasename varchar, collectionname varchar, id ObjectId))"}, // dbref -> row
         };
-    }
-
-    @Test
-    public void testCreateTableWithColumnComment()
-    {
-        // TODO (https://github.com/trinodb/trino/issues/11162) Merge into io.trino.testing.BaseConnectorTest#testCommentColumn
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_column_comment", "(col integer COMMENT 'test')")) {
-            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
-                    .isEqualTo(format("CREATE TABLE %s.%s.%s (\n" +
-                            "   col integer COMMENT 'test'\n" +
-                            ")", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()));
-        }
     }
 
     @Test
@@ -566,6 +567,13 @@ public abstract class BaseMongoConnectorTest
         // MongoDB doesn't support limit number greater than integer max
         assertThat(query("SELECT name FROM nation LIMIT 2147483647")).isFullyPushedDown();
         assertThat(query("SELECT name FROM nation LIMIT 2147483648")).isNotFullyPushedDown(LimitNode.class);
+    }
+
+    @Override
+    public void testAddColumnConcurrently()
+    {
+        // TODO: Enable after supporting multi-document transaction https://www.mongodb.com/docs/manual/core/transactions/
+        throw new SkipException("TODO");
     }
 
     private void assertOneNotNullResult(String query)

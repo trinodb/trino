@@ -24,7 +24,7 @@ public class TestDeltaLakeOptimizedWriterConnectorSmokeTest
         extends BaseDeltaLakeAwsConnectorSmokeTest
 {
     @Override
-    QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
+    protected QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
             throws Exception
     {
         return DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(

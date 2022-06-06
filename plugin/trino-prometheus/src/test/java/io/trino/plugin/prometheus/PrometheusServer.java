@@ -20,7 +20,6 @@ import java.io.Closeable;
 import java.net.URI;
 import java.time.Duration;
 
-import static io.trino.plugin.prometheus.PrometheusClient.METRICS_ENDPOINT;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class PrometheusServer
@@ -32,6 +31,7 @@ public class PrometheusServer
 
     public static final String USER = "admin";
     public static final String PASSWORD = "password";
+    public static final String PROMETHEUS_QUERY_API = "/api/v1/query?query=up[1d]";
 
     private final GenericContainer<?> dockerContainer;
 
@@ -44,14 +44,14 @@ public class PrometheusServer
     {
         this.dockerContainer = new GenericContainer<>("prom/prometheus:" + version)
                 .withExposedPorts(PROMETHEUS_PORT)
-                .waitingFor(Wait.forHttp(METRICS_ENDPOINT).forResponsePredicate(response -> response.contains("\"up\"")))
-                .withStartupTimeout(Duration.ofSeconds(120));
+                .waitingFor(Wait.forHttp(PROMETHEUS_QUERY_API).forResponsePredicate(response -> response.contains("\"values\"")))
+                .withStartupTimeout(Duration.ofSeconds(360));
         // Basic authentication was introduced in v2.24.0
         if (enableBasicAuth) {
             this.dockerContainer
                     .withCommand("--config.file=/etc/prometheus/prometheus.yml", "--web.config.file=/etc/prometheus/web.yml")
                     .withCopyFileToContainer(forClasspathResource("web.yml"), "/etc/prometheus/web.yml")
-                    .waitingFor(Wait.forHttp(METRICS_ENDPOINT).forResponsePredicate(response -> response.contains("\"up\"")).withBasicCredentials(USER, PASSWORD))
+                    .waitingFor(Wait.forHttp(PROMETHEUS_QUERY_API).forResponsePredicate(response -> response.contains("\"values\"")).withBasicCredentials(USER, PASSWORD))
                     .withStartupTimeout(Duration.ofSeconds(360));
         }
         this.dockerContainer.start();

@@ -129,6 +129,11 @@ class PolymorphicScalarFunction
                     }
                     actualType = resolvedType.getJavaType();
                     break;
+                case IN_OUT:
+                    // any type is supported, so just ignore this check
+                    actualType = resolvedType.getJavaType();
+                    expectedType = resolvedType.getJavaType();
+                    break;
                 default:
                     throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
             }

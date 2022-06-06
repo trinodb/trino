@@ -24,8 +24,8 @@ import io.airlift.units.Duration;
 import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -41,7 +41,6 @@ import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
 import io.trino.plugin.hive.util.RetryDriver;
@@ -197,16 +196,16 @@ public class ThriftHiveMetastore
     @Inject
     public ThriftHiveMetastore(
             MetastoreLocator metastoreLocator,
-            HiveConfig hiveConfig,
-            MetastoreConfig metastoreConfig,
+            @HideDeltaLakeTables boolean hideDeltaLakeTables,
+            @TranslateHiveViews boolean translateHiveViews,
             ThriftMetastoreConfig thriftConfig,
             ThriftMetastoreAuthenticationConfig authenticationConfig,
             HdfsEnvironment hdfsEnvironment)
     {
         this(
                 metastoreLocator,
-                hiveConfig,
-                metastoreConfig,
+                hideDeltaLakeTables,
+                translateHiveViews,
                 thriftConfig,
                 hdfsEnvironment,
                 authenticationConfig.getAuthenticationType() != ThriftMetastoreAuthenticationType.NONE);
@@ -214,8 +213,8 @@ public class ThriftHiveMetastore
 
     public ThriftHiveMetastore(
             MetastoreLocator metastoreLocator,
-            HiveConfig hiveConfig,
-            MetastoreConfig metastoreConfig,
+            boolean hideDeltaLakeTables,
+            boolean translateHiveViews,
             ThriftMetastoreConfig thriftConfig,
             HdfsEnvironment hdfsEnvironment,
             boolean authenticationEnabled)
@@ -230,10 +229,8 @@ public class ThriftHiveMetastore
         this.maxRetries = thriftConfig.getMaxRetries();
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
         this.deleteFilesOnDrop = thriftConfig.isDeleteFilesOnDrop();
-        requireNonNull(hiveConfig, "hiveConfig is null");
-        this.translateHiveViews = hiveConfig.isTranslateHiveViews();
-        requireNonNull(metastoreConfig, "metastoreConfig is null");
-        checkArgument(!metastoreConfig.isHideDeltaLakeTables(), "Hiding Delta Lake tables is not supported"); // TODO
+        this.translateHiveViews = translateHiveViews;
+        checkArgument(!hideDeltaLakeTables, "Hiding Delta Lake tables is not supported"); // TODO
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
         this.authenticationEnabled = authenticationEnabled;
 

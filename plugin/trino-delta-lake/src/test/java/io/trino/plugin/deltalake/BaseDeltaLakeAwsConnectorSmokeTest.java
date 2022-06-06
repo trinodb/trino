@@ -29,7 +29,7 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     protected DockerizedMinioDataLake dockerizedMinioDataLake;
 
     @Override
-    DockerizedDataLake createDockerizedDataLake()
+    protected DockerizedDataLake createDockerizedDataLake()
     {
         dockerizedMinioDataLake = new DockerizedMinioDataLake(
                 bucketName,
@@ -40,7 +40,7 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     }
 
     @Override
-    void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
+    protected void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
         dockerizedMinioDataLake.copyResources(resourcePath, table);
         queryRunner.execute(format("CREATE TABLE %s (dummy int) WITH (location = '%s')",
@@ -49,13 +49,13 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     }
 
     @Override
-    String getLocationForTable(String bucketName, String tableName)
+    protected String getLocationForTable(String bucketName, String tableName)
     {
         return format("s3://%s/%s", bucketName, tableName);
     }
 
     @Override
-    List<String> getTableFiles(String tableName)
+    protected List<String> getTableFiles(String tableName)
     {
         return dockerizedMinioDataLake.listFiles(tableName).stream()
                 .map(path -> format("s3://%s/%s", bucketName, path))

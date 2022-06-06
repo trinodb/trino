@@ -68,7 +68,7 @@ jobs:
         with:
           platforms: arm64
       - name: Test Docker Image
-        run: core/docker/build-local.sh
+        run: core/docker/build.sh
 
   error-prone-checks:
     runs-on: ubuntu-latest
@@ -596,6 +596,7 @@ jobs:
           - suite-3
           # suite-4 does not exist
           - suite-5
+          - suite-azure
         jdk:
           - 11
         exclude:
@@ -612,6 +613,14 @@ jobs:
                || contains(github.event.pull_request.labels.*.name, 'tests:all')
                || contains(github.event.pull_request.labels.*.name, 'tests:hive')
                }}
+
+          - suite: suite-azure
+            config: default
+          - suite: suite-azure
+            config: cdh5
+          - suite: suite-azure
+            ignore exclusion if: >-
+              ${{ needs.build-pt.outputs.have_azure_secrets == 'true' }}
 
         ignore exclusion if:
           # Do not use this property outside of the matrix configuration.
@@ -669,6 +678,10 @@ jobs:
           - config: default
             suite: suite-all
             jdk: 11
+          # this suite is not meant to be run with different configs
+          - config: default
+            suite: suite-delta-lake
+            jdk: 11
     # PT Launcher's timeout defaults to 2h, add some margin
     timeout-minutes: 130
     needs: build-pt
@@ -698,72 +711,9 @@ jobs:
       - name: Fix artifact permissions
         run: |
           find . -type f -name \*-executable.jar -exec chmod 0777 {} \;
-      - name: Product Tests (all)
-        if: steps.filter.outputs.product-tests == 'true' || contains(github.event.pull_request.labels.*.name, 'tests:all') || contains(github.event.pull_request.labels.*.name, 'tests:all-product')
-        run: |
-          testing/bin/ptl suite run \
-            --suite ${{ matrix.suite }} \
-            --config config-${{ matrix.config }} \
-            --bind=off --logs-dir logs/ --timeout 2h \
-            --trino-jdk-version zulu_${{ matrix.jdk }}
-      - name: Product Tests (impacted-features)
+      - name: Enable impact analysis
         if: steps.filter.outputs.product-tests == 'false' && !contains(github.event.pull_request.labels.*.name, 'tests:all') && !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
-        run: |
-          testing/bin/ptl suite run \
-            --suite ${{ matrix.suite }} \
-            --config config-${{ matrix.config }} \
-            --impacted-features impacted-features.log \
-            --bind=off --logs-dir logs/ --timeout 2h \
-            --trino-jdk-version zulu_${{ matrix.jdk }}
-      - name: Upload test logs and results
-        uses: actions/upload-artifact@v2
-        # Upload all test reports only on failure, because the artifacts are large
-        if: failure()
-        with:
-          name: result pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
-          path: |
-            testing/trino-product-tests/target/*
-            logs/*
-      - name: Upload test report
-        uses: actions/upload-artifact@v2
-        # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
-        if: always()
-        with:
-          # Name prefix is checked in the `Annotate checks` workflow
-          name: test report pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
-          path: testing/trino-product-tests/target/reports/**/testng-results.xml
-          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
-
-  azure-pt:
-    runs-on: ubuntu-latest
-    needs: build-pt
-    if: needs.build-pt.outputs.have_azure_secrets == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - hdp3
-        suite:
-          - suite-azure
-        jdk:
-          - 11
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
-      - uses: actions/setup-java@v2
-        with:
-          distribution: 'zulu'
-          java-version: 11
-      - name: Product tests artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: product tests and server tarball
-      - name: Fix artifact permissions
-        run: |
-          find . -type f -name \*-executable.jar -exec chmod 0777 {} \;
+        run: echo "PTL_OPTS=--impacted-features impacted-features.log" >> $GITHUB_ENV
       - name: Product Tests
         env:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
@@ -773,6 +723,7 @@ jobs:
           testing/bin/ptl suite run \
             --suite ${{ matrix.suite }} \
             --config config-${{ matrix.config }} \
+            $PTL_OPTS \
             --bind=off --logs-dir logs/ --timeout 2h \
             --trino-jdk-version zulu_${{ matrix.jdk }}
       - name: Upload test logs and results

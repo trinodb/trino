@@ -32,8 +32,8 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.ForwardingHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
@@ -185,13 +185,13 @@ public abstract class AbstractTestHiveFileSystem
         HivePartitionManager hivePartitionManager = new HivePartitionManager(config);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
-        MetastoreConfig metastoreConfig = new MetastoreConfig();
+        HiveMetastoreConfig hiveMetastoreConfig = new HiveMetastoreConfig();
         metastoreClient = new TestingHiveMetastore(
                 new BridgingHiveMetastore(
                         new ThriftHiveMetastore(
                                 metastoreLocator,
-                                new HiveConfig(),
-                                metastoreConfig,
+                                hiveMetastoreConfig.isHideDeltaLakeTables(),
+                                new HiveConfig().isTranslateHiveViews(),
                                 new ThriftMetastoreConfig(),
                                 hdfsEnvironment,
                                 false),
@@ -203,7 +203,7 @@ public abstract class AbstractTestHiveFileSystem
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
                 config,
-                metastoreConfig,
+                hiveMetastoreConfig,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 hdfsEnvironment,
                 hivePartitionManager,

@@ -550,6 +550,9 @@ public class RaptorMetadata
         if (retryMode != NO_RETRIES) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
         }
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
 
         if (viewExists(session, tableMetadata.getTable())) {
             throw new TrinoException(ALREADY_EXISTS, "View already exists: " + tableMetadata.getTable());
@@ -565,6 +568,9 @@ public class RaptorMetadata
 
         long columnId = 1;
         for (ColumnMetadata column : tableMetadata.getColumns()) {
+            if (column.getComment() != null) {
+                throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+            }
             columnHandles.add(new RaptorColumnHandle(column.getName(), columnId, column.getType()));
             columnTypes.add(column.getType());
             columnId++;

@@ -13,12 +13,22 @@
  */
 package io.trino.plugin.exchange.filesystem.s3;
 
+import com.google.api.gax.paging.Page;
+import com.google.auth.Credentials;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageBatch;
+import com.google.cloud.storage.StorageOptions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
@@ -33,7 +43,6 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.retry.RetryPolicy;
@@ -68,6 +77,10 @@ import software.amazon.awssdk.services.s3.model.StorageClass;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher;
+import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.StsClientBuilder;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -76,38 +89,49 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.crypto.SecretKey;
 import javax.inject.Inject;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.trino.plugin.exchange.filesystem.FileSystemExchangeFutures.translateFailures;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
+import static io.trino.plugin.exchange.filesystem.s3.S3FileSystemExchangeStorage.CompatibilityMode.GCP;
 import static io.trino.plugin.exchange.filesystem.s3.S3RequestUtil.configureEncryption;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElseGet;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.USER_AGENT_PREFIX;
 import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.USER_AGENT_SUFFIX;
 
 public class S3FileSystemExchangeStorage
         implements FileSystemExchangeStorage
 {
-    private static final String DIRECTORY_SUFFIX = "_$folder$";
+    public enum CompatibilityMode {
+        AWS,
+        GCP
+    }
 
     private final S3FileSystemExchangeStorageStats stats;
     private final Optional<Region> region;
@@ -116,9 +140,15 @@ public class S3FileSystemExchangeStorage
     private final S3Client s3Client;
     private final S3AsyncClient s3AsyncClient;
     private final StorageClass storageClass;
+    private final CompatibilityMode compatibilityMode;
+
+    // GCS specific
+    private final Optional<Storage> gcsClient;
+    private final Optional<ListeningExecutorService> gcsDeleteExecutor;
 
     @Inject
-    public S3FileSystemExchangeStorage(S3FileSystemExchangeStorageStats stats, ExchangeS3Config config)
+    public S3FileSystemExchangeStorage(S3FileSystemExchangeStorageStats stats, ExchangeS3Config config, CompatibilityMode compatibilityMode)
+            throws IOException
     {
         this.stats = requireNonNull(stats, "stats is null");
         requireNonNull(config, "config is null");
@@ -126,6 +156,7 @@ public class S3FileSystemExchangeStorage
         this.endpoint = config.getS3Endpoint();
         this.multiUploadPartSize = toIntExact(config.getS3UploadPartSize().toBytes());
         this.storageClass = config.getStorageClass();
+        this.compatibilityMode = requireNonNull(compatibilityMode, "compatibilityMode is null");
 
         AwsCredentialsProvider credentialsProvider = createAwsCredentialsProvider(config);
         RetryPolicy retryPolicy = RetryPolicy.builder(config.getRetryMode())
@@ -144,6 +175,29 @@ public class S3FileSystemExchangeStorage
                 config.getAsyncClientConcurrency(),
                 config.getAsyncClientMaxPendingConnectionAcquires(),
                 config.getConnectionAcquisitionTimeout());
+
+        if (compatibilityMode == GCP) {
+            if (config.getGcsJsonKeyFilePath().isPresent()) {
+                Credentials credentials = GoogleCredentials.fromStream(new FileInputStream(config.getGcsJsonKeyFilePath().get()));
+                this.gcsClient = Optional.of(StorageOptions.newBuilder().setCredentials(credentials).build().getService());
+            }
+            else {
+                this.gcsClient = Optional.of(StorageOptions.getDefaultInstance().getService());
+            }
+            ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                    100,
+                    100,
+                    60L,
+                    SECONDS,
+                    new LinkedBlockingQueue<>(),
+                    threadsNamed("gcs-delete-%s"));
+            executor.allowCoreThreadTimeOut(true);
+            this.gcsDeleteExecutor = Optional.of(listeningDecorator(executor));
+        }
+        else {
+            this.gcsClient = Optional.empty();
+            this.gcsDeleteExecutor = Optional.empty();
+        }
     }
 
     @Override
@@ -184,21 +238,55 @@ public class S3FileSystemExchangeStorage
                 .key(keyFromUri(file))
                 .build();
 
-        return stats.getCreateEmptyFile().record(transformFuture(toListenableFuture(s3AsyncClient.putObject(request, AsyncRequestBody.empty()))));
+        return stats.getCreateEmptyFile().record(translateFailures(toListenableFuture(s3AsyncClient.putObject(request, AsyncRequestBody.empty()))));
     }
 
     @Override
-    public ListenableFuture<Void> deleteRecursively(URI dir)
+    public ListenableFuture<Void> deleteRecursively(List<URI> directories)
     {
-        ImmutableList.Builder<String> keys = ImmutableList.builder();
-        return stats.getDeleteRecursively().record(transformFuture(Futures.transformAsync(
-                toListenableFuture((listObjectsRecursively(dir).subscribe(listObjectsV2Response ->
-                        listObjectsV2Response.contents().stream().map(S3Object::key).forEach(keys::add)))),
-                ignored -> {
-                    keys.add(keyFromUri(dir) + DIRECTORY_SUFFIX);
-                    return deleteObjects(getBucketName(dir), keys.build());
-                },
-                directExecutor())));
+        if (compatibilityMode == GCP) {
+            // GCS is not compatible with S3's multi-object delete API https://cloud.google.com/storage/docs/migrating#methods-comparison
+            Storage storage = gcsClient.orElseThrow(() -> new IllegalStateException("gcsClient is expected to be initialized"));
+            ListeningExecutorService deleteExecutor = gcsDeleteExecutor.orElseThrow(() -> new IllegalStateException("gcsDeleteExecutor is expected to be initialized"));
+            return stats.getDeleteRecursively().record(asVoid(deleteExecutor.submit(() -> {
+                StorageBatch batch = storage.batch();
+                for (URI dir : directories) {
+                    Page<Blob> blobs = storage.list(getBucketName(dir), Storage.BlobListOption.prefix(keyFromUri(dir)));
+                    for (Blob blob : blobs.iterateAll()) {
+                        batch.delete(blob.getBlobId());
+                    }
+                }
+                batch.submit();
+            })));
+        }
+        else {
+            ImmutableMultimap.Builder<String, ListenableFuture<List<String>>> bucketToListObjectsFuturesBuilder = ImmutableMultimap.builder();
+            for (URI dir : directories) {
+                ImmutableList.Builder<String> keys = ImmutableList.builder();
+                ListenableFuture<List<String>> listObjectsFuture = Futures.transform(
+                        toListenableFuture((listObjectsRecursively(dir)
+                                .subscribe(listObjectsV2Response -> listObjectsV2Response.contents().stream()
+                                        .map(S3Object::key)
+                                        .forEach(keys::add)))),
+                        ignored -> keys.build(),
+                        directExecutor());
+                bucketToListObjectsFuturesBuilder.put(getBucketName(dir), listObjectsFuture);
+            }
+            Multimap<String, ListenableFuture<List<String>>> bucketToListObjectsFutures = bucketToListObjectsFuturesBuilder.build();
+
+            ImmutableList.Builder<ListenableFuture<List<DeleteObjectsResponse>>> deleteObjectsFutures = ImmutableList.builder();
+            for (String bucketName : bucketToListObjectsFutures.keySet()) {
+                deleteObjectsFutures.add(Futures.transformAsync(
+                        Futures.allAsList(bucketToListObjectsFutures.get(bucketName)),
+                        keys -> deleteObjects(
+                                bucketName,
+                                keys.stream()
+                                        .flatMap(Collection::stream)
+                                        .collect(toImmutableList())),
+                        directExecutor()));
+            }
+            return translateFailures(Futures.allAsList(deleteObjectsFutures.build()));
+        }
     }
 
     @Override
@@ -267,6 +355,7 @@ public class S3FileSystemExchangeStorage
         try (Closer closer = Closer.create()) {
             closer.register(s3Client::close);
             closer.register(s3AsyncClient::close);
+            gcsDeleteExecutor.ifPresent(listeningExecutorService -> closer.register(listeningExecutorService::shutdown));
         }
     }
 
@@ -367,19 +456,6 @@ public class S3FileSystemExchangeStorage
         return key;
     }
 
-    // Helper function that translates exception and transform future type to avoid abstraction leak
-    private static ListenableFuture<Void> transformFuture(ListenableFuture<?> listenableFuture)
-    {
-        return asVoid(Futures.catchingAsync(listenableFuture, Throwable.class, throwable -> {
-            if (throwable instanceof Error || throwable instanceof IOException) {
-                return immediateFailedFuture(throwable);
-            }
-            else {
-                return immediateFailedFuture(new IOException(throwable));
-            }
-        }, directExecutor()));
-    }
-
     private static boolean isDirectory(URI uri)
     {
         return uri.toString().endsWith(PATH_SEPARATOR);
@@ -387,12 +463,46 @@ public class S3FileSystemExchangeStorage
 
     private static AwsCredentialsProvider createAwsCredentialsProvider(ExchangeS3Config config)
     {
-        if (config.getS3AwsAccessKey() != null && config.getS3AwsSecretKey() != null) {
-            return StaticCredentialsProvider.create(AwsBasicCredentials.create(config.getS3AwsAccessKey(), config.getS3AwsSecretKey()));
+        String accessKey = config.getS3AwsAccessKey();
+        String secretKey = config.getS3AwsSecretKey();
+
+        if (accessKey == null && secretKey != null) {
+            throw new IllegalArgumentException("AWS access key set but secret is not set; make sure you set exchange.s3.aws-secret-key config property");
         }
 
-        if (config.isS3UseWebIdentityTokenCredentials()) {
-            return WebIdentityTokenFileCredentialsProvider.create();
+        if (accessKey != null && secretKey == null) {
+            throw new IllegalArgumentException("AWS secret key set but access is not set; make sure you set exchange.s3.aws-access-key config property");
+        }
+
+        if (accessKey != null) {
+            checkArgument(
+                    config.getS3IamRole().isEmpty(),
+                    "IAM role is not compatible with access key based authentication; make sure you set only one of exchange.s3.aws-access-key, exchange.s3.iam-role config properties");
+            checkArgument(
+                    config.getS3ExternalId().isEmpty(),
+                    "External ID is not compatible with access key based authentication; make sure you set only one of exchange.s3.aws-access-key, exchange.s3.external-id config properties");
+
+            return StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey));
+        }
+
+        if (config.getS3ExternalId().isPresent() && config.getS3IamRole().isEmpty()) {
+            throw new IllegalArgumentException("External ID can only be used with IAM role based authentication; make sure you set exchange.s3.iam-role config property");
+        }
+
+        if (config.getS3IamRole().isPresent()) {
+            AssumeRoleRequest.Builder assumeRoleRequest = AssumeRoleRequest.builder()
+                    .roleArn(config.getS3IamRole().get())
+                    .roleSessionName("trino-exchange");
+            config.getS3ExternalId().ifPresent(assumeRoleRequest::externalId);
+
+            StsClientBuilder stsClientBuilder = StsClient.builder();
+            config.getS3Region().ifPresent(stsClientBuilder::region);
+
+            return StsAssumeRoleCredentialsProvider.builder()
+                    .stsClient(stsClientBuilder.build())
+                    .refreshRequest(assumeRoleRequest.build())
+                    .asyncCredentialUpdateEnabled(true)
+                    .build();
         }
 
         return DefaultCredentialsProvider.create();
@@ -579,12 +689,11 @@ public class S3FileSystemExchangeStorage
                 Optional<SecretKey> secretKey = currentFile.getSecretKey();
                 for (int i = 0; i < readableParts && fileOffset < fileSize; ++i) {
                     int length = (int) min(partSize, fileSize - fileOffset);
-                    int partNumber = (int) (fileOffset / partSize + 1);
 
                     GetObjectRequest.Builder getObjectRequestBuilder = GetObjectRequest.builder()
                             .key(key)
                             .bucket(bucketName)
-                            .partNumber(partNumber);
+                            .range("bytes=" + fileOffset + "-" + (fileOffset + length - 1));
                     configureEncryption(secretKey, getObjectRequestBuilder);
 
                     ListenableFuture<GetObjectResponse> getObjectFuture = toListenableFuture(s3AsyncClient.getObject(getObjectRequestBuilder.build(),
@@ -665,7 +774,7 @@ public class S3FileSystemExchangeStorage
                         .key(key)
                         .storageClass(storageClass);
                 configureEncryption(secretKey, putObjectRequestBuilder);
-                directUploadFuture = transformFuture(toListenableFuture(s3AsyncClient.putObject(putObjectRequestBuilder.build(),
+                directUploadFuture = translateFailures(toListenableFuture(s3AsyncClient.putObject(putObjectRequestBuilder.build(),
                         ByteBufferAsyncRequestBody.fromByteBuffer(slice.toByteBuffer()))));
                 stats.getPutObject().record(directUploadFuture);
                 stats.getPutObjectDataSizeInBytes().add(slice.length());
@@ -680,7 +789,7 @@ public class S3FileSystemExchangeStorage
             ListenableFuture<CompletedPart> uploadFuture = Futures.transformAsync(multiPartUploadIdFuture, uploadId -> uploadPart(uploadId, slice, partNum), directExecutor());
             multiPartUploadFutures.add(uploadFuture);
 
-            return transformFuture(uploadFuture);
+            return translateFailures(uploadFuture);
         }
 
         @Override
@@ -694,7 +803,7 @@ public class S3FileSystemExchangeStorage
                 return requireNonNullElseGet(directUploadFuture, Futures::immediateVoidFuture);
             }
 
-            ListenableFuture<Void> finishFuture = transformFuture(Futures.transformAsync(
+            ListenableFuture<Void> finishFuture = translateFailures(Futures.transformAsync(
                     Futures.allAsList(multiPartUploadFutures),
                     completedParts -> completeMultipartUpload(getFutureValue(multiPartUploadIdFuture), completedParts),
                     directExecutor()));
@@ -731,7 +840,7 @@ public class S3FileSystemExchangeStorage
 
             verify(directUploadFuture == null);
             multiPartUploadFutures.forEach(future -> future.cancel(true));
-            return transformFuture(Futures.transformAsync(multiPartUploadIdFuture, this::abortMultipartUpload, directExecutor()));
+            return translateFailures(Futures.transformAsync(multiPartUploadIdFuture, this::abortMultipartUpload, directExecutor()));
         }
 
         @Override

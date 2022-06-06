@@ -212,15 +212,10 @@ public class PushFilterThroughCountAggregation
                 aggregation.getOrderingScheme(),
                 Optional.empty());
 
-        AggregationNode newAggregationNode = new AggregationNode(
-                aggregationNode.getId(),
-                source,
-                ImmutableMap.of(countSymbol, newAggregation),
-                aggregationNode.getGroupingSets(),
-                aggregationNode.getPreGroupedSymbols(),
-                aggregationNode.getStep(),
-                aggregationNode.getHashSymbol(),
-                aggregationNode.getGroupIdSymbol());
+        AggregationNode newAggregationNode = AggregationNode.builderFrom(aggregationNode)
+                .setSource(source)
+                .setAggregations(ImmutableMap.of(countSymbol, newAggregation))
+                .build();
 
         // Restore identity projection if it is present in the original plan.
         PlanNode filterSource = projectNode.map(project -> project.replaceChildren(ImmutableList.of(newAggregationNode))).orElse(newAggregationNode);

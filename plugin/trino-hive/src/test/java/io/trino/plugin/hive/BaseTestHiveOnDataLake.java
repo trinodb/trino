@@ -23,7 +23,7 @@ import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.Table;
@@ -80,8 +80,8 @@ public abstract class BaseTestHiveOnDataLake
                 new TestingMetastoreLocator(
                         Optional.empty(),
                         this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint()),
-                new HiveConfig(),
-                new MetastoreConfig(),
+                new HiveMetastoreConfig().isHideDeltaLakeTables(),
+                new HiveConfig().isTranslateHiveViews(),
                 new ThriftMetastoreConfig(),
                 new HdfsEnvironment(new HiveHdfsConfiguration(
                         new HdfsConfigurationInitializer(

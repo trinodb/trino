@@ -13,6 +13,7 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
@@ -598,11 +599,11 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to execute function.
+     * Check if identity is allowed to execute function
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
+    default void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
     {
         denyExecuteFunction(function.toString());
     }

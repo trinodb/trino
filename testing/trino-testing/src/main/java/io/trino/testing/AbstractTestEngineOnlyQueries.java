@@ -6256,6 +6256,224 @@ public abstract class AbstractTestEngineOnlyQueries
                 .matches("VALUES ('name', 'age')");
     }
 
+    @Test
+    public void testJsonExistsFunction()
+    {
+        assertThat(query("SELECT json_exists(json_input, 'strict $?(@ < 3)') result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES true, true, true, false, false");
+
+        assertThat(query("SELECT json_exists(json_input, 'strict $?(@ < 3) / $' UNKNOWN ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES null, true, true, null, null");
+
+        // input conversion error
+        assertThat(query("SELECT json_exists(json_input, 'strict $?(@ < 3)' FALSE ON ERROR) result " +
+                "              FROM (SELECT format('[%s...', regionkey) FROM region) t(json_input)")) // malformed JSON
+                .matches("VALUES false, false, false, false, false");
+    }
+
+    @Test
+    public void testJsonQueryFunction()
+    {
+        assertThat(query("SELECT json_query(json_input, 'strict $?(@ < 3)') result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES VARCHAR '0', '1', '2', null, null");
+
+        assertThat(query("SELECT json_query(json_input, 'strict $?(@ < 3)' EMPTY ARRAY ON EMPTY EMPTY OBJECT ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES VARCHAR '0', '1', '2', '[]', '[]'");
+
+        assertThat(query("SELECT json_query(json_input, 'strict $?(@ < 3) / $' EMPTY ARRAY ON EMPTY EMPTY OBJECT ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES VARCHAR '{}', '1', '1', '{}', '{}'");
+    }
+
+    @Test
+    public void testJsonValueFunctionReturnType()
+    {
+        // default returned type is varchar
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@[0] starts with \"A\" || @[1] < 4)[2]') result " +
+                "              FROM (SELECT format('[\"%s\", %s, %s]', name, regionkey, comment > 'k') FROM region) t(json_input)")) // JSON array[text, number, boolean]
+                .matches("VALUES VARCHAR 'true', 'false', 'false', 'true', null");
+
+        // returning char(6) (java type Slice)
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@[1] > 1 || @[2] == true)[0]' RETURNING char(6)) result " +
+                "              FROM (SELECT format('[\"%s\", %s, %s]', name, regionkey, comment > 'k') FROM region) t(json_input)")) // JSON array[text, number, boolean]
+                .matches("VALUES cast('AFRICA' AS char(6)), null, 'ASIA  ', 'EUROPE', 'MIDDLE'");
+
+        // returning integer (java type long)
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@[0] starts with \"A\" || @[1] < 4)[1]' RETURNING integer) result " +
+                "              FROM (SELECT format('[\"%s\", %s, %s]', name, regionkey, comment > 'k') FROM region) t(json_input)")) // JSON array[text, number, boolean]
+                .matches("VALUES 0, 1, 2, 3, null");
+
+        // returning double (java type double)
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@[0] starts with \"A\" || @[1] < 4)[1]' RETURNING double) result " +
+                "              FROM (SELECT format('[\"%s\", %s, %s]', name, regionkey, comment > 'k') FROM region) t(json_input)")) // JSON array[text, number, boolean]
+                .matches("VALUES 0e0, 1e0, 2e0, 3e0, null");
+
+        // returning boolean (java type boolean)
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@[0] starts with \"A\" || @[1] < 4)[2]' RETURNING boolean) result " +
+                "              FROM (SELECT format('[\"%s\", %s, %s]', name, regionkey, comment > 'k') FROM region) t(json_input)")) // JSON array[text, number, boolean]
+                .matches("VALUES true, false, false, true, null");
+
+        // returning decimal(30, 20) (java type Object: Int128)
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@[0] starts with \"A\" || @[1] < 4)[1]' RETURNING decimal(30, 20)) result " +
+                "              FROM (SELECT format('[\"%s\", %s, %s]', name, regionkey, comment > 'k') FROM region) t(json_input)")) // JSON array[text, number, boolean]
+                .matches("VALUES cast(0 AS decimal(30, 20)), 1, 2, 3, null");
+    }
+
+    @Test
+    public void testJsonValueDefaults()
+    {
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3)' DEFAULT 'was empty' ON EMPTY DEFAULT 'was error' ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES VARCHAR '0', '1', '2', 'was empty', 'was empty'");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3) + 10' DEFAULT 'was empty' ON EMPTY DEFAULT 'was error' ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES VARCHAR '10', '11', '12', 'was error', 'was error'");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3) / 0' DEFAULT 'was empty' ON EMPTY DEFAULT 'was error' ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES VARCHAR 'was error', 'was error', 'was error', 'was error', 'was error'");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3) + 10' RETURNING varchar(10) DEFAULT 'was empty' ON EMPTY DEFAULT 'was error' ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES cast('10' AS varchar(10)) , '11', '12', 'was error', 'was error'");
+
+        // returning bigint
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3)' RETURNING bigint DEFAULT -2 ON EMPTY DEFAULT -1 ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES BIGINT '0', 1, 2, -2, -2");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3) + 10' RETURNING bigint DEFAULT -2 ON EMPTY DEFAULT -1 ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES BIGINT '10', 11, 12, -1, -1");
+
+        // returning double
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3)' RETURNING double DEFAULT -2 ON EMPTY DEFAULT -1 ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES 0e0, 1e0, 2e0, -2e0, -2e0");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3) + 10' RETURNING double DEFAULT -2 ON EMPTY DEFAULT -1 ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES 10e0, 11e0, 12e0, -1e0, -1e0");
+
+        // returning boolean
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3)' RETURNING boolean DEFAULT false ON EMPTY DEFAULT false ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES false, true, true, false, false");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3) + 10' RETURNING boolean DEFAULT false ON EMPTY DEFAULT false ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES true, true, true, false, false");
+
+        // returning decimal(30, 20)
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3)' RETURNING decimal(30, 20) DEFAULT -2 ON EMPTY DEFAULT -1 ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES cast(0 AS decimal(30, 20)), 1, 2, -2, -2");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3) + 10' RETURNING decimal(30, 20) DEFAULT -2 ON EMPTY DEFAULT -1 ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES cast(10 AS decimal(30, 20)), 11, 12, -1, -1");
+    }
+
+    @Test
+    public void testJsonValueDefaultNull()
+    {
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3)' DEFAULT null ON EMPTY DEFAULT null ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES VARCHAR '0', '1', '2', null, null");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3) + 10' RETURNING bigint DEFAULT null ON EMPTY DEFAULT null ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES BIGINT '10', 11, 12, null, null");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3)' RETURNING double DEFAULT null ON EMPTY DEFAULT null ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES 0e0, 1e0, 2e0, null, null");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3) + 10' RETURNING boolean DEFAULT null ON EMPTY DEFAULT null ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES true, true, true, null, null");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $?(@ < 3)' RETURNING decimal(30, 20) DEFAULT null ON EMPTY DEFAULT null ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES cast(0 AS decimal(30, 20)), 1, 2, null, null");
+    }
+
+    @Test
+    public void testPassingClause()
+    {
+        assertThat(query("SELECT json_exists(json_input, 'strict $?(@ > $low && @ < $high)' PASSING 0e0 AS \"low\", 4.000 AS \"high\") result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES false, true, true, true, false");
+
+        assertThat(query("SELECT json_query(json_input, 'strict $?($bool == true || $name starts with \"A\")' PASSING comment > 'm' AS \"bool\", name AS \"name\") result " +
+                "              FROM (SELECT format('%s', regionkey), comment, name FROM region) t(json_input, comment, name)"))
+                .matches("VALUES VARCHAR '0', '1', '2', null, '4'");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $name' PASSING name AS \"name\") result " +
+                "              FROM (SELECT format('%s', regionkey), name FROM region) t(json_input, name)"))
+                .matches("VALUES VARCHAR 'AFRICA', 'AMERICA', 'ASIA', 'EUROPE', 'MIDDLE EAST'");
+
+        // null as SQL value parameter -> the passed value is JSON null
+        assertThat(query("SELECT json_query(json_input, 'strict $var' PASSING null AS \"var\") result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)"))
+                .matches("VALUES VARCHAR 'null', 'null', 'null', 'null', 'null'");
+
+        // null as JSON parameter -> the passed value is empty sequence
+        assertThat(query("SELECT json_exists(json_input, 'strict $var' PASSING null FORMAT JSON AS \"var\") result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)"))
+                .matches("VALUES false, false, false, false, false");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $var[$]' PASSING '[\"a\", \"b\", \"c\", \"d\", \"e\"]' FORMAT JSON AS \"var\") result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)"))
+                .matches("VALUES VARCHAR 'a', 'b', 'c', 'd', 'e'");
+    }
+
+    @Test
+    public void testNullInput()
+    {
+        assertThat(query("SELECT json_exists(json_input, 'strict $') result " +
+                "              FROM (SELECT null FROM region) t(json_input)"))
+                .matches("VALUES cast(null AS boolean), null, null, null, null");
+
+        assertThat(query("SELECT json_query(json_input, 'strict $') result " +
+                "              FROM (SELECT null FROM region) t(json_input)"))
+                .matches("VALUES cast(null AS varchar), null, null, null, null");
+
+        assertThat(query("SELECT json_value(json_input, 'strict $') result " +
+                "              FROM (SELECT null FROM region) t(json_input)"))
+                .matches("VALUES cast(null AS varchar), null, null, null, null");
+    }
+
+    @Test
+    public void testJsonQueryAsInput()
+    {
+        // If the context item is output of a JSON-returning function (currently, the only JSON-returning function is json_query),
+        // it should inherit format JSON, if that is output format of the JSON-returning function
+        assertThat(query("SELECT json_value(json_query(json_input, 'strict $'), 'strict $[0]') result " +
+                "              FROM (SELECT format('[\"%s\", %s, %s]', name, regionkey, comment > 'k') FROM region) t(json_input)"))
+                .matches("VALUES VARCHAR 'AFRICA', 'AMERICA', 'ASIA', 'EUROPE', 'MIDDLE EAST'");
+
+        // If a JSON path parameter is output of a JSON-returning function (currently, the only JSON-returning function is json_query),
+        // it should inherit format JSON, if that is output format of the JSON-returning function
+        assertThat(query("SELECT json_value('null', 'strict $array[0]' PASSING json_query(json_input, 'strict $') AS \"array\") result " +
+                "              FROM (SELECT format('[\"%s\", %s, %s]', name, regionkey, comment > 'k') FROM region) t(json_input)"))
+                .matches("VALUES VARCHAR 'AFRICA', 'AMERICA', 'ASIA', 'EUROPE', 'MIDDLE EAST'");
+    }
+
+    @Test
+    public void testSubqueryInJsonFunctions()
+    {
+        // subqueries as: input item, passed parameter, empty default, error default
+        assertThat(query("SELECT json_value((SELECT json_input), 'strict $?(@ < $var)' PASSING (SELECT 3) AS \"var\" DEFAULT (SELECT 'x') ON EMPTY DEFAULT (SELECT 'y') ON ERROR) result " +
+                "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
+                .matches("VALUES VARCHAR '0', '1', '2', 'x', 'x'");
+    }
+
     private static ZonedDateTime zonedDateTime(String value)
     {
         return ZONED_DATE_TIME_FORMAT.parse(value, ZonedDateTime::from);

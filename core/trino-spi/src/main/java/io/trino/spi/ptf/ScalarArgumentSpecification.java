@@ -15,7 +15,7 @@ package io.trino.spi.ptf;
 
 import io.trino.spi.type.Type;
 
-import static io.trino.spi.ptf.ConnectorTableFunction.checkArgument;
+import static io.trino.spi.ptf.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

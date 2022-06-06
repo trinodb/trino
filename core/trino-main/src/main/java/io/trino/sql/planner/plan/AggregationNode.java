@@ -56,6 +56,15 @@ public class AggregationNode
     private final Optional<Symbol> groupIdSymbol;
     private final List<Symbol> outputs;
 
+    public static AggregationNode singleAggregation(
+            PlanNodeId id,
+            PlanNode source,
+            Map<Symbol, Aggregation> aggregations,
+            GroupingSetDescriptor groupingSets)
+    {
+        return new AggregationNode(id, source, aggregations, groupingSets, ImmutableList.of(), SINGLE, Optional.empty(), Optional.empty());
+    }
+
     @JsonCreator
     public AggregationNode(
             @JsonProperty("id") PlanNodeId id,
@@ -207,7 +216,9 @@ public class AggregationNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol);
+        return builderFrom(this)
+                .setSource(Iterables.getOnlyElement(newChildren))
+                .build();
     }
 
     public boolean producesDistinctRows()
@@ -477,6 +488,97 @@ public class AggregationNode
                     resolvedFunction.getSignature(),
                     expectedArgumentCount,
                     arguments.size());
+        }
+    }
+
+    public static Builder builderFrom(AggregationNode node)
+    {
+        return new Builder(node);
+    }
+
+    public static class Builder
+    {
+        private PlanNodeId id;
+        private PlanNode source;
+        private Map<Symbol, Aggregation> aggregations;
+        private GroupingSetDescriptor groupingSets;
+        private List<Symbol> preGroupedSymbols;
+        private Step step;
+        private Optional<Symbol> hashSymbol;
+        private Optional<Symbol> groupIdSymbol;
+
+        public Builder(AggregationNode node)
+        {
+            requireNonNull(node, "node is null");
+            this.id = node.getId();
+            this.source = node.getSource();
+            this.aggregations = node.getAggregations();
+            this.groupingSets = node.getGroupingSets();
+            this.preGroupedSymbols = node.getPreGroupedSymbols();
+            this.step = node.getStep();
+            this.hashSymbol = node.getHashSymbol();
+            this.groupIdSymbol = node.getGroupIdSymbol();
+        }
+
+        public Builder setId(PlanNodeId id)
+        {
+            this.id = requireNonNull(id, "id is null");
+            return this;
+        }
+
+        public Builder setSource(PlanNode source)
+        {
+            this.source = requireNonNull(source, "source is null");
+            return this;
+        }
+
+        public Builder setAggregations(Map<Symbol, Aggregation> aggregations)
+        {
+            this.aggregations = requireNonNull(aggregations, "aggregations is null");
+            return this;
+        }
+
+        public Builder setGroupingSets(GroupingSetDescriptor groupingSets)
+        {
+            this.groupingSets = requireNonNull(groupingSets, "groupingSets is null");
+            return this;
+        }
+
+        public Builder setPreGroupedSymbols(List<Symbol> preGroupedSymbols)
+        {
+            this.preGroupedSymbols = requireNonNull(preGroupedSymbols, "preGroupedSymbols is null");
+            return this;
+        }
+
+        public Builder setStep(Step step)
+        {
+            this.step = requireNonNull(step, "step is null");
+            return this;
+        }
+
+        public Builder setHashSymbol(Optional<Symbol> hashSymbol)
+        {
+            this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+            return this;
+        }
+
+        public Builder setGroupIdSymbol(Optional<Symbol> groupIdSymbol)
+        {
+            this.groupIdSymbol = requireNonNull(groupIdSymbol, "groupIdSymbol is null");
+            return this;
+        }
+
+        public AggregationNode build()
+        {
+            return new AggregationNode(
+                    id,
+                    source,
+                    aggregations,
+                    groupingSets,
+                    preGroupedSymbols,
+                    step,
+                    hashSymbol,
+                    groupIdSymbol);
         }
     }
 }

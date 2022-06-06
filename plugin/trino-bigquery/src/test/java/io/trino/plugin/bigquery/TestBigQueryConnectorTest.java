@@ -69,6 +69,8 @@ public class TestBigQueryConnectorTest
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
             case SUPPORTS_CREATE_TABLE_WITH_DATA:
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_DELETE:
             case SUPPORTS_INSERT:
             case SUPPORTS_ADD_COLUMN:
@@ -649,6 +651,61 @@ public class TestBigQueryConnectorTest
         finally {
             onBigQuery("DROP MATERIALIZED VIEW IF EXISTS test." + materializedView);
         }
+    }
+
+    @Test
+    public void testWildcardTable()
+    {
+        String suffix = randomTableSuffix();
+        String firstTable = format("test_wildcard_%s_1", suffix);
+        String secondTable = format("test_wildcard_%s_2", suffix);
+        String wildcardTable = format("test_wildcard_%s_*", suffix);
+        try {
+            onBigQuery("CREATE TABLE test." + firstTable + " AS SELECT 1 AS value");
+            onBigQuery("CREATE TABLE test." + secondTable + " AS SELECT 2 AS value");
+
+            assertQuery("DESCRIBE test.\"" + wildcardTable + "\"", "VALUES ('value', 'bigint', '', '')");
+            assertQuery("SELECT * FROM test.\"" + wildcardTable + "\"", "VALUES (1), (2)");
+
+            // Unsupported operations
+            assertQueryFails("DROP TABLE test.\"" + wildcardTable + "\"", "This connector does not support dropping wildcard tables");
+            assertQueryFails("INSERT INTO test.\"" + wildcardTable + "\" VALUES (1)", "This connector does not support inserts");
+            assertQueryFails("ALTER TABLE test.\"" + wildcardTable + "\" ADD COLUMN new_column INT", "This connector does not support adding columns");
+            assertQueryFails("ALTER TABLE test.\"" + wildcardTable + "\" RENAME TO test.new_wildcard_table", "This connector does not support renaming tables");
+        }
+        finally {
+            onBigQuery("DROP TABLE IF EXISTS test." + firstTable);
+            onBigQuery("DROP TABLE IF EXISTS test." + secondTable);
+        }
+    }
+
+    @Test
+    public void testWildcardTableWithDifferentColumnDefinition()
+    {
+        String suffix = randomTableSuffix();
+        String firstTable = format("test_invalid_wildcard_%s_1", suffix);
+        String secondTable = format("test_invalid_wildcard_%s_2", suffix);
+        String wildcardTable = format("test_invalid_wildcard_%s_*", suffix);
+        try {
+            onBigQuery("CREATE TABLE test." + firstTable + " AS SELECT 1 AS value");
+            onBigQuery("CREATE TABLE test." + secondTable + " AS SELECT 'string' AS value");
+
+            assertQuery("DESCRIBE test.\"" + wildcardTable + "\"", "VALUES ('value', 'varchar', '', '')");
+
+            assertThatThrownBy(() -> query("SELECT * FROM test.\"" + wildcardTable + "\""))
+                    .hasMessageContaining("Cannot read field of type INT64 as STRING Field: value");
+        }
+        finally {
+            onBigQuery("DROP TABLE IF EXISTS test." + firstTable);
+            onBigQuery("DROP TABLE IF EXISTS test." + secondTable);
+        }
+    }
+
+    @Test
+    public void testMissingWildcardTable()
+    {
+        assertThatThrownBy(() -> query("SELECT * FROM test.\"test_missing_wildcard_table_*\""))
+                .hasMessageEndingWith("does not match any table.");
     }
 
     private void onBigQuery(@Language("SQL") String sql)

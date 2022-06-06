@@ -115,6 +115,9 @@ import io.trino.operator.StageExecutionDescriptor;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
+import io.trino.operator.scalar.json.JsonExistsFunction;
+import io.trino.operator.scalar.json.JsonQueryFunction;
+import io.trino.operator.scalar.json.JsonValueFunction;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
@@ -188,6 +191,8 @@ import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
+import io.trino.type.JsonPath2016Type;
+import io.trino.type.TypeDeserializer;
 import io.trino.util.FinalizerService;
 import org.intellij.lang.annotations.Language;
 
@@ -244,6 +249,7 @@ public class LocalQueryRunner
     private final InMemoryNodeManager nodeManager;
     private final BlockTypeOperators blockTypeOperators;
     private final PlannerContext plannerContext;
+    private final TypeRegistry typeRegistry;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final FunctionManager functionManager;
     private final StatsCalculator statsCalculator;
@@ -347,7 +353,7 @@ public class LocalQueryRunner
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators);
 
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
-        TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
+        typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
         TypeManager typeManager = new InternalTypeManager(typeRegistry);
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
 
@@ -356,11 +362,15 @@ public class LocalQueryRunner
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
         this.functionManager = new FunctionManager(globalFunctionCatalog);
         Metadata metadata = metadataProvider.getMetadata(
-                featuresConfig,
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 globalFunctionCatalog,
                 typeManager);
+        globalFunctionCatalog.addFunctions(new InternalFunctionBundle(
+                new JsonExistsFunction(functionManager, metadata, typeManager),
+                new JsonValueFunction(functionManager, metadata, typeManager),
+                new JsonQueryFunction(functionManager, metadata, typeManager)));
+        typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager);
         this.splitManager = new SplitManager(new QueryManagerConfig());
         this.planFragmenter = new PlanFragmenter(metadata, functionManager, this.nodePartitioningManager, new QueryManagerConfig());
@@ -601,10 +611,20 @@ public class LocalQueryRunner
         return analyzePropertyManager;
     }
 
+    public TypeRegistry getTypeRegistry()
+    {
+        return typeRegistry;
+    }
+
     @Override
     public TypeManager getTypeManager()
     {
         return plannerContext.getTypeManager();
+    }
+
+    public GlobalFunctionCatalog getGlobalFunctionCatalog()
+    {
+        return globalFunctionCatalog;
     }
 
     @Override
@@ -1102,7 +1122,6 @@ public class LocalQueryRunner
                         new DescribeOutputRewrite(sqlParser),
                         new ShowQueriesRewrite(
                                 plannerContext.getMetadata(),
-                                plannerContext.getFunctionManager(),
                                 sqlParser,
                                 accessControl,
                                 sessionPropertyManager,
@@ -1148,7 +1167,6 @@ public class LocalQueryRunner
     public interface MetadataProvider
     {
         Metadata getMetadata(
-                FeaturesConfig featuresConfig,
                 SystemSecurityMetadata systemSecurityMetadata,
                 TransactionManager transactionManager,
                 GlobalFunctionCatalog globalFunctionCatalog,

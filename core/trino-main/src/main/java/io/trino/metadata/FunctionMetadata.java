@@ -15,14 +15,15 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Booleans;
+import io.trino.spi.function.FunctionKind;
 
 import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.FunctionKind.WINDOW;
+import static io.trino.spi.function.FunctionKind.AGGREGATE;
+import static io.trino.spi.function.FunctionKind.SCALAR;
+import static io.trino.spi.function.FunctionKind.WINDOW;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionMetadata
