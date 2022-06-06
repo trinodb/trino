@@ -19,11 +19,13 @@ import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.Metadata;
@@ -235,9 +237,11 @@ public class LogicalPlanner
 
         planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
 
+        TableStatsProvider tableStatsProvider = new CachingTableStatsProvider(metadata, session);
+
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
-                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
+                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector, tableStatsProvider);
                 requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
 
                 if (LOG.isDebugEnabled()) {
@@ -263,7 +267,7 @@ public class LogicalPlanner
 
         StatsAndCosts statsAndCosts = StatsAndCosts.empty();
         if (collectPlanStatistics) {
-            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
             CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
             statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);
         }
