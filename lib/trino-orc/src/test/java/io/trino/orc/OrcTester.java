@@ -1098,7 +1098,7 @@ public class OrcTester
     static RecordWriter createOrcRecordWriter(File outputFile, Format format, CompressionKind compression, Type type)
             throws IOException
     {
-        JobConf jobConf = new JobConf();
+        JobConf jobConf = new JobConf(newEmptyConfiguration());
         OrcConf.WRITE_FORMAT.setString(jobConf, format == ORC_12 ? "0.12" : "0.11");
         OrcConf.COMPRESS.setString(jobConf, compression.name());
 
