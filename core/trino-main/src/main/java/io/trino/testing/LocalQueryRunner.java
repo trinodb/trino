@@ -1119,7 +1119,7 @@ public class LocalQueryRunner
                                 columnPropertyManager,
                                 tablePropertyManager,
                                 materializedViewPropertyManager),
-                        new ShowStatsRewrite(queryExplainerFactory, statsCalculator),
+                        new ShowStatsRewrite(plannerContext.getMetadata(), queryExplainerFactory, statsCalculator),
                         new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))));
     }
 

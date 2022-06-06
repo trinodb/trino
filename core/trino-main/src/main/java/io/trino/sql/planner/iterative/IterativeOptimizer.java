@@ -25,6 +25,7 @@ import io.trino.cost.CostProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Capture;
 import io.trino.matching.Match;
@@ -100,10 +101,16 @@ public class IterativeOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
+        throw new IllegalStateException("This is not expected to be called because the other overload is implemented.");
+    }
+
+    @Override
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
+    {
         // only disable new rules if we have legacy rules to fall back to
         if (useLegacyRules.test(session) && !legacyRules.isEmpty()) {
             for (PlanOptimizer optimizer : legacyRules) {
-                plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
+                plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector, tableStatsProvider);
             }
 
             return plan;
@@ -113,7 +120,7 @@ public class IterativeOptimizer
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
-        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, nanoTime(), timeout.toMillis(), session, warningCollector);
+        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, nanoTime(), timeout.toMillis(), session, warningCollector, tableStatsProvider);
         exploreGroup(memo.getRootGroup(), context);
 
         return memo.extract();
@@ -258,7 +265,7 @@ public class IterativeOptimizer
 
     private Rule.Context ruleContext(Context context)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.symbolAllocator.getTypes());
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.symbolAllocator.getTypes(), context.tableStatsProvider);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.session, context.symbolAllocator.getTypes());
 
         return new Rule.Context()
@@ -323,6 +330,7 @@ public class IterativeOptimizer
         private final long timeoutInMilliseconds;
         private final Session session;
         private final WarningCollector warningCollector;
+        private final TableStatsProvider tableStatsProvider;
 
         private final Map<Rule<?>, RuleInvocationStats> ruleStats = new HashMap<>();
 
@@ -334,7 +342,8 @@ public class IterativeOptimizer
                 long startTimeInNanos,
                 long timeoutInMilliseconds,
                 Session session,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                TableStatsProvider tableStatsProvider)
         {
             checkArgument(timeoutInMilliseconds >= 0, "Timeout has to be a non-negative number [milliseconds]");
 
@@ -346,6 +355,7 @@ public class IterativeOptimizer
             this.timeoutInMilliseconds = timeoutInMilliseconds;
             this.session = session;
             this.warningCollector = warningCollector;
+            this.tableStatsProvider = tableStatsProvider;
         }
 
         public void checkTimeoutNotExhausted()

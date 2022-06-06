@@ -15,7 +15,6 @@ package io.trino.cost;
 
 import io.trino.Session;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.TableStatistics;
@@ -40,12 +39,9 @@ public class TableScanStatsRule
 {
     private static final Pattern<TableScanNode> PATTERN = tableScan();
 
-    private final Metadata metadata;
-
-    public TableScanStatsRule(Metadata metadata, StatsNormalizer normalizer)
+    public TableScanStatsRule(StatsNormalizer normalizer)
     {
         super(normalizer); // Use stats normalization since connector can return inconsistent stats values
-        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
@@ -57,11 +53,17 @@ public class TableScanStatsRule
     @Override
     protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
+        throw new UnsupportedOperationException("This is not expected to be called because the other overload is implemented");
+    }
+
+    @Override
+    protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    {
         if (isStatisticsPrecalculationForPushdownEnabled(session) && node.getStatistics().isPresent()) {
             return node.getStatistics();
         }
 
-        TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable());
+        TableStatistics tableStatistics = tableStatsProvider.getTableStatistics(node.getTable());
 
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
 

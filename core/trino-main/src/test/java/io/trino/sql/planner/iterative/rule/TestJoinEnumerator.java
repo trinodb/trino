@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostComparator;
 import io.trino.cost.CostProvider;
 import io.trino.cost.PlanCostEstimate;
@@ -117,7 +118,8 @@ public class TestJoinEnumerator
                 Optional.empty(),
                 noLookup(),
                 queryRunner.getDefaultSession(),
-                symbolAllocator.getTypes());
+                symbolAllocator.getTypes(),
+                new CachingTableStatsProvider(queryRunner.getMetadata(), queryRunner.getDefaultSession()));
         CachingCostProvider costProvider = new CachingCostProvider(
                 queryRunner.getCostCalculator(),
                 statsProvider,

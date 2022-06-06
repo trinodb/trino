@@ -24,6 +24,7 @@ import io.trino.SystemSessionProperties;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
@@ -138,7 +139,13 @@ public class AddExchanges
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, session), PreferredProperties.any());
+        throw new IllegalStateException("This is not expected to be called because the other overload is implemented.");
+    }
+
+    @Override
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
+    {
+        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, session, tableStatsProvider), PreferredProperties.any());
         return result.getNode();
     }
 
@@ -156,12 +163,12 @@ public class AddExchanges
         private final boolean redistributeWrites;
         private final boolean scaleWriters;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session, TableStatsProvider tableStatsProvider)
         {
             this.idAllocator = idAllocator;
             this.symbolAllocator = symbolAllocator;
             this.types = symbolAllocator.getTypes();
-            this.statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+            this.statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
             this.session = session;
             this.domainTranslator = new DomainTranslator(plannerContext);
             this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
