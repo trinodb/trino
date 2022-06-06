@@ -19,6 +19,7 @@ import org.apache.hadoop.mapred.TextInputFormat;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -30,7 +31,7 @@ public class TestS3SelectPushdown
     public void setUp()
     {
         inputFormat = new TextInputFormat();
-        inputFormat.configure(new JobConf());
+        inputFormat.configure(new JobConf(newEmptyConfiguration()));
     }
 
     @Test
