@@ -21,6 +21,8 @@ import io.trino.spi.statistics.TableStatistics;
 import java.util.HashMap;
 import java.util.Map;
 
+import static java.util.Objects.requireNonNull;
+
 public class CachingTableStatsProvider
         implements TableStatsProvider
 {
@@ -29,7 +31,7 @@ public class CachingTableStatsProvider
 
     public CachingTableStatsProvider(Metadata metadata)
     {
-        this.metadata = metadata;
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override

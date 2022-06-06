@@ -19,7 +19,5 @@ import io.trino.spi.statistics.TableStatistics;
 
 public interface TableStatsProvider
 {
-    TableStatsProvider EMPTY = (session, tableHandle) -> TableStatistics.empty();
-
-    public TableStatistics getTableStatistics(Session session, TableHandle tableHandle);
+    TableStatistics getTableStatistics(Session session, TableHandle tableHandle);
 }

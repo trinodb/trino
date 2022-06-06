@@ -15,7 +15,7 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.cost.TableStatsProvider;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Metadata;
@@ -143,7 +143,7 @@ public class TestBeginTableWrite
                         new SymbolAllocator(),
                         new PlanNodeIdAllocator(),
                         WarningCollector.NOOP,
-                        TableStatsProvider.EMPTY);
+                        new CachingTableStatsProvider(metadata));
     }
 
     private static class MockMetadata
