@@ -83,6 +83,6 @@ public class IcebergSplitManager
                 table.isRecordScannedFiles(),
                 getMinimumAssignedSplitWeight(session));
 
-        return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
+        return new ClassLoaderSafeConnectorSplitSource(splitSource, IcebergSplitManager.class.getClassLoader());
     }
 }
