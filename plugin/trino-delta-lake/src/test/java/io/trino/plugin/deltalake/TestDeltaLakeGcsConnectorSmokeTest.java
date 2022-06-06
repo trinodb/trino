@@ -44,13 +44,11 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
-import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -65,6 +63,8 @@ import static java.util.regex.Matcher.quoteReplacement;
 public class TestDeltaLakeGcsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
 {
+    private static final FileAttribute<?> READ_ONLY_PERMISSIONS = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
+
     private final String gcpProjectName;
     private final String gcpStorageBucket;
     private final Path gcpCredentialsFile;
@@ -82,7 +82,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
         requireNonNull(gcpCredentialKey, "gcpCredentialKey is null");
         InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(gcpCredentialKey));
         try {
-            this.gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json");
+            this.gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json", READ_ONLY_PERMISSIONS);
             gcpCredentialsFile.toFile().deleteOnExit();
             Files.write(gcpCredentialsFile, jsonKey.readAllBytes());
 
@@ -134,8 +134,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
                 .replace("%GCP_PROJECT%", gcpProjectName)
                 .replace("%GCP_CREDENTIALS_FILE_PATH%", "/etc/hadoop/conf/gcp-credentials.json");
 
-        FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
-        Path hadoopCoreSiteXmlTempFile = Files.createTempFile("core-site", ".xml", posixFilePermissions);
+        Path hadoopCoreSiteXmlTempFile = Files.createTempFile("core-site", ".xml", READ_ONLY_PERMISSIONS);
         hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
         Files.write(hadoopCoreSiteXmlTempFile, abfsSpecificCoreSiteXmlContent.getBytes(UTF_8));
 
@@ -291,6 +290,4 @@ public class TestDeltaLakeGcsConnectorSmokeTest
         assertQuery("SELECT a, b, CAST(c AS VARCHAR) FROM " + tableName, "VALUES (1, 'a', '2020-01-01 01:22:34.000 UTC'), (2, 'b', '2021-01-01 01:22:34.000 UTC')");
         assertUpdate("DROP TABLE " + tableName);
     }
-
-
 }
