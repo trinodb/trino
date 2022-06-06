@@ -1346,21 +1346,23 @@ public class SemiTransactionalHiveMetastore
         return getTimeVar(configuration, TXN_TIMEOUT, MILLISECONDS) / 2;
     }
 
-    public synchronized Optional<ValidTxnWriteIdList> getValidWriteIds(ConnectorSession session, HiveTableHandle tableHandle)
+    public Optional<ValidTxnWriteIdList> getValidWriteIds(ConnectorSession session, HiveTableHandle tableHandle)
     {
-        String queryId = session.getQueryId();
-        checkState(currentQueryId.equals(Optional.of(queryId)), "Invalid query id %s while current query is", queryId, currentQueryId);
-        if (!AcidUtils.isTransactionalTable(tableHandle.getTableParameters().orElseThrow(() -> new IllegalStateException("tableParameters missing")))) {
-            return Optional.empty();
+        HiveTransaction hiveTransaction;
+        synchronized (this) {
+            String queryId = session.getQueryId();
+            checkState(currentQueryId.equals(Optional.of(queryId)), "Invalid query id %s while current query is", queryId, currentQueryId);
+            if (!AcidUtils.isTransactionalTable(tableHandle.getTableParameters().orElseThrow(() -> new IllegalStateException("tableParameters missing")))) {
+                return Optional.empty();
+            }
+            if (currentHiveTransaction.isEmpty()) {
+                currentHiveTransaction = Optional.of(hiveTransactionSupplier
+                        .orElseThrow(() -> new IllegalStateException("hiveTransactionSupplier is not set"))
+                        .get());
+            }
+            hiveTransaction = currentHiveTransaction.get();
         }
-
-        if (currentHiveTransaction.isEmpty()) {
-            currentHiveTransaction = Optional.of(hiveTransactionSupplier
-                    .orElseThrow(() -> new IllegalStateException("hiveTransactionSupplier is not set"))
-                    .get());
-        }
-
-        return Optional.of(currentHiveTransaction.get().getValidWriteIds(new AcidTransactionOwner(session.getUser()), delegate, tableHandle));
+        return Optional.of(hiveTransaction.getValidWriteIds(new AcidTransactionOwner(session.getUser()), delegate, tableHandle));
     }
 
     public synchronized void cleanupQuery(ConnectorSession session)
