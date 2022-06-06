@@ -238,6 +238,15 @@ public class TestJsonValueFunction
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $[$number]' PASSING 5 AS \"number\")"))
                 .matches("VALUES cast(null AS varchar)");
+
+        // parameter cast to varchar
+        assertThat(assertions.query(
+                "SELECT json_value('" + INPUT + "', 'lax $parameter' PASSING INTERVAL '2' DAY AS \"parameter\")"))
+                .matches("VALUES cast('2 00:00:00.000' AS varchar)");
+
+        assertThat(assertions.query(
+                "SELECT json_value('" + INPUT + "', 'lax $parameter' PASSING UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59' AS \"parameter\")"))
+                .matches("VALUES cast('12151fd2-7586-11e9-8f9e-2a86e4085a59' AS varchar)");
     }
 
     @Test

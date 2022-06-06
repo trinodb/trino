@@ -5417,12 +5417,18 @@ public class TestAnalyzer
     @Test
     public void testJsonPathParameterTypes()
     {
-        assertFails("SELECT JSON_EXISTS( " +
+        analyze("SELECT JSON_EXISTS( " +
                 "                           json_column, " +
                 "                           'lax $.abs()' PASSING INTERVAL '2' DAY AS parameter_1) " +
-                "       FROM (VALUES '-1', 'ala') t(json_column)")
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("line 1:110: Invalid type of JSON path parameter: interval day to second");
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_EXISTS('[]', 'lax $[2]' PASSING INTERVAL '2' DAY AS parameter_interval)");
+
+        analyze("SELECT JSON_EXISTS('[]', 'lax $[2]' PASSING UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59' AS parameter_uuid)");
+
+        assertFails("SELECT JSON_EXISTS('[]', 'lax $[2]' PASSING approx_set(1) AS parameter_hll)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Unsupported type of JSON path parameter: HyperLogLog");
     }
 
     @Test
