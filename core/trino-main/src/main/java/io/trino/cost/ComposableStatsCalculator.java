@@ -89,11 +89,6 @@ public class ComposableStatsCalculator
     {
         Pattern<T> getPattern();
 
-        Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types);
-
-        default Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
-        {
-            return calculate(node, sourceStats, lookup, session, types);
-        }
+        Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider);
     }
 }

@@ -46,7 +46,7 @@ public class ExchangeStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(ExchangeNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(ExchangeNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         Optional<PlanNodeStatsEstimate> estimate = Optional.empty();
         for (int i = 0; i < node.getSources().size(); i++) {
