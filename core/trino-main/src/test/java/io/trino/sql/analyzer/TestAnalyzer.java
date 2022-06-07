@@ -413,8 +413,8 @@ public class TestAnalyzer
 
         // null value with wrong type
         assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF NULL")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("UNKNOWN is not a valid type");
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
         assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS bigint)")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:18: Type bigint invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
@@ -445,8 +445,8 @@ public class TestAnalyzer
 
         // null value
         assertFails("SELECT * FROM t1 FOR VERSION AS OF NULL")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("UNKNOWN is not a valid type");
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
         assertFails("SELECT * FROM t1 FOR VERSION AS OF CAST(NULL AS bigint)")
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("This connector does not support versioned tables");
