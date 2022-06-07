@@ -1898,6 +1898,7 @@
                                     -Xep:EqualsIncompatibleType:ERROR \
                                     -Xep:FallThrough:ERROR \
                                     -Xep:GuardedBy:OFF <!-- needs some careful inspection --> \
+                                    -Xep:HidingField:ERROR \
                                     -Xep:ImmutableEnumChecker:OFF <!-- flags enums with List fields even if initialized with ImmutableList, and other false positives --> \
                                     -Xep:ImmutableSetForContains:ERROR \
                                     -Xep:InconsistentCapitalization:ERROR <!-- fields/variables should not differ only in case --> \
