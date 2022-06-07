@@ -402,14 +402,14 @@ public class TestAnalyzer
 
         // null value with right type
         assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS date)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("This connector does not support versioned tables");
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
         assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS timestamp(3))")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("This connector does not support versioned tables");
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
         assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS timestamp(3) with time zone)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("This connector does not support versioned tables");
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
 
         // null value with wrong type
         assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF NULL")
@@ -448,11 +448,11 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:18: Pointer value cannot be NULL");
         assertFails("SELECT * FROM t1 FOR VERSION AS OF CAST(NULL AS bigint)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("This connector does not support versioned tables");
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
         assertFails("SELECT * FROM t1 FOR VERSION AS OF CAST(NULL AS varchar)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("This connector does not support versioned tables");
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
     }
 
     @Test
