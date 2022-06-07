@@ -13,6 +13,7 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
@@ -205,7 +206,8 @@ public class StageTaskSourceFactory
             return new SingleDistributionTaskSource(getInputsForRemoteSources(fragment.getRemoteSourceNodes(), exchangeSourceHandles), getFaultTolerantExecutionDefaultTaskMemory(session));
         }
 
-        public SingleDistributionTaskSource(ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles, DataSize taskMemory)
+        @VisibleForTesting
+        SingleDistributionTaskSource(ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles, DataSize taskMemory)
         {
             this.exchangeSourceHandles = ImmutableListMultimap.copyOf(requireNonNull(exchangeSourceHandles, "exchangeSourceHandles is null"));
             this.taskMemory = requireNonNull(taskMemory, "taskMemory is null");
@@ -267,7 +269,8 @@ public class StageTaskSourceFactory
                     getFaultTolerantExecutionDefaultTaskMemory(session));
         }
 
-        public ArbitraryDistributionTaskSource(
+        @VisibleForTesting
+        ArbitraryDistributionTaskSource(
                 IdentityHashMap<ExchangeSourceHandle, Exchange> sourceExchanges,
                 Multimap<PlanNodeId, ExchangeSourceHandle> partitionedExchangeSourceHandles,
                 Multimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSourceHandles,
@@ -417,7 +420,8 @@ public class StageTaskSourceFactory
                     executor);
         }
 
-        public HashDistributionTaskSource(
+        @VisibleForTesting
+        HashDistributionTaskSource(
                 Map<PlanNodeId, SplitSource> splitSources,
                 IdentityHashMap<ExchangeSourceHandle, Exchange> exchangeForHandle,
                 Multimap<PlanNodeId, ExchangeSourceHandle> partitionedExchangeSourceHandles,
@@ -712,7 +716,8 @@ public class StageTaskSourceFactory
                     executor);
         }
 
-        public SourceDistributionTaskSource(
+        @VisibleForTesting
+        SourceDistributionTaskSource(
                 QueryId queryId,
                 PlanNodeId partitionedSourceNodeId,
                 TableExecuteContextManager tableExecuteContextManager,
