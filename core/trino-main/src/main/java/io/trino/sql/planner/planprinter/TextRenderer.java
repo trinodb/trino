@@ -15,13 +15,9 @@ package io.trino.sql.planner.planprinter;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
-import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
-import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 
 import java.util.Iterator;
 import java.util.List;
@@ -265,6 +261,13 @@ public class TextRenderer
         return "";
     }
 
+    private String printEstimates(PlanRepresentation plan, NodeRepresentation node)
+    {
+        return node.getEstimates(plan.getTypes()).stream()
+                .map(this::formatPlanNodeStatsAndCostSummary)
+                .collect(joining("/", "Estimates: ", "\n"));
+    }
+
     private String formatPlanNodeStatsAndCostSummary(PlanNodeStatsAndCostSummary stats)
     {
         requireNonNull(stats, "stats is null");
@@ -274,41 +277,6 @@ public class TextRenderer
                 formatAsCpuCost(stats.getCpuCost()),
                 formatAsDataSize(stats.getMemoryCost()),
                 formatAsDataSize(stats.getNetworkCost()));
-    }
-
-    private String printEstimates(PlanRepresentation plan, NodeRepresentation node)
-    {
-        if (node.getEstimatedStats().stream().allMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown) &&
-                node.getEstimatedCost().stream().allMatch(c -> c.equals(PlanCostEstimate.unknown()))) {
-            return "";
-        }
-
-        StringBuilder output = new StringBuilder();
-        int estimateCount = node.getEstimatedStats().size();
-
-        output.append("Estimates: ");
-        for (int i = 0; i < estimateCount; i++) {
-            PlanNodeStatsEstimate stats = node.getEstimatedStats().get(i);
-            PlanCostEstimate cost = node.getEstimatedCost().get(i);
-
-            List<Symbol> outputSymbols = node.getOutputs().stream()
-                    .map(TypedSymbol::getSymbol)
-                    .collect(toList());
-
-            output.append(format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
-                    formatAsLong(stats.getOutputRowCount()),
-                    formatAsDataSize(stats.getOutputSizeInBytes(outputSymbols, plan.getTypes())),
-                    formatAsCpuCost(cost.getCpuCost()),
-                    formatAsDataSize(cost.getMaxMemory()),
-                    formatAsDataSize(cost.getNetworkCost())));
-
-            if (i < estimateCount - 1) {
-                output.append("/");
-            }
-        }
-
-        output.append("\n");
-        return output.toString();
     }
 
     private static boolean hasChildren(NodeRepresentation node, PlanRepresentation plan)
