@@ -4563,34 +4563,27 @@ class StatementAnalyzer
             PointerType pointerType = toPointerType(table.getQueryPeriod().get().getRangeType());
             Object evaluatedVersion = evaluateConstantExpression(version.get(), versionType, plannerContext, session, accessControl, ImmutableMap.of());
             TableVersion extractedVersion = new TableVersion(pointerType, versionType, evaluatedVersion);
+            validateVersionPointer(tableName, table.getQueryPeriod().get(), extractedVersion);
+            return Optional.of(extractedVersion);
+        }
 
-            // Before checking if the connector supports the version type, verify that version is a valid time-based type
+        private void validateVersionPointer(QualifiedObjectName tableName, QueryPeriod queryPeriod, TableVersion extractedVersion)
+        {
+            Type type = extractedVersion.getObjectType();
             if (extractedVersion.getPointerType() == PointerType.TEMPORAL) {
-                if (!isValidTemporalType(extractedVersion.getObjectType())) {
-                    throw semanticException(
-                            TYPE_MISMATCH,
-                            table.getQueryPeriod().get(),
-                            format(
-                                    "Type %s invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.",
-                                    extractedVersion.getObjectType().getDisplayName()));
+                // Before checking if the connector supports the version type, verify that version is a valid time-based type
+                if (!(type instanceof TimestampWithTimeZoneType ||
+                        type instanceof TimestampType ||
+                        type instanceof DateType)) {
+                    throw semanticException(TYPE_MISMATCH, queryPeriod, format(
+                            "Type %s invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.",
+                            type.getDisplayName()));
                 }
             }
 
             if (!metadata.isValidTableVersion(session, tableName, extractedVersion)) {
-                throw semanticException(
-                        TYPE_MISMATCH,
-                        table.getQueryPeriod().get(),
-                        format("Type %s not supported by this connector.", extractedVersion.getObjectType().getDisplayName()));
+                throw semanticException(TYPE_MISMATCH, queryPeriod, format("Type %s not supported by this connector.", type.getDisplayName()));
             }
-
-            return Optional.of(extractedVersion);
-        }
-
-        private boolean isValidTemporalType(Type type)
-        {
-            return (type instanceof TimestampWithTimeZoneType ||
-                    type instanceof TimestampType ||
-                    type instanceof DateType);
         }
 
         private PointerType toPointerType(QueryPeriod.RangeType type)
