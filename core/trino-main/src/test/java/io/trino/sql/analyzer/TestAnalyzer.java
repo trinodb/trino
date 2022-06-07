@@ -367,6 +367,95 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testTemporalTableVersion()
+    {
+        // valid temporal version pointer
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF DATE '2022-01-01'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2022-01-01'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2022-01-01 01:02:03.123456789012'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2022-01-01 UTC'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2022-01-01 01:02:03.123456789012 Asia/Kathmandu'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // wrong type
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF '2022-01-01'")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type varchar(10) invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF '2022-01-01 01:02:03'")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type varchar(19) invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF '2022-01-01 01:02:03 UTC'")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type varchar(23) invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF 1654594283421")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type bigint invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+
+        // null value with right type
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS date)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS timestamp(3))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS timestamp(3) with time zone)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // null value with wrong type
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF NULL")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("UNKNOWN is not a valid type");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS bigint)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type bigint invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+    }
+
+    @Test
+    public void testRangeIdTableVersion()
+    {
+        // integer
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF 123")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // bigint
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF BIGINT '123'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // varchar
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF '2022-01-01'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // date
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF DATE '2022-01-01'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // null value
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF NULL")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("UNKNOWN is not a valid type");
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF CAST(NULL AS bigint)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF CAST(NULL AS varchar)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+    }
+
+    @Test
     public void testGroupByWithWildcard()
     {
         assertFails("SELECT * FROM t1 GROUP BY 1")
