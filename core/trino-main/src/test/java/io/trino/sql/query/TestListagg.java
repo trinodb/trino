@@ -19,8 +19,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.testcontainers.shaded.org.apache.commons.lang.StringUtils;
 
+import static com.google.common.base.Strings.repeat;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -330,7 +330,7 @@ public class TestListagg
     @Test
     public void testListaggQueryOverflowError()
     {
-        String tooLargeValue = StringUtils.repeat("a", DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        String tooLargeValue = repeat("a", DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         assertThatThrownBy(() -> assertions.query(
                 "SELECT LISTAGG(value, ',' ON OVERFLOW ERROR) WITHIN GROUP (ORDER BY value) " +
                         "FROM (VALUES '" + tooLargeValue + "','Trino') t(value) "))
@@ -342,7 +342,7 @@ public class TestListagg
     @Test
     public void testListaggQueryOverflowErrorGrouping()
     {
-        String tooLargeValue = StringUtils.repeat("a", DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        String tooLargeValue = repeat("a", DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         assertThatThrownBy(() -> assertions.query(
                 "SELECT id, LISTAGG(value, ',' ON OVERFLOW ERROR) WITHIN GROUP (ORDER BY value) " +
                         "FROM (VALUES " +
@@ -360,7 +360,7 @@ public class TestListagg
     @Test
     public void testListaggQueryOverflowTruncateWithoutCountAndWithoutOverflowFiller()
     {
-        String largeValue = StringUtils.repeat("a", DEFAULT_MAX_PAGE_SIZE_IN_BYTES - 6);
+        String largeValue = repeat("a", DEFAULT_MAX_PAGE_SIZE_IN_BYTES - 6);
         assertThat(assertions.query(
                 "SELECT LISTAGG(value, ',' ON OVERFLOW TRUNCATE WITHOUT COUNT) WITHIN GROUP (ORDER BY value) " +
                         "FROM (VALUES '" + largeValue + "', 'trino', 'rocks') t(value) "))
@@ -370,7 +370,7 @@ public class TestListagg
     @Test
     public void testListaggQueryOverflowTruncateWithCountAndWithOverflowFiller()
     {
-        String largeValue = StringUtils.repeat("a", DEFAULT_MAX_PAGE_SIZE_IN_BYTES - 12);
+        String largeValue = repeat("a", DEFAULT_MAX_PAGE_SIZE_IN_BYTES - 12);
         assertThat(assertions.query(
                 "SELECT LISTAGG(value, ',' ON OVERFLOW TRUNCATE '.....' WITH COUNT) WITHIN GROUP (ORDER BY value) " +
                         "FROM (VALUES '" + largeValue + "', 'trino', 'sql', 'everything') t(value) "))
@@ -380,7 +380,7 @@ public class TestListagg
     @Test
     public void testListaggQueryGroupingOverflowTruncateWithCountAndWithOverflowFiller()
     {
-        String largeValue = StringUtils.repeat("a", DEFAULT_MAX_PAGE_SIZE_IN_BYTES - 12);
+        String largeValue = repeat("a", DEFAULT_MAX_PAGE_SIZE_IN_BYTES - 12);
         assertThat(assertions.query(
                 "SELECT id, LISTAGG(value, ',' ON OVERFLOW TRUNCATE '.....' WITH COUNT) WITHIN GROUP (ORDER BY value) " +
                         "FROM (VALUES " +
