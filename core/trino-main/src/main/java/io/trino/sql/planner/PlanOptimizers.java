@@ -254,7 +254,6 @@ import io.trino.sql.planner.optimizations.TransformQuantifiedComparisonApplyToCo
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.optimizations.WindowFilterPushDown;
 
-import io.trino.sql.planner.plan.AggregationNode.Step;
 import javax.inject.Inject;
 
 import java.util.List;
