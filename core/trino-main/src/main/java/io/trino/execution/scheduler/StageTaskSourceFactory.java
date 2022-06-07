@@ -411,7 +411,8 @@ public class StageTaskSourceFactory
                     bucketToPartitionMap,
                     bucketNodeMap,
                     fragment.getPartitioning().getConnectorId(),
-                    targetPartitionSplitWeight, targetPartitionSourceSize,
+                    targetPartitionSplitWeight,
+                    targetPartitionSourceSize,
                     getFaultTolerantExecutionDefaultTaskMemory(session),
                     executor);
         }
