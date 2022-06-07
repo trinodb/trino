@@ -54,8 +54,11 @@ import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SplitSourceFactory;
 import io.trino.sql.planner.plan.PlanFragmentId;
+import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.RemoteSourceNode;
+import io.trino.sql.planner.plan.TableWriterNode;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -83,11 +86,13 @@ import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultTaskMemory;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskInputSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskSplitCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantPreserveInputPartitionsInWriteStage;
 import static io.trino.connector.CatalogName.isInternalSystemConnector;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -171,6 +176,7 @@ public class StageTaskSourceFactory
                     bucketNodeMap,
                     getFaultTolerantExecutionTargetTaskSplitCount(session) * SplitWeight.standard().getRawValue(),
                     getFaultTolerantExecutionTargetTaskInputSize(session),
+                    getFaultTolerantPreserveInputPartitionsInWriteStage(session),
                     executor);
         }
         if (partitioning.equals(SOURCE_DISTRIBUTION)) {
@@ -399,6 +405,7 @@ public class StageTaskSourceFactory
                 Optional<BucketNodeMap> bucketNodeMap,
                 long targetPartitionSplitWeight,
                 DataSize targetPartitionSourceSize,
+                boolean preserveInputPartitionsInWriteStage,
                 Executor executor)
         {
             checkArgument(bucketNodeMap.isPresent() || fragment.getPartitionedSources().isEmpty(), "bucketNodeMap is expected to be set when the fragment reads partitioned sources (tables)");
@@ -415,9 +422,34 @@ public class StageTaskSourceFactory
                     bucketNodeMap,
                     fragment.getPartitioning().getConnectorId(),
                     targetPartitionSplitWeight,
-                    targetPartitionSourceSize,
+                    (preserveInputPartitionsInWriteStage && isWriteFragment(fragment)) ? DataSize.of(0, BYTE) : targetPartitionSourceSize,
                     getFaultTolerantExecutionDefaultTaskMemory(session),
                     executor);
+        }
+
+        private static boolean isWriteFragment(PlanFragment fragment)
+        {
+            PlanVisitor<Boolean, Void> visitor = new PlanVisitor<>()
+            {
+                @Override
+                protected Boolean visitPlan(PlanNode node, Void context)
+                {
+                    for (PlanNode child : node.getSources()) {
+                        if (child.accept(this, context)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
+                @Override
+                public Boolean visitTableWriter(TableWriterNode node, Void context)
+                {
+                    return true;
+                }
+            };
+
+            return fragment.getRoot().accept(visitor, null);
         }
 
         @VisibleForTesting
