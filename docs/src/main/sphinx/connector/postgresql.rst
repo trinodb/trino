@@ -207,6 +207,69 @@ statements, the connector supports the following features:
 
 .. include:: alter-schema-limitation.fragment
 
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access PostgreSQL.
+
+.. _postgresql-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to PostgreSQL, because the full query is pushed down and
+processed in PostgreSQL. This can be useful for accessing native features which
+are not available in Trino or for improving query performance in situations
+where running a query natively may be faster.
+
+As a simple example, to select an entire table::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        postgresql.system.query(
+          query => 'SELECT
+            *
+          FROM
+            tpch.nation'
+        )
+      );
+
+As a practical example, you can leverage
+`frame exclusion from PostgresQL <https://www.postgresql.org/docs/current/sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS>`_
+when using window functions::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        postgresql.system.query(
+          query => 'SELECT
+            *,
+            array_agg(week) OVER (
+              ORDER BY
+                week
+              ROWS
+                BETWEEN 2 PRECEDING
+                AND 2 FOLLOWING
+                EXCLUDE GROUP
+            ) AS week,
+            array_agg(week) OVER (
+              ORDER BY
+                day
+              ROWS
+                BETWEEN 2 PRECEDING
+                AND 2 FOLLOWING
+                EXCLUDE GROUP
+            ) AS all
+          FROM
+            test.time_data'
+        )
+      );
+
 
 Performance
 -----------
