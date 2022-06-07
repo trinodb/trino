@@ -15,10 +15,12 @@ package io.trino.sql.planner.planprinter;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -26,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -147,6 +150,33 @@ public class NodeRepresentation
     public Optional<PlanNodeStatsAndCostSummary> getReorderJoinStatsAndCost()
     {
         return reorderJoinStatsAndCost;
+    }
+
+    public List<PlanNodeStatsAndCostSummary> getEstimates(TypeProvider typeProvider)
+    {
+        if (getEstimatedStats().stream().allMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown) &&
+                getEstimatedCost().stream().allMatch(c -> c.equals(PlanCostEstimate.unknown()))) {
+            return ImmutableList.of();
+        }
+
+        ImmutableList.Builder<PlanNodeStatsAndCostSummary> estimates = ImmutableList.builder();
+        for (int i = 0; i < getEstimatedStats().size(); i++) {
+            PlanNodeStatsEstimate stats = getEstimatedStats().get(i);
+            PlanCostEstimate cost = getEstimatedCost().get(i);
+
+            List<Symbol> outputSymbols = getOutputs().stream()
+                    .map(NodeRepresentation.TypedSymbol::getSymbol)
+                    .collect(toImmutableList());
+
+            estimates.add(new PlanNodeStatsAndCostSummary(
+                    stats.getOutputRowCount(),
+                    stats.getOutputSizeInBytes(outputSymbols, typeProvider),
+                    cost.getCpuCost(),
+                    cost.getMaxMemory(),
+                    cost.getNetworkCost()));
+        }
+
+        return estimates.build();
     }
 
     public static class TypedSymbol
