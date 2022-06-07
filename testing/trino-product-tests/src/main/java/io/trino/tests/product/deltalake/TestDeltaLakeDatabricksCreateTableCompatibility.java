@@ -24,6 +24,8 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnDelta;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -247,17 +249,5 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
         finally {
             onDelta().executeQuery("DROP TABLE default." + tableName);
         }
-    }
-
-    private static String getColumnCommentOnTrino(String schemaName, String tableName, String columnName)
-    {
-        QueryResult result = onTrino().executeQuery("SELECT comment FROM information_schema.columns WHERE table_schema = '" + schemaName + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
-        return (String) result.row(0).get(0);
-    }
-
-    private static String getColumnCommentOnDelta(String schemaName, String tableName, String columnName)
-    {
-        QueryResult result = onDelta().executeQuery(format("DESCRIBE %s.%s %s", schemaName, tableName, columnName));
-        return (String) result.row(2).get(1);
     }
 }
