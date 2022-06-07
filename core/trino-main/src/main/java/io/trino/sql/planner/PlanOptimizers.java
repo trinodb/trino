@@ -254,6 +254,7 @@ import io.trino.sql.planner.optimizations.TransformQuantifiedComparisonApplyToCo
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.optimizations.WindowFilterPushDown;
 
+import io.trino.sql.planner.plan.AggregationNode.Step;
 import javax.inject.Inject;
 
 import java.util.List;
@@ -938,6 +939,7 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new PushPartialAggregationThroughJoin(),
                         new PushPartialAggregationThroughExchange(plannerContext),
+                        new PushAggregationIntoTableScan(plannerContext, typeAnalyzer),
                         new PruneJoinColumns(),
                         new PruneJoinChildrenColumns())));
         builder.add(new IterativeOptimizer(

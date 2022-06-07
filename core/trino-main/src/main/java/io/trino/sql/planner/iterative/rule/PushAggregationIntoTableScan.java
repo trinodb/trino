@@ -76,7 +76,6 @@ public class PushAggregationIntoTableScan
 
     private static final Pattern<AggregationNode> PATTERN =
             aggregation()
-                    .with(step().equalTo(AggregationNode.Step.SINGLE))
                     // skip arguments that are, for instance, lambda expressions
                     .matching(PushAggregationIntoTableScan::allArgumentsAreSimpleReferences)
                     .matching(node -> node.getGroupingSets().getGroupingSetCount() <= 1)
