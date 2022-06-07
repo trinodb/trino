@@ -67,6 +67,7 @@ import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_PARTITIONING_ENABLED;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.predicate.Range.range;
@@ -105,7 +106,10 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
         getQueryRunner().installPlugin(new TpcdsPlugin());
         getQueryRunner().installPlugin(new MemoryPlugin());
         getQueryRunner().createCatalog("test", "test", ImmutableMap.of());
-        getQueryRunner().createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_PARTITIONING_ENABLED, "false"));
+        getQueryRunner().createCatalog(
+                "tpch",
+                "tpch",
+                ImmutableMap.of(TPCH_PARTITIONING_ENABLED, "false", TPCH_SPLITS_PER_NODE, "16"));
         getQueryRunner().createCatalog("tpcds", "tpcds", ImmutableMap.of());
         getQueryRunner().createCatalog("memory", "memory", ImmutableMap.of());
         computeActual("CREATE TABLE lineitem AS SELECT * FROM tpch.tiny.lineitem");
