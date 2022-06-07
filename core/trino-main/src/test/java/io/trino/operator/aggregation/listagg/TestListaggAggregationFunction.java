@@ -22,7 +22,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.QualifiedName;
-import org.testcontainers.shaded.org.apache.commons.lang.StringUtils;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -82,7 +81,7 @@ public class TestListaggAggregationFunction
     @Test
     public void testInputOverflowOverflowFillerTooLong()
     {
-        String overflowFillerTooLong = StringUtils.repeat(".", 65_537);
+        String overflowFillerTooLong = ".".repeat(65_537);
 
         SingleListaggAggregationState state = new SingleListaggAggregationState();
 
