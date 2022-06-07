@@ -18,11 +18,39 @@ the Trino coordinator. No changes are required to the worker configuration;
 only the communication from the clients to the coordinator is authenticated.
 
 Set the callback/redirect URL to ``https://<trino-coordinator-domain-name>/oauth2/callback``,
-when configuring an OAuth 2.0 authorization server like an OpenID-connect
+when configuring an OAuth 2.0 authorization server like an OpenID Connect (OIDC)
 provider.
 
 Using :doc:`TLS <tls>` and :doc:`a configured shared secret
 </security/internal-communication>` is required for OAuth 2.0 authentication.
+
+OpenID Connect Discovery
+------------------------
+
+Trino supports reading Authorization Server configuration from `OIDC provider
+configuration metadata document
+<https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata>`_.
+During startup of the coordinator Trino retrieves the document and uses provided
+values to set corresponding OAuth2 authentication configuration properties:
+
+* ``authorization_endpoint`` -> ``http-server.authentication.oauth2.auth-url``
+* ``token_endpoint`` -> ``http-server.authentication.oauth2.token-url``
+* ``jwks_uri`` -> ``http-server.authentication.oauth2.jwks-url``
+* ``userinfo_endpoint`` ->  ``http-server.authentication.oauth2.userinfo-url``
+* ``access_token_issuer`` -> ``http-server.authentication.oauth2.access-token-issuer``
+
+.. warning::
+
+  In situation when Authorization Server is issuing JSON Web Tokens (JWTs) but the
+  metadata document contains ``userinfo_endpoint`` Trino will use this endpoint to
+  check the validity of OAuth2 access tokens. This is unnecessary as JWTs can be
+  inspected locally and using them against ``userinfo_endpoint`` may even result
+  in authentication failure. In this case set:
+  ``http-server.authentication.oauth2.oidc.use-userinfo-endpoint=false`` which
+  instructs Trino to ignore ``userinfo_endpoint`` and inspect tokens locally.
+
+This functionality is enabled by default but can be turned off with:
+``http-server.authentication.oauth2.oidc.discovery=false``.
 
 Trino server configuration
 --------------------------
@@ -41,9 +69,6 @@ to the coordinator's ``config.properties`` file:
     http-server.https.enabled=true
 
     http-server.authentication.oauth2.issuer=https://authorization-server.com
-    http-server.authentication.oauth2.auth-url=https://authorization-server.com/authorize
-    http-server.authentication.oauth2.token-url=https://authorization-server.com/token
-    http-server.authentication.oauth2.jwks-url=https://authorization-server.com/.well-known/jwks.json
     http-server.authentication.oauth2.client-id=CLIENT_ID
     http-server.authentication.oauth2.client-secret=CLIENT_SECRET
 
@@ -68,22 +93,32 @@ The following configuration properties are available:
    * - ``http-server.authentication.oauth2.issuer``
      - The issuer URL of the IdP. All issued tokens must have this in the ``iss`` field.
    * - ``http-server.authentication.oauth2.access-token-issuer``
-     - The issuer URL of the IdP for access tokens, if different. All issued access tokens must
-       have this in the ``iss`` field. Defaults to ``http-server.authentication.oauth2.issuer``.
+     - The issuer URL of the IdP for access tokens, if different.
+       All issued access tokens must have this in the ``iss`` field.
+       Providing this value while OIDC discovery is enabled overrides the value
+       from the OpenID provider metadata document.
+       Defaults to the value of ``http-server.authentication.oauth2.issuer``.
    * - ``http-server.authentication.oauth2.auth-url``
      - The authorization URL. The URL a user's browser will be redirected to in
-       order to begin the OAuth 2.0 authorization process.
+       order to begin the OAuth 2.0 authorization process. Providing this value
+       while OIDC discovery is enabled overrides the value from the OpenID
+       provider metadata document.
    * - ``http-server.authentication.oauth2.token-url``
      - The URL of the endpoint on the authorization server which Trino uses to
-       obtain an access token.
+       obtain an access token. Providing this value while OIDC discovery is
+       enabled overrides the value from the OpenID provider metadata document.
    * - ``http-server.authentication.oauth2.jwks-url``
      - The URL of the JSON Web Key Set (JWKS) endpoint on the authorization
        server. It provides Trino the set of keys containing the public key
        to verify any JSON Web Token (JWT) from the authorization server.
+       Providing this value while OIDC discovery is enabled overrides the value
+       from the OpenID provider metadata document.
    * - ``http-server.authentication.oauth2.userinfo-url``
-     - The URL of the IdPs ``/userinfo`` endpoint. If supplied then this URL is used
-       to validate the OAuth access token and retrieve any associated claims. This
-       is required if the IdP issues opaque tokens.
+     - The URL of the IdPs ``/userinfo`` endpoint. If supplied then this URL is
+       used to validate the OAuth access token and retrieve any associated
+       claims. This is required if the IdP issues opaque tokens. Providing this
+       value while OIDC discovery is enabled overrides the value from the OpenID
+       provider metadata document.
    * - ``http-server.authentication.oauth2.client-id``
      - The public identifier of the Trino client.
    * - ``http-server.authentication.oauth2.client-secret``
@@ -113,6 +148,18 @@ The following configuration properties are available:
      - The field of the access token used for the Trino user principal. Defaults to ``sub``. Other commonly used fields include ``sAMAccountName``, ``name``, ``upn``, and ``email``.
    * - ``http-server.authentication.oauth2.groups-field``
      - The field of the access token used for Trino groups. The corresponding claim value must be an array.
+   * - ``http-server.authentication.oauth2.oidc.discovery``
+     - Enable reading the `OIDC provider metadata <https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata>`_.
+       Default is ``true``.
+   * - ``http-server.authentication.oauth2.oidc.discovery.timeout``
+     - The timeout when reading OpenID provider metadata. Default is ``30s``.
+   * - ``http-server.authentication.oauth2.oidc.use-userinfo-endpoint``
+     - Use the value of ``userinfo_endpoint`` `in the provider metadata <https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata>`_.
+       When a ``userinfo_endpoint`` value is supplied this URL is used to
+       validate the OAuth 2.0 access token, and retrieve any associated claims.
+       This flag allows ignoring the value provided in the metadata document.
+       Required for JWT access tokens which support local validation. Default is
+       ``false``.
 
 Refresh tokens
 ^^^^^^^^^^^^^^
