@@ -34,6 +34,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
+import static io.trino.plugin.deltalake.util.CephContainer.CEPH_ACCESS_KEY;
+import static io.trino.plugin.deltalake.util.CephContainer.CEPH_SECRET_KEY;
 import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_ACCESS_KEY;
 import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_SECRET_KEY;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -118,6 +120,30 @@ public final class DeltaLakeQueryRunner
                         .buildOrThrow(),
                 testingHadoop,
                 additionalSetup);
+    }
+
+    public static DistributedQueryRunner createCephDeltaLakeQueryRunner(
+            String catalogName,
+            String schemaName,
+            Map<String, String> connectorProperties,
+            String cephS3Endpoint,
+            TestingHadoop testingHadoop)
+            throws Exception
+    {
+        return createDockerizedDeltaLakeQueryRunner(
+                catalogName,
+                schemaName,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.<String, String>builder()
+                        .put("hive.s3.aws-access-key", CEPH_ACCESS_KEY)
+                        .put("hive.s3.aws-secret-key", CEPH_SECRET_KEY)
+                        .put("hive.s3.endpoint", cephS3Endpoint)
+                        .put("hive.s3.path-style-access", "true")
+                        .putAll(connectorProperties)
+                        .buildOrThrow(),
+                testingHadoop,
+                queryRunner -> {});
     }
 
     public static QueryRunner createAbfsDeltaLakeQueryRunner(

@@ -148,7 +148,7 @@ public class TransactionLogTail
         if (e instanceof FileNotFoundException) {
             return true;
         }
-        else if (e.getMessage().contains("The specified key does not exist")) {
+        else if (e.getMessage().contains("Error Code: NoSuchKey")) {
             return true;
         }
         else {
