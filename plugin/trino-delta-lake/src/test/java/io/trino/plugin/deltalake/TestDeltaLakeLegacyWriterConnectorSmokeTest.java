@@ -20,7 +20,7 @@ import java.util.Map;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 
-public class TestDeltaLakeOptimizedWriterConnectorSmokeTest
+public class TestDeltaLakeLegacyWriterConnectorSmokeTest
         extends BaseDeltaLakeAwsConnectorSmokeTest
 {
     @Override
@@ -32,7 +32,7 @@ public class TestDeltaLakeOptimizedWriterConnectorSmokeTest
                 SCHEMA,
                 ImmutableMap.<String, String>builder()
                         .putAll(connectorProperties)
-                        .put("parquet.experimental-optimized-writer.enabled", "true")
+                        .put("parquet.experimental-optimized-writer.enabled", "false")
                         .put("delta.enable-non-concurrent-writes", "true")
                         .put("hive.s3.max-connections", "2")
                         .buildOrThrow(),
