@@ -16,8 +16,6 @@ package io.trino.plugin.iceberg;
 import io.trino.testing.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
-import java.nio.file.Path;
-
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -27,7 +25,6 @@ public abstract class BaseSharedMetastoreTest
         extends AbstractTestQueryFramework
 {
     protected final String schema = "test_shared_schema_" + randomTableSuffix();
-    protected Path dataDirectory;
 
     protected abstract String getExpectedHiveCreateSchema(String catalogName);
 

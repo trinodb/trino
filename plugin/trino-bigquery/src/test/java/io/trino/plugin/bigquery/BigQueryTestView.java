@@ -24,14 +24,12 @@ import static java.util.Objects.requireNonNull;
 public class BigQueryTestView
         extends TestTable
 {
-    private final SqlExecutor sqlExecutor;
     private final TestTable table;
     private final String viewName;
 
     public BigQueryTestView(SqlExecutor sqlExecutor, TestTable table)
     {
         super(sqlExecutor, table.getName(), null);
-        this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
         this.table = requireNonNull(table, "table is null");
         this.viewName = table.getName() + "_view";
     }
