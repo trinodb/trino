@@ -4561,6 +4561,9 @@ class StatementAnalyzer
             // Once the range value is analyzed, we can evaluate it
             Type versionType = expressionAnalysis.getType(version.get());
             PointerType pointerType = toPointerType(table.getQueryPeriod().get().getRangeType());
+            if (versionType == UNKNOWN) {
+                throw semanticException(INVALID_ARGUMENTS, table.getQueryPeriod().get(), "Pointer value cannot be NULL");
+            }
             Object evaluatedVersion = evaluateConstantExpression(version.get(), versionType, plannerContext, session, accessControl, ImmutableMap.of());
             TableVersion extractedVersion = new TableVersion(pointerType, versionType, evaluatedVersion);
             validateVersionPointer(tableName, table.getQueryPeriod().get(), extractedVersion);
