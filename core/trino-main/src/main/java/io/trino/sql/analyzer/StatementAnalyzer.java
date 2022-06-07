@@ -2367,15 +2367,7 @@ class StatementAnalyzer
                 throw semanticException(INVALID_ARGUMENTS, samplePercentage, "Sample percentage cannot be NULL");
             }
 
-            if (samplePercentageType != DOUBLE) {
-                ResolvedFunction coercion = metadata.getCoercion(session, samplePercentageType, DOUBLE);
-                InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
-                samplePercentageObject = functionInvoker.invoke(coercion, session.toConnectorSession(), samplePercentageObject);
-                verify(samplePercentageObject != null, "Coercion from %s to %s returned null", samplePercentageType, DOUBLE);
-            }
-
-            double samplePercentageValue = (double) samplePercentageObject;
-
+            double samplePercentageValue = (double) coerce(samplePercentageType, samplePercentageObject, DOUBLE);
             if (samplePercentageValue < 0.0) {
                 throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, samplePercentage, "Sample percentage must be greater than or equal to 0");
             }
@@ -4607,6 +4599,16 @@ class StatementAnalyzer
                     return PointerType.TARGET_ID;
             }
             throw new UnsupportedOperationException("Unsupported range type: " + type);
+        }
+
+        private Object coerce(Type sourceType, Object value, Type targetType)
+        {
+            if (sourceType.equals(targetType)) {
+                return value;
+            }
+            ResolvedFunction coercion = metadata.getCoercion(session, sourceType, targetType);
+            InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
+            return functionInvoker.invoke(coercion, session.toConnectorSession(), value);
         }
     }
 
