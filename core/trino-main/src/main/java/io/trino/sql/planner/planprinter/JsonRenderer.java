@@ -15,6 +15,7 @@ package io.trino.sql.planner.planprinter;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.json.JsonCodec;
+import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.sql.planner.plan.PlanFragmentId;
 
 import java.util.List;
@@ -50,6 +51,7 @@ public class JsonRenderer
                 node.getIdentifier(),
                 node.getOutputs(),
                 node.getDetails(),
+                node.getEstimates(plan.getTypes()),
                 children,
                 node.getRemoteSources().stream()
                         .map(PlanFragmentId::toString)
@@ -63,6 +65,7 @@ public class JsonRenderer
         private final String identifier;
         private final List<TypedSymbol> outputs;
         private final String details;
+        private final List<PlanNodeStatsAndCostSummary> estimates;
         private final List<JsonRenderedNode> children;
         private final List<String> remoteSources;
 
@@ -72,6 +75,7 @@ public class JsonRenderer
                 String identifier,
                 List<TypedSymbol> outputs,
                 String details,
+                List<PlanNodeStatsAndCostSummary> estimates,
                 List<JsonRenderedNode> children,
                 List<String> remoteSources)
         {
@@ -80,6 +84,7 @@ public class JsonRenderer
             this.identifier = requireNonNull(identifier, "identifier is null");
             this.outputs = requireNonNull(outputs, "outputs is null");
             this.details = requireNonNull(details, "details is null");
+            this.estimates = requireNonNull(estimates, "estimates is null");
             this.children = requireNonNull(children, "children is null");
             this.remoteSources = requireNonNull(remoteSources, "remoteSources is null");
         }
@@ -112,6 +117,12 @@ public class JsonRenderer
         public String getDetails()
         {
             return details;
+        }
+
+        @JsonProperty
+        public List<PlanNodeStatsAndCostSummary> getEstimates()
+        {
+            return estimates;
         }
 
         @JsonProperty
