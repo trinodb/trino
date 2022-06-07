@@ -4573,6 +4573,7 @@ class StatementAnalyzer
         private void validateVersionPointer(QualifiedObjectName tableName, QueryPeriod queryPeriod, TableVersion extractedVersion)
         {
             Type type = extractedVersion.getObjectType();
+            Object pointer = extractedVersion.getPointer();
             if (extractedVersion.getPointerType() == PointerType.TEMPORAL) {
                 // Before checking if the connector supports the version type, verify that version is a valid time-based type
                 if (!(type instanceof TimestampWithTimeZoneType ||
@@ -4581,6 +4582,14 @@ class StatementAnalyzer
                     throw semanticException(TYPE_MISMATCH, queryPeriod, format(
                             "Type %s invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.",
                             type.getDisplayName()));
+                }
+                if (pointer == null) {
+                    throw semanticException(INVALID_ARGUMENTS, queryPeriod, "Pointer value cannot be NULL");
+                }
+            }
+            else {
+                if (pointer == null) {
+                    throw semanticException(INVALID_ARGUMENTS, queryPeriod, "Pointer value cannot be NULL");
                 }
             }
 
