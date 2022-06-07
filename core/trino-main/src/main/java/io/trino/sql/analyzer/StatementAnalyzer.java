@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
+import com.google.common.math.IntMath;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogName;
@@ -85,6 +87,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
@@ -229,6 +232,9 @@ import io.trino.sql.tree.WithQuery;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.TypeCoercion;
 
+import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -308,7 +314,10 @@ import static io.trino.spi.ptf.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
@@ -4578,6 +4587,14 @@ class StatementAnalyzer
                 if (pointer == null) {
                     throw semanticException(INVALID_ARGUMENTS, queryPeriod, "Pointer value cannot be NULL");
                 }
+                Instant pointerInstant = getInstantWithRoundUp((LongTimestampWithTimeZone) coerce(type, pointer, createTimestampWithTimeZoneType(TimestampWithTimeZoneType.MAX_PRECISION)));
+                if (!pointerInstant.isBefore(session.getStart())) {
+                    String varchar = ((Slice) coerce(type, pointer, createUnboundedVarcharType())).toStringUtf8();
+                    throw semanticException(
+                            INVALID_ARGUMENTS,
+                            queryPeriod,
+                            format("Pointer value '%s' is not in the past", varchar));
+                }
             }
             else {
                 if (pointer == null) {
@@ -4588,6 +4605,12 @@ class StatementAnalyzer
             if (!metadata.isValidTableVersion(session, tableName, extractedVersion)) {
                 throw semanticException(TYPE_MISMATCH, queryPeriod, format("Type %s not supported by this connector.", type.getDisplayName()));
             }
+        }
+
+        private Instant getInstantWithRoundUp(LongTimestampWithTimeZone value)
+        {
+            return Instant.ofEpochMilli(value.getEpochMillis())
+                    .plus(IntMath.divide(value.getPicosOfMilli(), PICOSECONDS_PER_NANOSECOND, RoundingMode.CEILING), ChronoUnit.NANOS);
         }
 
         private PointerType toPointerType(QueryPeriod.RangeType type)
