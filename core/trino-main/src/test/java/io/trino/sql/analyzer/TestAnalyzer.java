@@ -386,6 +386,13 @@ public class TestAnalyzer
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("This connector does not support versioned tables");
 
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CURRENT_TIMESTAMP(12) - INTERVAL '0.001' SECOND")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF LOCALTIMESTAMP(12) - INTERVAL '0.001' SECOND")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
         // wrong type
         assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF '2022-01-01'")
                 .hasErrorCode(TYPE_MISMATCH)
@@ -418,6 +425,31 @@ public class TestAnalyzer
         assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS bigint)")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:18: Type bigint invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+
+        // temporal version pointer in the future -- invalid, because future state can change
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF DATE '2999-01-01'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2999-01-01'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01 00:00:00' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2999-01-01 01:02:03.123456789012'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01 01:02:03.123456789012' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2999-01-01 UTC'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01 00:00:00 UTC' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2999-01-01 01:02:03.123456789012 Asia/Kathmandu'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01 01:02:03.123456789012 Asia/Kathmandu' is not in the past");
+
+        // temporal version pointer at "current moment" -- invalid, because due to time granularity, the current time's state may still change
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CURRENT_TIMESTAMP(12)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageMatching("line 1:18: Pointer value '.*' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF LOCALTIMESTAMP(12)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageMatching("line 1:18: Pointer value '.*' is not in the past");
     }
 
     @Test
