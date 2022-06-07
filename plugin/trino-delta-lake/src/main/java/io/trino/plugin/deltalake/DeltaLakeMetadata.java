@@ -944,10 +944,6 @@ public class DeltaLakeMetadata
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata newColumnMetadata)
     {
-        if (newColumnMetadata.getComment() != null) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
-        }
-
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
 
@@ -961,6 +957,11 @@ public class DeltaLakeMetadata
                     .map(column -> toColumnHandle(column, partitionColumns))
                     .collect(toImmutableList()));
             columnsBuilder.add(toColumnHandle(newColumnMetadata, partitionColumns));
+            ImmutableMap.Builder<String, String> columnComments = ImmutableMap.builder();
+            columnComments.putAll(getColumnComments(handle.getMetadataEntry()));
+            if (newColumnMetadata.getComment() != null) {
+                columnComments.put(newColumnMetadata.getName(), newColumnMetadata.getComment());
+            }
 
             Optional<Long> checkpointInterval = DeltaLakeTableProperties.getCheckpointInterval(tableMetadata.getProperties());
 
@@ -971,7 +972,7 @@ public class DeltaLakeMetadata
                     handle.getMetadataEntry().getId(),
                     columnsBuilder.build(),
                     partitionColumns,
-                    getColumnComments(handle.getMetadataEntry()),
+                    columnComments.buildOrThrow(),
                     buildDeltaMetadataConfiguration(checkpointInterval),
                     ADD_COLUMN_OPERATION,
                     session,
