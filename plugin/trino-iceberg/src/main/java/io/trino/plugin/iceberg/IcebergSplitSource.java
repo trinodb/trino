@@ -185,7 +185,9 @@ public class IcebergSplitSource
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (fileScanTasks.hasNext()) {
             FileScanTask scanTask = fileScanTasks.next();
-            if (maxScannedFileSizeInBytes.isPresent() && scanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
+            if (scanTask.deletes().isEmpty() &&
+                    maxScannedFileSizeInBytes.isPresent() &&
+                    scanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
                 continue;
             }
 
