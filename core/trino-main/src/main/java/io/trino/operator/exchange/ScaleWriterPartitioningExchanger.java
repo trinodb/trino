@@ -44,6 +44,7 @@ public class ScaleWriterPartitioningExchanger
     private final PartitionFunction partitionFunction;
     private final UniformPartitionRebalancer partitionRebalancer;
 
+    private final int[] partitioningBatch = new int[1024];
     private final IntArrayList[] writerAssignments;
     private final int[] partitionRowCounts;
     private final int[] partitionWriterIds;
@@ -102,22 +103,26 @@ public class ScaleWriterPartitioningExchanger
         Page partitionPage = partitionedPagePreparer.apply(page);
 
         // Assign each row to a writer by looking at partitions scaling state using partitionRebalancer
-        for (int position = 0; position < partitionPage.getPositionCount(); position++) {
-            // Get row partition id (or bucket id) which limits to the partitionCount. If there are more physical partitions than
-            // this artificial partition limit, then it is possible that multiple physical partitions will get assigned the same
-            // bucket id. Thus, multiple partitions will be scaled together since we track partition physicalWrittenBytes
-            // using the artificial limit (partitionCount).
-            int partitionId = partitionFunction.getPartition(partitionPage, position);
-            partitionRowCounts[partitionId] += 1;
+        for (int batchOffset = 0; batchOffset < partitionPage.getPositionCount(); batchOffset += partitioningBatch.length) {
+            int batchLength = Math.min(partitionPage.getPositionCount() - batchOffset, partitioningBatch.length);
+            partitionFunction.getPartitions(partitionPage, batchOffset, batchLength, partitioningBatch);
+            for (int position = batchOffset; position < batchOffset + batchLength; position++) {
+                // Get row partition id (or bucket id) which limits to the partitionCount. If there are more physical partitions than
+                // this artificial partition limit, then it is possible that multiple physical partitions will get assigned the same
+                // bucket id. Thus, multiple partitions will be scaled together since we track partition physicalWrittenBytes
+                // using the artificial limit (partitionCount).
+                int partitionId = partitioningBatch[position - batchOffset];
+                partitionRowCounts[partitionId] += 1;
 
-            // Get writer id for this partition by looking at the scaling state
-            int writerId = partitionWriterIds[partitionId];
-            if (writerId == -1) {
-                writerId = getNextWriterId(partitionId);
-                partitionWriterIds[partitionId] = writerId;
-                usedPartitions.add(partitionId);
+                // Get writer id for this partition by looking at the scaling state
+                int writerId = partitionWriterIds[partitionId];
+                if (writerId == -1) {
+                    writerId = getNextWriterId(partitionId);
+                    partitionWriterIds[partitionId] = writerId;
+                    usedPartitions.add(partitionId);
+                }
+                writerAssignments[writerId].add(position);
             }
-            writerAssignments[writerId].add(position);
         }
 
         for (int partitionId : usedPartitions) {

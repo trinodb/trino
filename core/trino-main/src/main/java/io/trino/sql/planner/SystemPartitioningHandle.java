@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PartitionFunction;
@@ -25,6 +26,7 @@ import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -201,11 +203,18 @@ public final class SystemPartitioningHandle
             {
                 return 0;
             }
+
+            @Override
+            public void getBuckets(Page page, int positionOffset, int length, int[] buckets)
+            {
+                Arrays.fill(buckets, 0, length, 0);
+            }
         }
 
         public static class RoundRobinBucketFunction
                 implements BucketFunction
         {
+            static final int WRAP_AROUND = 0x7fff_ffff;
             private final int bucketCount;
             private int counter;
 
@@ -215,12 +224,33 @@ public final class SystemPartitioningHandle
                 this.bucketCount = bucketCount;
             }
 
+            @VisibleForTesting
+            int getCounter()
+            {
+                return counter;
+            }
+
+            @VisibleForTesting
+            void setCounter(int counter)
+            {
+                this.counter = counter;
+            }
+
             @Override
             public int getBucket(Page page, int position)
             {
                 int bucket = counter % bucketCount;
-                counter = (counter + 1) & 0x7fff_ffff;
+                counter = (counter + 1) & WRAP_AROUND;
                 return bucket;
+            }
+
+            @Override
+            public void getBuckets(Page page, int positionOffset, int length, int[] buckets)
+            {
+                for (int i = 0; i < length; i++) {
+                    buckets[i] = ((counter + i) & WRAP_AROUND) % bucketCount;
+                }
+                counter = (counter + length) & WRAP_AROUND;
             }
 
             @Override

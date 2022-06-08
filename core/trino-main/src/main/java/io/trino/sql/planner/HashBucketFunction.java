@@ -40,6 +40,15 @@ public class HashBucketFunction
     }
 
     @Override
+    public void getBuckets(Page page, int positionOffset, int length, int[] buckets)
+    {
+        for (int i = 0; i < length; i++) {
+            int position = positionOffset + i;
+            buckets[i] = generator.getPartition(bucketCount, position, page);
+        }
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

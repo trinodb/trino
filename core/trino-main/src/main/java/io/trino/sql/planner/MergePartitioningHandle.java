@@ -43,6 +43,7 @@ import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_DELETE_OPERATION_
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_INSERT_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class MergePartitioningHandle
@@ -218,6 +219,60 @@ public final class MergePartitioningHandle
                 case UPDATE_OPERATION_NUMBER, DELETE_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER -> updateFunction.getPartition(page.getColumns(updateColumns), position);
                 default -> throw new VerifyException("Invalid merge operation number: " + operation);
             };
+        }
+
+        @Override
+        public void getPartitions(Page page, int positionOffset, int length, int[] partitions)
+        {
+            getPartitions(page, positionOffset, length, Optional.empty(), partitions);
+        }
+
+        @Override
+        public void getPartitions(Page page, int positionOffset, int length, boolean[] mask, int[] partitions)
+        {
+            getPartitions(page, positionOffset, length, Optional.of(mask), partitions);
+        }
+
+        private void getPartitions(Page page, int positionOffset, int length, Optional<boolean[]> mask, int[] partitions)
+        {
+            checkArgument(positionOffset >= 0, "Invalid positionOffset: %s", positionOffset);
+            checkArgument(length >= 0, "Invalid length: %s", length);
+            checkArgument(positionOffset + length <= page.getPositionCount(), "End position exceeds page position count: %s > %s", positionOffset + length, page.getPositionCount());
+            if (mask.isPresent()) {
+                checkArgument(length <= mask.get().length, "Length exceeds mask length: %s > %s", length, mask.get().length);
+            }
+            checkArgument(length <= partitions.length, "Length exceeds partitions length: %s > %s", length, partitions.length);
+
+            // TODO make MergePartitionFunction thread-confined so that it can have reusable buffers for the mask
+            boolean[] insertPartitioningMask = new boolean[length];
+            boolean[] updatePartitioningMask = new boolean[length];
+            boolean hasInsert = false;
+            boolean hasUpdate = false;
+            Block operationBlock = page.getBlock(0);
+            for (int i = 0; i < length; i++) {
+                if (mask.isPresent() && !mask.get()[i]) {
+                    insertPartitioningMask[i] = false;
+                    updatePartitioningMask[i] = false;
+                }
+                else {
+                    int operation = toIntExact(TINYINT.getLong(operationBlock, positionOffset + i));
+                    insertPartitioningMask[i] = switch (operation) {
+                        case INSERT_OPERATION_NUMBER, UPDATE_INSERT_OPERATION_NUMBER -> true;
+                        case UPDATE_OPERATION_NUMBER, DELETE_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER -> false;
+                        default -> throw new VerifyException("Invalid merge operation number: " + operation);
+                    };
+                    updatePartitioningMask[i] = !insertPartitioningMask[i];
+
+                    hasInsert |= insertPartitioningMask[i];
+                    hasUpdate |= updatePartitioningMask[i];
+                }
+            }
+            if (hasInsert) {
+                insertFunction.getPartitions(page.getColumns(insertColumns), positionOffset, length, insertPartitioningMask, partitions);
+            }
+            if (hasUpdate) {
+                updateFunction.getPartitions(page.getColumns(updateColumns), positionOffset, length, updatePartitioningMask, partitions);
+            }
         }
     }
 }

@@ -48,6 +48,20 @@ public class LocalPartitionGenerator
         return processRawHash(rawHash) & hashMask;
     }
 
+    @Override
+    public void getPartitions(Page page, int positionOffset, int length, int[] partitions)
+    {
+        checkArgument(positionOffset >= 0, "Invalid positionOffset: %s", positionOffset);
+        checkArgument(length >= 0, "Invalid length: %s", length);
+        checkArgument(positionOffset + length <= page.getPositionCount(), "End position exceeds page position count: %s > %s", positionOffset + length, page.getPositionCount());
+        checkArgument(length <= partitions.length, "Length exceeds partitions length: %s > %s", length, partitions.length);
+
+        for (int i = 0; i < length; i++) {
+            long rawHash = getRawHash(page, positionOffset + i);
+            partitions[i] = processRawHash(rawHash) & hashMask;
+        }
+    }
+
     public long getRawHash(Page page, int position)
     {
         return hashGenerator.hashPosition(position, page);

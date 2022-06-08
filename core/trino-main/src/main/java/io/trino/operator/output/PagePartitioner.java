@@ -35,6 +35,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.Closeable;
 import java.util.Arrays;
@@ -56,6 +57,7 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
+@NotThreadSafe
 public class PagePartitioner
         implements Closeable
 {
@@ -67,6 +69,8 @@ public class PagePartitioner
     @Nullable
     private final Block[] partitionConstantBlocks; // when null, no constants are present. Only non-null elements are constants
     private final PageSerializer serializer;
+    private final int[] partitioningBatch = new int[1024];
+    private final boolean[] partitioningMask = new boolean[partitioningBatch.length];
     private final PositionsAppenderPageBuilder[] positionsAppenders;
     private final boolean replicatesAnyRow;
     private final boolean partitionProcessRleAndDictionaryBlocks;
@@ -167,39 +171,51 @@ public class PagePartitioner
             return;
         }
 
-        int position;
+        int startPosition;
         // Handle "any row" replication outside of the inner loop processing
         if (replicatesAnyRow && !hasAnyRowBeenReplicated) {
             for (PositionsAppenderPageBuilder pageBuilder : positionsAppenders) {
                 pageBuilder.appendToOutputPartition(page, 0);
             }
             hasAnyRowBeenReplicated = true;
-            position = 1;
+            startPosition = 1;
         }
         else {
-            position = 0;
+            startPosition = 0;
         }
 
         Page partitionFunctionArgs = getPartitionFunctionArguments(page);
         // Skip null block checks if mayHaveNull reports that no positions will be null
         if (nullChannel >= 0 && page.getBlock(nullChannel).mayHaveNull()) {
             Block nullsBlock = page.getBlock(nullChannel);
-            for (; position < page.getPositionCount(); position++) {
-                if (nullsBlock.isNull(position)) {
-                    for (PositionsAppenderPageBuilder pageBuilder : positionsAppenders) {
-                        pageBuilder.appendToOutputPartition(page, position);
-                    }
+
+            for (int batchOffset = startPosition; batchOffset < page.getPositionCount(); batchOffset += partitioningBatch.length) {
+                int batchLength = Math.min(page.getPositionCount() - batchOffset, partitioningBatch.length);
+                for (int position = batchOffset; position < batchOffset + batchLength; position++) {
+                    partitioningMask[position - batchOffset] = !nullsBlock.isNull(position);
                 }
-                else {
-                    int partition = partitionFunction.getPartition(partitionFunctionArgs, position);
-                    positionsAppenders[partition].appendToOutputPartition(page, position);
+                partitionFunction.getPartitions(partitionFunctionArgs, batchOffset, batchLength, partitioningMask, partitioningBatch);
+                for (int position = batchOffset; position < batchOffset + batchLength; position++) {
+                    if (!partitioningMask[position - batchOffset]) { // nullsBlock.isNull(position)
+                        for (PositionsAppenderPageBuilder pageBuilder : positionsAppenders) {
+                            pageBuilder.appendToOutputPartition(page, position);
+                        }
+                    }
+                    else {
+                        int partition = partitioningBatch[position - batchOffset];
+                        positionsAppenders[partition].appendToOutputPartition(page, position);
+                    }
                 }
             }
         }
         else {
-            for (; position < page.getPositionCount(); position++) {
-                int partition = partitionFunction.getPartition(partitionFunctionArgs, position);
-                positionsAppenders[partition].appendToOutputPartition(page, position);
+            for (int batchOffset = startPosition; batchOffset < page.getPositionCount(); batchOffset += partitioningBatch.length) {
+                int batchLength = Math.min(page.getPositionCount() - batchOffset, partitioningBatch.length);
+                partitionFunction.getPartitions(partitionFunctionArgs, batchOffset, batchLength, partitioningBatch);
+                for (int position = batchOffset; position < batchOffset + batchLength; position++) {
+                    int partition = partitioningBatch[position - batchOffset];
+                    positionsAppenders[partition].appendToOutputPartition(page, position);
+                }
             }
         }
 
@@ -225,17 +241,17 @@ public class PagePartitioner
     {
         verify(page.getPositionCount() > 0, "position count is 0");
         IntArrayList[] partitionPositions = initPositions(page);
-        int position;
+        int startPosition;
         // Handle "any row" replication outside the inner loop processing
         if (replicatesAnyRow && !hasAnyRowBeenReplicated) {
             for (IntList partitionPosition : partitionPositions) {
                 partitionPosition.add(0);
             }
             hasAnyRowBeenReplicated = true;
-            position = 1;
+            startPosition = 1;
         }
         else {
-            position = 0;
+            startPosition = 0;
         }
 
         Page partitionFunctionArgs = getPartitionFunctionArguments(page);
@@ -243,13 +259,27 @@ public class PagePartitioner
         if (partitionProcessRleAndDictionaryBlocks && partitionFunctionArgs.getChannelCount() > 0 && onlyRleBlocks(partitionFunctionArgs)) {
             // we need at least one Rle block since with no blocks partition function
             // can return a different value per invocation (e.g. RoundRobinBucketFunction)
-            partitionBySingleRleValue(page, position, partitionFunctionArgs, partitionPositions);
+            partitionBySingleRleValue(page, startPosition, partitionFunctionArgs, partitionPositions);
         }
         else if (partitionProcessRleAndDictionaryBlocks && partitionFunctionArgs.getChannelCount() == 1 && isDictionaryProcessingFaster(partitionFunctionArgs.getBlock(0))) {
-            partitionBySingleDictionary(page, position, partitionFunctionArgs, partitionPositions);
+            partitionBySingleDictionary(page, startPosition, partitionFunctionArgs, partitionPositions);
         }
         else {
-            partitionGeneric(page, position, aPosition -> partitionFunction.getPartition(partitionFunctionArgs, aPosition), partitionPositions);
+            int[] partitions = new int[page.getPositionCount()];
+            if (nullChannel != -1 && page.getBlock(nullChannel).mayHaveNull()) {
+                boolean[] isNotNull = new boolean[page.getPositionCount()];
+                Block nullBlock = page.getBlock(nullChannel);
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    isNotNull[position] = !nullBlock.isNull(position);
+                }
+                // Note when startPosition > 0, we unnecessarily calculate partition for first row, but this is rare (only when replicatesAnyRow & only first time)
+                partitionFunction.getPartitions(partitionFunctionArgs, 0, page.getPositionCount(), isNotNull, partitions);
+            }
+            else {
+                // Note when startPosition > 0, we unnecessarily calculate partition for first row, but this is rare (only when replicatesAnyRow & only first time)
+                partitionFunction.getPartitions(partitionFunctionArgs, 0, page.getPositionCount(), partitions);
+            }
+            partitionGeneric(page, startPosition, Optional.of(partitions), Optional.empty(), partitionPositions);
         }
         return partitionPositions;
     }
@@ -301,7 +331,8 @@ public class PagePartitioner
             // extract rle page to prevent JIT profile pollution
             Page rlePage = extractRlePage(partitionFunctionArgs);
 
-            int partition = partitionFunction.getPartition(rlePage, 0);
+            partitionFunction.getPartitions(rlePage, 0, 1, partitioningBatch);
+            int partition = partitioningBatch[0];
             IntArrayList positions = partitionPositions[partition];
             for (int i = position; i < page.getPositionCount(); i++) {
                 positions.add(i);
@@ -345,26 +376,31 @@ public class PagePartitioner
         Block dictionary = dictionaryBlock.getDictionary();
         int[] dictionaryPartitions = new int[dictionary.getPositionCount()];
         Page dictionaryPage = new Page(dictionary);
-        for (int i = 0; i < dictionary.getPositionCount(); i++) {
-            dictionaryPartitions[i] = partitionFunction.getPartition(dictionaryPage, i);
-        }
+        partitionFunction.getPartitions(dictionaryPage, 0, dictionaryPage.getPositionCount(), dictionaryPartitions);
 
-        partitionGeneric(page, position, aPosition -> dictionaryPartitions[dictionaryBlock.getId(aPosition)], partitionPositions);
+        partitionGeneric(page, position, Optional.empty(), Optional.of(aPosition -> dictionaryPartitions[dictionaryBlock.getId(aPosition)]), partitionPositions);
     }
 
-    private void partitionGeneric(Page page, int position, IntUnaryOperator partitionFunction, IntArrayList[] partitionPositions)
+    private void partitionGeneric(Page page, int position, Optional<int[]> partitionResult, Optional<IntUnaryOperator> partitionFunction, IntArrayList[] partitionPositions)
     {
         // Skip null block checks if mayHaveNull reports that no positions will be null
         if (nullChannel != -1 && page.getBlock(nullChannel).mayHaveNull()) {
-            partitionNullablePositions(page, position, partitionPositions, partitionFunction);
+            partitionNullablePositions(page, position, partitionPositions, partitionResult, partitionFunction);
         }
         else {
-            partitionNotNullPositions(page, position, partitionPositions, partitionFunction);
+            partitionNotNullPositions(page, position, partitionPositions, partitionResult, partitionFunction);
         }
     }
 
-    private void partitionNullablePositions(Page page, int position, IntArrayList[] partitionPositions, IntUnaryOperator partitionFunction)
+    private void partitionNullablePositions(
+            Page page,
+            int position,
+            IntArrayList[] partitionPositions,
+            Optional<int[]> partitionResult,
+            Optional<IntUnaryOperator> partitionFunction)
     {
+        checkArgument(partitionResult.isPresent() != partitionFunction.isPresent(), "Exactly one should be present of partitionResult, partitionFunction");
+
         Block nullsBlock = page.getBlock(nullChannel);
         int[] nullPositions = new int[page.getPositionCount()];
         int[] nonNullPositions = new int[page.getPositionCount()];
@@ -380,20 +416,45 @@ public class PagePartitioner
         for (IntArrayList positions : partitionPositions) {
             positions.addElements(position, nullPositions, 0, nullCount);
         }
-        for (int i = 0; i < nonNullCount; i++) {
-            int nonNullPosition = nonNullPositions[i];
-            int partition = partitionFunction.applyAsInt(nonNullPosition);
-            partitionPositions[partition].add(nonNullPosition);
+        if (partitionResult.isPresent()) {
+            int[] partitioning = partitionResult.get();
+            for (int i = 0; i < nonNullCount; i++) {
+                int nonNullPosition = nonNullPositions[i];
+                int partition = partitioning[nonNullPosition];
+                partitionPositions[partition].add(nonNullPosition);
+            }
+        }
+        else {
+            IntUnaryOperator partitioning = partitionFunction.get();
+            for (int i = 0; i < nonNullCount; i++) {
+                int nonNullPosition = nonNullPositions[i];
+                int partition = partitioning.applyAsInt(nonNullPosition);
+                partitionPositions[partition].add(nonNullPosition);
+            }
         }
     }
 
-    private void partitionNotNullPositions(Page page, int startingPosition, IntArrayList[] partitionPositions, IntUnaryOperator partitionFunction)
+    private void partitionNotNullPositions(
+            Page page,
+            int startingPosition,
+            IntArrayList[] partitionPositions,
+            Optional<int[]> partitionResult,
+            Optional<IntUnaryOperator> partitionFunction)
     {
+        checkArgument(partitionResult.isPresent() != partitionFunction.isPresent(), "Exactly one should be present of partitionResult, partitionFunction");
+
         int positionCount = page.getPositionCount();
-        int[] partitionPerPosition = new int[positionCount];
-        for (int position = startingPosition; position < positionCount; position++) {
-            int partition = partitionFunction.applyAsInt(position);
-            partitionPerPosition[position] = partition;
+        int[] partitionPerPosition;
+        if (partitionResult.isPresent()) {
+            partitionPerPosition = partitionResult.get();
+        }
+        else {
+            IntUnaryOperator partitioning = partitionFunction.get();
+            partitionPerPosition = new int[positionCount];
+            for (int position = startingPosition; position < positionCount; position++) {
+                int partition = partitioning.applyAsInt(position);
+                partitionPerPosition[position] = partition;
+            }
         }
 
         for (int position = startingPosition; position < positionCount; position++) {

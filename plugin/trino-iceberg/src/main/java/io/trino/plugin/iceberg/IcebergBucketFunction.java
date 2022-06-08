@@ -23,6 +23,7 @@ import io.trino.spi.type.TypeOperators;
 import org.apache.iceberg.PartitionSpec;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,17 +83,40 @@ public class IcebergBucketFunction
     @Override
     public int getBucket(Page page, int position)
     {
-        long hash = 0;
+        int hash = 0;
 
-        for (int i = 0; i < partitionColumns.size(); i++) {
-            PartitionColumn partitionColumn = partitionColumns.get(i);
+        for (int channel = 0; channel < partitionColumns.size(); channel++) {
+            PartitionColumn partitionColumn = partitionColumns.get(channel);
             Block block = page.getBlock(partitionColumn.getSourceChannel());
             Object value = partitionColumn.getValueTransform().apply(block, position);
-            long valueHash = hashValue(hashCodeInvokers.get(i), value);
-            hash = (31 * hash) + valueHash;
+            long valueHash = hashValue(hashCodeInvokers.get(channel), value);
+            hash = (31 * hash) + Long.hashCode(valueHash);
         }
 
-        return (int) ((hash & Long.MAX_VALUE) % bucketCount);
+        return (hash & Integer.MAX_VALUE) % bucketCount;
+    }
+
+    @Override
+    public void getBuckets(Page page, int positionOffset, int length, int[] buckets)
+    {
+        Arrays.fill(buckets, 0, length, 0);
+
+        for (int channel = 0; channel < partitionColumns.size(); channel++) {
+            PartitionColumn partitionColumn = partitionColumns.get(channel);
+            Block block = page.getBlock(partitionColumn.getSourceChannel());
+            ValueTransform valueTransform = partitionColumn.getValueTransform();
+            MethodHandle hashCodeInvoker = hashCodeInvokers.get(channel);
+            for (int i = 0; i < length; i++) {
+                int position = positionOffset + i;
+                Object value = valueTransform.apply(block, position);
+                long valueHash = hashValue(hashCodeInvoker, value);
+                buckets[i] = (31 * buckets[i]) + Long.hashCode(valueHash);
+            }
+        }
+
+        for (int i = 0; i < length; i++) {
+            buckets[i] = (buckets[i] & Integer.MAX_VALUE) % bucketCount;
+        }
     }
 
     private static long hashValue(MethodHandle method, Object value)

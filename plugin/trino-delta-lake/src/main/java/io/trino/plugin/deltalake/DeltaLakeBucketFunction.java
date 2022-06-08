@@ -19,6 +19,7 @@ import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -46,13 +47,31 @@ public class DeltaLakeBucketFunction
     @Override
     public int getBucket(Page page, int position)
     {
-        long hash = 0;
+        int hash = 0;
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
             Block block = page.getBlock(channel);
             long valueHash = hashValue(hashCodeInvokers.get(channel), block, position);
-            hash = (31 * hash) + valueHash;
+            hash = (31 * hash) + Long.hashCode(valueHash);
         }
         return (int) ((hash & Long.MAX_VALUE) % bucketCount);
+    }
+
+    @Override
+    public void getBuckets(Page page, int positionOffset, int length, int[] buckets)
+    {
+        Arrays.fill(buckets, 0, length, 0);
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            Block block = page.getBlock(channel);
+            MethodHandle hashCodeInvoker = hashCodeInvokers.get(channel);
+            for (int i = 0; i < length; i++) {
+                int position = positionOffset + i;
+                long valueHash = hashValue(hashCodeInvoker, block, position);
+                buckets[i] = (31 * buckets[i]) + Long.hashCode(valueHash);
+            }
+        }
+        for (int i = 0; i < length; i++) {
+            buckets[i] = (buckets[i] & Integer.MAX_VALUE) % bucketCount;
+        }
     }
 
     private static long hashValue(MethodHandle method, Block block, int position)

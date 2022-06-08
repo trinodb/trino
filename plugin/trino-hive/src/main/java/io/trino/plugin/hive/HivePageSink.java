@@ -29,7 +29,7 @@ import io.trino.spi.PageIndexer;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.IntArrayBlockBuilder;
+import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
@@ -436,13 +436,10 @@ public class HivePageSink
             return null;
         }
 
-        IntArrayBlockBuilder bucketColumnBuilder = new IntArrayBlockBuilder(null, page.getPositionCount());
         Page bucketColumnsPage = extractColumns(page, bucketColumns);
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            int bucket = bucketFunction.getBucket(bucketColumnsPage, position);
-            bucketColumnBuilder.writeInt(bucket);
-        }
-        return bucketColumnBuilder.build();
+        int[] buckets = new int[page.getPositionCount()];
+        bucketFunction.getBuckets(bucketColumnsPage, 0, page.getPositionCount(), buckets);
+        return new IntArrayBlock(buckets.length, Optional.empty(), buckets);
     }
 
     private static Page extractColumns(Page page, int[] columns)
