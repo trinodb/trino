@@ -16,6 +16,7 @@ package io.trino.plugin.phoenix;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.spi.HostAddress;
@@ -78,7 +79,9 @@ public class PhoenixSplit
     @Override
     public Object getInfo()
     {
-        //return the addresses
-        return getAddresses();
+        return ImmutableMap.builder()
+                .put("addresses", addresses)
+                .buildOrThrow();
     }
+
 }
