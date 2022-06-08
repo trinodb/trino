@@ -51,13 +51,14 @@ public class DeltaLakeBucketFunction
     @Override
     public int getBucket(Page page, int position)
     {
-        long result = 0;
+        long hash = 0;
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
             Block block = page.getBlock(channel);
             Object value = TypeUtils.readNativeValue(types.get(channel), block, position);
-            result += hashValue(hashCodeInvokers.get(channel), value);
+            long valueHash = hashValue(hashCodeInvokers.get(channel), value);
+            hash = (31 * hash) + valueHash;
         }
-        return (int) ((result & Long.MAX_VALUE) % bucketCount);
+        return (int) ((hash & Long.MAX_VALUE) % bucketCount);
     }
 
     private static long hashValue(MethodHandle method, Object value)
