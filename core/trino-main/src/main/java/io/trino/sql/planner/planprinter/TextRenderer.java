@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.planprinter;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
@@ -93,7 +94,7 @@ public class TextRenderer
         }
 
         if (!node.getDetails().isEmpty()) {
-            String details = indentMultilineString(node.getDetails(), indent.detailIndent());
+            String details = indentMultilineString(Joiner.on("\n").join(node.getDetails()), indent.detailIndent());
             output.append(details);
             if (!details.endsWith("\n")) {
                 output.append('\n');

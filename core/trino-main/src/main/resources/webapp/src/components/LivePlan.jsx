@@ -112,7 +112,7 @@ type PlanNodeProps = {
     id: string,
     name: string,
     descriptor: Map<string, string>,
-    details: string,
+    details: string[],
     sources: string[],
 }
 type PlanNodeState = {}
@@ -125,8 +125,7 @@ class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
     render() {
         // get join distribution type by matching details to a regular expression
         var distribution = "";
-
-        var matchArray = this.props.details.match(/Distribution:\s+(\w+)/);
+        var matchArray = this.props.details.join("\n").match(/Distribution:\s+(\w+)/);
         if (matchArray !== null) {
             distribution = " (" + matchArray[1] + ")";
         }

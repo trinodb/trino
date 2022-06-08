@@ -64,7 +64,7 @@ public class JsonRenderer
         private final String name;
         private final Map<String, String> descriptor;
         private final List<TypedSymbol> outputs;
-        private final String details;
+        private final List<String> details;
         private final List<PlanNodeStatsAndCostSummary> estimates;
         private final List<JsonRenderedNode> children;
 
@@ -73,7 +73,7 @@ public class JsonRenderer
                 String name,
                 Map<String, String> descriptor,
                 List<TypedSymbol> outputs,
-                String details,
+                List<String> details,
                 List<PlanNodeStatsAndCostSummary> estimates,
                 List<JsonRenderedNode> children)
         {
@@ -111,7 +111,7 @@ public class JsonRenderer
         }
 
         @JsonProperty
-        public String getDetails()
+        public List<String> getDetails()
         {
             return details;
         }
