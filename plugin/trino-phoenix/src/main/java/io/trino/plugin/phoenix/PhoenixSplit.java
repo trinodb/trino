@@ -78,6 +78,7 @@ public class PhoenixSplit
     @Override
     public Object getInfo()
     {
+        //return the addresses
         return getAddresses();
     }
 }
