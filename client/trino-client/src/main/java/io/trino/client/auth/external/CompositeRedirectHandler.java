@@ -18,7 +18,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CompositeRedirectHandler
@@ -38,7 +37,7 @@ public class CompositeRedirectHandler
     @Override
     public void redirectTo(URI uri) throws RedirectException
     {
-        RedirectException redirectException = new RedirectException(format("Could not redirect to " + uri));
+        RedirectException redirectException = new RedirectException("Could not redirect to " + uri);
         for (RedirectHandler handler : handlers) {
             try {
                 handler.redirectTo(uri);
