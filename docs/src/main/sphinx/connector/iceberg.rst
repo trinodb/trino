@@ -122,6 +122,10 @@ is used.
   * - ``iceberg.delete-schema-locations-fallback``
     - Whether schema locations should be deleted when Trino can't determine whether they contain external files.
     - ``false``
+  * - ``iceberg.minimum-assigned-split-weight``
+    - A decimal value in the range (0, 1] used as a minimum for weights assigned to each split. A low value may improve performance
+      on tables with small files. A higher value may improve performance for queries with highly skewed aggregations or joins.
+    - 0.05
 
 .. _iceberg-authorization:
 
