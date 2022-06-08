@@ -126,6 +126,17 @@ values. Typical usage does not require you to configure them.
       - Enables :ref:`Table statistics <delta-lake-table-statistics>` for
         performance improvements.
       - ``true``
+    * - ``delta.per-transaction-metastore-cache-maximum-size``
+      - Maximum number of metastore data objects per transaction in
+        the Hive metastore cache.
+      - ``1000``
+    * - ``delta.delete-schema-locations-fallback``
+      - Whether schema locations should be deleted when Trino can't
+        determine whether they contain external files.
+      - ``false``
+    * - ``delta.parquet.time-zone``
+      - Time zone for Parquet read and write.
+      - JVM default
 
 The following table describes performance tuning catalog properties for the
 connector.
