@@ -14,6 +14,7 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.metadata.Metadata;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -21,6 +22,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.transaction.InternalConnector;
 import io.trino.transaction.TransactionId;
@@ -40,12 +42,14 @@ public class GlobalSystemConnector
 
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;
+    private final Metadata metadata;
 
     @Inject
-    public GlobalSystemConnector(Set<SystemTable> systemTables, Set<Procedure> procedures)
+    public GlobalSystemConnector(Set<SystemTable> systemTables, Set<Procedure> procedures, Metadata metadata)
     {
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
@@ -70,5 +74,11 @@ public class GlobalSystemConnector
     public Set<Procedure> getProcedures()
     {
         return procedures;
+    }
+
+    @Override
+    public Set<ConnectorTableFunction> getTableFunctions()
+    {
+        return Set.of(new ExceptColumn.ExceptColumnFunction(metadata));
     }
 }

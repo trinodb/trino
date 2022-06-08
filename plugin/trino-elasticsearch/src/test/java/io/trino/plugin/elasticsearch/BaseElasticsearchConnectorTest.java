@@ -1905,6 +1905,25 @@ public abstract class BaseElasticsearchConnectorTest
                 .hasMessageContaining("json_parse_exception");
     }
 
+    @Override
+    public void testSelectExceptColumn()
+    {
+        // Override because the column order of region table is comment, name, regionkey in Elasticsearch
+        assertQuery(
+                "SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => 'elasticsearch.tpch.region'," +
+                        "except_column => array['name']" +
+                        "))",
+                "SELECT comment, regionkey FROM region");
+
+        assertQuery(
+                "SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => 'elasticsearch.tpch.region'," +
+                        "except_column => array['name', 'comment']" +
+                        "))",
+                "SELECT regionkey FROM region");
+    }
+
     protected void assertTableDoesNotExist(String name)
     {
         assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));

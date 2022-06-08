@@ -585,4 +585,35 @@ public abstract class BaseDruidConnectorTest
                 {"1992-01-04 00:00:00.123456789123"}
         };
     }
+
+    @Override
+    public void testSelectExceptColumn()
+    {
+        // Override because the connector has __time column and the column order is different from other connectors
+        assertThat(
+                query("SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => 'druid.druid.region'," +
+                        "except_column => array['name']" +
+                        "))"))
+                .matches("SELECT __time, comment, regionkey FROM region");
+
+        assertThat(
+                query("SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => 'druid.druid.region'," +
+                        "except_column => array['name', 'comment']" +
+                        "))"))
+                .matches("SELECT __time, regionkey FROM region");
+    }
+
+    @Override
+    public void testSelectExceptOutputColumnIsEmpty()
+    {
+        // Override because the connector has __time column
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => 'druid.druid.region'," +
+                        "except_column => array['regionkey', 'name', 'comment', '__time']" +
+                        "))",
+                "Output column is empty");
+    }
 }

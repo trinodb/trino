@@ -26,6 +26,7 @@ import io.airlift.slice.Slice;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.collect.cache.NonEvictableCache;
+import io.trino.connector.system.ExceptColumn.ExceptColumnHandle;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.FunctionResolver.CatalogFunctionBinding;
 import io.trino.metadata.FunctionResolver.CatalogFunctionMetadata;
@@ -1685,6 +1686,12 @@ public final class MetadataManager
     {
         CatalogHandle catalogHandle = handle.getCatalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
+
+        if (handle.getFunctionHandle() instanceof ExceptColumnHandle queryHandle) {
+            return Optional.of(new TableFunctionApplicationResult<>(
+                    new TableHandle(queryHandle.getCatalogHandle(), queryHandle.getTableHandle(), queryHandle.getTransactionHandle()),
+                    queryHandle.getColumnHandles()));
+        }
 
         return metadata.applyTableFunction(session.toConnectorSession(catalogHandle), handle.getFunctionHandle())
                 .map(result -> new TableFunctionApplicationResult<>(

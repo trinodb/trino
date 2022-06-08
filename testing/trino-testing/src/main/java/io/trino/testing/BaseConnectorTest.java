@@ -634,6 +634,95 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testSelectExceptColumn()
+    {
+        assertQuery(
+                "SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => '" + qualifiedTableName("region") + "'," +
+                        "except_column => array['name']" +
+                        "))",
+                "SELECT regionkey, comment FROM region");
+
+        assertQuery(
+                "SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => '" + qualifiedTableName("region") + "'," +
+                        "except_column => array['name', 'comment']" +
+                        "))",
+                "SELECT regionkey FROM region");
+    }
+
+    @Test
+    public void testSelectExceptInvalidArgument()
+    {
+        // Invalid input argument
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => 'table_not_found'," +
+                        "except_column => array['dummy']" +
+                        "))",
+                "INPUT argument must be fully qualified: .*");
+
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => '" + getSession().getSchema().orElseThrow() + ".region'," +
+                        "except_column => array['dummy']" +
+                        "))",
+                "INPUT argument must be fully qualified: .*");
+
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => 'region'," +
+                        "except_column => array['dummy']" +
+                        "))",
+                "INPUT argument must be fully qualified: .*");
+
+        // Invalid except_column argument
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => '" + qualifiedTableName("region") + "'," +
+                        "except_column => array[true]" +
+                        "))",
+                ".* Cannot cast type array\\(boolean\\) to array\\(varchar\\)");
+
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => '" + qualifiedTableName("region") + "'," +
+                        "except_column => array[]" +
+                        "))",
+                "EXCEPT_COLUMN argument should have at least one element");
+
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => '" + qualifiedTableName("region") + "'," +
+                        "except_column => array['NAME']" +
+                        "))",
+                "Column name must be lowercase: NAME");
+
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => '" + qualifiedTableName("region") + "'," +
+                        "except_column => array['column_not_found']" +
+                        "))",
+                "Column does not exist: column_not_found");
+    }
+
+    @Test
+    public void testSelectExceptOutputColumnIsEmpty()
+    {
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.runtime.except_column(" +
+                        "input => '" + qualifiedTableName("region") + "'," +
+                        "except_column => array['regionkey', 'name', 'comment']" +
+                        "))",
+                "Output column is empty");
+    }
+
+    private String qualifiedTableName(String tableName)
+    {
+        return format("%s.%s.%s", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName);
+    }
+
+    @Test
     public void testSelectInTransaction()
     {
         inTransaction(session -> {

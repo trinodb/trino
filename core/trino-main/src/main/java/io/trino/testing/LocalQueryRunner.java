@@ -463,7 +463,8 @@ public class LocalQueryRunner
                 new ColumnPropertiesSystemTable(metadata, accessControl, columnPropertyManager),
                 new AnalyzePropertiesSystemTable(metadata, accessControl, analyzePropertyManager),
                 new TransactionsSystemTable(typeManager, transactionManager)),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                metadata);
 
         exchangeManagerRegistry = new ExchangeManagerRegistry();
         this.pluginManager = new PluginManager(
