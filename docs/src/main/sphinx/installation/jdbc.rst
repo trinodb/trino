@@ -208,4 +208,8 @@ Name                                                              Description
                                                                   are treated as literals. You can use this as a workaround for
                                                                   applications that do not escape schema or table names when passing them
                                                                   to ``DatabaseMetaData`` methods as schema or table name patterns.
+``assumeLiteralUnderscoreInMetadataCallsForNonConformingClients`` When enabled, the name patterns passed to ``DatabaseMetaData`` methods
+                                                                  are treated as underscores. You can use this as a workaround for
+                                                                  applications that do not escape schema or table names when passing them
+                                                                  to ``DatabaseMetaData`` methods as schema or table name patterns.
 ================================================================= =======================================================================
