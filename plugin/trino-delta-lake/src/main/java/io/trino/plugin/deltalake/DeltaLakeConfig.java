@@ -337,7 +337,6 @@ public class DeltaLakeConfig
         return this.deleteSchemaLocationsFallback;
     }
 
-    @LegacyConfig("hive.per-transaction-metastore-cache-maximum-size")
     @Config("delta.delete-schema-locations-fallback")
     @ConfigDescription("Whether schema locations should be deleted when Trino can't determine whether they contain external files.")
     public DeltaLakeConfig setDeleteSchemaLocationsFallback(boolean deleteSchemaLocationsFallback)
