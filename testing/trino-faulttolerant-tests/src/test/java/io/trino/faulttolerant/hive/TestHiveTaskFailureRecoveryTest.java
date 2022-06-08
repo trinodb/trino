@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.faulttolerant.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
@@ -29,13 +29,14 @@ import java.util.Map;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestHiveQueryFailureRecoveryTest
+public class TestHiveTaskFailureRecoveryTest
         extends BaseHiveFailureRecoveryTest
 {
-    public TestHiveQueryFailureRecoveryTest()
+    public TestHiveTaskFailureRecoveryTest()
     {
-        super(RetryPolicy.QUERY);
+        super(RetryPolicy.TASK);
     }
 
     private HiveMinioDataLake dockerizedS3DataLake;
@@ -70,6 +71,13 @@ public class TestHiveQueryFailureRecoveryTest
                         .put("hive.s3.streaming.enabled", "false")
                         .buildOrThrow())
                 .build();
+    }
+
+    @Override
+    public void testJoinDynamicFilteringEnabled()
+    {
+        assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
+                .hasMessageContaining("Dynamic filter is missing");
     }
 
     @AfterClass(alwaysRun = true)

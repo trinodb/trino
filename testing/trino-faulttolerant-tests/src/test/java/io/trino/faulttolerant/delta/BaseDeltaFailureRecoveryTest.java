@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake;
+package io.trino.faulttolerant.delta;
 
+import io.trino.faulttolerant.BaseFailureRecoveryTest;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorType;
-import io.trino.testing.BaseFailureRecoveryTest;
 import org.testng.annotations.Test;
 
 import java.util.List;

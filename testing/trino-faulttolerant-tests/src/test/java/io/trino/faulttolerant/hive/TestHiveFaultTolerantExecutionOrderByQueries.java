@@ -11,58 +11,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.faulttolerant.hive;
 
-import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.testing.AbstractTestFaultTolerantExecutionOrderByQueries;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
-import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static io.trino.tpch.TpchTable.getTables;
 
-public class TestIcebergTaskFailureRecoveryTest
-        extends BaseIcebergFailureRecoveryTest
+public class TestHiveFaultTolerantExecutionOrderByQueries
+        extends AbstractTestFaultTolerantExecutionOrderByQueries
 {
     private MinioStorage minioStorage;
 
-    protected TestIcebergTaskFailureRecoveryTest()
-    {
-        super(RetryPolicy.TASK);
-    }
-
     @Override
-    protected QueryRunner createQueryRunner(
-            List<TpchTable<?>> requiredTpchTables,
-            Map<String, String> configProperties,
-            Map<String, String> coordinatorProperties)
+    protected QueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
         this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
         minioStorage.start();
 
-        return IcebergQueryRunner.builder()
-                .setInitialTables(requiredTpchTables)
-                .setCoordinatorProperties(coordinatorProperties)
-                .setExtraProperties(configProperties)
+        return HiveQueryRunner.builder()
+                .setExtraProperties(extraProperties)
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
+                .setInitialTables(getTables())
                 .build();
-    }
-
-    @Override
-    public void testJoinDynamicFilteringEnabled()
-    {
-        assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
-                .hasMessageContaining("Dynamic filter is missing");
     }
 
     @AfterClass(alwaysRun = true)

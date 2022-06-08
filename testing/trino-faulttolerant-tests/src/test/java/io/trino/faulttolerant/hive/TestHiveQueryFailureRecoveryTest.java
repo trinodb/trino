@@ -11,11 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.faulttolerant.hive;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.plugin.hive.containers.HiveHadoop;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -26,15 +30,16 @@ import java.util.Map;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 
-public class TestIcebergQueryFailureRecoveryTest
-        extends BaseIcebergFailureRecoveryTest
+public class TestHiveQueryFailureRecoveryTest
+        extends BaseHiveFailureRecoveryTest
 {
-    private MinioStorage minioStorage;
-
-    protected TestIcebergQueryFailureRecoveryTest()
+    public TestHiveQueryFailureRecoveryTest()
     {
         super(RetryPolicy.QUERY);
     }
+
+    private HiveMinioDataLake dockerizedS3DataLake;
+    private MinioStorage minioStorage;
 
     @Override
     protected QueryRunner createQueryRunner(
@@ -43,17 +48,27 @@ public class TestIcebergQueryFailureRecoveryTest
             Map<String, String> coordinatorProperties)
             throws Exception
     {
+        String bucketName = "test-hive-insert-overwrite-" + randomTableSuffix(); // randomizing bucket name to ensure cached TrinoS3FileSystem objects are not reused
+        this.dockerizedS3DataLake = new HiveMinioDataLake(bucketName, ImmutableMap.of(), HiveHadoop.DEFAULT_IMAGE);
+        dockerizedS3DataLake.start();
+
         this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
         minioStorage.start();
 
-        return IcebergQueryRunner.builder()
+        return S3HiveQueryRunner.builder(dockerizedS3DataLake)
                 .setInitialTables(requiredTpchTables)
-                .setCoordinatorProperties(coordinatorProperties)
                 .setExtraProperties(configProperties)
+                .setCoordinatorProperties(coordinatorProperties)
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
+                .setHiveProperties(ImmutableMap.<String, String>builder()
+                        // Streaming upload allocates non trivial amount of memory for buffering (16MB per output file by default).
+                        // When streaming upload is enabled insert into a table with high number of buckets / partitions may cause
+                        // the tests to run out of memory as the buffer space is eagerly allocated for each output file.
+                        .put("hive.s3.streaming.enabled", "false")
+                        .buildOrThrow())
                 .build();
     }
 
@@ -61,6 +76,10 @@ public class TestIcebergQueryFailureRecoveryTest
     public void destroy()
             throws Exception
     {
+        if (dockerizedS3DataLake != null) {
+            dockerizedS3DataLake.close();
+            dockerizedS3DataLake = null;
+        }
         if (minioStorage != null) {
             minioStorage.close();
             minioStorage = null;
