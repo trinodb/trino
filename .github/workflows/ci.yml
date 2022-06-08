@@ -65,16 +65,16 @@ jobs:
           touch gib-impacted.log
           cat <<EOF > .github/test-matrix.yaml
           include:
-            - { modules: testing/trino-raptor-legacy }
-            - { modules: testing/trino-raptor-legacy }
-            - { modules: testing/trino-raptor-legacy }
-            - { modules: testing/trino-raptor-legacy }
-            - { modules: testing/trino-raptor-legacy }
-            - { modules: testing/trino-raptor-legacy }
-            - { modules: testing/trino-raptor-legacy }
-            - { modules: testing/trino-raptor-legacy }
-            - { modules: testing/trino-raptor-legacy }
-            - { modules: testing/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
