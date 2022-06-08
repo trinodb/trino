@@ -110,7 +110,7 @@ public final class JdbcTableHandle
             return this;
         }
 
-        return new JdbcTableHandle(relationHandle, newDomain, sortOrder, limit, columns, otherReferencedTables, nextSyntheticColumnId);
+        return new JdbcTableHandle(relationHandle, newDomain, constraintExpressions, sortOrder, limit, columns, otherReferencedTables, nextSyntheticColumnId);
     }
 
     /**

@@ -36,9 +36,9 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
+import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -67,7 +67,7 @@ public class TestJdbcDynamicFiltering
                 .put("connection-url", format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime() + ThreadLocalRandom.current().nextLong()))
                 .put("dynamic-filtering.enabled", "true")
                 .put("dynamic-filtering.wait-timeout", "30s")
-                .build();
+                .buildOrThrow();
         return H2QueryRunner.createH2QueryRunner(List.of(TpchTable.LINE_ITEM, TpchTable.ORDERS, TpchTable.PART, TpchTable.CUSTOMER), properties);
     }
 
