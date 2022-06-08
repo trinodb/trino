@@ -21,6 +21,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordSet;
 
 import javax.inject.Inject;
@@ -29,7 +30,10 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.jdbc.DynamicFilteringJdbcSessionProperties.getDynamicFilteringWaitTimeout;
+import static io.trino.plugin.jdbc.DynamicFilteringJdbcSessionProperties.isEnableDynamicFiltering;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class JdbcRecordSetProvider
         implements ConnectorRecordSetProvider
@@ -42,6 +46,31 @@ public class JdbcRecordSetProvider
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.executor = requireNonNull(executor, "executor is null");
+    }
+
+    @Override
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns, DynamicFilter dynamicFilter)
+    {
+        if (isEnableDynamicFiltering(session)) {
+            long timeoutMillis = getDynamicFilteringWaitTimeout(session).toMillis();
+
+            // no time for further narrow down or done already
+            if (timeoutMillis == 0 || !dynamicFilter.isAwaitable()) {
+                JdbcTableHandle handle = ((JdbcTableHandle) table).withConstraint(dynamicFilter.getCurrentPredicate());
+                return getRecordSet(transaction, session, split, handle, columns);
+            }
+
+            try {
+                dynamicFilter.isBlocked().get(timeoutMillis, MILLISECONDS);
+                JdbcTableHandle handle = ((JdbcTableHandle) table).withConstraint(dynamicFilter.getCurrentPredicate());
+                return getRecordSet(transaction, session, split, handle, columns);
+            }
+            catch (Exception e) {
+                return getRecordSet(transaction, session, split, table, columns);
+            }
+        }
+
+        return getRecordSet(transaction, session, split, table, columns);
     }
 
     @Override

@@ -29,6 +29,8 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.DynamicFilteringJdbcConfig;
+import io.trino.plugin.jdbc.DynamicFilteringJdbcSessionProperties;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForLazyConnectionFactory;
 import io.trino.plugin.jdbc.ForRecordCursor;
@@ -93,6 +95,9 @@ public class PhoenixClientModule
         bindSessionPropertiesProvider(binder, JdbcMetadataSessionProperties.class);
         bindSessionPropertiesProvider(binder, JdbcWriteSessionProperties.class);
         bindSessionPropertiesProvider(binder, PhoenixSessionProperties.class);
+
+        configBinder(binder).bindConfig(DynamicFilteringJdbcConfig.class);
+        bindSessionPropertiesProvider(binder, DynamicFilteringJdbcSessionProperties.class);
 
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
         configBinder(binder).bindConfig(JdbcWriteConfig.class);
