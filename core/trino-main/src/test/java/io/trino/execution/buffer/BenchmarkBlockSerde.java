@@ -43,8 +43,8 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.testng.annotations.Test;
-import oshi.util.tuples.Pair;
 
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -266,11 +266,11 @@ public class BenchmarkBlockSerde
                 if (values.size() != type.getTypeParameters().size()) {
                     throw new IllegalArgumentException("Size of types and values must have the same size");
                 }
-                List<Pair<Type, Object>> pairs = new ArrayList<>();
+                List<SimpleEntry<Type, Object>> pairs = new ArrayList<>();
                 for (int i = 0; i < type.getTypeParameters().size(); i++) {
-                    pairs.add(new Pair<Type, Object>(type.getTypeParameters().get(i), ((List<?>) value).get(i)));
+                    pairs.add(new SimpleEntry<>(type.getTypeParameters().get(i), ((List<?>) value).get(i)));
                 }
-                pairs.forEach(p -> writeValue(p.getA(), p.getB(), row));
+                pairs.forEach(p -> writeValue(p.getKey(), p.getValue(), row));
                 blockBuilder.closeEntry();
             }
             else {

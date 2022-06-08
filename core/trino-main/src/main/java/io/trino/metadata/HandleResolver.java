@@ -14,8 +14,8 @@
 package io.trino.metadata;
 
 import io.trino.server.PluginClassLoader;
-import oshi.annotation.concurrent.ThreadSafe;
 
+import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.Map;
