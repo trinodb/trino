@@ -11,18 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.tests;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.testing.QueryRunner;
-
-public class TestHiveConnectorTest
-        extends BaseHiveConnectorTest
+public class Dummy
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return BaseHiveConnectorTest.createHiveQueryRunner(ImmutableMap.of(), runner -> {});
-    }
+    // This class is here so that maven produces a source and javadoc artifact, which are
+    // needed by Sonatype in order to publish a release
 }

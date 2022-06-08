@@ -203,45 +203,6 @@
         <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-exchange-filesystem</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.google.apis</groupId>
-                    <artifactId>google-api-services-storage</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.api-client</groupId>
-                    <artifactId>google-api-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.auto.value</groupId>
-                    <artifactId>auto-value-annotations</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.code.gson</groupId>
-                    <artifactId>gson</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.http-client</groupId>
-                    <artifactId>google-http-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.http-client</groupId>
-                    <artifactId>google-http-client-jackson2</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-exchange-filesystem</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-hive</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
@@ -349,18 +310,6 @@
             <artifactId>azure-storage-blob</artifactId>
             <version>12.14.4</version>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- conflicts with newer version of netty coming from AWS S3 cli via trino-exchange-filesystem -->
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-transport-classes-epoll</artifactId>
-                </exclusion>
-                <exclusion>
-                    <!-- conflicts with newer version of netty coming from AWS S3 cli via trino-exchange-filesystem -->
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-transport-native-epoll</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -431,7 +380,6 @@
                                 <exclude>**/TestDeltaLakeAdlsConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestDeltaLakeGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeCleanUpGlueMetastore.java</exclude>
-                                <exclude>**/TestDelta*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</exclude>
                             </excludes>
                         </configuration>
@@ -484,25 +432,5 @@
                 </plugins>
             </build>
         </profile>
-
-        <profile>
-            <id>test-failure-recovery</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <!-- Failure recovery tests spend most of the time waiting for a retry -->
-                            <threadCount>4</threadCount>
-                            <includes>
-                                <include>**/TestDelta*FailureRecoveryTest.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
     </profiles>
 </project>

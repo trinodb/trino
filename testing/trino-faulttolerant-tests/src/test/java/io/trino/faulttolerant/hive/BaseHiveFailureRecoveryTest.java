@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.faulttolerant.hive;
 
 import io.trino.Session;
+import io.trino.faulttolerant.BaseFailureRecoveryTest;
 import io.trino.operator.RetryPolicy;
-import io.trino.testing.BaseFailureRecoveryTest;
 import org.testng.annotations.Test;
 
 import java.util.List;

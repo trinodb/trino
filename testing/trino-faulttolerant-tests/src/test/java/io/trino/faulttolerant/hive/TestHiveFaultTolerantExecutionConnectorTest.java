@@ -11,10 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.faulttolerant.hive;
 
 import io.trino.Session;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.plugin.hive.BaseHiveConnectorTest;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -37,7 +39,12 @@ public class TestHiveFaultTolerantExecutionConnectorTest
         this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
         minioStorage.start();
 
-        return BaseHiveConnectorTest.createHiveQueryRunner(getExtraProperties(), getExchangeManagerProperties(minioStorage));
+        return BaseHiveConnectorTest.createHiveQueryRunner(
+                getExtraProperties(),
+                runner -> {
+                    runner.installPlugin(new FileSystemExchangePlugin());
+                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
+                });
     }
 
     @Override
