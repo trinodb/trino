@@ -74,4 +74,10 @@ public class PhoenixSplit
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
                 + serializedPhoenixInputSplit.getRetainedSizeInBytes();
     }
+
+    @Override
+    public Object getInfo()
+    {
+        return getAddresses();
+    }
 }
