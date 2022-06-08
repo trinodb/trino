@@ -184,6 +184,28 @@ public interface ConnectorMetadata
         return Optional.empty();
     }
 
+    default Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        return Optional.empty();
+    }
+
+    default Optional<SystemTable> getSystemTable(ConnectorSession session, SystemTableHandle systemTableHandle)
+    {
+        return getSystemTable(session, systemTableHandle.getSchemaTableName());
+    }
+
+    default Optional<SystemTableHandle> getSystemTableHandle(ConnectorSession session, SchemaTableName tableName)
+    {
+        return getSystemTable(session, tableName)
+                .map(ignored -> DefaultSystemTableHandle.fromSchemaTableName(tableName));
+    }
+
+    default Optional<SystemTableHandle> getSystemTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        return getSystemTable(session, tableName, startVersion, endVersion)
+                .map(ignored -> DefaultSystemTableHandle.fromSchemaTableName(tableName));
+    }
+
     /**
      * Return a table handle whose partitioning is converted to the provided partitioning handle,
      * but otherwise identical to the provided table handle.

@@ -24,11 +24,13 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.SystemTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
@@ -66,11 +68,14 @@ public class SystemTablesMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        Optional<SystemTable> table = tables.getSystemTable(session, tableName);
-        if (table.isEmpty()) {
-            return null;
-        }
-        return SystemTableHandle.fromSchemaTableName(tableName);
+        return getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        Optional<SystemTableHandle> systemTableHandle = tables.getSystemTableHandle(session, tableName, startVersion, endVersion);
+        return systemTableHandle.orElse(null);
     }
 
     @Override
@@ -111,7 +116,7 @@ public class SystemTablesMetadata
     private SystemTable checkAndGetTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SystemTableHandle systemTableHandle = (SystemTableHandle) tableHandle;
-        return tables.getSystemTable(session, systemTableHandle.getSchemaTableName())
+        return tables.getSystemTable(session, systemTableHandle)
                 // table might disappear in the meantime
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", systemTableHandle.getSchemaTableName())));
     }
@@ -124,7 +129,7 @@ public class SystemTablesMetadata
         if (prefix.getTable().isPresent()) {
             // if table is concrete we just use tables.getSystemTable to support tables which are not listable
             SchemaTableName tableName = prefix.toSchemaTableName();
-            return tables.getSystemTable(session, tableName)
+            return tables.getSystemTable(session, tableName, Optional.empty(), Optional.empty())
                     .map(systemTable -> singletonMap(tableName, systemTable.getTableMetadata().getColumns()))
                     .orElseGet(ImmutableMap::of);
         }
@@ -169,7 +174,7 @@ public class SystemTablesMetadata
         if (newDomain.isNone()) {
             // TODO (https://github.com/trinodb/trino/issues/3647) indicate the table scan is empty
         }
-        table = new SystemTableHandle(table.getSchemaName(), table.getTableName(), newDomain);
+        table = table.witConstraint(newDomain);
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), false));
     }
 

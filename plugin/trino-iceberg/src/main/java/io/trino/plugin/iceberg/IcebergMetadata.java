@@ -73,6 +73,7 @@ import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.SystemTableHandle;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
@@ -200,6 +201,8 @@ import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.TableType.DATA;
+import static io.trino.plugin.iceberg.TableType.HISTORY;
+import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DEPENDS_ON_TABLES;
@@ -389,55 +392,146 @@ public class IcebergMetadata
     @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        return getRawSystemTable(session, tableName)
+        return getSystemTable(session, tableName, Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        if (startVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "Read system table with start version is not supported");
+        }
+
+        IcebergTableName icebergTableName = IcebergTableName.from(tableName.getTableName());
+
+        if (icebergTableName.getTableType() == DATA) {
+            return Optional.empty();
+        }
+        if (icebergTableName.getSnapshotId().isPresent() && endVersion.isPresent()) {
+            throw new TrinoException(GENERIC_USER_ERROR, "Cannot specify end version both in table name and FOR clause");
+        }
+
+        return getRawSystemTable(session, tableName, icebergTableName, endVersion)
                 .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
     }
 
-    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SystemTableHandle systemTableHandle)
     {
-        IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        if (name.getTableType() == DATA) {
+        IcebergSystemTableHandle icebergSystemTableHandle = (IcebergSystemTableHandle) systemTableHandle;
+        return getRawSystemTable(session, icebergSystemTableHandle)
+                .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
+    }
+
+    @Override
+    public Optional<SystemTableHandle> getSystemTableHandle(ConnectorSession session, SchemaTableName tableName)
+    {
+        return getSystemTableHandle(session, tableName, Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public Optional<SystemTableHandle> getSystemTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        IcebergTableName icebergTableName = IcebergTableName.from(tableName.getTableName());
+
+        if (icebergTableName.getTableType() == DATA) {
             return Optional.empty();
         }
 
         // load the base table for the system table
         Table table;
         try {
-            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
+            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), icebergTableName.getTableName()));
         }
-        catch (TableNotFoundException e) {
-            return Optional.empty();
-        }
-        catch (UnknownTableTypeException e) {
-            // avoid dealing with non Iceberg tables
+        catch (TableNotFoundException | UnknownTableTypeException e) {
             return Optional.empty();
         }
 
-        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
-        switch (name.getTableType()) {
+        return Optional.of(new IcebergSystemTableHandle(
+                tableName.getSchemaName(),
+                tableName.getTableName(),
+                endVersion.map(version -> getSnapshotIdFromVersion(table, version))
+                        .or(() -> icebergTableName.getSnapshotId().map(id -> resolveSnapshotId(table, id, isAllowLegacySnapshotSyntax(session)))),
+                TupleDomain.all()));
+    }
+
+    @SuppressWarnings("TryWithIdenticalCatches")
+    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName, IcebergTableName icebergTableName, Optional<ConnectorTableVersion> endVersion)
+    {
+        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), icebergTableName.getTableNameWithType());
+
+        // load the base table for the system table
+        Table table;
+        try {
+            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), icebergTableName.getTableName()));
+        }
+        catch (TableNotFoundException | UnknownTableTypeException e) {
+            return Optional.empty();
+        }
+
+        if (icebergTableName.getTableType() == HISTORY && (icebergTableName.getSnapshotId().isPresent() || endVersion.isPresent())) {
+            throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for history table: " + systemTableName);
+        }
+        if (icebergTableName.getTableType() == SNAPSHOTS && (icebergTableName.getSnapshotId().isPresent() || endVersion.isPresent())) {
+            throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for snapshots table: " + systemTableName);
+        }
+
+        return getRawSystemTable(
+                icebergTableName.getTableType(),
+                systemTableName,
+                table,
+                () -> getSnapshotId(table, endVersion, icebergTableName, isAllowLegacySnapshotSyntax(session)));
+    }
+
+    private Optional<SystemTable> getRawSystemTable(TableType tableType, SchemaTableName systemTableName, Table table, Supplier<Optional<Long>> snapshotIdSupplier)
+    {
+        switch (tableType) {
             case DATA:
-                // Handled above.
                 break;
             case HISTORY:
-                if (name.getSnapshotId().isPresent()) {
-                    throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for history table: " + systemTableName);
-                }
                 return Optional.of(new HistoryTable(systemTableName, table));
             case SNAPSHOTS:
-                if (name.getSnapshotId().isPresent()) {
-                    throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for snapshots table: " + systemTableName);
-                }
                 return Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
             case PARTITIONS:
-                return Optional.of(new PartitionTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
+                return Optional.of(new PartitionTable(systemTableName, typeManager, table, snapshotIdSupplier.get()));
             case MANIFESTS:
-                return Optional.of(new ManifestsTable(systemTableName, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
+                return Optional.of(new ManifestsTable(systemTableName, table, snapshotIdSupplier.get()));
             case FILES:
-                return Optional.of(new FilesTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
+                return Optional.of(new FilesTable(systemTableName, typeManager, table, snapshotIdSupplier.get()));
             case PROPERTIES:
                 return Optional.of(new PropertiesTable(systemTableName, table));
         }
         return Optional.empty();
+    }
+
+    @SuppressWarnings("TryWithIdenticalCatches")
+    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, IcebergSystemTableHandle icebergSystemTableHandle)
+    {
+        IcebergTableName icebergTableName = IcebergTableName.from(icebergSystemTableHandle.getTableName());
+        SchemaTableName tableName = icebergSystemTableHandle.getSchemaTableName();
+        Optional<Long> snapshotId = icebergSystemTableHandle.getSnapshotId();
+        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), icebergTableName.getTableNameWithType());
+
+        Table table;
+        try {
+            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), icebergTableName.getTableName()));
+        }
+        catch (TableNotFoundException e) {
+            return Optional.empty();
+        }
+
+        if (icebergTableName.getTableType() == HISTORY && snapshotId.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for history table: " + systemTableName);
+        }
+        if (icebergTableName.getTableType() == SNAPSHOTS && snapshotId.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for snapshots table: " + systemTableName);
+        }
+
+        return getRawSystemTable(
+                icebergTableName.getTableType(),
+                systemTableName,
+                table,
+                () -> snapshotId.or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId)));
     }
 
     @Override
@@ -1930,11 +2024,10 @@ public class IcebergMetadata
         catalog.setTablePrincipal(session, tableName, principal);
     }
 
-    private Optional<Long> getSnapshotId(Table table, Optional<Long> snapshotId, boolean allowLegacySnapshotSyntax)
+    private Optional<Long> getSnapshotId(Table table, Optional<ConnectorTableVersion> endVersion, IcebergTableName icebergTableName, boolean allowLegacySnapshotSyntax)
     {
-        // table.name() is an encoded version of SchemaTableName
-        return snapshotId
-                .map(id -> resolveSnapshotId(table, id, allowLegacySnapshotSyntax))
+        return endVersion.map(connectorTableVersion -> getSnapshotIdFromVersion(table, connectorTableVersion))
+                .or(() -> icebergTableName.getSnapshotId().map(id -> resolveSnapshotId(table, id, allowLegacySnapshotSyntax)))
                 .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId));
     }
 

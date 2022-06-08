@@ -11,30 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.connector.system;
+package io.trino.spi.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 
-import static io.trino.metadata.MetadataUtil.checkSchemaName;
-import static io.trino.metadata.MetadataUtil.checkTableName;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class SystemTableHandle
-        implements ConnectorTableHandle
+public class DefaultSystemTableHandle
+        implements SystemTableHandle
 {
     private final String schemaName;
     private final String tableName;
     private final TupleDomain<ColumnHandle> constraint;
 
     @JsonCreator
-    public SystemTableHandle(
+    public DefaultSystemTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
@@ -47,30 +44,34 @@ public class SystemTableHandle
     public static SystemTableHandle fromSchemaTableName(SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
-        return new SystemTableHandle(tableName.getSchemaName(), tableName.getTableName(), TupleDomain.all());
+        return new DefaultSystemTableHandle(tableName.getSchemaName(), tableName.getTableName(), TupleDomain.all());
     }
 
     @JsonProperty
+    @Override
     public String getSchemaName()
     {
         return schemaName;
     }
 
     @JsonProperty
+    @Override
     public String getTableName()
     {
         return tableName;
     }
 
-    public SchemaTableName getSchemaTableName()
-    {
-        return new SchemaTableName(schemaName, tableName);
-    }
-
     @JsonProperty
+    @Override
     public TupleDomain<ColumnHandle> getConstraint()
     {
         return constraint;
+    }
+
+    @Override
+    public SystemTableHandle witConstraint(TupleDomain<ColumnHandle> constraint)
+    {
+        return new DefaultSystemTableHandle(schemaName, tableName, constraint);
     }
 
     @Override
@@ -94,9 +95,30 @@ public class SystemTableHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        SystemTableHandle other = (SystemTableHandle) obj;
+        DefaultSystemTableHandle other = (DefaultSystemTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName) &&
                 Objects.equals(this.constraint, other.constraint);
+    }
+
+    private static String checkSchemaName(String schemaName)
+    {
+        return checkLowerCase(schemaName, "schemaName");
+    }
+
+    private static String checkTableName(String tableName)
+    {
+        return checkLowerCase(tableName, "tableName");
+    }
+
+    public static String checkLowerCase(String value, String name)
+    {
+        if (value == null) {
+            throw new NullPointerException(format("%s is null", name));
+        }
+        if (!value.equals(value.toLowerCase(ENGLISH))) {
+            throw new IllegalArgumentException("%s is not lowercase: %s".formatted(name, value));
+        }
+        return value;
     }
 }

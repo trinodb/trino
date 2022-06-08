@@ -28,6 +28,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinApplicationResult;
@@ -42,6 +43,7 @@ import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.SystemTableHandle;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -87,6 +89,20 @@ public interface Metadata
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName);
 
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
+
+    Optional<SystemTable> getSystemTable(Session session, String catalogName, SystemTableHandle systemTableHandle);
+
+    default Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        return getSystemTable(session, tableName);
+    }
+
+    Optional<SystemTableHandle> getSystemTableHandle(Session session, QualifiedObjectName tableName);
+
+    default Optional<SystemTableHandle> getSystemTableHandle(Session session, QualifiedObjectName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        return getSystemTableHandle(session, tableName);
+    }
 
     Optional<TableExecuteHandle> getTableHandleForExecute(
             Session session,

@@ -15,8 +15,11 @@ package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableVersion;
+import io.trino.spi.connector.DefaultSystemTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.SystemTableHandle;
 
 import java.util.Map;
 import java.util.Optional;
@@ -47,8 +50,22 @@ public class StaticSystemTablesProvider
     }
 
     @Override
-    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
         return Optional.ofNullable(systemTablesMap.get(tableName));
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SystemTableHandle systemTableHandle)
+    {
+        SchemaTableName tableName = systemTableHandle.getSchemaTableName();
+        return Optional.ofNullable(systemTablesMap.get(tableName));
+    }
+
+    @Override
+    public Optional<SystemTableHandle> getSystemTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        return Optional.ofNullable(systemTablesMap.get(tableName))
+                .map(ignored -> DefaultSystemTableHandle.fromSchemaTableName(tableName));
     }
 }

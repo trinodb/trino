@@ -30,6 +30,7 @@ import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.SystemTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.split.MappedPageSource;
@@ -67,8 +68,9 @@ public class SystemPageSourceProvider
         requireNonNull(columns, "columns is null");
         SystemTransactionHandle systemTransaction = (SystemTransactionHandle) transaction;
         SystemSplit systemSplit = (SystemSplit) split;
-        SchemaTableName tableName = ((SystemTableHandle) table).getSchemaTableName();
-        SystemTable systemTable = tables.getSystemTable(session, tableName)
+        SystemTableHandle systemTableHandle = ((SystemTableHandle) table);
+        SchemaTableName tableName = systemTableHandle.getSchemaTableName();
+        SystemTable systemTable = tables.getSystemTable(session, systemTableHandle)
                 // table might disappear in the meantime
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", tableName)));
 

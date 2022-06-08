@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.BeforeClass;
@@ -25,6 +26,7 @@ import java.time.format.DateTimeFormatter;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.testng.Assert.assertEquals;
 
 public class TestIcebergReadVersionedTable
         extends AbstractTestQueryFramework
@@ -94,11 +96,19 @@ public class TestIcebergReadVersionedTable
     }
 
     @Test
-    public void testSystemTables()
+    public void testSelectFromSystemTablesWithEndSnapshotId()
     {
-        // TODO https://github.com/trinodb/trino/issues/12920
-        assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table$partitions\" FOR VERSION AS OF " + v1SnapshotId,
-                "This connector does not support versioned tables");
+        Session sessionWithLegacySyntaxSupport = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "allow_legacy_snapshot_syntax", "true")
+                .build();
+
+        assertQuery("SELECT * FROM \"test_iceberg_read_versioned_table$data\" FOR VERSION AS OF " + v1SnapshotId, "VALUES ('a', 1)");
+        assertQuerySucceeds("SELECT * FROM \"test_iceberg_read_versioned_table$properties\" FOR VERSION AS OF " + v1SnapshotId);
+        assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table$history\" FOR VERSION AS OF " + v1SnapshotId, "Snapshot ID not supported for history table\\: tpch.test_iceberg_read_versioned_table\\$history");
+        assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table$snapshots\" FOR VERSION AS OF " + v1SnapshotId, "Snapshot ID not supported for snapshots table\\: tpch.test_iceberg_read_versioned_table\\$snapshots");
+        assertEquals(computeActual(sessionWithLegacySyntaxSupport, "SELECT * FROM \"test_iceberg_read_versioned_table$files@" + v1SnapshotId + "\"").getRowCount(), 1);
+        assertEquals(computeActual("SELECT * FROM \"test_iceberg_read_versioned_table$files\" FOR VERSION AS OF " + v1SnapshotId).getRowCount(), 1);
+        assertEquals(computeActual("SELECT * FROM \"test_iceberg_read_versioned_table$files\" FOR VERSION AS OF " + v2SnapshotId).getRowCount(), 2);
     }
 
     private long getLatestSnapshotId(String tableName)

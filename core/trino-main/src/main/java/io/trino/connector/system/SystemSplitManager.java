@@ -30,6 +30,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.SystemTable.Distribution;
+import io.trino.spi.connector.SystemTableHandle;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -64,7 +65,7 @@ public class SystemSplitManager
         SystemTableHandle table = (SystemTableHandle) tableHandle;
         TupleDomain<ColumnHandle> tableConstraint = table.getConstraint();
 
-        SystemTable systemTable = tables.getSystemTable(session, table.getSchemaTableName())
+        SystemTable systemTable = tables.getSystemTable(session, table)
                 // table might disappear in the meantime
                 .orElseThrow(() -> new TableNotFoundException(table.getSchemaTableName()));
 

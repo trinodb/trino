@@ -73,6 +73,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.SystemTableHandle;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -348,6 +349,32 @@ public final class MetadataManager
     @Override
     public Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName)
     {
+        return getSystemTable(session, tableName, Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(Session session, String catalogName, SystemTableHandle systemTableHandle)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(systemTableHandle, "systemTableHandle is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, catalogName);
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+
+            // we query only main connector for runtime system tables
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+
+            return metadata.getSystemTable(session.toConnectorSession(catalogHandle), systemTableHandle);
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
         requireNonNull(session, "session is null");
         requireNonNull(tableName, "tableName is null");
 
@@ -359,7 +386,42 @@ public final class MetadataManager
             CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
-            return metadata.getSystemTable(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName());
+            if (startVersion.isPresent() || endVersion.isPresent()) {
+                return metadata.getSystemTable(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName(), startVersion, endVersion);
+            }
+            else {
+                return metadata.getSystemTable(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName());
+            }
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<SystemTableHandle> getSystemTableHandle(Session session, QualifiedObjectName tableName)
+    {
+        return getSystemTableHandle(session, tableName, Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public Optional<SystemTableHandle> getSystemTableHandle(Session session, QualifiedObjectName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(tableName, "tableName is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+
+            // we query only main connector for runtime system tables
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+
+            if (startVersion.isPresent() || endVersion.isPresent()) {
+                return metadata.getSystemTableHandle(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName(), startVersion, endVersion);
+            }
+            else {
+                return metadata.getSystemTableHandle(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName());
+            }
         }
         return Optional.empty();
     }

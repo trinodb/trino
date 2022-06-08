@@ -20,8 +20,10 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.SystemTableHandle;
 import io.trino.transaction.TransactionManager;
 
 import java.util.Optional;
@@ -55,9 +57,9 @@ public class CoordinatorSystemTablesProvider
     }
 
     @Override
-    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
-        Optional<SystemTable> staticSystemTable = staticProvider.getSystemTable(session, tableName);
+        Optional<SystemTable> staticSystemTable = staticProvider.getSystemTable(session, tableName, startVersion, endVersion);
         if (staticSystemTable.isPresent()) {
             return staticSystemTable;
         }
@@ -69,9 +71,20 @@ public class CoordinatorSystemTablesProvider
             // this is a session from another coordinator, so there are no dynamic tables here for that session
             return Optional.empty();
         }
-        Optional<SystemTable> systemTable = metadata.getSystemTable(
-                ((FullConnectorSession) session).getSession(),
-                new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()));
+
+        Optional<SystemTable> systemTable;
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            systemTable = metadata.getSystemTable(
+                    ((FullConnectorSession) session).getSession(),
+                    new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()),
+                    startVersion,
+                    endVersion);
+        }
+        else {
+            systemTable = metadata.getSystemTable(
+                    ((FullConnectorSession) session).getSession(),
+                    new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()));
+        }
 
         // dynamic tables require access to the transaction and thus can only run on the current coordinator
         if (systemTable.isPresent() && systemTable.get().getDistribution() != SINGLE_COORDINATOR) {
@@ -79,6 +92,60 @@ public class CoordinatorSystemTablesProvider
         }
 
         return systemTable;
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SystemTableHandle systemTableHandle)
+    {
+        Optional<SystemTable> staticSystemTable = staticProvider.getSystemTable(session, systemTableHandle);
+        if (staticSystemTable.isPresent()) {
+            return staticSystemTable;
+        }
+
+        // This means there is no known static table, but that doesn't mean a dynamic table must exist.
+        // This node could have a different config that causes that table to not exist.
+
+        if (!isCoordinatorTransaction(session)) {
+            // this is a session from another coordinator, so there are no dynamic tables here for that session
+            return Optional.empty();
+        }
+
+        Optional<SystemTable> systemTable = metadata.getSystemTable(
+                    ((FullConnectorSession) session).getSession(),
+                    catalogName,
+                    systemTableHandle);
+
+        // dynamic tables require access to the transaction and thus can only run on the current coordinator
+        if (systemTable.isPresent() && systemTable.get().getDistribution() != SINGLE_COORDINATOR) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Distribution for dynamic system table must be " + SINGLE_COORDINATOR);
+        }
+
+        return systemTable;
+    }
+
+    @Override
+    public Optional<SystemTableHandle> getSystemTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        Optional<SystemTableHandle> staticSystemTable = staticProvider.getSystemTableHandle(session, tableName, startVersion, endVersion);
+        if (staticSystemTable.isPresent()) {
+            return staticSystemTable;
+        }
+
+        Optional<SystemTableHandle> systemTableHandle;
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            systemTableHandle = metadata.getSystemTableHandle(
+                    ((FullConnectorSession) session).getSession(),
+                    new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()),
+                    startVersion,
+                    endVersion);
+        }
+        else {
+            systemTableHandle = metadata.getSystemTableHandle(
+                    ((FullConnectorSession) session).getSession(),
+                    new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()));
+        }
+
+        return systemTableHandle;
     }
 
     private boolean isCoordinatorTransaction(ConnectorSession connectorSession)
