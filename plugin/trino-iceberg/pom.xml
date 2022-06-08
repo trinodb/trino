@@ -278,29 +278,23 @@
             <artifactId>trino-exchange-filesystem</artifactId>
             <scope>test</scope>
             <exclusions>
+                <!-- without GCS exclusions the transitive dependencies of com.google.cloud.bigdataoss:gcs-connector:jar:hadoop2-2.0.0 (which is dependency of trino-hive)
+                     or rescoped to "test" from "compile" -->
                 <exclusion>
-                    <groupId>com.google.apis</groupId>
-                    <artifactId>google-api-services-storage</artifactId>
+                    <groupId>com.google.cloud</groupId>
+                    <artifactId>google-cloud-storage</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.google.api-client</groupId>
-                    <artifactId>google-api-client</artifactId>
+                    <groupId>com.google.auth</groupId>
+                    <artifactId>google-auth-library-oauth2-http</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.google.auto.value</groupId>
-                    <artifactId>auto-value-annotations</artifactId>
+                    <groupId>com.google.cloud</groupId>
+                    <artifactId>google-cloud-core</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.google.code.gson</groupId>
-                    <artifactId>gson</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.http-client</groupId>
-                    <artifactId>google-http-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.http-client</groupId>
-                    <artifactId>google-http-client-jackson2</artifactId>
+                    <groupId>com.google.api</groupId>
+                    <artifactId>gax</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -310,6 +304,26 @@
             <artifactId>trino-exchange-filesystem</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
+            <exclusions>
+                <!-- without GCS exclusions the transitive dependencies of com.google.cloud.bigdataoss:gcs-connector:jar:hadoop2-2.0.0 (which is dependency of trino-hive)
+                     or rescoped to "test" from "compile" -->
+                <exclusion>
+                    <groupId>com.google.cloud</groupId>
+                    <artifactId>google-cloud-storage</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.auth</groupId>
+                    <artifactId>google-auth-library-oauth2-http</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.cloud</groupId>
+                    <artifactId>google-cloud-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.api</groupId>
+                    <artifactId>gax</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
