@@ -48,7 +48,7 @@ public class NodeRepresentation
     private final List<PlanCostEstimate> estimatedCost;
     private final Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost;
 
-    private final StringBuilder details = new StringBuilder();
+    private final ImmutableList.Builder<String> details = ImmutableList.builder();
 
     public NodeRepresentation(
             PlanNodeId id,
@@ -81,17 +81,11 @@ public class NodeRepresentation
     public void appendDetails(String string, Object... args)
     {
         if (args.length == 0) {
-            details.append(string);
+            details.add(string);
         }
         else {
-            details.append(format(string, args));
+            details.add(format(string, args));
         }
-    }
-
-    public void appendDetailsLine(String string, Object... args)
-    {
-        appendDetails(string, args);
-        details.append('\n');
     }
 
     public PlanNodeId getId()
@@ -129,9 +123,9 @@ public class NodeRepresentation
         return remoteSources;
     }
 
-    public String getDetails()
+    public List<String> getDetails()
     {
-        return details.toString();
+        return details.build();
     }
 
     public Optional<PlanNodeStats> getStats()

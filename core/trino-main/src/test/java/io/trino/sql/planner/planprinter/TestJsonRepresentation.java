@@ -82,7 +82,7 @@ public class TestJsonRepresentation
                                 typedSymbol("y", "bigint"),
                                 typedSymbol("z", "bigint"),
                                 typedSymbol("sum", "bigint")),
-                        "sum := sum(\"x\")\n",
+                        ImmutableList.of("sum := sum(\"x\")"),
                         ImmutableList.of(),
                         ImmutableList.of(valuesRepresentation(
                                 "0",
@@ -109,7 +109,7 @@ public class TestJsonRepresentation
                         "InnerJoin",
                         ImmutableMap.of("criteria", "(\"a\" = \"d\")", "hash", ""),
                         ImmutableList.of(typedSymbol("b", "bigint")),
-                        "dynamicFilterAssignments = {d -> #DF}",
+                        ImmutableList.of("dynamicFilterAssignments = {d -> #DF}"),
                         ImmutableList.of(),
                         ImmutableList.of(
                                 valuesRepresentation("0", ImmutableList.of(typedSymbol("a", "bigint"), typedSymbol("b", "bigint"))),
@@ -133,7 +133,7 @@ public class TestJsonRepresentation
                         "RemoteSource",
                         ImmutableMap.of("sourceFragmentIds", "[1, 2]"),
                         ImmutableList.of(typedSymbol("a", "bigint"), typedSymbol("b", "bigint")),
-                        "",
+                        ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of()));
     }
@@ -145,7 +145,7 @@ public class TestJsonRepresentation
                 "Values",
                 ImmutableMap.of(),
                 outputs,
-                "",
+                ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableList.of());
     }
