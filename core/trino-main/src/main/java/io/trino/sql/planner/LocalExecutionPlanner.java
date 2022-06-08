@@ -2555,9 +2555,17 @@ public class LocalExecutionPlanner
             checkArgument(partitionCount == 1, "Expected local execution to not be parallel");
 
             int operatorId = buildContext.getNextOperatorId();
-            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, localDynamicFilters);
+            boolean isReplicatedJoin = isBuildSideReplicated(node);
+            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, localDynamicFilters, isReplicatedJoin);
             if (localDynamicFilter.isPresent()) {
-                buildSource = createDynamicFilterSourceOperatorFactory(operatorId, localDynamicFilter.get(), node, buildSource, buildContext);
+                buildSource = createDynamicFilterSourceOperatorFactory(
+                        operatorId,
+                        localDynamicFilter.get(),
+                        node,
+                        isReplicatedJoin,
+                        buildContext.getDriverInstanceCount().orElse(1) == 1,
+                        buildSource,
+                        buildContext);
             }
 
             context.addDriverFactory(
@@ -2819,9 +2827,17 @@ public class LocalExecutionPlanner
                     buildOutputTypes);
 
             int operatorId = buildContext.getNextOperatorId();
-            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, localDynamicFilters);
+            boolean isReplicatedJoin = isBuildSideReplicated(node);
+            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, localDynamicFilters, isReplicatedJoin);
             if (localDynamicFilter.isPresent()) {
-                buildSource = createDynamicFilterSourceOperatorFactory(operatorId, localDynamicFilter.get(), node, buildSource, buildContext);
+                buildSource = createDynamicFilterSourceOperatorFactory(
+                        operatorId,
+                        localDynamicFilter.get(),
+                        node,
+                        isReplicatedJoin,
+                        buildContext.getDriverInstanceCount().orElse(1) == 1,
+                        buildSource,
+                        buildContext);
             }
 
             int taskConcurrency = getTaskConcurrency(session);
@@ -2857,7 +2873,9 @@ public class LocalExecutionPlanner
         private PhysicalOperation createDynamicFilterSourceOperatorFactory(
                 int operatorId,
                 LocalDynamicFilterConsumer dynamicFilter,
-                JoinNode node,
+                PlanNode node,
+                boolean isReplicatedJoin,
+                boolean isBuildSideSingle,
                 PhysicalOperation buildSource,
                 LocalExecutionPlanContext context)
         {
@@ -2868,9 +2886,7 @@ public class LocalExecutionPlanner
                         Type type = buildSource.getTypes().get(index);
                         return new DynamicFilterSourceOperator.Channel(filterId, type, index);
                     })
-                    .collect(Collectors.toList());
-            boolean isReplicatedJoin = isBuildSideReplicated(node);
-            boolean isBuildSideSingle = context.getDriverInstanceCount().orElse(1) == 1;
+                    .collect(toImmutableList());
             int taskConcurrency = getTaskConcurrency(session);
             return new PhysicalOperation(
                     new DynamicFilterSourceOperatorFactory(
@@ -2901,7 +2917,8 @@ public class LocalExecutionPlanner
                 PhysicalOperation buildSource,
                 JoinNode node,
                 LocalExecutionPlanContext context,
-                Set<DynamicFilterId> localDynamicFilters)
+                Set<DynamicFilterId> localDynamicFilters,
+                boolean isReplicatedJoin)
         {
             Set<DynamicFilterId> coordinatorDynamicFilters = getCoordinatorDynamicFilters(node.getDynamicFilters().keySet(), node, context.getTaskId());
             Set<DynamicFilterId> collectedDynamicFilters = ImmutableSet.<DynamicFilterId>builder()
@@ -2926,7 +2943,8 @@ public class LocalExecutionPlanner
                     node,
                     buildSource.getTypes(),
                     collectedDynamicFilters,
-                    collectors.build());
+                    collectors.build(),
+                    getDynamicFilteringMaxSizePerOperator(session, isReplicatedJoin));
 
             return Optional.of(filterConsumer);
         }
@@ -3091,7 +3109,8 @@ public class LocalExecutionPlanner
                 LocalDynamicFilterConsumer filterConsumer = new LocalDynamicFilterConsumer(
                         ImmutableMap.of(filterId, buildChannel),
                         ImmutableMap.of(filterId, buildSource.getTypes().get(buildChannel)),
-                        collectors.build());
+                        collectors.build(),
+                        getDynamicFilteringMaxSizePerOperator(session, isReplicatedJoin));
                 buildSource = new PhysicalOperation(
                         new DynamicFilterSourceOperatorFactory(
                                 operatorId,
@@ -3945,6 +3964,20 @@ public class LocalExecutionPlanner
             return dynamicFilterConfig.getSmallBroadcastRangeRowLimitPerDriver();
         }
         return dynamicFilterConfig.getSmallPartitionedRangeRowLimitPerDriver();
+    }
+
+    private DataSize getDynamicFilteringMaxSizePerOperator(Session session, boolean isReplicatedJoin)
+    {
+        if (isEnableLargeDynamicFilters(session)) {
+            if (isReplicatedJoin) {
+                return dynamicFilterConfig.getLargeBroadcastMaxSizePerOperator();
+            }
+            return dynamicFilterConfig.getLargePartitionedMaxSizePerOperator();
+        }
+        if (isReplicatedJoin) {
+            return dynamicFilterConfig.getSmallBroadcastMaxSizePerOperator();
+        }
+        return dynamicFilterConfig.getSmallPartitionedMaxSizePerOperator();
     }
 
     private static List<Type> getTypes(List<Expression> expressions, Map<NodeRef<Expression>, Type> expressionTypes)
