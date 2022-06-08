@@ -564,6 +564,10 @@ public class AccumuloClient
 
     public void createView(SchemaTableName viewName, String viewData)
     {
+        if (!tableManager.namespaceExists(viewName.getSchemaName())) {
+            throw new SchemaNotFoundException(viewName.getSchemaName());
+        }
+
         if (getSchemaNames().contains(viewName.getSchemaName())) {
             if (getViewNames(viewName.getSchemaName()).contains(viewName.getTableName())) {
                 throw new TrinoException(ALREADY_EXISTS, "View already exists");
@@ -579,6 +583,10 @@ public class AccumuloClient
 
     public void createOrReplaceView(SchemaTableName viewName, String viewData)
     {
+        if (!tableManager.namespaceExists(viewName.getSchemaName())) {
+            throw new SchemaNotFoundException(viewName.getSchemaName());
+        }
+
         if (getView(viewName) != null) {
             metaManager.deleteViewMetadata(viewName);
         }

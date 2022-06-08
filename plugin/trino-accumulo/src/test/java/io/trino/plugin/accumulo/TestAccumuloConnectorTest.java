@@ -316,15 +316,6 @@ public class TestAccumuloConnectorTest
                         ")");
     }
 
-    @Test
-    @Override
-    public void testCreateViewSchemaNotFound()
-    {
-        // TODO (https://github.com/trinodb/trino/issues/12475) Accumulo connector can create new views in a schema where it doesn't exist
-        assertThatThrownBy(super::testCreateViewSchemaNotFound)
-                .hasMessageContaining("Expected query to fail: CREATE VIEW test_schema_");
-    }
-
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
