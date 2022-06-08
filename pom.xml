@@ -160,6 +160,7 @@
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark</module>
         <module>testing/trino-benchto-benchmarks</module>
+        <module>testing/trino-faulttolerant-tests</module>
         <module>testing/trino-plugin-reader</module>
         <module>testing/trino-product-tests</module>
         <module>testing/trino-product-tests-launcher</module>
@@ -280,6 +281,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-faulttolerant-tests</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-geospatial</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -312,6 +319,13 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-iceberg</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-iceberg</artifactId>
+                <type>test-jar</type>
                 <version>${project.version}</version>
             </dependency>
 

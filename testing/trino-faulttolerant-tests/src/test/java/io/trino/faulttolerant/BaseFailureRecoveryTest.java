@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.testing;
+package io.trino.faulttolerant;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -27,6 +27,10 @@ import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.ResultWithQueryId;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.intellij.lang.annotations.Language;
