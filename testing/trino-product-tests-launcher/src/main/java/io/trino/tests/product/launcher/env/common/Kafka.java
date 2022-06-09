@@ -30,7 +30,7 @@ import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 public class Kafka
         implements EnvironmentExtender
 {
-    private static final String CONFLUENT_VERSION = "7.1.1";
+    private static final String CONFLUENT_VERSION = "5.5.2";
     private static final int SCHEMA_REGISTRY_PORT = 8081;
     static final String KAFKA = "kafka";
     static final String SCHEMA_REGISTRY = "schema-registry";

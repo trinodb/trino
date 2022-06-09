@@ -54,7 +54,7 @@ public final class TestingKafka
 {
     private static final Logger log = Logger.get(TestingKafka.class);
 
-    private static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "7.1.1";
+    private static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "5.5.2";
     private static final int SCHEMA_REGISTRY_PORT = 8081;
 
     private static final DockerImageName KAFKA_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-kafka");
