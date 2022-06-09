@@ -20,6 +20,7 @@ import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
+import io.trino.aws.AwsCredentialsProviderConfig;
 
 import java.util.Set;
 
@@ -33,6 +34,7 @@ public final class GlueClientUtil
     public static AWSGlueAsync createAsyncGlueClient(
             GlueHiveMetastoreConfig config,
             AWSCredentialsProvider credentialsProvider,
+            AwsCredentialsProviderConfig credentialsProviderConfig,
             Set<RequestHandler2> requestHandlers,
             RequestMetricCollector metricsCollector)
     {
@@ -45,14 +47,14 @@ public final class GlueClientUtil
 
         asyncGlueClientBuilder.setRequestHandlers(requestHandlers.toArray(RequestHandler2[]::new));
 
-        if (config.getGlueEndpointUrl().isPresent()) {
-            checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
+        if (credentialsProviderConfig.getServiceUri().isPresent()) {
+            checkArgument(credentialsProviderConfig.getRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
             asyncGlueClientBuilder.setEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
-                    config.getGlueEndpointUrl().get(),
-                    config.getGlueRegion().get()));
+                    credentialsProviderConfig.getServiceUri().get().toString(),
+                    credentialsProviderConfig.getRegion().get()));
         }
-        else if (config.getGlueRegion().isPresent()) {
-            asyncGlueClientBuilder.setRegion(config.getGlueRegion().get());
+        else if (credentialsProviderConfig.getRegion().isPresent()) {
+            asyncGlueClientBuilder.setRegion(credentialsProviderConfig.getRegion().get());
         }
         else if (config.getPinGlueClientToCurrentRegion()) {
             asyncGlueClientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());

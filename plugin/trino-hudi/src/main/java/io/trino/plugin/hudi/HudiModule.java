@@ -15,16 +15,18 @@ package io.trino.plugin.hudi;
 
 import com.google.inject.Binder;
 import com.google.inject.Key;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.aws.AwsCredentialsProviderFactoryModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveNodePartitioningProvider;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
@@ -39,16 +41,17 @@ import java.util.function.BiFunction;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HudiModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         binder.bind(HudiTransactionManager.class).in(Scopes.SINGLETON);
 
@@ -67,6 +70,10 @@ public class HudiModule
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
 
         binder.bind(HudiPartitionManager.class).in(Scopes.SINGLETON);
+        install(conditionalModule(
+                MetastoreTypeConfig.class,
+                config -> "glue".equalsIgnoreCase(config.getMetastoreType()),
+                new AwsCredentialsProviderFactoryModule()));
         binder.bind(HudiMetadataFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);

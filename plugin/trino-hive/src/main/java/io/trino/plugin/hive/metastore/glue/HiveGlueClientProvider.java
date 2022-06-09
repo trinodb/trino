@@ -19,6 +19,7 @@ import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import io.trino.aws.AwsCredentialsProviderConfig;
 
 import java.util.Set;
 
@@ -30,18 +31,21 @@ public class HiveGlueClientProvider
 {
     private final GlueMetastoreStats stats;
     private final AWSCredentialsProvider credentialsProvider;
+    private final AwsCredentialsProviderConfig credentialsProviderConfig;
     private final GlueHiveMetastoreConfig glueConfig; // TODO do not keep mutable config instance on a field
     private final Set<RequestHandler2> requestHandlers;
 
     @Inject
     public HiveGlueClientProvider(
             @ForGlueHiveMetastore GlueMetastoreStats stats,
-            AWSCredentialsProvider credentialsProvider,
+            @ForGlueHiveMetastore AWSCredentialsProvider credentialsProvider,
+            @ForGlueHiveMetastore AwsCredentialsProviderConfig credentialsProviderConfig,
             @ForGlueHiveMetastore Set<RequestHandler2> requestHandlers,
             GlueHiveMetastoreConfig glueConfig)
     {
         this.stats = requireNonNull(stats, "stats is null");
         this.credentialsProvider = requireNonNull(credentialsProvider, "credentialsProvider is null");
+        this.credentialsProviderConfig = requireNonNull(credentialsProviderConfig, "credentialsProviderConfig is null");
         this.requestHandlers = ImmutableSet.copyOf(requireNonNull(requestHandlers, "requestHandlers is null"));
         this.glueConfig = glueConfig;
     }
@@ -49,6 +53,6 @@ public class HiveGlueClientProvider
     @Override
     public AWSGlueAsync get()
     {
-        return createAsyncGlueClient(glueConfig, credentialsProvider, requestHandlers, stats.newRequestMetricsCollector());
+        return createAsyncGlueClient(glueConfig, credentialsProvider, credentialsProviderConfig, requestHandlers, stats.newRequestMetricsCollector());
     }
 }

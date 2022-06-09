@@ -172,6 +172,7 @@ public class AwsCredentialsProviderConfig
         return stsEndpoint;
     }
 
+    @LegacyConfig("sts.endpoing")
     @Config("sts-endpoint")
     @ConfigDescription("URI of the STS endpoint - will override the AWS default")
     public AwsCredentialsProviderConfig setStsEndpoint(String stsEndpoint)
@@ -185,6 +186,7 @@ public class AwsCredentialsProviderConfig
         return stsRegion;
     }
 
+    @LegacyConfig("sts.region")
     @Config("sts-region")
     @ConfigDescription("AWS Region of the STS endpoint")
     public AwsCredentialsProviderConfig setStsRegion(String stsRegion)

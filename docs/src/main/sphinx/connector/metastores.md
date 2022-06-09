@@ -211,7 +211,7 @@ properties:
         EC2, or when the catalog is in a different region. Example:
         ``us-east-1``
       -
-    * - ``hive.metastore.glue.endpoint-url``
+    * - ``hive.metastore.glue.service-uri``
       - Glue API endpoint URL (optional). Example:
         ``https://glue.us-east-1.amazonaws.com``
       -
@@ -241,19 +241,21 @@ properties:
       - Default warehouse directory for schemas created without an explicit
         ``location`` property.
       -
-    * - ``hive.metastore.glue.aws-credentials-provider``
+    * - ``hive.metastore.glue.credentials-provider``
       - Fully qualified name of the Java class to use for obtaining AWS
         credentials. Can be used to supply a custom credentials provider.
       -
-    * - ``hive.metastore.glue.aws-access-key``
-      - AWS access key to use to connect to the Glue Catalog. If specified along
-        with ``hive.metastore.glue.aws-secret-key``, this parameter takes
-        precedence over ``hive.metastore.glue.iam-role``.
+    * - ``hive.metastore.glue.access-key``
+      - AWS access key to use to connect to the Glue Catalog. This parameter
+        can be used in combination with ``hive.metastore.glue.iam-role``.
       -
-    * - ``hive.metastore.glue.aws-secret-key``
-      - AWS secret key to use to connect to the Glue Catalog. If specified along
-        with ``hive.metastore.glue.aws-access-key``, this parameter takes
-        precedence over ``hive.metastore.glue.iam-role``.
+    * - ``hive.metastore.glue.secret-key``
+      - AWS secret key to use to connect to the Glue Catalog. This parameter
+        can be used in combination with ``hive.metastore.glue.iam-role``.
+      -
+    * - ``hive.metastore.glue.session-token``
+      - Optional AWS session token to be used along with access and
+        secret keys.
       -
     * - ``hive.metastore.glue.catalogid``
       - The ID of the Glue Catalog in which the metadata database resides.
@@ -261,9 +263,15 @@ properties:
     * - ``hive.metastore.glue.iam-role``
       - ARN of an IAM role to assume when connecting to the Glue Catalog.
       -
+    * - ``hive.metastore.glue.iam-session-name``
+      - Optional session name to use while assuming IAM role.
+      -
     * - ``hive.metastore.glue.external-id``
       - External ID for the IAM role trust policy when connecting to the Glue
         Catalog.
+      -
+    * - ``hive.metastore.glue.sts-endpoint``
+      - Optional STS endpoint to connect to while assuming IAM Role.
       -
     * - ``hive.metastore.glue.partitions-segments``
       - Number of segments for partitioned Glue tables.

@@ -69,6 +69,7 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
+import io.trino.aws.AwsCredentialsProviderConfig;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -234,7 +235,12 @@ public class GlueHiveMetastore
                 glueConfig,
                 directExecutor(),
                 new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
-                createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), ImmutableSet.of(), stats.newRequestMetricsCollector()),
+                createAsyncGlueClient(
+                        glueConfig,
+                        DefaultAWSCredentialsProviderChain.getInstance(),
+                        new AwsCredentialsProviderConfig(),
+                        ImmutableSet.of(),
+                        stats.newRequestMetricsCollector()),
                 stats,
                 table -> true);
     }

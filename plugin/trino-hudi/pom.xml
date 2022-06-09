@@ -77,6 +77,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-aws</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-filesystem</artifactId>
         </dependency>
 

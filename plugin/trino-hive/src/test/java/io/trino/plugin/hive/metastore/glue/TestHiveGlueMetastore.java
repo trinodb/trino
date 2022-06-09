@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.aws.AwsCredentialsProviderConfig;
 import io.trino.plugin.hive.AbstractTestHiveLocal;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveMetastoreClosure;
@@ -238,7 +239,12 @@ public class TestHiveGlueMetastore
                 glueConfig,
                 executor,
                 new DefaultGlueColumnStatisticsProviderFactory(executor, executor),
-                createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), ImmutableSet.of(), stats.newRequestMetricsCollector()),
+                createAsyncGlueClient(
+                        glueConfig,
+                        DefaultAWSCredentialsProviderChain.getInstance(),
+                        new AwsCredentialsProviderConfig(),
+                        ImmutableSet.of(),
+                        stats.newRequestMetricsCollector()),
                 stats,
                 new DefaultGlueMetastoreTableFilterProvider(true).get());
     }

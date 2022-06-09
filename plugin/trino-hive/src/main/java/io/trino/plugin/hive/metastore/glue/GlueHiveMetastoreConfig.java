@@ -15,104 +15,25 @@ package io.trino.plugin.hive.metastore.glue;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
-import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
-
 @DefunctConfig("hive.metastore.glue.use-instance-credentials")
 public class GlueHiveMetastoreConfig
 {
-    private Optional<String> glueRegion = Optional.empty();
-    private Optional<String> glueEndpointUrl = Optional.empty();
-    private Optional<String> glueStsRegion = Optional.empty();
-    private Optional<String> glueStsEndpointUrl = Optional.empty();
-    private Optional<String> glueProxyApiId = Optional.empty();
     private boolean pinGlueClientToCurrentRegion;
     private int maxGlueErrorRetries = 10;
     private int maxGlueConnections = 30;
     private Optional<String> defaultWarehouseDir = Optional.empty();
-    private Optional<String> iamRole = Optional.empty();
-    private Optional<String> externalId = Optional.empty();
-    private Optional<String> awsAccessKey = Optional.empty();
-    private Optional<String> awsSecretKey = Optional.empty();
-    private Optional<String> awsCredentialsProvider = Optional.empty();
     private Optional<String> catalogId = Optional.empty();
     private int partitionSegments = 5;
     private int getPartitionThreads = 20;
     private int readStatisticsThreads = 5;
     private int writeStatisticsThreads = 20;
     private boolean assumeCanonicalPartitionKeys;
-
-    public Optional<String> getGlueRegion()
-    {
-        return glueRegion;
-    }
-
-    @Config("hive.metastore.glue.region")
-    @ConfigDescription("AWS Region for Glue Data Catalog")
-    public GlueHiveMetastoreConfig setGlueRegion(String region)
-    {
-        this.glueRegion = Optional.ofNullable(region);
-        return this;
-    }
-
-    public Optional<String> getGlueEndpointUrl()
-    {
-        return glueEndpointUrl;
-    }
-
-    @Config("hive.metastore.glue.endpoint-url")
-    @ConfigDescription("Glue API endpoint URL")
-    public GlueHiveMetastoreConfig setGlueEndpointUrl(String glueEndpointUrl)
-    {
-        this.glueEndpointUrl = Optional.ofNullable(glueEndpointUrl);
-        return this;
-    }
-
-    public Optional<String> getGlueStsRegion()
-    {
-        return glueStsRegion;
-    }
-
-    @Config("hive.metastore.glue.sts.region")
-    @ConfigDescription("AWS STS signing region for Glue authentication")
-    public GlueHiveMetastoreConfig setGlueStsRegion(String glueStsRegion)
-    {
-        this.glueStsRegion = Optional.ofNullable(glueStsRegion);
-        return this;
-    }
-
-    public Optional<String> getGlueStsEndpointUrl()
-    {
-        return glueStsEndpointUrl;
-    }
-
-    @Config("hive.metastore.glue.sts.endpoint")
-    @ConfigDescription("AWS STS endpoint for Glue authentication")
-    public GlueHiveMetastoreConfig setGlueStsEndpointUrl(String glueStsEndpointUrl)
-    {
-        this.glueStsEndpointUrl = Optional.ofNullable(glueStsEndpointUrl);
-        return this;
-    }
-
-    public Optional<String> getGlueProxyApiId()
-    {
-        return glueProxyApiId;
-    }
-
-    @Config("hive.metastore.glue.proxy-api-id")
-    @ConfigDescription("ID of Glue Proxy API")
-    public GlueHiveMetastoreConfig setGlueProxyApiId(String glueProxyApiId)
-    {
-        this.glueProxyApiId = Optional.ofNullable(glueProxyApiId);
-        return this;
-    }
 
     public boolean getPinGlueClientToCurrentRegion()
     {
@@ -168,59 +89,6 @@ public class GlueHiveMetastoreConfig
         return this;
     }
 
-    public Optional<String> getIamRole()
-    {
-        return iamRole;
-    }
-
-    @Config("hive.metastore.glue.iam-role")
-    @ConfigDescription("ARN of an IAM role to assume when connecting to Glue")
-    public GlueHiveMetastoreConfig setIamRole(String iamRole)
-    {
-        this.iamRole = Optional.ofNullable(iamRole);
-        return this;
-    }
-
-    public Optional<String> getExternalId()
-    {
-        return externalId;
-    }
-
-    @Config("hive.metastore.glue.external-id")
-    @ConfigDescription("External ID for the IAM role trust policy when connecting to Glue")
-    public GlueHiveMetastoreConfig setExternalId(String externalId)
-    {
-        this.externalId = Optional.ofNullable(externalId);
-        return this;
-    }
-
-    public Optional<String> getAwsAccessKey()
-    {
-        return awsAccessKey;
-    }
-
-    @Config("hive.metastore.glue.aws-access-key")
-    @ConfigDescription("Hive Glue metastore AWS access key")
-    public GlueHiveMetastoreConfig setAwsAccessKey(String awsAccessKey)
-    {
-        this.awsAccessKey = Optional.ofNullable(awsAccessKey);
-        return this;
-    }
-
-    public Optional<String> getAwsSecretKey()
-    {
-        return awsSecretKey;
-    }
-
-    @Config("hive.metastore.glue.aws-secret-key")
-    @ConfigDescription("Hive Glue metastore AWS secret key")
-    @ConfigSecuritySensitive
-    public GlueHiveMetastoreConfig setAwsSecretKey(String awsSecretKey)
-    {
-        this.awsSecretKey = Optional.ofNullable(awsSecretKey);
-        return this;
-    }
-
     public Optional<String> getCatalogId()
     {
         return catalogId;
@@ -231,19 +99,6 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setCatalogId(String catalogId)
     {
         this.catalogId = Optional.ofNullable(catalogId);
-        return this;
-    }
-
-    public Optional<String> getAwsCredentialsProvider()
-    {
-        return awsCredentialsProvider;
-    }
-
-    @Config("hive.metastore.glue.aws-credentials-provider")
-    @ConfigDescription("Fully qualified name of the Java class to use for obtaining AWS credentials")
-    public GlueHiveMetastoreConfig setAwsCredentialsProvider(String awsCredentialsProvider)
-    {
-        this.awsCredentialsProvider = Optional.ofNullable(awsCredentialsProvider);
         return this;
     }
 
@@ -315,14 +170,5 @@ public class GlueHiveMetastoreConfig
     {
         this.writeStatisticsThreads = writeStatisticsThreads;
         return this;
-    }
-
-    @PostConstruct
-    public void validate()
-    {
-        if (getGlueProxyApiId().isPresent()) {
-            checkState(getGlueRegion().isPresent() && getGlueEndpointUrl().isPresent(),
-                    "Both Glue region and Glue endpoint URL must be provided when Glue proxy API ID is present");
-        }
     }
 }

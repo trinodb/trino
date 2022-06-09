@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
@@ -22,9 +21,10 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.aws.AwsCredentialsProviderFactoryModule;
+import io.trino.aws.AwsCredentialsProviderModule;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.metastore.glue.ForGlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.GlueCredentialsProvider;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
@@ -51,7 +51,8 @@ public class IcebergGlueCatalogModule
         configBinder(binder).bindConfig(IcebergGlueCatalogConfig.class);
         binder.bind(GlueMetastoreStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueMetastoreStats.class).withGeneratedName();
-        binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
+        install(new AwsCredentialsProviderFactoryModule());
+        install(new AwsCredentialsProviderModule("hive.metastore.glue"));
         binder.bind(IcebergTableOperationsProvider.class).to(GlueIcebergTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoGlueCatalogFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TrinoCatalogFactory.class).withGeneratedName();

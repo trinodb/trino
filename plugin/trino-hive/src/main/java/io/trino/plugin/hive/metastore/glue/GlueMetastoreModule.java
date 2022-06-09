@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.model.Table;
@@ -30,6 +29,8 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v1_11.AwsSdkTelemetry;
+import io.trino.aws.AwsCredentialsProviderConfig;
+import io.trino.aws.AwsCredentialsProviderModule;
 import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -53,13 +54,15 @@ public class GlueMetastoreModule
     @Override
     protected void setup(Binder binder)
     {
+        configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
         GlueHiveMetastoreConfig glueConfig = buildConfigObject(GlueHiveMetastoreConfig.class);
+        AwsCredentialsProviderConfig credentialsProviderConfig = buildConfigObject(AwsCredentialsProviderConfig.class);
         Multibinder<RequestHandler2> requestHandlers = newSetBinder(binder, RequestHandler2.class, ForGlueHiveMetastore.class);
         glueConfig.getCatalogId().ifPresent(catalogId -> requestHandlers.addBinding().toInstance(new GlueCatalogIdRequestHandler(catalogId)));
-        glueConfig.getGlueProxyApiId().ifPresent(glueProxyApiId -> requestHandlers.addBinding()
+        credentialsProviderConfig.getProxyApiId().ifPresent(glueProxyApiId -> requestHandlers.addBinding()
                 .toInstance(new ProxyApiRequestHandler(glueProxyApiId)));
         configBinder(binder).bindConfig(HiveConfig.class);
-        binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
+        install(new AwsCredentialsProviderModule("hive.metastore.glue", ForGlueHiveMetastore.class));
 
         newOptionalBinder(binder, Key.get(new TypeLiteral<Predicate<Table>>() {}, ForGlueHiveMetastore.class))
                 .setDefault().toProvider(DefaultGlueMetastoreTableFilterProvider.class).in(Scopes.SINGLETON);

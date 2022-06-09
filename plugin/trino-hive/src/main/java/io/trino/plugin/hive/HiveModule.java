@@ -21,6 +21,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.event.client.EventClient;
+import io.trino.aws.AwsCredentialsProviderFactoryModule;
 import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.hdfs.TrinoFileSystemCache;
 import io.trino.hdfs.TrinoFileSystemCacheStats;
@@ -85,6 +86,8 @@ public class HiveModule
         binder.bind(HiveAnalyzeProperties.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, HiveMaterializedViewPropertiesProvider.class)
                 .setDefault().toInstance(ImmutableList::of);
+
+        binder.install(new AwsCredentialsProviderFactoryModule());
 
         binder.bind(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachingDirectoryLister.class).withGeneratedName();

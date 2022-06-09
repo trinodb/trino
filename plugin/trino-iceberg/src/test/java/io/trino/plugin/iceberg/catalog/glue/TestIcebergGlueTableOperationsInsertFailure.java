@@ -89,7 +89,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
         queryRunner.createCatalog(
                 ICEBERG_CATALOG,
                 new TestingIcebergConnectorFactory(Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAsyncAdapterProvider)), Optional.empty(), EMPTY_MODULE),
-                ImmutableMap.of());
+                ImmutableMap.of("hive.metastore.glue.region", "us-east-2"));
 
         Path dataDirectory = Files.createTempDirectory("iceberg_data");
         dataDirectory.toFile().deleteOnExit();
