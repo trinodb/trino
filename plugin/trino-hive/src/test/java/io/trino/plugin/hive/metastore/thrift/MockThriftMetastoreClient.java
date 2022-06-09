@@ -44,7 +44,6 @@ import org.apache.thrift.TException;
 
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -500,12 +499,6 @@ public class MockThriftMetastoreClient
 
     @Override
     public String getConfigValue(String name, String defaultValue)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
     {
         throw new UnsupportedOperationException();
     }
