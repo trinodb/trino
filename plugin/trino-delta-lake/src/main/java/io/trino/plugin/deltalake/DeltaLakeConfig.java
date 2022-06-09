@@ -22,6 +22,8 @@ import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.joda.time.DateTimeZone;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -50,6 +52,7 @@ public class DeltaLakeConfig
     private int maxInitialSplits = 200;
     private DataSize maxInitialSplitSize;
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
+    private double minimumAssignedSplitWeight = 0.05;
     private int maxPartitionsPerWriter = 100;
     private boolean unsafeWritesEnabled;
     private boolean checkpointRowStatisticsWritingEnabled = true;
@@ -171,6 +174,21 @@ public class DeltaLakeConfig
     {
         this.maxSplitSize = maxSplitSize;
         return this;
+    }
+
+    @Config("delta.minimum-assigned-split-weight")
+    @ConfigDescription("Minimum weight that a split can be assigned")
+    public DeltaLakeConfig setMinimumAssignedSplitWeight(double minimumAssignedSplitWeight)
+    {
+        this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
+        return this;
+    }
+
+    @DecimalMax("1")
+    @DecimalMin(value = "0", inclusive = false)
+    public double getMinimumAssignedSplitWeight()
+    {
+        return minimumAssignedSplitWeight;
     }
 
     @Min(1)
