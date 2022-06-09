@@ -139,7 +139,6 @@
         <module>plugin/trino-mysql</module>
         <module>plugin/trino-oracle</module>
         <module>plugin/trino-password-authenticators</module>
-        <module>plugin/trino-phoenix</module>
         <module>plugin/trino-phoenix5</module>
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
