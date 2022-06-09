@@ -54,8 +54,8 @@ public class IcebergTableHandle
     // Filter used during split generation and table scan, but not required to be strictly enforced by Iceberg Connector
     private final TupleDomain<IcebergColumnHandle> unenforcedPredicate;
 
-    // Filter guaranteed to be enforced by Iceberg connector
-    private final TupleDomain<IcebergColumnHandle> enforcedPredicate;
+    // Filter guaranteed to be enforced by Iceberg connector. Coordinator-only
+    private final Optional<TupleDomain<IcebergColumnHandle>> enforcedPredicate;
 
     private final Set<IcebergColumnHandle> projectedColumns;
     private final Optional<String> nameMappingJson;
@@ -75,7 +75,6 @@ public class IcebergTableHandle
             @JsonProperty("partitionSpecJson") String partitionSpecJson,
             @JsonProperty("formatVersion") int formatVersion,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
-            @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate,
             @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns,
             @JsonProperty("nameMappingJson") Optional<String> nameMappingJson,
             @JsonProperty("tableLocation") String tableLocation,
@@ -92,7 +91,7 @@ public class IcebergTableHandle
                 partitionSpecJson,
                 formatVersion,
                 unenforcedPredicate,
-                enforcedPredicate,
+                Optional.empty(),
                 projectedColumns,
                 nameMappingJson,
                 tableLocation,
@@ -113,6 +112,45 @@ public class IcebergTableHandle
             int formatVersion,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             TupleDomain<IcebergColumnHandle> enforcedPredicate,
+            Set<IcebergColumnHandle> projectedColumns,
+            Optional<String> nameMappingJson,
+            String tableLocation,
+            Map<String, String> storageProperties,
+            RetryMode retryMode,
+            List<IcebergColumnHandle> updatedColumns,
+            boolean recordScannedFiles,
+            Optional<DataSize> maxScannedFileSize)
+    {
+        this(
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                partitionSpecJson,
+                formatVersion,
+                unenforcedPredicate,
+                Optional.of(enforcedPredicate),
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                retryMode,
+                updatedColumns,
+                recordScannedFiles,
+                maxScannedFileSize);
+    }
+
+    private IcebergTableHandle(
+            String schemaName,
+            String tableName,
+            TableType tableType,
+            Optional<Long> snapshotId,
+            String tableSchemaJson,
+            String partitionSpecJson,
+            int formatVersion,
+            TupleDomain<IcebergColumnHandle> unenforcedPredicate,
+            Optional<TupleDomain<IcebergColumnHandle>> enforcedPredicate,
             Set<IcebergColumnHandle> projectedColumns,
             Optional<String> nameMappingJson,
             String tableLocation,
@@ -189,10 +227,11 @@ public class IcebergTableHandle
         return unenforcedPredicate;
     }
 
-    @JsonProperty
+    // do not serialize, not needed on workers
+    @JsonIgnore
     public TupleDomain<IcebergColumnHandle> getEnforcedPredicate()
     {
-        return enforcedPredicate;
+        return enforcedPredicate.orElseThrow(() -> new IllegalStateException("enforcedPredicate not set"));
     }
 
     @JsonProperty
