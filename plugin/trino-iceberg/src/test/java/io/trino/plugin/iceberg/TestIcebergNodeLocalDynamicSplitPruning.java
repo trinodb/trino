@@ -182,7 +182,9 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         outputFile.getParentFile().getAbsolutePath(),
                         ImmutableMap.of(),
                         RetryMode.NO_RETRIES,
-                        ImmutableList.of()),
+                        ImmutableList.of(),
+                        false,
+                        Optional.empty()),
                 transaction);
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
