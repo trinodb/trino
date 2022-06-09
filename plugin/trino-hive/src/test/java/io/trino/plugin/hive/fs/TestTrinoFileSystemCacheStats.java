@@ -34,7 +34,7 @@ public class TestTrinoFileSystemCacheStats
         assertEquals(trinoFileSystemCacheStats.getCacheSize(), 0);
         assertEquals(trinoFileSystemCache.getCacheSize(), 0);
 
-        Configuration configuration = new Configuration(true);
+        Configuration configuration = new Configuration(false);
         configuration.set("fs.s3.impl", TrinoS3FileSystem.class.getName());
         trinoFileSystemCache.get(new URI("s3://bucket/path/"), configuration);
         assertEquals(trinoFileSystemCacheStats.getGetCalls().getTotalCount(), 1);
