@@ -191,6 +191,10 @@ connector.
         can also use the corresponding catalog session property
         ``<catalog-name>.max_split_size``.
       - ``64MB``
+    * - ``delta.minimum-assigned-split-weight``
+      - A decimal value in the range (0, 1] used as a minimum for weights assigned to each split. A low value may improve performance
+        on tables with small files. A higher value may improve performance for queries with highly skewed aggregations or joins.
+      - 0.05
 
 The following table describes :ref:`catalog session properties
 <session-properties-definition>` supported by the Delta Lake connector to
