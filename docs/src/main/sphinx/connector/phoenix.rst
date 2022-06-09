@@ -17,13 +17,7 @@ To query HBase data through Phoenix, you need:
 
 *  Network access from the Trino coordinator and workers to the ZooKeeper
    servers. The default port is 2181.
-*  A compatible version of Phoenix. There are two versions of this connector to
-   support different Phoenix versions:
-
-   *  The ``phoenix`` connector is compatible with all Phoenix 4.x versions
-      starting from 4.14.1.
-   *  The ``phoenix5`` connector is compatible with all Phoenix 5.x versions
-      starting from 5.1.0.
+*  A compatible version of Phoenix: all 5.x versions starting from 5.1.0 are supported.
 
 Configuration
 -------------
@@ -35,18 +29,12 @@ nodes used for discovery of the HBase cluster:
 
 .. code-block:: text
 
-    connector.name=phoenix
+    connector.name=phoenix5
     phoenix.connection-url=jdbc:phoenix:host1,host2,host3:2181:/hbase
     phoenix.config.resources=/path/to/hbase-site.xml
 
 The optional paths to Hadoop resource files, such as ``hbase-site.xml`` are used
 to load custom Phoenix client connection properties.
-
-For HBase 2.x and Phoenix 5.x (5.1.0 or later) use:
-
-.. code-block:: text
-
-    connector.name=phoenix5
 
 The following Phoenix-specific configuration properties are available:
 
