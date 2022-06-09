@@ -325,7 +325,9 @@ public class IcebergMetadata
                 table.location(),
                 table.properties(),
                 NO_RETRIES,
-                ImmutableList.of());
+                ImmutableList.of(),
+                false,
+                Optional.empty());
     }
 
     @Override
@@ -1716,7 +1718,8 @@ public class IcebergMetadata
         }
 
         return Optional.of(new ConstraintApplicationResult<>(
-                new IcebergTableHandle(table.getSchemaName(),
+                new IcebergTableHandle(
+                        table.getSchemaName(),
                         table.getTableName(),
                         table.getTableType(),
                         table.getSnapshotId(),
@@ -1730,7 +1733,9 @@ public class IcebergMetadata
                         table.getTableLocation(),
                         table.getStorageProperties(),
                         table.getRetryMode(),
-                        table.getUpdatedColumns()),
+                        table.getUpdatedColumns(),
+                        table.isRecordScannedFiles(),
+                        table.getMaxScannedFileSize()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 false));
     }

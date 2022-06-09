@@ -65,7 +65,8 @@ public class IcebergTableHandle
     private final Optional<DataSize> maxScannedFileSize;
 
     @JsonCreator
-    public IcebergTableHandle(
+    @Deprecated // For JSON deserialization only
+    public static IcebergTableHandle fromJson(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") TableType tableType,
@@ -82,7 +83,7 @@ public class IcebergTableHandle
             @JsonProperty("retryMode") RetryMode retryMode,
             @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns)
     {
-        this(
+        return new IcebergTableHandle(
                 schemaName,
                 tableName,
                 tableType,
