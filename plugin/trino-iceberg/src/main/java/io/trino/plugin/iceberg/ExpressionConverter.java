@@ -40,11 +40,13 @@ import org.apache.iceberg.expressions.Expressions;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.function.BiFunction;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -242,10 +244,57 @@ public final class ExpressionConverter
         if (expressions.isEmpty()) {
             return alwaysFalse();
         }
-        if (expressions.size() == 1) {
-            return getOnlyElement(expressions);
+        return combine(expressions, Expressions::or);
+    }
+
+    private static Expression combine(List<Expression> expressions, BiFunction<Expression, Expression, Expression> combiner)
+    {
+        // Build balanced tree that preserves the evaluation order of the input expressions.
+        //
+        // The tree is built bottom up by combining pairs of elements into binary expressions.
+        //
+        // Example:
+        //
+        // Initial state:
+        //  a b c d e
+        //
+        // First iteration:
+        //
+        //  /\    /\   e
+        // a  b  c  d
+        //
+        // Second iteration:
+        //
+        //    / \    e
+        //  /\   /\
+        // a  b c  d
+        //
+        //
+        // Last iteration:
+        //
+        //      / \
+        //    / \  e
+        //  /\   /\
+        // a  b c  d
+
+        Queue<Expression> queue = new ArrayDeque<>(expressions);
+        while (queue.size() > 1) {
+            Queue<Expression> buffer = new ArrayDeque<>();
+
+            // combine pairs of elements
+            while (queue.size() >= 2) {
+                buffer.add(combiner.apply(queue.remove(), queue.remove()));
+            }
+
+            // if there's and odd number of elements, just append the last one
+            if (!queue.isEmpty()) {
+                buffer.add(queue.remove());
+            }
+
+            // continue processing the pairs that were just built
+            queue = buffer;
         }
-        int mid = expressions.size() / 2;
-        return or(or(expressions.subList(0, mid)), or(expressions.subList(mid, expressions.size())));
+
+        return queue.remove();
     }
 }
