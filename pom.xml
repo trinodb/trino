@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>128</version>
+        <version>126-SNAPSHOT</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -173,6 +173,20 @@
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
     </modules>
+
+    <!-- TODO remove this -->
+    <repositories>
+        <repository>
+            <id>oss.sonatype.org-snapshot</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 
     <dependencyManagement>
         <dependencies>
