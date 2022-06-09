@@ -47,7 +47,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.function.BiFunction;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -60,7 +59,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
-import static org.apache.iceberg.expressions.Expressions.and;
 import static org.apache.iceberg.expressions.Expressions.equal;
 import static org.apache.iceberg.expressions.Expressions.greaterThan;
 import static org.apache.iceberg.expressions.Expressions.greaterThanOrEqual;
@@ -141,35 +139,32 @@ public final class ExpressionConverter
             return equal(columnName, icebergValue);
         }
 
-        Expression lowBound;
-        if (range.isLowUnbounded()) {
-            lowBound = alwaysTrue();
-        }
-        else {
+        List<Expression> conjuncts = new ArrayList<>(2);
+        if (!range.isLowUnbounded()) {
             Object icebergLow = getIcebergLiteralValue(type, range.getLowBoundedValue());
+            Expression lowBound;
             if (range.isLowInclusive()) {
                 lowBound = greaterThanOrEqual(columnName, icebergLow);
             }
             else {
                 lowBound = greaterThan(columnName, icebergLow);
             }
+            conjuncts.add(lowBound);
         }
 
-        Expression highBound;
-        if (range.isHighUnbounded()) {
-            highBound = alwaysTrue();
-        }
-        else {
+        if (!range.isHighUnbounded()) {
             Object icebergHigh = getIcebergLiteralValue(type, range.getHighBoundedValue());
+            Expression highBound;
             if (range.isHighInclusive()) {
                 highBound = lessThanOrEqual(columnName, icebergHigh);
             }
             else {
                 highBound = lessThan(columnName, icebergHigh);
             }
+            conjuncts.add(highBound);
         }
 
-        return and(lowBound, highBound);
+        return and(conjuncts);
     }
 
     private static Object getIcebergLiteralValue(Type type, Object trinoNativeValue)
@@ -233,11 +228,6 @@ public final class ExpressionConverter
         }
 
         throw new UnsupportedOperationException("Unsupported type: " + type);
-    }
-
-    private static Expression and(Expression left, Expression right)
-    {
-        return Expressions.and(left, right);
     }
 
     private static Expression and(List<Expression> expressions)
