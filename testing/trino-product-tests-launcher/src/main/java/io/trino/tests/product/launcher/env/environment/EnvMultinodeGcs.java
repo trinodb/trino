@@ -31,11 +31,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Base64;
+import java.util.UUID;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
@@ -47,6 +49,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class EnvMultinodeGcs
         extends EnvironmentProvider
 {
+    private final String gcsTestDirectory = "env_multinode_gcs_" + UUID.randomUUID();
     private final DockerFiles dockerFiles;
     private final String hadoopImageVersion;
 
@@ -79,6 +82,9 @@ public class EnvMultinodeGcs
                     forHostPath(getCoreSiteOverrideXml(containerGcpCredentialsFile)),
                     "/docker/presto-product-tests/conf/environment/multinode-gcs/core-site-overrides.xml");
             container.withCopyFileToContainer(
+                    forHostPath(getHiveSiteOverrideXml()),
+                    "/docker/presto-product-tests/conf/environment/multinode-gcs/hive-site-overrides.xml");
+            container.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/apply-gcs-config.sh")),
                     CONTAINER_HADOOP_INIT_D + "apply-gcs-config.sh");
             container.withCopyFileToContainer(forHostPath(gcpCredentialsFile.toPath()), containerGcpCredentialsFile);
@@ -94,11 +100,15 @@ public class EnvMultinodeGcs
 
         builder.configureContainer(TESTS, container -> container
                 .withCopyFileToContainer(forHostPath(gcpCredentialsFile.toPath()), containerGcpCredentialsFile)
-                .withEnv("GCP_CREDENTIALS_FILE_PATH", containerGcpCredentialsFile));
+                .withEnv("GCP_CREDENTIALS_FILE_PATH", containerGcpCredentialsFile)
+                .withEnv("GCP_STORAGE_BUCKET", requireEnv("GCP_STORAGE_BUCKET"))
+                .withEnv("GCP_TEST_DIRECTORY", gcsTestDirectory));
 
         builder.addConnector("hive", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES);
         builder.addConnector("delta", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/delta.properties")), CONTAINER_PRESTO_ETC + "/catalog/delta.properties");
         builder.addConnector("iceberg", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/iceberg.properties")), CONTAINER_PRESTO_ETC + "/catalog/iceberg.properties");
+
+        configureTempto(builder, dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-gcs/"));
     }
 
     private Path getCoreSiteOverrideXml(String containerGcpCredentialsFilePath)
@@ -111,6 +121,22 @@ public class EnvMultinodeGcs
             coreSiteXml.deleteOnExit();
             Files.writeString(coreSiteXml.toPath(), coreSite);
             return coreSiteXml.toPath();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private Path getHiveSiteOverrideXml()
+    {
+        try {
+            String hiveSite = Files.readString(dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-gcs").getPath("hive-site-overrides-template.xml"))
+                    .replace("%GCP_STORAGE_BUCKET%", requireEnv("GCP_STORAGE_BUCKET"))
+                    .replace("%GCP_WAREHOUSE_DIR%", gcsTestDirectory);
+            File hiveSiteXml = Files.createTempFile("hive-site", ".xml", PosixFilePermissions.asFileAttribute(fromString("rwxrwxrwx"))).toFile();
+            hiveSiteXml.deleteOnExit();
+            Files.writeString(hiveSiteXml.toPath(), hiveSite);
+            return hiveSiteXml.toPath();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

@@ -75,6 +75,7 @@ public final class TestGroups
     public static final String DELTA_LAKE_OSS = "delta-lake-oss";
     public static final String DELTA_LAKE_HDFS = "delta-lake-hdfs";
     public static final String DELTA_LAKE_MINIO = "delta-lake-minio";
+    public static final String DELTA_LAKE_GCS = "delta_lake_gcs";
     public static final String DELTA_LAKE_DATABRICKS = "delta-lake-databricks";
     public static final String DELTA_LAKE_EXCLUDE_73 = "delta-lake-exclude-73";
 
