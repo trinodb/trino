@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.function.BiFunction;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -82,13 +83,13 @@ public final class ExpressionConverter
             return alwaysFalse();
         }
         Map<IcebergColumnHandle, Domain> domainMap = tupleDomain.getDomains().get();
-        Expression expression = alwaysTrue();
+        List<Expression> conjuncts = new ArrayList<>();
         for (Map.Entry<IcebergColumnHandle, Domain> entry : domainMap.entrySet()) {
             IcebergColumnHandle columnHandle = entry.getKey();
             Domain domain = entry.getValue();
-            expression = and(expression, toIcebergExpression(columnHandle.getQualifiedName(), columnHandle.getType(), domain));
+            conjuncts.add(toIcebergExpression(columnHandle.getQualifiedName(), columnHandle.getType(), domain));
         }
-        return expression;
+        return and(conjuncts);
     }
 
     private static Expression toIcebergExpression(String columnName, Type type, Domain domain)
@@ -232,6 +233,19 @@ public final class ExpressionConverter
         }
 
         throw new UnsupportedOperationException("Unsupported type: " + type);
+    }
+
+    private static Expression and(Expression left, Expression right)
+    {
+        return Expressions.and(left, right);
+    }
+
+    private static Expression and(List<Expression> expressions)
+    {
+        if (expressions.isEmpty()) {
+            return alwaysTrue();
+        }
+        return combine(expressions, Expressions::and);
     }
 
     private static Expression or(Expression left, Expression right)
