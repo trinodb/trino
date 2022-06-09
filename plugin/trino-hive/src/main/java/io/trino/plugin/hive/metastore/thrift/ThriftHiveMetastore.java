@@ -110,6 +110,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_LOCK_NOT_ACQUIRED;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.createMetastoreColumnStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPrincipalType;
@@ -1779,12 +1780,14 @@ public class ThriftHiveMetastore
         requireNonNull(tableName, "tableName is null");
         checkArgument(writeId > 0, "writeId should be a positive integer, but was %s", writeId);
         try {
+            Table table = getTable(dbName, tableName)
+                    .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(dbName, tableName)));
+            rowCountChange.ifPresent(rowCount ->
+                    table.setParameters(adjustRowCount(table.getParameters(), tableName, rowCount)));
             retry()
                     .stopOnIllegalExceptions()
                     .run("updateTableWriteId", stats.getUpdateTableWriteId().wrap(() -> {
-                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            metastoreClient.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange);
-                        }
+                        alterTransactionalTable(table, transactionId, writeId);
                         return null;
                     }));
         }
