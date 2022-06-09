@@ -146,12 +146,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/phoenix">
-        <artifact id="${project.groupId}:trino-phoenix:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/phoenix5">
         <artifact id="${project.groupId}:trino-phoenix5:zip:${project.version}">
             <unpack />

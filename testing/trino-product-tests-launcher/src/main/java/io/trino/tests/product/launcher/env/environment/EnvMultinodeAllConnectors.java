@@ -68,7 +68,6 @@ public final class EnvMultinodeAllConnectors
                         "mongodb",
                         "mysql",
                         "oracle",
-                        "phoenix",
                         "phoenix5",
                         "pinot",
                         "postgresql",
