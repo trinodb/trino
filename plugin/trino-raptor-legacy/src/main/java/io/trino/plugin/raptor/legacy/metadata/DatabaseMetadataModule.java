@@ -27,6 +27,7 @@ import java.sql.DriverManager;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.lang.String.format;
 
 public class DatabaseMetadataModule
         extends AbstractConfigurationAwareModule
@@ -85,7 +86,7 @@ public class DatabaseMetadataModule
         @ForMetadata
         public static ConnectionFactory createConnectionFactory(H2DatabaseConfig config)
         {
-            String url = "jdbc:h2:" + config.getFilename();
+            String url = format("jdbc:h2:%s;DB_CLOSE_DELAY=-1", config.getFilename());
             return () -> DriverManager.getConnection(url);
         }
 
