@@ -83,5 +83,4 @@ public class PhoenixSplit
                 .put("addresses", addresses)
                 .buildOrThrow();
     }
-
 }
