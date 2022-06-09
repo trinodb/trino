@@ -22,24 +22,24 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestH2DatabaseConfig
+public class TestJdbcDatabaseConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(H2DatabaseConfig.class)
-                .setFilename(null));
+        assertRecordedDefaults(recordDefaults(JdbcDatabaseConfig.class)
+                .setUrl(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("metadata.db.filename", "/tmp/db")
+                .put("metadata.db.url", "jdbc:test://example.net/test")
                 .buildOrThrow();
 
-        H2DatabaseConfig expected = new H2DatabaseConfig()
-                .setFilename("/tmp/db");
+        JdbcDatabaseConfig expected = new JdbcDatabaseConfig()
+                .setUrl("jdbc:test://example.net/test");
 
         assertFullMapping(properties, expected);
     }
