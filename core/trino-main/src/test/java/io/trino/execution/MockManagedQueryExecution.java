@@ -132,7 +132,7 @@ public class MockManagedQueryExecution
                         DataSize.ofBytes(14),
                         15,
                         DataSize.ofBytes(13),
-                        16.0,
+                        DataSize.ofBytes(16),
                         17.0,
                         memoryUsage,
                         memoryUsage,
@@ -188,7 +188,7 @@ public class MockManagedQueryExecution
                         30,
                         16,
 
-                        17.0,
+                        DataSize.ofBytes(17),
                         0.0,
                         DataSize.ofBytes(18),
                         DataSize.ofBytes(19),

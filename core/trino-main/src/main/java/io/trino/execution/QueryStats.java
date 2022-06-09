@@ -65,7 +65,7 @@ public class QueryStats
     private final int blockedDrivers;
     private final int completedDrivers;
 
-    private final double cumulativeUserMemory;
+    private final DataSize cumulativeUserMemory;
     private final double failedCumulativeUserMemory;
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
@@ -155,7 +155,7 @@ public class QueryStats
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
-            @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeUserMemory") DataSize cumulativeUserMemory,
             @JsonProperty("failedCumulativeUserMemory") double failedCumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
@@ -251,8 +251,8 @@ public class QueryStats
         this.blockedDrivers = blockedDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
-        checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
-        this.cumulativeUserMemory = cumulativeUserMemory;
+        //checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
+        this.cumulativeUserMemory = requireNonNull(cumulativeUserMemory, "cumulativeUserMemory is null");
         this.failedCumulativeUserMemory = failedCumulativeUserMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
@@ -453,7 +453,7 @@ public class QueryStats
     }
 
     @JsonProperty
-    public double getCumulativeUserMemory()
+    public DataSize getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
     }

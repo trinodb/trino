@@ -45,7 +45,7 @@ public class TestStageStats
             26,
             11,
 
-            12.0,
+            DataSize.ofBytes(12),
             13.0,
             DataSize.ofBytes(14),
             DataSize.ofBytes(15),

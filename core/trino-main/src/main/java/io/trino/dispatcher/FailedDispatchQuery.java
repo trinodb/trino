@@ -271,7 +271,7 @@ public class FailedDispatchQuery
                 0,
                 0,
                 0,
-                0,
+                DataSize.ofBytes(0),
                 0,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),

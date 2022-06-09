@@ -187,7 +187,7 @@ public class TestQueryStats
             30,
             16,
 
-            17.0,
+            DataSize.ofBytes(17),
             18.0,
             DataSize.ofBytes(19),
             DataSize.ofBytes(20),

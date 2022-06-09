@@ -266,7 +266,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         0L,
                         0,
                         0,
-                        0.0,
+                        DataSize.ofBytes(0),
                         DataSize.ofBytes(0),
                         DataSize.ofBytes(0),
                         DataSize.ofBytes(0),

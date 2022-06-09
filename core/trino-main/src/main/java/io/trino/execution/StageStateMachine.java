@@ -279,9 +279,9 @@ public class StageStateMachine
             runningDrivers += taskStats.getRunningDrivers();
             completedDrivers += taskStats.getCompletedDrivers();
 
-            cumulativeUserMemory += taskStats.getCumulativeUserMemory();
+            cumulativeUserMemory += taskStats.getCumulativeUserMemory().toBytes();
             if (taskState == TaskState.FAILED) {
-                failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
+                failedCumulativeUserMemory += taskStats.getCumulativeUserMemory().toBytes();
             }
 
             long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
@@ -338,7 +338,7 @@ public class StageStateMachine
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,
 
-                cumulativeUserMemory,
+                succinctBytes(cumulativeUserMemory),
                 failedCumulativeUserMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(totalMemoryReservation),
@@ -462,9 +462,9 @@ public class StageStateMachine
             blockedDrivers += taskStats.getBlockedDrivers();
             completedDrivers += taskStats.getCompletedDrivers();
 
-            cumulativeUserMemory += taskStats.getCumulativeUserMemory();
+            cumulativeUserMemory += taskStats.getCumulativeUserMemory().toBytes();
             if (taskState == TaskState.FAILED) {
-                failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
+                failedCumulativeUserMemory += taskStats.getCumulativeUserMemory().toBytes();
             }
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
@@ -557,7 +557,7 @@ public class StageStateMachine
                 blockedDrivers,
                 completedDrivers,
 
-                cumulativeUserMemory,
+                succinctBytes(cumulativeUserMemory),
                 failedCumulativeUserMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(revocableMemoryReservation),

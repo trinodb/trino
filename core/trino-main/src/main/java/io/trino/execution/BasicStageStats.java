@@ -49,7 +49,7 @@ public class BasicStageStats
             DataSize.ofBytes(0),
             0,
 
-            0,
+            DataSize.ofBytes(0),
             0,
             DataSize.ofBytes(0),
             DataSize.ofBytes(0),
@@ -77,7 +77,7 @@ public class BasicStageStats
     private final long internalNetworkInputPositions;
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
-    private final long cumulativeUserMemory;
+    private final DataSize cumulativeUserMemory;
     private final long failedCumulativeUserMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
@@ -109,7 +109,7 @@ public class BasicStageStats
             DataSize rawInputDataSize,
             long rawInputPositions,
 
-            long cumulativeUserMemory,
+            DataSize cumulativeUserMemory,
             long failedCumulativeUserMemory,
             DataSize userMemoryReservation,
             DataSize totalMemoryReservation,
@@ -215,7 +215,7 @@ public class BasicStageStats
         return physicalInputReadTime;
     }
 
-    public long getCumulativeUserMemory()
+    public DataSize getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
     }
@@ -312,7 +312,7 @@ public class BasicStageStats
             runningDrivers += stageStats.getRunningDrivers();
             completedDrivers += stageStats.getCompletedDrivers();
 
-            cumulativeUserMemory += stageStats.getCumulativeUserMemory();
+            cumulativeUserMemory += stageStats.getCumulativeUserMemory().toBytes();
             failedCumulativeUserMemory += stageStats.getFailedCumulativeUserMemory();
             userMemoryReservation += stageStats.getUserMemoryReservation().toBytes();
             totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
@@ -363,7 +363,7 @@ public class BasicStageStats
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,
 
-                cumulativeUserMemory,
+                succinctBytes(cumulativeUserMemory),
                 failedCumulativeUserMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(totalMemoryReservation),

@@ -56,7 +56,7 @@ public class BasicQueryStats
     private final long rawInputPositions;
     private final DataSize physicalInputDataSize;
 
-    private final double cumulativeUserMemory;
+    private final DataSize cumulativeUserMemory;
     private final double failedCumulativeUserMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
@@ -87,7 +87,7 @@ public class BasicQueryStats
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
-            @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeUserMemory") DataSize cumulativeUserMemory,
             @JsonProperty("failedCumulativeUserMemory") double failedCumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
@@ -188,7 +188,7 @@ public class BasicQueryStats
                 DataSize.ofBytes(0),
                 0,
                 DataSize.ofBytes(0),
-                0,
+                DataSize.ofBytes(0),
                 0,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -282,7 +282,7 @@ public class BasicQueryStats
     }
 
     @JsonProperty
-    public double getCumulativeUserMemory()
+    public DataSize getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
     }

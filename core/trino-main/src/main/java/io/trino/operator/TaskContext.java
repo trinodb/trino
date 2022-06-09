@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.GcMonitor;
@@ -95,7 +94,7 @@ public class TaskContext
     private final boolean cpuTimerEnabled;
 
     private final Object cumulativeMemoryLock = new Object();
-    private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
+    private final AtomicLong cumulativeUserMemory = new AtomicLong(0);
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastUserMemoryReservation;
@@ -520,7 +519,7 @@ public class TaskContext
 
         synchronized (cumulativeMemoryLock) {
             long currentTimeNanos = System.nanoTime();
-            double sinceLastPeriodMillis = (currentTimeNanos - lastTaskStatCallNanos) / 1_000_000.0;
+            long sinceLastPeriodMillis = (currentTimeNanos - lastTaskStatCallNanos) / 1_000_000;
             long averageUserMemoryForLastPeriod = (userMemory + lastUserMemoryReservation) / 2;
             cumulativeUserMemory.addAndGet(averageUserMemoryForLastPeriod * sinceLastPeriodMillis);
 
@@ -547,7 +546,7 @@ public class TaskContext
                 runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
-                cumulativeUserMemory.get(),
+                succinctBytes(cumulativeUserMemory.get()),
                 succinctBytes(userMemory),
                 succinctBytes(currentPeakUserMemoryReservation.get()),
                 succinctBytes(taskMemoryContext.getRevocableMemory()),

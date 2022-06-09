@@ -502,7 +502,7 @@ class StageSummary extends React.Component {
                                             Cumulative
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {formatDataSizeBytes(stage.stageStats.cumulativeUserMemory / 1000)}
+                                            {parseAndFormatDataSize(stage.stageStats.cumulativeUserMemory)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1502,7 +1502,7 @@ export class QueryDetail extends React.Component {
                                             Cumulative User Memory
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(query.queryStats.cumulativeUserMemory / 1000.0) + "*seconds"}
+                                            {parseAndFormatDataSize(query.queryStats.cumulativeUserMemory) + "*seconds"}
                                         </td>
                                         {taskRetriesEnabled &&
                                         <td className="info-failed">

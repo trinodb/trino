@@ -124,7 +124,7 @@ export class QueryListItem extends React.Component {
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Cumulative user memory">
                     <span className="glyphicon glyphicon-equalizer" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDataSizeBytes(query.queryStats.cumulativeUserMemory / 1000.0)}
+                    {parseAndFormatDataSize(query.queryStats.cumulativeUserMemory )}
                 </span>
             </div>);
 
@@ -232,7 +232,7 @@ const SORT_TYPE = {
     ELAPSED: function (query) {return parseDuration(query.queryStats.elapsedTime)},
     EXECUTION: function (query) {return parseDuration(query.queryStats.executionTime)},
     CPU: function (query) {return parseDuration(query.queryStats.totalCpuTime)},
-    CUMULATIVE_MEMORY: function (query) {return query.queryStats.cumulativeUserMemory},
+    CUMULATIVE_MEMORY: function (query) {return parseDataSize(query.queryStats.cumulativeUserMemory)},
     CURRENT_MEMORY: function (query) {return parseDataSize(query.queryStats.userMemoryReservation)},
 };
 

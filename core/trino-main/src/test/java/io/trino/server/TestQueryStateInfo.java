@@ -127,7 +127,7 @@ public class TestQueryStateInfo
                         18,
                         34,
                         19,
-                        20.0,
+                        DataSize.valueOf("20GB"),
                         21.0,
                         DataSize.valueOf("21GB"),
                         DataSize.valueOf("22GB"),
