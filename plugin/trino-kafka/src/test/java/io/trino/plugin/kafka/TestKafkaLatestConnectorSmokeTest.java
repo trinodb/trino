@@ -28,7 +28,7 @@ public class TestKafkaLatestConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingKafka testingKafka = closeAfterClass(TestingKafka.create("6.0.1"));
+        TestingKafka testingKafka = closeAfterClass(TestingKafka.create());
         return KafkaQueryRunner.builder(testingKafka)
                 .setTables(REQUIRED_TPCH_TABLES)
                 .build();
