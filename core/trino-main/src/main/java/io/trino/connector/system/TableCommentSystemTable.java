@@ -19,7 +19,6 @@ import io.airlift.log.Logger;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.MetadataListing;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.ViewInfo;
@@ -46,6 +45,7 @@ import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.getMaterializedViews;
 import static io.trino.metadata.MetadataListing.getViews;
+import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
@@ -98,7 +98,7 @@ public class TableCommentSystemTable
         Session session = ((FullConnectorSession) connectorSession).getSession();
         Builder table = InMemoryRecordSet.builder(COMMENT_TABLE);
 
-        for (String catalog : MetadataListing.listCatalogNames(session, metadata, accessControl, catalogFilter)) {
+        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             Set<SchemaTableName> names = ImmutableSet.of();
