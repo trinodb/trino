@@ -34,4 +34,16 @@ public class TestUnknownType
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public void testPreviousValue()
+    {
+        // There is no value of this type, so getPreviousValue() cannot be invoked
+    }
+
+    @Override
+    public void testNextValue()
+    {
+        // There is no value of this type, so getNextValue() cannot be invoked
+    }
 }

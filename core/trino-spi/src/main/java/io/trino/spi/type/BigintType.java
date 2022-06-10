@@ -60,6 +60,26 @@ public final class BigintType
     }
 
     @Override
+    public Optional<Object> getPreviousValue(Object object)
+    {
+        long value = (long) object;
+        if (value == Long.MIN_VALUE) {
+            return Optional.empty();
+        }
+        return Optional.of(value - 1);
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object object)
+    {
+        long value = (long) object;
+        if (value == Long.MAX_VALUE) {
+            return Optional.empty();
+        }
+        return Optional.of(value + 1);
+    }
+
+    @Override
     public Optional<Stream<?>> getDiscreteValues(Range range)
     {
         return Optional.of(LongStream.rangeClosed((long) range.getMin(), (long) range.getMax()).boxed());

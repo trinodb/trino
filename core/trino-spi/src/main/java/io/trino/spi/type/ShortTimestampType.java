@@ -144,6 +144,24 @@ class ShortTimestampType
         return Optional.of(range);
     }
 
+    @Override
+    public Optional<Object> getPreviousValue(Object value)
+    {
+        if ((long) range.getMin() == (long) value) {
+            return Optional.empty();
+        }
+        return Optional.of((long) value - rescale(1_000_000, getPrecision(), 0));
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object value)
+    {
+        if ((long) range.getMax() == (long) value) {
+            return Optional.empty();
+        }
+        return Optional.of((long) value + rescale(1_000_000, getPrecision(), 0));
+    }
+
     @ScalarOperator(EQUAL)
     private static boolean equalOperator(long left, long right)
     {

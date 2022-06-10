@@ -47,6 +47,28 @@ public final class IntegerType
     }
 
     @Override
+    public Optional<Object> getPreviousValue(Object object)
+    {
+        long value = (long) object;
+        checkValueValid(value);
+        if (value == Integer.MIN_VALUE) {
+            return Optional.empty();
+        }
+        return Optional.of(value - 1);
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object object)
+    {
+        long value = (long) object;
+        checkValueValid(value);
+        if (value == Integer.MAX_VALUE) {
+            return Optional.empty();
+        }
+        return Optional.of(value + 1);
+    }
+
+    @Override
     public Optional<Stream<?>> getDiscreteValues(Range range)
     {
         return Optional.of(LongStream.rangeClosed((long) range.getMin(), (long) range.getMax()).boxed());

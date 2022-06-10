@@ -16,12 +16,16 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.Type.Range;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestShortTimestampType
@@ -82,6 +86,102 @@ public class TestShortTimestampType
                 {4, Long.MIN_VALUE + 8, Long.MAX_VALUE - 7},
                 {5, Long.MIN_VALUE + 8, Long.MAX_VALUE - 7},
                 {6, Long.MIN_VALUE, Long.MAX_VALUE},
+        };
+    }
+
+    @Override
+    public void testPreviousValue()
+    {
+        long minValue = Long.MIN_VALUE + 808;
+        long maxValue = Long.MAX_VALUE - 807;
+
+        assertThat(type.getPreviousValue(minValue))
+                .isEqualTo(Optional.empty());
+        assertThat(type.getPreviousValue(minValue + 1_000))
+                .isEqualTo(Optional.of(minValue));
+
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEqualTo(Optional.of(1110_000L));
+
+        assertThat(type.getPreviousValue(maxValue - 1_000))
+                .isEqualTo(Optional.of(maxValue - 2_000));
+        assertThat(type.getPreviousValue(maxValue))
+                .isEqualTo(Optional.of(maxValue - 1_000));
+    }
+
+    @Override
+    public void testNextValue()
+    {
+        long minValue = Long.MIN_VALUE + 808;
+        long maxValue = Long.MAX_VALUE - 807;
+
+        assertThat(type.getNextValue(minValue))
+                .isEqualTo(Optional.of(minValue + 1_000));
+        assertThat(type.getNextValue(minValue + 1_000))
+                .isEqualTo(Optional.of(minValue + 2_000));
+
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEqualTo(Optional.of(1112_000L));
+
+        assertThat(type.getNextValue(maxValue - 1_000))
+                .isEqualTo(Optional.of(maxValue));
+        assertThat(type.getNextValue(maxValue))
+                .isEqualTo(Optional.empty());
+    }
+
+    @Test(dataProvider = "testPreviousNextValueEveryPrecisionDatProvider")
+    public void testPreviousValueEveryPrecision(int precision, long minValue, long maxValue, long step)
+    {
+        Type type = createTimestampType(precision);
+
+        assertThat(type.getPreviousValue(minValue))
+                .isEqualTo(Optional.empty());
+        assertThat(type.getPreviousValue(minValue + step))
+                .isEqualTo(Optional.of(minValue));
+
+        assertThat(type.getPreviousValue(0L))
+                .isEqualTo(Optional.of(-step));
+        assertThat(type.getPreviousValue(123_456_789_000_000L))
+                .isEqualTo(Optional.of(123_456_789_000_000L - step));
+
+        assertThat(type.getPreviousValue(maxValue - step))
+                .isEqualTo(Optional.of(maxValue - 2 * step));
+        assertThat(type.getPreviousValue(maxValue))
+                .isEqualTo(Optional.of(maxValue - step));
+    }
+
+    @Test(dataProvider = "testPreviousNextValueEveryPrecisionDatProvider")
+    public void testNextValueEveryPrecision(int precision, long minValue, long maxValue, long step)
+    {
+        Type type = createTimestampType(precision);
+
+        assertThat(type.getNextValue(minValue))
+                .isEqualTo(Optional.of(minValue + step));
+        assertThat(type.getNextValue(minValue + step))
+                .isEqualTo(Optional.of(minValue + 2 * step));
+
+        assertThat(type.getNextValue(0L))
+                .isEqualTo(Optional.of(step));
+        assertThat(type.getNextValue(123_456_789_000_000L))
+                .isEqualTo(Optional.of(123_456_789_000_000L + step));
+
+        assertThat(type.getNextValue(maxValue - step))
+                .isEqualTo(Optional.of(maxValue));
+        assertThat(type.getNextValue(maxValue))
+                .isEqualTo(Optional.empty());
+    }
+
+    @DataProvider
+    public Object[][] testPreviousNextValueEveryPrecisionDatProvider()
+    {
+        return new Object[][] {
+                {0, Long.MIN_VALUE + 775808, Long.MAX_VALUE - 775807, 1_000_000L},
+                {1, Long.MIN_VALUE + 75808, Long.MAX_VALUE - 75807, 100_000L},
+                {2, Long.MIN_VALUE + 5808, Long.MAX_VALUE - 5807, 10_000L},
+                {3, Long.MIN_VALUE + 808, Long.MAX_VALUE - 807, 1_000L},
+                {4, Long.MIN_VALUE + 8, Long.MAX_VALUE - 7, 100L},
+                {5, Long.MIN_VALUE + 8, Long.MAX_VALUE - 7, 10L},
+                {6, Long.MIN_VALUE, Long.MAX_VALUE, 1L},
         };
     }
 }

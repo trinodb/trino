@@ -14,6 +14,7 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -195,6 +196,39 @@ public abstract class AbstractTestType
     {
         assertThat(type.getRange())
                 .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        Object sampleValue = getSampleValue();
+        if (!type.isOrderable()) {
+            assertThatThrownBy(() -> type.getPreviousValue(sampleValue))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Type is not orderable: " + type);
+            return;
+        }
+        assertThat(type.getPreviousValue(sampleValue))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        Object sampleValue = getSampleValue();
+        if (!type.isOrderable()) {
+            assertThatThrownBy(() -> type.getNextValue(sampleValue))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Type is not orderable: " + type);
+            return;
+        }
+        assertThat(type.getNextValue(sampleValue))
+                .isEmpty();
+    }
+
+    protected Object getSampleValue()
+    {
+        return requireNonNull(Iterables.get(expectedStackValues.values(), 0), "sample value is null");
     }
 
     protected void assertPositionEquals(Block block, int position, Object expectedStackValue, Object expectedObjectValue)
