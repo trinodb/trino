@@ -42,6 +42,7 @@ class S3SelectCsvRecordReader
      */
 
     private static final String COMMENTS_CHAR_STR = "\uFDD0";
+    private static final String DEFAULT_FIELD_DELIMITER = ",";
 
     public S3SelectCsvRecordReader(
             Configuration configuration,
@@ -95,8 +96,7 @@ class S3SelectCsvRecordReader
 
     protected String getFieldDelimiter(Properties schema)
     {
-        // Use the field delimiter only if it is specified in the schema. If not, send it as null in the request to S3 Select.
-        // In this case, S3 Select defaults to using ',' as the field delimiter.
-        return schema.getProperty(FIELD_DELIM);
+        // Use the field delimiter only if it is specified in the schema. If not, use a default field delimiter ','
+        return schema.getProperty(FIELD_DELIM, DEFAULT_FIELD_DELIMITER);
     }
 }
