@@ -103,6 +103,7 @@ import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -5053,6 +5054,55 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query(format("SELECT * FROM %s", tableName)))
                 .matches("VALUES (INTEGER '1', CAST(ROW(11) AS ROW(\"another identifier\"INTEGER)))");
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testReadFromVersionedTableWithSchemaEvolution()
+    {
+        String tableName = "test_versioned_table_schema_evolution_" + randomTableSuffix();
+
+        assertQuerySucceeds("CREATE TABLE " + tableName + "(col1 varchar)");
+        long v1SnapshotId = getLatestSnapshotId(tableName);
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v1SnapshotId))
+                .hasOutputTypes(ImmutableList.of(VARCHAR))
+                .returnsEmptyResult();
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN  col2 integer");
+        assertThat(query("SELECT * FROM " + tableName))
+                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
+                .returnsEmptyResult();
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 11)", 1);
+        long v2SnapshotId = getLatestSnapshotId(tableName);
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
+                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
+                .matches("VALUES (VARCHAR 'a', 11)");
+        assertThat(query("SELECT * FROM " + tableName))
+                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
+                .matches("VALUES (VARCHAR 'a', 11)");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN  col3 bigint");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
+                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
+                .matches("VALUES (VARCHAR 'a', 11)");
+        assertThat(query("SELECT * FROM " + tableName))
+                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BIGINT))
+                .matches("VALUES (VARCHAR 'a', 11, CAST(NULL AS bigint))");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('b', 22, 32)", 1);
+        long v3SnapshotId = getLatestSnapshotId(tableName);
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v1SnapshotId))
+                .hasOutputTypes(ImmutableList.of(VARCHAR))
+                .returnsEmptyResult();
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
+                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
+                .matches("VALUES (VARCHAR 'a', 11)");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v3SnapshotId))
+                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BIGINT))
+                .matches("VALUES (VARCHAR 'a', 11, NULL), (VARCHAR 'b', 22, BIGINT '32')");
+        assertThat(query("SELECT * FROM " + tableName))
+                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BIGINT))
+                .matches("VALUES (VARCHAR 'a', 11, NULL), (VARCHAR 'b', 22, BIGINT '32')");
     }
 
     @Override
