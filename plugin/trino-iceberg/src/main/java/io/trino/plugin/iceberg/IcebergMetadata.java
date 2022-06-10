@@ -521,7 +521,10 @@ public class IcebergMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        return getTableMetadata(session, ((IcebergTableHandle) table).getSchemaTableName());
+        IcebergTableHandle tableHandle = (IcebergTableHandle) table;
+        Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+        List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()));
+        return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columns, getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
     }
 
     @Override
@@ -579,7 +582,10 @@ public class IcebergMetadata
                         if (redirectTable(session, tableName).isPresent()) {
                             return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
                         }
-                        return Stream.of(TableColumnsMetadata.forTable(tableName, getTableMetadata(session, tableName).getColumns()));
+
+                        Table icebergTable = catalog.loadTable(session, tableName);
+                        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema());
+                        return Stream.of(TableColumnsMetadata.forTable(tableName, columns));
                     }
                     catch (TableNotFoundException e) {
                         // Table disappeared during listing operation
@@ -1421,24 +1427,11 @@ public class IcebergMetadata
         icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
     }
 
-    /**
-     * @throws TableNotFoundException when table cannot be found
-     */
-    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
+    private List<ColumnMetadata> getColumnMetadatas(Schema schema)
     {
-        Table icebergTable = catalog.loadTable(session, table);
-
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        columns.addAll(getColumnMetadatas(icebergTable));
-        columns.add(pathColumnMetadata());
-        columns.add(fileModifiedTimeColumnMetadata());
 
-        return new ConnectorTableMetadata(table, columns.build(), getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
-    }
-
-    private List<ColumnMetadata> getColumnMetadatas(Table table)
-    {
-        return table.schema().columns().stream()
+        List<ColumnMetadata> schemaColumns = schema.columns().stream()
                 .map(column ->
                         ColumnMetadata.builder()
                                 .setName(column.name())
@@ -1447,6 +1440,10 @@ public class IcebergMetadata
                                 .setComment(Optional.ofNullable(column.doc()))
                                 .build())
                 .collect(toImmutableList());
+        columns.addAll(schemaColumns);
+        columns.add(pathColumnMetadata());
+        columns.add(fileModifiedTimeColumnMetadata());
+        return columns.build();
     }
 
     @Override
