@@ -194,7 +194,6 @@ public class S3FileSystemExchangeStorage
 
     @Override
     public void createDirectories(URI dir)
-            throws IOException
     {
         // Nothing to do for S3
     }
