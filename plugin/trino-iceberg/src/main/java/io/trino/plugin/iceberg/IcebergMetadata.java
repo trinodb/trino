@@ -1722,13 +1722,13 @@ public class IcebergMetadata
 
         TupleDomain<IcebergColumnHandle> remainingConstraint = constraint.getSummary()
                 .transformKeys(IcebergColumnHandle.class::cast)
-                .filter(isIdentityPartition.negate())
-                .filter(isMetadataColumn.negate());
+                .filter(isIdentityPartition.negate());
 
         TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = remainingConstraint
                 // TODO: Remove after completing https://github.com/trinodb/trino/issues/8759
                 // Only applies to the unenforced constraint because structural types cannot be partition keys
                 .filter((columnHandle, predicate) -> !isStructuralType(columnHandle.getType()))
+                .filter(isMetadataColumn.negate())
                 .intersect(table.getUnenforcedPredicate());
 
         if (newEnforcedConstraint.equals(table.getEnforcedPredicate())
