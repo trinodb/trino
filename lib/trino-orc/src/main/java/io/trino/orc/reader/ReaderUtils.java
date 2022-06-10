@@ -39,9 +39,9 @@ final class ReaderUtils
         throw new OrcCorruptionException(
                 column.getOrcDataSourceId(),
                 "Cannot read SQL type '%s' from ORC stream '%s' of type %s with attributes %s",
-                type,
+                type.toString().toUpperCase(),
                 column.getPath(),
-                column.getColumnType(),
+                column.getColumnType().toString().toUpperCase(),
                 column.getAttributes());
     }
 
