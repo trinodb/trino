@@ -359,13 +359,17 @@ The connector supports predicate push down of below data types:
 To enable AWS authorization using IAM policies, the `elasticsearch.security` option needs to be set to `AWS`.
 Additionally, the following options need to be configured appropriately:
 
-| Property name                   | Description                                                                                                                                     |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `elasticsearch.aws.region`      | AWS region or the Elasticsearch endpoint. This option is required.                                                                              |
-| `elasticsearch.aws.access-key`  | AWS access key to use to connect to the Elasticsearch domain. If not set, the Default AWS Credentials Provider chain will be used.              |
-| `elasticsearch.aws.secret-key`  | AWS secret key to use to connect to the Elasticsearch domain. If not set, the Default AWS Credentials Provider chain will be used.              |
-| `elasticsearch.aws.iam-role`    | Optional ARN of an IAM Role to assume to connect to the Elasticsearch domain. Note: the configured IAM user has to be able to assume this role. |
-| `elasticsearch.aws.external-id` | Optional external ID to pass while assuming an AWS IAM Role.                                                                                    |
+| Property name                            | Description                                                                                                                                     |
+|------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| `elasticsearch.aws.credentials-provider` | Fully-qualified class name of a custom credentials provider.                                                                                    |
+| `elasticsearch.aws.region`               | AWS region or the Elasticsearch endpoint. This option is required.                                                                              |
+| `elasticsearch.aws.access-key`           | AWS access key to use to connect to the Elasticsearch domain. If not set, the Default AWS Credentials Provider chain will be used.              |
+| `elasticsearch.aws.secret-key`           | AWS secret key to use to connect to the Elasticsearch domain. If not set, the Default AWS Credentials Provider chain will be used.              |
+| `elasticsearch.aws.session-token`        | Optional AWS session token to be used along with access and secret keys.                                                                        |
+| `elasticsearch.aws.iam-role`             | Optional ARN of an IAM Role to assume to connect to the Elasticsearch domain. Note: the configured IAM user has to be able to assume this role. |
+| `elasticsearch.aws.iam-session-name`     | Optional session name to use while assuming AWS IAM role.                                                                                       |
+| `elasticsearch.aws.external-id`          | Optional external ID to pass while assuming an AWS IAM Role.                                                                                    |
+| `elasticsearch.aws.sts-endpoint`         | Optional STS endpoint to connect to while assuming AWS IAM Role.                                                                                |
 
 ## Password authentication
 

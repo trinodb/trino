@@ -13,9 +13,13 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.aws.AwsCredentialsProviderConfig;
+import io.trino.aws.AwsCredentialsProviderFactoryModule;
+import io.trino.aws.AwsCredentialsProviderModule;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.ptf.RawQuery;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -46,7 +50,8 @@ public class ElasticsearchConnectorModule
 
         configBinder(binder).bindConfig(ElasticsearchConfig.class);
 
-        newOptionalBinder(binder, AwsSecurityConfig.class);
+        newOptionalBinder(binder, AwsCredentialsProviderConfig.class);
+        newOptionalBinder(binder, AWSCredentialsProvider.class);
         newOptionalBinder(binder, PasswordConfig.class);
 
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(RawQuery.class).in(Scopes.SINGLETON);
@@ -56,7 +61,15 @@ public class ElasticsearchConnectorModule
                 config -> config.getSecurity()
                         .filter(isEqual(AWS))
                         .isPresent(),
-                conditionalBinder -> configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class)));
+                new AbstractConfigurationAwareModule()
+                {
+                    @Override
+                    protected void setup(Binder conditionalBinder)
+                    {
+                        install(new AwsCredentialsProviderFactoryModule());
+                        install(new AwsCredentialsProviderModule("elasticsearch.aws"));
+                    }
+                }));
 
         install(conditionalModule(
                 ElasticsearchConfig.class,

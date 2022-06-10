@@ -45,7 +45,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "searchguard.ssl.truststore-password",
         "elasticsearch.table-description-directory",
         "elasticsearch.max-request-retries",
-        "elasticsearch.max-request-retry-time"})
+        "elasticsearch.max-request-retry-time",
+        "elasticsearch.aws.use-instance-credentials"
+})
 public class ElasticsearchConfig
 {
     public enum Security
