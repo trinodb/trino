@@ -506,6 +506,16 @@ public abstract class BaseIcebergMaterializedViewTest
     }
 
     @Test
+    public void testDropMaterializedViewWithoutStorageTable()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW test_drop_materialized_view_without_storage_table AS SELECT * FROM base_table1");
+        String catalogName = getSession().getCatalog().orElseThrow();
+        SchemaTableName storageTable = getStorageTable(catalogName, "test_drop_materialized_view_without_storage_table");
+        assertUpdate(format("DROP TABLE %s", storageTable.getTableName()));
+        assertUpdate("DROP MATERIALIZED VIEW test_drop_materialized_view_without_storage_table");
+    }
+
+    @Test
     public void testRenameMaterializedViewCannotRenameTable()
     {
         assertUpdate("CREATE TABLE test_rename_materialized_view_cannot_rename_table (a INT, b INT)");

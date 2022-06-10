@@ -536,6 +536,17 @@ public class TrinoHiveCatalog
             // - org.apache.iceberg.exceptions.NotFoundException when accessing manifest file
             // - other failures when reading storage table's metadata files
             // Retry, as we're catching broadly.
+            if ((e instanceof io.trino.spi.connector.TableNotFoundException) &&
+                    ((TableNotFoundException) e).getTableName().getTableName().startsWith(STORAGE_TABLE_PREFIX)) {
+                return Optional.of(getMaterializedViewDefinition(
+                        viewName,
+                        null,
+                        table.getOwner(),
+                        materializedView.getViewOriginalText()
+                                .orElseThrow(() -> new TrinoException(
+                                        HIVE_INVALID_METADATA, "No view original text: " + viewName)),
+                        storageTable));
+            }
             metastore.invalidateTable(viewName.getSchemaName(), viewName.getTableName());
             metastore.invalidateTable(viewName.getSchemaName(), storageTable);
             throw new MaterializedViewMayBeBeingRemovedException(e);

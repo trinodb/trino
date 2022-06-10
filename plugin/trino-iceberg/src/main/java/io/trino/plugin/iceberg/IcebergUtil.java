@@ -179,6 +179,10 @@ public final class IcebergUtil
     public static Map<String, Object> getIcebergTableProperties(Table icebergTable)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        if (icebergTable == null) {
+            return properties.buildOrThrow();
+        }
+
         properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
         if (!icebergTable.spec().fields().isEmpty()) {
             properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));

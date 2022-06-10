@@ -708,6 +708,11 @@ public class TrinoGlueCatalog
         String storageTableName = table.getParameters().get(STORAGE_TABLE);
         checkState(storageTableName != null, "Storage table missing in definition of materialized view " + viewName);
 
+        String viewOriginalText = table.getViewOriginalText();
+        if (viewOriginalText == null) {
+            throw new TrinoException(ICEBERG_BAD_DATA, "Materialized view did not have original text " + viewName);
+        }
+
         Table icebergTable;
         try {
             icebergTable = loadTable(session, new SchemaTableName(viewName.getSchemaName(), storageTableName));
@@ -718,13 +723,18 @@ public class TrinoGlueCatalog
             // - org.apache.iceberg.exceptions.NotFoundException when accessing manifest file
             // - other failures when reading storage table's metadata files
             // Retry, as we're catching broadly.
+            if ((e instanceof io.trino.spi.connector.TableNotFoundException) &&
+                    ((TableNotFoundException) e).getTableName().getTableName().startsWith(STORAGE_TABLE_PREFIX)) {
+                return Optional.of(getMaterializedViewDefinition(
+                        viewName,
+                        null,
+                        Optional.ofNullable(table.getOwner()),
+                        viewOriginalText,
+                        storageTableName));
+            }
             throw new MaterializedViewMayBeBeingRemovedException(e);
         }
 
-        String viewOriginalText = table.getViewOriginalText();
-        if (viewOriginalText == null) {
-            throw new TrinoException(ICEBERG_BAD_DATA, "Materialized view did not have original text " + viewName);
-        }
         return Optional.of(getMaterializedViewDefinition(
                 viewName,
                 icebergTable,

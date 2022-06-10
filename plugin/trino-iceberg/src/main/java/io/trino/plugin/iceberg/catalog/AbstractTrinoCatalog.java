@@ -81,6 +81,7 @@ public abstract class AbstractTrinoCatalog
     protected static final String PRESTO_VERSION_NAME = HiveMetadata.PRESTO_VERSION_NAME;
     protected static final String PRESTO_QUERY_ID_NAME = HiveMetadata.PRESTO_QUERY_ID_NAME;
     protected static final String PRESTO_VIEW_EXPANDED_TEXT_MARKER = HiveMetadata.PRESTO_VIEW_EXPANDED_TEXT_MARKER;
+    protected static final String STORAGE_TABLE_PREFIX = "st_";
 
     private final CatalogName catalogName;
     private final TypeManager typeManager;
@@ -258,7 +259,7 @@ public abstract class AbstractTrinoCatalog
     {
         // Generate a storage table name and create a storage table. The properties in the definition are table properties for the
         // storage table as indicated in the materialized view definition.
-        String storageTableName = "st_" + randomUUID().toString().replace("-", "");
+        String storageTableName = STORAGE_TABLE_PREFIX + randomUUID().toString().replace("-", "");
         Map<String, Object> storageTableProperties = new HashMap<>(definition.getProperties());
         storageTableProperties.putIfAbsent(FILE_FORMAT_PROPERTY, DEFAULT_FILE_FORMAT_DEFAULT);
 
