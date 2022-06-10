@@ -525,16 +525,15 @@ public class ElasticsearchMetadata
 
         Map<ColumnHandle, Domain> supported = new HashMap<>();
         Map<ColumnHandle, Domain> unsupported = new HashMap<>();
-        if (constraint.getSummary().getDomains().isPresent()) {
-            for (Map.Entry<ColumnHandle, Domain> entry : constraint.getSummary().getDomains().get().entrySet()) {
-                ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) entry.getKey();
+        Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
+        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) entry.getKey();
 
-                if (column.isSupportsPredicates()) {
-                    supported.put(column, entry.getValue());
-                }
-                else {
-                    unsupported.put(column, entry.getValue());
-                }
+            if (column.isSupportsPredicates()) {
+                supported.put(column, entry.getValue());
+            }
+            else {
+                unsupported.put(column, entry.getValue());
             }
         }
 
