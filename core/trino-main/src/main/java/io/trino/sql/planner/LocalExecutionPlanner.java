@@ -27,7 +27,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.Session;
@@ -268,6 +267,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -286,7 +286,6 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static com.google.common.collect.Sets.difference;
-import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationMinRows;
 import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationUniqueRowsRatioThreshold;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
@@ -745,9 +744,12 @@ public class LocalExecutionPlanner
                     difference(consumedFilterIds, dynamicFiltersCollector.getRegisteredDynamicFilterIds()));
         }
 
-        private void addCoordinatorDynamicFilters(Map<DynamicFilterId, Domain> dynamicTupleDomain)
+        private Consumer<Map<DynamicFilterId, Domain>> getCoordinatorDynamicFilterDomainsCollector(Set<DynamicFilterId> coordinatorDynamicFilters)
         {
-            taskContext.updateDomains(dynamicTupleDomain);
+            return domains -> taskContext.updateDomains(
+                    domains.entrySet().stream()
+                            .filter(entry -> coordinatorDynamicFilters.contains(entry.getKey()))
+                            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
         }
 
         public Optional<IndexSourceContext> getIndexSourceContext()
@@ -2913,18 +2915,19 @@ public class LocalExecutionPlanner
                     buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION,
                     "Dynamic filtering cannot be used with grouped execution");
             log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
-            LocalDynamicFilterConsumer filterConsumer = LocalDynamicFilterConsumer.create(node, buildSource.getTypes(), collectedDynamicFilters);
-            ListenableFuture<Map<DynamicFilterId, Domain>> domainsFuture = filterConsumer.getDynamicFilterDomains();
+            ImmutableList.Builder<Consumer<Map<DynamicFilterId, Domain>>> collectors = ImmutableList.builder();
             if (!localDynamicFilters.isEmpty()) {
-                addSuccessCallback(domainsFuture, context::addLocalDynamicFilters);
+                collectors.add(context::addLocalDynamicFilters);
             }
             if (!coordinatorDynamicFilters.isEmpty()) {
-                addSuccessCallback(
-                        domainsFuture,
-                        domains -> context.addCoordinatorDynamicFilters(domains.entrySet().stream()
-                                .filter(entry -> coordinatorDynamicFilters.contains(entry.getKey()))
-                                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue))));
+                collectors.add(context.getCoordinatorDynamicFilterDomainsCollector(coordinatorDynamicFilters));
             }
+            LocalDynamicFilterConsumer filterConsumer = LocalDynamicFilterConsumer.create(
+                    node,
+                    buildSource.getTypes(),
+                    collectedDynamicFilters,
+                    collectors.build());
+
             return Optional.of(filterConsumer);
         }
 
@@ -3077,17 +3080,18 @@ public class LocalExecutionPlanner
                 // Add a DynamicFilterSourceOperatorFactory to build operator factories
                 DynamicFilterId filterId = node.getDynamicFilterId().get();
                 log.debug("[Semi-join] Dynamic filter: %s", filterId);
-                LocalDynamicFilterConsumer filterConsumer = new LocalDynamicFilterConsumer(
-                        ImmutableMap.of(filterId, buildChannel),
-                        ImmutableMap.of(filterId, buildSource.getTypes().get(buildChannel)));
-                ListenableFuture<Map<DynamicFilterId, Domain>> domainsFuture = filterConsumer.getDynamicFilterDomains();
+                ImmutableList.Builder<Consumer<Map<DynamicFilterId, Domain>>> collectors = ImmutableList.builder();
                 if (isLocalDynamicFilter) {
-                    addSuccessCallback(domainsFuture, context::addLocalDynamicFilters);
+                    collectors.add(context::addLocalDynamicFilters);
                 }
                 if (isCoordinatorDynamicFilter) {
-                    addSuccessCallback(domainsFuture, context::addCoordinatorDynamicFilters);
+                    collectors.add(context.getCoordinatorDynamicFilterDomainsCollector(ImmutableSet.of(filterId)));
                 }
                 boolean isReplicatedJoin = isBuildSideReplicated(node);
+                LocalDynamicFilterConsumer filterConsumer = new LocalDynamicFilterConsumer(
+                        ImmutableMap.of(filterId, buildChannel),
+                        ImmutableMap.of(filterId, buildSource.getTypes().get(buildChannel)),
+                        collectors.build());
                 buildSource = new PhysicalOperation(
                         new DynamicFilterSourceOperatorFactory(
                                 operatorId,
