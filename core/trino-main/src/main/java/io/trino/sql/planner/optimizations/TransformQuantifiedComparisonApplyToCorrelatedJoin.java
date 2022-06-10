@@ -16,7 +16,6 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
@@ -81,9 +80,17 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
-        return rewriteWith(new Rewriter(idAllocator, types, symbolAllocator, metadata, session), plan, null);
+        return rewriteWith(
+                new Rewriter(
+                        context.getIdAllocator(),
+                        context.getSymbolAllocator().getTypes(),
+                        context.getSymbolAllocator(),
+                        metadata,
+                        context.getSession()),
+                plan,
+                null);
     }
 
     private static class Rewriter

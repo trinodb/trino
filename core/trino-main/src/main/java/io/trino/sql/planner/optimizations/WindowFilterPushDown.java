@@ -15,7 +15,6 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionId;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -24,9 +23,9 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.ExpressionUtils;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -67,15 +66,18 @@ public class WindowFilterPushDown
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         requireNonNull(plan, "plan is null");
-        requireNonNull(session, "session is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(symbolAllocator, "symbolAllocator is null");
-        requireNonNull(idAllocator, "idAllocator is null");
-
-        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, plannerContext, session, types), plan, null);
+        return SimplePlanRewriter.rewriteWith(
+                new Rewriter(
+                        context.getIdAllocator(),
+                        plannerContext,
+                        context.getSession(),
+                        context.getSymbolAllocator().getTypes(),
+                        context.getExpressionInterpreter()),
+                plan,
+                null);
     }
 
     private static class Rewriter
@@ -85,6 +87,7 @@ public class WindowFilterPushDown
         private final PlannerContext plannerContext;
         private final Session session;
         private final TypeProvider types;
+        private final ExpressionInterpreter expressionInterpreter;
         private final FunctionId rowNumberFunctionId;
         private final FunctionId rankFunctionId;
         private final DomainTranslator domainTranslator;
@@ -93,12 +96,14 @@ public class WindowFilterPushDown
                 PlanNodeIdAllocator idAllocator,
                 PlannerContext plannerContext,
                 Session session,
-                TypeProvider types)
+                TypeProvider types,
+                ExpressionInterpreter expressionInterpreter)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
+            this.expressionInterpreter = requireNonNull(expressionInterpreter, "expressionInterpreter is null");
             rowNumberFunctionId = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("row_number"), ImmutableList.of()).getFunctionId();
             rankFunctionId = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("rank"), ImmutableList.of()).getFunctionId();
             domainTranslator = new DomainTranslator(plannerContext);
@@ -166,7 +171,12 @@ public class WindowFilterPushDown
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            TupleDomain<Symbol> tupleDomain = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate(), types).getTupleDomain();
+            TupleDomain<Symbol> tupleDomain = DomainTranslator.getExtractionResult(
+                    plannerContext,
+                    session,
+                    node.getPredicate(),
+                    types,
+                    expressionInterpreter).getTupleDomain();
 
             if (source instanceof RowNumberNode) {
                 Symbol rowNumberSymbol = ((RowNumberNode) source).getRowNumberSymbol();
@@ -201,7 +211,12 @@ public class WindowFilterPushDown
 
         private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rankingSymbol, int upperBound)
         {
-            ExtractionResult extractionResult = DomainTranslator.getExtractionResult(plannerContext, session, filterNode.getPredicate(), types);
+            ExtractionResult extractionResult = DomainTranslator.getExtractionResult(
+                    plannerContext,
+                    session,
+                    filterNode.getPredicate(),
+                    types,
+                    expressionInterpreter);
             TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
 
             if (!allRankingValuesInDomain(tupleDomain, rankingSymbol, upperBound)) {

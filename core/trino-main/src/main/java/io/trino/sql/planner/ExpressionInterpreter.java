@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.MapMaker;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -104,7 +105,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -158,34 +158,35 @@ import static java.util.stream.Collectors.toList;
 
 public class ExpressionInterpreter
 {
-    private final Expression expression;
     private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final LiteralInterpreter literalInterpreter;
     private final LiteralEncoder literalEncoder;
     private final Session session;
     private final ConnectorSession connectorSession;
-    private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final InterpretedFunctionInvoker functionInvoker;
     private final TypeCoercion typeCoercion;
 
-    // identity-based cache for LIKE expressions with constant pattern and escape char
-    private final IdentityHashMap<LikePredicate, JoniRegexp> likePatternCache = new IdentityHashMap<>();
-    private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
+    // weak reference based cache for LIKE expressions with constant pattern and escape char
+    private final Map<LikePredicate, JoniRegexp> likePatternCache;
+    private final Map<InListExpression, Set<?>> inListCache;
+    private final Map<Expression, Object> optimizationCache;
 
-    public ExpressionInterpreter(Expression expression, PlannerContext plannerContext, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
+    public ExpressionInterpreter(PlannerContext plannerContext, Session session)
     {
-        this.expression = requireNonNull(expression, "expression is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
         this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
         this.literalEncoder = new LiteralEncoder(plannerContext);
         this.session = requireNonNull(session, "session is null");
         this.connectorSession = session.toConnectorSession();
-        this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
-        verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+
+        MapMaker mapMaker = new MapMaker().weakKeys().concurrencyLevel(1);
+        this.likePatternCache = mapMaker.makeMap();
+        this.inListCache = mapMaker.makeMap();
+        this.optimizationCache = mapMaker.makeMap();
     }
 
     public static Object evaluateConstantExpression(
@@ -258,51 +259,57 @@ public class ExpressionInterpreter
         analyzer.analyze(resolved, Scope.create());
 
         // evaluate the expression
-        return new ExpressionInterpreter(resolved, plannerContext, session, analyzer.getExpressionTypes()).evaluate();
+        return new ExpressionInterpreter(plannerContext, session).evaluate(resolved, analyzer.getExpressionTypes());
     }
 
-    public Type getType()
+    public Object evaluate(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes)
     {
-        return expressionTypes.get(NodeRef.of(expression));
-    }
+        requireNonNull(expression, "expression is null");
+        verify((expressionTypes.containsKey(NodeRef.of(expression))));
 
-    public Object evaluate()
-    {
-        Object result = new Visitor(false).processWithExceptionHandling(expression, new NoPagePositionContext());
+        Object result = new Visitor(expressionTypes, false).processWithExceptionHandling(expression, NoOpSymbolResolver.INSTANCE);
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
     }
 
-    public Object evaluate(SymbolResolver inputs)
+    public Object evaluate(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, SymbolResolver inputs)
     {
-        Object result = new Visitor(false).processWithExceptionHandling(expression, inputs);
+        requireNonNull(expression, "expression is null");
+        verify((expressionTypes.containsKey(NodeRef.of(expression))));
+
+        Object result = new Visitor(expressionTypes, false).processWithExceptionHandling(expression, inputs);
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
     }
 
-    public Object optimize(SymbolResolver inputs)
+    public Object optimize(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, SymbolResolver inputs)
     {
-        return new Visitor(true).processWithExceptionHandling(expression, inputs);
+        requireNonNull(expression, "expression is null");
+        verify((expressionTypes.containsKey(NodeRef.of(expression))));
+
+        return new Visitor(expressionTypes, true).processWithExceptionHandling(expression, inputs);
     }
 
     private class Visitor
-            extends AstVisitor<Object, Object>
+            extends AstVisitor<Object, SymbolResolver>
     {
         private final boolean optimize;
+        private final Map<NodeRef<Expression>, Type> expressionTypes;
 
-        private Visitor(boolean optimize)
+        private Visitor(Map<NodeRef<Expression>, Type> expressionTypes, boolean optimize)
         {
+            this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
             this.optimize = optimize;
         }
 
-        private Object processWithExceptionHandling(Expression expression, Object context)
+        private Object processWithExceptionHandling(Expression expression, SymbolResolver resolver)
         {
             if (expression == null) {
                 return null;
             }
 
             try {
-                return process(expression, context);
+                return processWithCaching(expression, resolver);
             }
             catch (TrinoException e) {
                 if (optimize) {
@@ -317,14 +324,27 @@ public class ExpressionInterpreter
             }
         }
 
+        private Object processWithCaching(Expression expression, SymbolResolver resolver)
+        {
+            if (optimize && resolver instanceof NoOpSymbolResolver) {
+                // We are using weak reference map as cache, that's why we can't depend on an intermediate object
+                // that consists of expression as well as symbolResolver as a key. This is because intermediate object could
+                // get GCed even when expression still exists which will cause cache miss. So, to solve this problem we
+                // can only cache when context is noop. It'll also give us good performance benefits because in most of
+                // places optimize is called with noop symbol resolver.
+                return optimizationCache.computeIfAbsent(expression, key -> process(key, resolver));
+            }
+            return process(expression, resolver);
+        }
+
         @Override
-        public Object visitFieldReference(FieldReference node, Object context)
+        public Object visitFieldReference(FieldReference node, SymbolResolver resolver)
         {
             throw new UnsupportedOperationException("Field references not supported in interpreter");
         }
 
         @Override
-        protected Object visitDereferenceExpression(DereferenceExpression node, Object context)
+        protected Object visitDereferenceExpression(DereferenceExpression node, SymbolResolver resolver)
         {
             checkArgument(!isQualifiedAllFieldsReference(node), "unexpected expression: all fields labeled reference " + node);
             Identifier fieldIdentifier = node.getField().orElseThrow();
@@ -336,7 +356,7 @@ public class ExpressionInterpreter
             }
 
             // Row dereference: process dereference base eagerly, and only then pick the expected field
-            Object base = processWithExceptionHandling(node.getBase(), context);
+            Object base = processWithExceptionHandling(node.getBase(), resolver);
             // if the base part is evaluated to be null, the dereference expression should also be null
             if (base == null) {
                 return null;
@@ -365,37 +385,37 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitIdentifier(Identifier node, Object context)
+        protected Object visitIdentifier(Identifier node, SymbolResolver resolver)
         {
             // Identifier only exists before planning.
             // ExpressionInterpreter should only be invoked after planning.
             // As a result, this method should be unreachable.
             // However, RelationPlanner.visitUnnest and visitValues invokes evaluateConstantExpression.
-            return ((SymbolResolver) context).getValue(new Symbol(node.getValue()));
+            return resolver.getValue(new Symbol(node.getValue()));
         }
 
         @Override
-        protected Object visitParameter(Parameter node, Object context)
+        protected Object visitParameter(Parameter node, SymbolResolver resolver)
         {
             return node;
         }
 
         @Override
-        protected Object visitSymbolReference(SymbolReference node, Object context)
+        protected Object visitSymbolReference(SymbolReference node, SymbolResolver resolver)
         {
-            return ((SymbolResolver) context).getValue(Symbol.from(node));
+            return resolver.getValue(Symbol.from(node));
         }
 
         @Override
-        protected Object visitLiteral(Literal node, Object context)
+        protected Object visitLiteral(Literal node, SymbolResolver resolver)
         {
             return literalInterpreter.evaluate(node, type(node));
         }
 
         @Override
-        protected Object visitIsNullPredicate(IsNullPredicate node, Object context)
+        protected Object visitIsNullPredicate(IsNullPredicate node, SymbolResolver resolver)
         {
-            Object value = processWithExceptionHandling(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), resolver);
 
             if (value instanceof Expression) {
                 return new IsNullPredicate(toExpression(value, type(node.getValue())));
@@ -405,9 +425,9 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitIsNotNullPredicate(IsNotNullPredicate node, Object context)
+        protected Object visitIsNotNullPredicate(IsNotNullPredicate node, SymbolResolver resolver)
         {
-            Object value = processWithExceptionHandling(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), resolver);
 
             if (value instanceof Expression) {
                 return new IsNotNullPredicate(toExpression(value, type(node.getValue())));
@@ -417,25 +437,25 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitSearchedCaseExpression(SearchedCaseExpression node, Object context)
+        protected Object visitSearchedCaseExpression(SearchedCaseExpression node, SymbolResolver resolver)
         {
             Object newDefault = null;
             boolean foundNewDefault = false;
 
             List<WhenClause> whenClauses = new ArrayList<>();
             for (WhenClause whenClause : node.getWhenClauses()) {
-                Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), context);
+                Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), resolver);
 
                 if (whenOperand instanceof Expression) {
                     // cannot fully evaluate, add updated whenClause
                     whenClauses.add(new WhenClause(
                             toExpression(whenOperand, type(whenClause.getOperand())),
-                            toExpression(processWithExceptionHandling(whenClause.getResult(), context), type(whenClause.getResult()))));
+                            toExpression(processWithExceptionHandling(whenClause.getResult(), resolver), type(whenClause.getResult()))));
                 }
                 else if (Boolean.TRUE.equals(whenOperand)) {
                     // condition is true, use this as default
                     foundNewDefault = true;
-                    newDefault = processWithExceptionHandling(whenClause.getResult(), context);
+                    newDefault = processWithExceptionHandling(whenClause.getResult(), resolver);
                     break;
                 }
             }
@@ -445,7 +465,7 @@ public class ExpressionInterpreter
                 defaultResult = newDefault;
             }
             else {
-                defaultResult = processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
+                defaultResult = processWithExceptionHandling(node.getDefaultValue().orElse(null), resolver);
             }
 
             if (whenClauses.isEmpty()) {
@@ -457,33 +477,33 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitIfExpression(IfExpression node, Object context)
+        protected Object visitIfExpression(IfExpression node, SymbolResolver resolver)
         {
-            Object condition = processWithExceptionHandling(node.getCondition(), context);
+            Object condition = processWithExceptionHandling(node.getCondition(), resolver);
 
             if (condition instanceof Expression) {
-                Object trueValue = processWithExceptionHandling(node.getTrueValue(), context);
-                Object falseValue = processWithExceptionHandling(node.getFalseValue().orElse(null), context);
+                Object trueValue = processWithExceptionHandling(node.getTrueValue(), resolver);
+                Object falseValue = processWithExceptionHandling(node.getFalseValue().orElse(null), resolver);
                 return new IfExpression(
                         toExpression(condition, type(node.getCondition())),
                         toExpression(trueValue, type(node.getTrueValue())),
                         (falseValue == null) ? null : toExpression(falseValue, type(node.getFalseValue().get())));
             }
             if (Boolean.TRUE.equals(condition)) {
-                return processWithExceptionHandling(node.getTrueValue(), context);
+                return processWithExceptionHandling(node.getTrueValue(), resolver);
             }
-            return processWithExceptionHandling(node.getFalseValue().orElse(null), context);
+            return processWithExceptionHandling(node.getFalseValue().orElse(null), resolver);
         }
 
         @Override
-        protected Object visitSimpleCaseExpression(SimpleCaseExpression node, Object context)
+        protected Object visitSimpleCaseExpression(SimpleCaseExpression node, SymbolResolver resolver)
         {
-            Object operand = processWithExceptionHandling(node.getOperand(), context);
+            Object operand = processWithExceptionHandling(node.getOperand(), resolver);
             Type operandType = type(node.getOperand());
 
             // if operand is null, return defaultValue
             if (operand == null) {
-                return processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
+                return processWithExceptionHandling(node.getDefaultValue().orElse(null), resolver);
             }
 
             Object newDefault = null;
@@ -491,18 +511,18 @@ public class ExpressionInterpreter
 
             List<WhenClause> whenClauses = new ArrayList<>();
             for (WhenClause whenClause : node.getWhenClauses()) {
-                Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), context);
+                Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), resolver);
 
                 if (whenOperand instanceof Expression || operand instanceof Expression) {
                     // cannot fully evaluate, add updated whenClause
                     whenClauses.add(new WhenClause(
                             toExpression(whenOperand, type(whenClause.getOperand())),
-                            toExpression(processWithExceptionHandling(whenClause.getResult(), context), type(whenClause.getResult()))));
+                            toExpression(processWithExceptionHandling(whenClause.getResult(), resolver), type(whenClause.getResult()))));
                 }
                 else if (whenOperand != null && isEqual(operand, operandType, whenOperand, type(whenClause.getOperand()))) {
                     // condition is true, use this as default
                     foundNewDefault = true;
-                    newDefault = processWithExceptionHandling(whenClause.getResult(), context);
+                    newDefault = processWithExceptionHandling(whenClause.getResult(), resolver);
                     break;
                 }
             }
@@ -512,7 +532,7 @@ public class ExpressionInterpreter
                 defaultResult = newDefault;
             }
             else {
-                defaultResult = processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
+                defaultResult = processWithExceptionHandling(node.getDefaultValue().orElse(null), resolver);
             }
 
             if (whenClauses.isEmpty()) {
@@ -534,9 +554,9 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitCoalesceExpression(CoalesceExpression node, Object context)
+        protected Object visitCoalesceExpression(CoalesceExpression node, SymbolResolver resolver)
         {
-            List<Object> newOperands = processOperands(node, context);
+            List<Object> newOperands = processOperands(node, resolver);
             if (newOperands.isEmpty()) {
                 return null;
             }
@@ -548,12 +568,12 @@ public class ExpressionInterpreter
                     .collect(toImmutableList()));
         }
 
-        private List<Object> processOperands(CoalesceExpression node, Object context)
+        private List<Object> processOperands(CoalesceExpression node, SymbolResolver resolver)
         {
             List<Object> newOperands = new ArrayList<>();
             Set<Expression> uniqueNewOperands = new HashSet<>();
             for (Expression operand : node.getOperands()) {
-                Object value = processWithExceptionHandling(operand, context);
+                Object value = processWithExceptionHandling(operand, resolver);
                 if (value instanceof CoalesceExpression) {
                     // The nested CoalesceExpression was recursively processed. It does not contain null.
                     for (Expression nestedOperand : ((CoalesceExpression) value).getOperands()) {
@@ -588,9 +608,9 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitInPredicate(InPredicate node, Object context)
+        protected Object visitInPredicate(InPredicate node, SymbolResolver resolver)
         {
-            Object value = processWithExceptionHandling(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), resolver);
 
             Expression valueListExpression = node.getValueList();
             if (!(valueListExpression instanceof InListExpression)) {
@@ -611,18 +631,18 @@ public class ExpressionInterpreter
                 // We use the presence of the node in the map to indicate that we've already done
                 // the analysis below. If the value is null, it means that we can't apply the HashSet
                 // optimization
-                if (!inListCache.containsKey(valueList)) {
+                if (set == null) {
                     if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
                             valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
-                        Set<Object> objectSet = valueList.getValues().stream().map(expression -> processWithExceptionHandling(expression, context)).collect(Collectors.toSet());
+                        Set<Object> objectSet = valueList.getValues().stream().map(expression -> processWithExceptionHandling(expression, resolver)).collect(Collectors.toSet());
                         Type type = type(node.getValue());
                         set = FastutilSetHelper.toFastutilHashSet(
                                 objectSet,
                                 type,
                                 plannerContext.getFunctionManager().getScalarFunctionInvoker(metadata.resolveOperator(session, HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
                                 plannerContext.getFunctionManager().getScalarFunctionInvoker(metadata.resolveOperator(session, EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
+                        inListCache.put(valueList, set);
                     }
-                    inListCache.put(valueList, set);
                 }
 
                 if (set != null) {
@@ -651,7 +671,7 @@ public class ExpressionInterpreter
                 // but fail the whole in-predicate evaluation.
                 // According to in-predicate semantics, all in-list items must be successfully evaluated
                 // before a check for the match is performed.
-                Object inValue = process(expression, context);
+                Object inValue = process(expression, resolver);
                 if (value instanceof Expression || inValue instanceof Expression) {
                     hasUnresolvedValue = true;
                     values.add(inValue);
@@ -692,7 +712,24 @@ public class ExpressionInterpreter
                     return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, toExpression(value, type), simplifiedExpressionValues.get(0));
                 }
 
-                return new InPredicate(toExpression(value, type), new InListExpression(simplifiedExpressionValues));
+                Expression simplifiedValue = toExpression(value, type);
+                if (simplifiedValue.equals(node.getValue())) {
+                    simplifiedValue = node.getValue();
+                }
+
+                Expression simplifiedValueList = new InListExpression(simplifiedExpressionValues);
+                if (simplifiedValueList.equals(node.getValueList())) {
+                    simplifiedValueList = node.getValueList();
+                }
+
+                if (simplifiedValue == node.getValue() && simplifiedValueList == node.getValueList()) {
+                    // Do not create a new instance of InPredicate expression if it would be same as original expression.
+                    // Creating a new instance of InPredicate would cause inListCache cache miss, which is using node
+                    // reference as a cache key.
+                    return node;
+                }
+
+                return new InPredicate(simplifiedValue, simplifiedValueList);
             }
             if (hasNullValue) {
                 return null;
@@ -701,7 +738,7 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitExists(ExistsPredicate node, Object context)
+        protected Object visitExists(ExistsPredicate node, SymbolResolver resolver)
         {
             if (!optimize) {
                 throw new UnsupportedOperationException("Exists subquery not yet implemented");
@@ -710,7 +747,7 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitSubqueryExpression(SubqueryExpression node, Object context)
+        protected Object visitSubqueryExpression(SubqueryExpression node, SymbolResolver resolver)
         {
             if (!optimize) {
                 throw new UnsupportedOperationException("Subquery not yet implemented");
@@ -719,9 +756,9 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitArithmeticUnary(ArithmeticUnaryExpression node, Object context)
+        protected Object visitArithmeticUnary(ArithmeticUnaryExpression node, SymbolResolver resolver)
         {
-            Object value = processWithExceptionHandling(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), resolver);
             if (value == null) {
                 return null;
             }
@@ -765,13 +802,13 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitArithmeticBinary(ArithmeticBinaryExpression node, Object context)
+        protected Object visitArithmeticBinary(ArithmeticBinaryExpression node, SymbolResolver resolver)
         {
-            Object left = processWithExceptionHandling(node.getLeft(), context);
+            Object left = processWithExceptionHandling(node.getLeft(), resolver);
             if (left == null) {
                 return null;
             }
-            Object right = processWithExceptionHandling(node.getRight(), context);
+            Object right = processWithExceptionHandling(node.getRight(), resolver);
             if (right == null) {
                 return null;
             }
@@ -784,20 +821,20 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitComparisonExpression(ComparisonExpression node, Object context)
+        protected Object visitComparisonExpression(ComparisonExpression node, SymbolResolver resolver)
         {
             ComparisonExpression.Operator operator = node.getOperator();
             Expression left = node.getLeft();
             Expression right = node.getRight();
 
             if (operator == Operator.IS_DISTINCT_FROM) {
-                return processIsDistinctFrom(context, left, right);
+                return processIsDistinctFrom(resolver, left, right);
             }
             // Execution engine does not have not equal and greater than operators, so interpret with
             // equal or less than, but do not flip operator in result, as many optimizers depend on
             // operators not flipping
             if (node.getOperator() == Operator.NOT_EQUAL) {
-                Object result = visitComparisonExpression(flipComparison(node), context);
+                Object result = visitComparisonExpression(flipComparison(node), resolver);
                 if (result == null) {
                     return null;
                 }
@@ -807,20 +844,20 @@ public class ExpressionInterpreter
                 return !(Boolean) result;
             }
             if (node.getOperator() == Operator.GREATER_THAN || node.getOperator() == Operator.GREATER_THAN_OR_EQUAL) {
-                Object result = visitComparisonExpression(flipComparison(node), context);
+                Object result = visitComparisonExpression(flipComparison(node), resolver);
                 if (result instanceof ComparisonExpression) {
                     return flipComparison((ComparisonExpression) result);
                 }
                 return result;
             }
 
-            return processComparisonExpression(context, operator, left, right);
+            return processComparisonExpression(resolver, operator, left, right);
         }
 
-        private Object processIsDistinctFrom(Object context, Expression leftExpression, Expression rightExpression)
+        private Object processIsDistinctFrom(SymbolResolver resolver, Expression leftExpression, Expression rightExpression)
         {
-            Object left = processWithExceptionHandling(leftExpression, context);
-            Object right = processWithExceptionHandling(rightExpression, context);
+            Object left = processWithExceptionHandling(leftExpression, resolver);
+            Object right = processWithExceptionHandling(rightExpression, resolver);
 
             if (left == null && right instanceof Expression) {
                 return new IsNotNullPredicate((Expression) right);
@@ -837,14 +874,14 @@ public class ExpressionInterpreter
             return invokeOperator(OperatorType.valueOf(Operator.IS_DISTINCT_FROM.name()), types(leftExpression, rightExpression), Arrays.asList(left, right));
         }
 
-        private Object processComparisonExpression(Object context, Operator operator, Expression leftExpression, Expression rightExpression)
+        private Object processComparisonExpression(SymbolResolver resolver, Operator operator, Expression leftExpression, Expression rightExpression)
         {
-            Object left = processWithExceptionHandling(leftExpression, context);
+            Object left = processWithExceptionHandling(leftExpression, resolver);
             if (left == null) {
                 return null;
             }
 
-            Object right = processWithExceptionHandling(rightExpression, context);
+            Object right = processWithExceptionHandling(rightExpression, resolver);
             if (right == null) {
                 return null;
             }
@@ -879,14 +916,14 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitBetweenPredicate(BetweenPredicate node, Object context)
+        protected Object visitBetweenPredicate(BetweenPredicate node, SymbolResolver resolver)
         {
-            Object value = processWithExceptionHandling(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), resolver);
             if (value == null) {
                 return null;
             }
-            Object min = processWithExceptionHandling(node.getMin(), context);
-            Object max = processWithExceptionHandling(node.getMax(), context);
+            Object min = processWithExceptionHandling(node.getMin(), resolver);
+            Object max = processWithExceptionHandling(node.getMax(), resolver);
 
             if (value instanceof Expression || min instanceof Expression || max instanceof Expression) {
                 return new BetweenPredicate(
@@ -914,13 +951,13 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitNullIfExpression(NullIfExpression node, Object context)
+        protected Object visitNullIfExpression(NullIfExpression node, SymbolResolver resolver)
         {
-            Object first = processWithExceptionHandling(node.getFirst(), context);
+            Object first = processWithExceptionHandling(node.getFirst(), resolver);
             if (first == null) {
                 return null;
             }
-            Object second = processWithExceptionHandling(node.getSecond(), context);
+            Object second = processWithExceptionHandling(node.getSecond(), resolver);
             if (second == null) {
                 return first;
             }
@@ -952,9 +989,9 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitNotExpression(NotExpression node, Object context)
+        protected Object visitNotExpression(NotExpression node, SymbolResolver resolver)
         {
-            Object value = processWithExceptionHandling(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), resolver);
             if (value == null) {
                 return null;
             }
@@ -967,13 +1004,13 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitLogicalExpression(LogicalExpression node, Object context)
+        protected Object visitLogicalExpression(LogicalExpression node, SymbolResolver resolver)
         {
             List<Object> terms = new ArrayList<>();
             List<Type> types = new ArrayList<>();
 
             for (Expression term : node.getTerms()) {
-                Object processed = processWithExceptionHandling(term, context);
+                Object processed = processWithExceptionHandling(term, resolver);
 
                 switch (node.getOperator()) {
                     case AND:
@@ -1027,18 +1064,18 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitBooleanLiteral(BooleanLiteral node, Object context)
+        protected Object visitBooleanLiteral(BooleanLiteral node, SymbolResolver resolver)
         {
             return node.equals(BooleanLiteral.TRUE_LITERAL);
         }
 
         @Override
-        protected Object visitFunctionCall(FunctionCall node, Object context)
+        protected Object visitFunctionCall(FunctionCall node, SymbolResolver resolver)
         {
             List<Type> argumentTypes = new ArrayList<>();
             List<Object> argumentValues = new ArrayList<>();
             for (Expression expression : node.getArguments()) {
-                Object value = processWithExceptionHandling(expression, context);
+                Object value = processWithExceptionHandling(expression, resolver);
                 Type type = type(expression);
                 argumentValues.add(value);
                 argumentTypes.add(type);
@@ -1071,7 +1108,7 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitLambdaExpression(LambdaExpression node, Object context)
+        protected Object visitLambdaExpression(LambdaExpression node, SymbolResolver resolver)
         {
             if (optimize) {
                 // TODO: enable optimization related to lambda expression
@@ -1098,12 +1135,12 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitBindExpression(BindExpression node, Object context)
+        protected Object visitBindExpression(BindExpression node, SymbolResolver resolver)
         {
             List<Object> values = node.getValues().stream()
-                    .map(value -> processWithExceptionHandling(value, context))
+                    .map(value -> processWithExceptionHandling(value, resolver))
                     .collect(toList()); // values are nullable
-            Object function = processWithExceptionHandling(node.getFunction(), context);
+            Object function = processWithExceptionHandling(node.getFunction(), resolver);
 
             if (hasUnresolvedValue(values) || hasUnresolvedValue(function)) {
                 ImmutableList.Builder<Expression> builder = ImmutableList.builder();
@@ -1120,9 +1157,9 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitLikePredicate(LikePredicate node, Object context)
+        protected Object visitLikePredicate(LikePredicate node, SymbolResolver resolver)
         {
-            Object value = processWithExceptionHandling(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), resolver);
 
             if (value == null) {
                 return null;
@@ -1135,7 +1172,7 @@ public class ExpressionInterpreter
                 return evaluateLikePredicate(node, (Slice) value, getConstantPattern(node));
             }
 
-            Object pattern = processWithExceptionHandling(node.getPattern(), context);
+            Object pattern = processWithExceptionHandling(node.getPattern(), resolver);
 
             if (pattern == null) {
                 return null;
@@ -1143,7 +1180,7 @@ public class ExpressionInterpreter
 
             Object escape = null;
             if (node.getEscape().isPresent()) {
-                escape = processWithExceptionHandling(node.getEscape().get(), context);
+                escape = processWithExceptionHandling(node.getEscape().get(), resolver);
 
                 if (escape == null) {
                     return null;
@@ -1238,9 +1275,9 @@ public class ExpressionInterpreter
         }
 
         @Override
-        public Object visitCast(Cast node, Object context)
+        public Object visitCast(Cast node, SymbolResolver resolver)
         {
-            Object value = processWithExceptionHandling(node.getExpression(), context);
+            Object value = processWithExceptionHandling(node.getExpression(), resolver);
             Type targetType = plannerContext.getTypeManager().getType(toTypeSignature(node.getType()));
             Type sourceType = type(node.getExpression());
             if (value instanceof Expression) {
@@ -1273,13 +1310,13 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitArrayConstructor(ArrayConstructor node, Object context)
+        protected Object visitArrayConstructor(ArrayConstructor node, SymbolResolver resolver)
         {
             Type elementType = ((ArrayType) type(node)).getElementType();
             BlockBuilder arrayBlockBuilder = elementType.createBlockBuilder(null, node.getValues().size());
 
             for (Expression expression : node.getValues()) {
-                Object value = processWithExceptionHandling(expression, context);
+                Object value = processWithExceptionHandling(expression, resolver);
                 if (value instanceof Expression) {
                     checkCondition(node.getValues().size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
                     return visitFunctionCall(
@@ -1287,7 +1324,7 @@ public class ExpressionInterpreter
                                     .setName(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR))
                                     .setArguments(types(node.getValues()), node.getValues())
                                     .build(),
-                            context);
+                            resolver);
                 }
                 writeNativeValue(elementType, arrayBlockBuilder, value);
             }
@@ -1296,31 +1333,31 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitCurrentCatalog(CurrentCatalog node, Object context)
+        protected Object visitCurrentCatalog(CurrentCatalog node, SymbolResolver resolver)
         {
-            return visitFunctionCall(desugarCurrentCatalog(session, node, metadata), context);
+            return visitFunctionCall(desugarCurrentCatalog(session, node, metadata), resolver);
         }
 
         @Override
-        protected Object visitCurrentSchema(CurrentSchema node, Object context)
+        protected Object visitCurrentSchema(CurrentSchema node, SymbolResolver resolver)
         {
-            return visitFunctionCall(desugarCurrentSchema(session, node, metadata), context);
+            return visitFunctionCall(desugarCurrentSchema(session, node, metadata), resolver);
         }
 
         @Override
-        protected Object visitCurrentUser(CurrentUser node, Object context)
+        protected Object visitCurrentUser(CurrentUser node, SymbolResolver resolver)
         {
-            return visitFunctionCall(DesugarCurrentUser.getCall(node, metadata, session), context);
+            return visitFunctionCall(DesugarCurrentUser.getCall(node, metadata, session), resolver);
         }
 
         @Override
-        protected Object visitCurrentPath(CurrentPath node, Object context)
+        protected Object visitCurrentPath(CurrentPath node, SymbolResolver resolver)
         {
-            return visitFunctionCall(DesugarCurrentPath.getCall(node, metadata, session), context);
+            return visitFunctionCall(DesugarCurrentPath.getCall(node, metadata, session), resolver);
         }
 
         @Override
-        protected Object visitRow(Row node, Object context)
+        protected Object visitRow(Row node, SymbolResolver resolver)
         {
             RowType rowType = (RowType) type(node);
             List<Type> parameterTypes = rowType.getTypeParameters();
@@ -1329,7 +1366,7 @@ public class ExpressionInterpreter
             int cardinality = arguments.size();
             List<Object> values = new ArrayList<>(cardinality);
             for (Expression argument : arguments) {
-                values.add(processWithExceptionHandling(argument, context));
+                values.add(processWithExceptionHandling(argument, resolver));
             }
             if (hasUnresolvedValue(values)) {
                 return new Row(toExpressions(values, parameterTypes));
@@ -1344,13 +1381,13 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitSubscriptExpression(SubscriptExpression node, Object context)
+        protected Object visitSubscriptExpression(SubscriptExpression node, SymbolResolver resolver)
         {
-            Object base = processWithExceptionHandling(node.getBase(), context);
+            Object base = processWithExceptionHandling(node.getBase(), resolver);
             if (base == null) {
                 return null;
             }
-            Object index = processWithExceptionHandling(node.getIndex(), context);
+            Object index = processWithExceptionHandling(node.getIndex(), resolver);
             if (index == null) {
                 return null;
             }
@@ -1378,7 +1415,7 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Object context)
+        protected Object visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, SymbolResolver resolver)
         {
             if (!optimize) {
                 throw new UnsupportedOperationException("QuantifiedComparison not yet implemented");
@@ -1387,13 +1424,13 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitExpression(Expression node, Object context)
+        protected Object visitExpression(Expression node, SymbolResolver resolver)
         {
             throw new TrinoException(NOT_SUPPORTED, "not yet implemented: " + node.getClass().getName());
         }
 
         @Override
-        protected Object visitNode(Node node, Object context)
+        protected Object visitNode(Node node, SymbolResolver resolver)
         {
             throw new UnsupportedOperationException("Evaluator visitor can only handle Expression nodes");
         }
@@ -1438,29 +1475,6 @@ public class ExpressionInterpreter
         private List<Expression> toExpressions(List<Object> values, List<Type> types)
         {
             return literalEncoder.toExpressions(session, values, types);
-        }
-    }
-
-    private interface PagePositionContext
-    {
-        Block getBlock(int channel);
-
-        int getPosition(int channel);
-    }
-
-    private static class NoPagePositionContext
-            implements PagePositionContext
-    {
-        @Override
-        public Block getBlock(int channel)
-        {
-            throw new IllegalArgumentException("Context does not contain any blocks");
-        }
-
-        @Override
-        public int getPosition(int channel)
-        {
-            throw new IllegalArgumentException("Context does not have a position");
         }
     }
 

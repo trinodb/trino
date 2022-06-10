@@ -18,13 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
@@ -83,10 +81,13 @@ public class OptimizeMixedDistinctAggregations
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
-        if (isOptimizeDistinctAggregationEnabled(session)) {
-            return SimplePlanRewriter.rewriteWith(new Optimizer(session, idAllocator, symbolAllocator, metadata), plan, Optional.empty());
+        if (isOptimizeDistinctAggregationEnabled(context.getSession())) {
+            return SimplePlanRewriter.rewriteWith(
+                    new Optimizer(context.getSession(), context.getIdAllocator(), context.getSymbolAllocator(), metadata),
+                    plan,
+                    Optional.empty());
         }
 
         return plan;

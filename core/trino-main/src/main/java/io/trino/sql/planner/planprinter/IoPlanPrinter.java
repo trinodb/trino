@@ -31,6 +31,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -619,7 +620,8 @@ public class IoPlanPrinter
                         plannerContext,
                         session,
                         node.getPredicate(),
-                        plan.getTypes());
+                        plan.getTypes(),
+                        new ExpressionInterpreter(plannerContext, session));
                 TupleDomain<ColumnHandle> filterDomain = decomposedPredicate.getTupleDomain()
                         .transformKeys(tableScanNode.getAssignments()::get);
                 addInputTableConstraints(filterDomain, tableScanNode, context);

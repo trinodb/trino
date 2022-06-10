@@ -119,8 +119,9 @@ public class FilterStatsCalculator
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(plannerContext, session, predicate, types);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(predicate, plannerContext, session, expressionTypes);
-        Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+        // TODO - Use the same instance of ExpressionInterpreter create per planning once StatsRule has context
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(plannerContext, session);
+        Object value = interpreter.optimize(predicate, expressionTypes, NoOpSymbolResolver.INSTANCE);
 
         if (value == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).

@@ -24,6 +24,7 @@ import io.trino.cost.CostProvider;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.StatsProvider;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -124,6 +125,9 @@ public class TestJoinEnumerator
                 Optional.empty(),
                 queryRunner.getDefaultSession(),
                 symbolAllocator.getTypes());
+        ExpressionInterpreter expressionInterpreter = new ExpressionInterpreter(
+                queryRunner.getPlannerContext(),
+                queryRunner.getDefaultSession());
 
         return new Rule.Context()
         {
@@ -170,6 +174,12 @@ public class TestJoinEnumerator
             public WarningCollector getWarningCollector()
             {
                 return WarningCollector.NOOP;
+            }
+
+            @Override
+            public ExpressionInterpreter getExpressionInterpreter()
+            {
+                return expressionInterpreter;
             }
         };
     }

@@ -72,7 +72,12 @@ public class PushdownFilterIntoRowNumber
         Session session = context.getSession();
         TypeProvider types = context.getSymbolAllocator().getTypes();
 
-        DomainTranslator.ExtractionResult extractionResult = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate(), types);
+        DomainTranslator.ExtractionResult extractionResult = DomainTranslator.getExtractionResult(
+                plannerContext,
+                session,
+                node.getPredicate(),
+                types,
+                context.getExpressionInterpreter());
         TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
 
         RowNumberNode source = captures.get(CHILD);

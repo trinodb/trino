@@ -21,6 +21,7 @@ import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -62,6 +63,7 @@ public class ValidateLimitWithPresortedInput
         private final PlannerContext plannerContext;
         private final TypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
+        private final ExpressionInterpreter expressionInterpreter;
 
         private Visitor(Session session,
                 PlannerContext plannerContext,
@@ -72,6 +74,7 @@ public class ValidateLimitWithPresortedInput
             this.plannerContext = plannerContext;
             this.typeAnalyzer = typeAnalyzer;
             this.types = types;
+            this.expressionInterpreter = new ExpressionInterpreter(plannerContext, session);
         }
 
         @Override
@@ -91,7 +94,13 @@ public class ValidateLimitWithPresortedInput
                 return null;
             }
 
-            StreamProperties properties = derivePropertiesRecursively(node.getSource(), plannerContext, session, types, typeAnalyzer);
+            StreamProperties properties = derivePropertiesRecursively(
+                    node.getSource(),
+                    plannerContext,
+                    session,
+                    types,
+                    typeAnalyzer,
+                    expressionInterpreter);
 
             PeekingIterator<LocalProperty<Symbol>> actuals = peekingIterator(normalizeAndPrune(properties.getLocalProperties()).iterator());
 

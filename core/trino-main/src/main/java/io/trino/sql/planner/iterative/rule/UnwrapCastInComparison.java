@@ -131,16 +131,18 @@ public class UnwrapCastInComparison
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> unwrapCasts(context.getSession(), plannerContext, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression);
+        return (expression, context) -> unwrapCasts(context.getSession(), plannerContext, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression, context.getExpressionInterpreter());
     }
 
-    public static Expression unwrapCasts(Session session,
+    public static Expression unwrapCasts(
+            Session session,
             PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
-            Expression expression)
+            Expression expression,
+            ExpressionInterpreter expressionInterpreter)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer, session, types), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer, session, types, expressionInterpreter), expression);
     }
 
     private static class Visitor
@@ -150,15 +152,17 @@ public class UnwrapCastInComparison
         private final TypeAnalyzer typeAnalyzer;
         private final Session session;
         private final TypeProvider types;
+        private final ExpressionInterpreter expressionInterpreter;
         private final InterpretedFunctionInvoker functionInvoker;
         private final LiteralEncoder literalEncoder;
 
-        public Visitor(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
+        public Visitor(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types, ExpressionInterpreter expressionInterpreter)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
+            this.expressionInterpreter = requireNonNull(expressionInterpreter, "expressionInterpreter is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             this.literalEncoder = new LiteralEncoder(plannerContext);
         }
@@ -177,8 +181,10 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Object right = new ExpressionInterpreter(expression.getRight(), plannerContext, session, typeAnalyzer.getTypes(session, types, expression.getRight()))
-                    .optimize(NoOpSymbolResolver.INSTANCE);
+            Object right = expressionInterpreter.optimize(
+                    expression.getRight(),
+                    typeAnalyzer.getTypes(session, types, expression.getRight()),
+                    NoOpSymbolResolver.INSTANCE);
 
             Cast cast = (Cast) expression.getLeft();
             ComparisonExpression.Operator operator = expression.getOperator();

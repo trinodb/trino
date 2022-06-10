@@ -136,8 +136,9 @@ public class ScalarStatsCalculator
         protected SymbolStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(plannerContext, session, node, types);
-            ExpressionInterpreter interpreter = new ExpressionInterpreter(node, plannerContext, session, expressionTypes);
-            Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+            // TODO - Use the same instance of ExpressionInterpreter create per planning once StatsRule has context
+            ExpressionInterpreter interpreter = new ExpressionInterpreter(plannerContext, session);
+            Object value = interpreter.optimize(node, expressionTypes, NoOpSymbolResolver.INSTANCE);
 
             if (value == null || value instanceof NullLiteral) {
                 return nullStatsEstimate();

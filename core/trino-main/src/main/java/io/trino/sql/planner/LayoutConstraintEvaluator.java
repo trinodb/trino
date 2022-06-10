@@ -18,8 +18,10 @@ import io.trino.Session;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 
 import java.util.Map;
@@ -33,12 +35,16 @@ public class LayoutConstraintEvaluator
 {
     private final Map<Symbol, ColumnHandle> assignments;
     private final ExpressionInterpreter evaluator;
+    private final Expression expression;
+    private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final Set<ColumnHandle> arguments;
 
     public LayoutConstraintEvaluator(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types, Map<Symbol, ColumnHandle> assignments, Expression expression)
     {
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        evaluator = new ExpressionInterpreter(expression, plannerContext, session, typeAnalyzer.getTypes(session, types, expression));
+        this.evaluator = new ExpressionInterpreter(plannerContext, session);
+        this.expression = requireNonNull(expression, "expression is null");
+        this.expressionTypes = typeAnalyzer.getTypes(session, types, expression);
         arguments = SymbolsExtractor.extractUnique(expression).stream()
                 .map(assignments::get)
                 .collect(toImmutableSet());
@@ -58,7 +64,7 @@ public class LayoutConstraintEvaluator
 
         // Skip pruning if evaluation fails in a recoverable way. Failing here can cause
         // spurious query failures for partitions that would otherwise be filtered out.
-        Object optimized = TryFunction.evaluate(() -> evaluator.optimize(inputs), true);
+        Object optimized = TryFunction.evaluate(() -> evaluator.optimize(expression, expressionTypes, inputs), true);
 
         // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
         return !(Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral);

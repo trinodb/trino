@@ -14,6 +14,7 @@
 package io.trino.sql;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -30,8 +31,12 @@ import io.trino.sql.planner.SymbolResolver;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.InListExpression;
+import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
@@ -71,6 +76,7 @@ import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -81,6 +87,8 @@ import static java.util.Locale.ENGLISH;
 import static java.util.function.Function.identity;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotSame;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestExpressionInterpreter
@@ -518,6 +526,50 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("0 / 0 in (2, 4, 2, 4)", "0 / 0 in (2, 4)");
         assertOptimizedEquals("0 / 0 in (rand(), 2, 4)", "0 / 0 in (2, 4, rand())");
         assertOptimizedEquals("0 / 0 in (2, 2)", "0 / 0 = 2");
+    }
+
+    @Test
+    public void testDoesNotOptimizeInPredicateWithLiteralsInList()
+    {
+        // should not create a new instance of InPredicate when IN list consists of literals only
+        InListExpression inList = new InListExpression(ImmutableList.of(new LongLiteral("42"), new LongLiteral("43")));
+        InPredicate inPredicate = new InPredicate(new SymbolReference("unbound_integer"), inList);
+        assertSame(optimize(inPredicate), inPredicate);
+    }
+
+    @Test
+    public void testDoesNotOptimizeUnboundedInPredicate()
+    {
+        // should not create a new instance of InPredicate when it contains unbounded expressions that cannot be simplified
+        InListExpression inList = new InListExpression(ImmutableList.of(
+                new SymbolReference("unbound_integer"),
+                new Cast(new SymbolReference("unbound_long"), toSqlType(INTEGER))));
+        InPredicate inPredicate = new InPredicate(new SymbolReference("unbound_integer"), inList);
+        assertSame(optimize(inPredicate), inPredicate);
+    }
+
+    @Test
+    public void testDoesNotOptimizeInListExpression()
+    {
+        // should not create a new instance of InListExpression since only value changed
+        InListExpression inList = new InListExpression(ImmutableList.of(new LongLiteral("42"), new LongLiteral("43")));
+        InPredicate inPredicate = new InPredicate(planExpression("3 * 2 * unbound_integer"), inList);
+        InPredicate optimizedInPredicate = (InPredicate) optimize(inPredicate);
+        assertNotSame(inPredicate, optimizedInPredicate);
+        assertSame(inPredicate.getValueList(), inList);
+    }
+
+    @Test
+    public void testDoesNotOptimizeInPredicateValueExpression()
+    {
+        // should not create a new instance of value since only InListExpression changed
+        Expression value = new SymbolReference("unbound_integer");
+        InPredicate inPredicate = new InPredicate(value, new InListExpression(ImmutableList.of(
+                new LongLiteral("42"),
+                planExpression("2 * 3"))));
+        InPredicate optimizedInPredicate = (InPredicate) optimize(inPredicate);
+        assertNotSame(inPredicate, optimizedInPredicate);
+        assertSame(optimizedInPredicate.getValue(), value);
     }
 
     @Test
@@ -1926,8 +1978,8 @@ public class TestExpressionInterpreter
     static Object optimize(Expression parsedExpression)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, parsedExpression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
-        return interpreter.optimize(INPUTS);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(PLANNER_CONTEXT, TEST_SESSION);
+        return interpreter.optimize(parsedExpression, expressionTypes, INPUTS);
     }
 
     // TODO replace that method with io.trino.sql.ExpressionTestUtils.planExpression
@@ -1974,8 +2026,8 @@ public class TestExpressionInterpreter
     private static Object evaluate(Expression expression)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(PLANNER_CONTEXT, TEST_SESSION);
 
-        return interpreter.evaluate(INPUTS);
+        return interpreter.evaluate(expression, expressionTypes, INPUTS);
     }
 }

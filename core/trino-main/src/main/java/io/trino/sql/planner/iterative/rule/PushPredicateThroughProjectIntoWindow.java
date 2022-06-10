@@ -120,7 +120,8 @@ public class PushPredicateThroughProjectIntoWindow
                 plannerContext,
                 context.getSession(),
                 filter.getPredicate(),
-                context.getSymbolAllocator().getTypes());
+                context.getSymbolAllocator().getTypes(),
+                context.getExpressionInterpreter());
         TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
         OptionalInt upperBound = extractUpperBound(tupleDomain, rankingSymbol);
         if (upperBound.isEmpty()) {

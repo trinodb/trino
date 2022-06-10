@@ -20,6 +20,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -61,6 +62,7 @@ public class ValidateStreamingAggregations
         private final PlannerContext plannerContext;
         private final TypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
+        private final ExpressionInterpreter expressionInterpreter;
 
         private Visitor(Session session,
                 PlannerContext plannerContext,
@@ -71,6 +73,7 @@ public class ValidateStreamingAggregations
             this.plannerContext = plannerContext;
             this.typeAnalyzer = typeAnalyzer;
             this.types = types;
+            this.expressionInterpreter = new ExpressionInterpreter(plannerContext, session);
         }
 
         @Override
@@ -87,7 +90,13 @@ public class ValidateStreamingAggregations
                 return null;
             }
 
-            StreamProperties properties = derivePropertiesRecursively(node.getSource(), plannerContext, session, types, typeAnalyzer);
+            StreamProperties properties = derivePropertiesRecursively(
+                    node.getSource(),
+                    plannerContext,
+                    session,
+                    types,
+                    typeAnalyzer,
+                    expressionInterpreter);
 
             List<LocalProperty<Symbol>> desiredProperties = ImmutableList.of(new GroupingProperty<>(node.getPreGroupedSymbols()));
             Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(properties.getLocalProperties(), desiredProperties).iterator();

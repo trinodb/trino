@@ -30,6 +30,8 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
@@ -60,6 +62,7 @@ import static org.testng.Assert.fail;
 
 public class RuleAssert
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final FunctionManager functionManager;
     private final TestingStatsCalculator statsCalculator;
@@ -75,8 +78,7 @@ public class RuleAssert
     private final AccessControl accessControl;
 
     public RuleAssert(
-            Metadata metadata,
-            FunctionManager functionManager,
+            PlannerContext plannerContext,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             Session session,
@@ -84,8 +86,9 @@ public class RuleAssert
             TransactionManager transactionManager,
             AccessControl accessControl)
     {
-        this.metadata = metadata;
-        this.functionManager = functionManager;
+        this.plannerContext = plannerContext;
+        this.metadata = plannerContext.getMetadata();
+        this.functionManager = plannerContext.getFunctionManager();
         this.statsCalculator = new TestingStatsCalculator(statsCalculator);
         this.costCalculator = costCalculator;
         this.session = session;
@@ -225,7 +228,7 @@ public class RuleAssert
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session, symbolAllocator.getTypes());
-
+        ExpressionInterpreter expressionInterpreter = new ExpressionInterpreter(plannerContext, session);
         return new Rule.Context()
         {
             @Override
@@ -271,6 +274,12 @@ public class RuleAssert
             public WarningCollector getWarningCollector()
             {
                 return WarningCollector.NOOP;
+            }
+
+            @Override
+            public ExpressionInterpreter getExpressionInterpreter()
+            {
+                return expressionInterpreter;
             }
         };
     }

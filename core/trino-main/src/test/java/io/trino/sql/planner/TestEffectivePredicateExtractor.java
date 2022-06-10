@@ -175,6 +175,7 @@ public class TestEffectivePredicateExtractor
     private final PlannerContext plannerContext = plannerContextBuilder().withMetadata(metadata).build();
 
     private final TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(plannerContext);
+    private final ExpressionInterpreter expressionInterpreter = new ExpressionInterpreter(plannerContext, SESSION);
     private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(plannerContext), plannerContext, true);
     private final EffectivePredicateExtractor effectivePredicateExtractorWithoutTableProperties = new EffectivePredicateExtractor(new DomainTranslator(plannerContext), plannerContext, false);
 
@@ -239,7 +240,12 @@ public class TestEffectivePredicateExtractor
                                 Optional.empty())),
                 singleGroupingSet(ImmutableList.of(A, B, C)));
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // Rewrite in terms of group by symbols
         assertEquals(
@@ -264,7 +270,12 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         assertEquals(effectivePredicate, TRUE_LITERAL);
     }
@@ -282,7 +293,12 @@ public class TestEffectivePredicateExtractor
                                         .build()),
                         lessThan(BE, bigintLiteral(10))));
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // Non-deterministic functions should be purged
         assertEquals(
@@ -303,7 +319,12 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, bigintLiteral(10)))),
                 Assignments.of(D, AE, E, CE));
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // Rewrite in terms of project output symbols
         assertEquals(
@@ -328,7 +349,12 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, bigintLiteral(10)))),
                 Assignments.of(D, AE, B, CE));
 
-        Expression effectivePredicateWhenBReused = effectivePredicateExtractor.extract(SESSION, projectReusingB, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicateWhenBReused = effectivePredicateExtractor.extract(
+                SESSION,
+                projectReusingB,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         assertEquals(
                 normalizeConjuncts(effectivePredicateWhenBReused),
@@ -351,7 +377,12 @@ public class TestEffectivePredicateExtractor
                         .put(F, BE)
                         .build());
 
-        Expression effectivePredicateWhenCReused = effectivePredicateExtractor.extract(SESSION, projectReusingC, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicateWhenCReused = effectivePredicateExtractor.extract(
+                SESSION,
+                projectReusingC,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         assertEquals(
                 normalizeConjuncts(effectivePredicateWhenCReused),
@@ -372,7 +403,12 @@ public class TestEffectivePredicateExtractor
                 1,
                 new OrderingScheme(ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST)), TopNNode.Step.PARTIAL);
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // Pass through
         assertEquals(
@@ -397,7 +433,12 @@ public class TestEffectivePredicateExtractor
                 1,
                 false);
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // Pass through
         assertEquals(
@@ -422,7 +463,12 @@ public class TestEffectivePredicateExtractor
                 new OrderingScheme(ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST)),
                 false);
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // Pass through
         assertEquals(
@@ -454,7 +500,12 @@ public class TestEffectivePredicateExtractor
                 ImmutableSet.of(),
                 0);
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // Pass through
         assertEquals(
@@ -477,7 +528,12 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 false,
                 Optional.empty());
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
         assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
 
         node = new TableScanNode(
@@ -489,7 +545,12 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 false,
                 Optional.empty());
-        effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
         assertEquals(effectivePredicate, FALSE_LITERAL);
 
         TupleDomain<ColumnHandle> predicate = TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L)));
@@ -502,7 +563,12 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 false,
                 Optional.empty());
-        effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(1L), AE)));
 
         predicate = TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -517,7 +583,12 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 false,
                 Optional.empty());
-        effectivePredicate = effectivePredicateExtractorWithoutTableProperties.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        effectivePredicate = effectivePredicateExtractorWithoutTableProperties.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(2L), BE), equals(bigintLiteral(1L), AE)));
 
         node = new TableScanNode(
@@ -529,7 +600,12 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 false,
                 Optional.empty());
-        effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
         assertEquals(effectivePredicate, and(equals(AE, bigintLiteral(1)), equals(BE, bigintLiteral(2))));
 
         node = new TableScanNode(
@@ -543,7 +619,12 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 false,
                 Optional.empty());
-        effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(2L), BE), equals(bigintLiteral(1L), AE)));
 
         node = new TableScanNode(
@@ -555,7 +636,12 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 false,
                 Optional.empty());
-        effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
         assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
     }
 
@@ -580,7 +666,8 @@ public class TestEffectivePredicateExtractor
                                         new Row(ImmutableList.of(bigintLiteral(1))),
                                         new Row(ImmutableList.of(bigintLiteral(2))))),
                         types,
-                        typeAnalyzer),
+                        typeAnalyzer,
+                        expressionInterpreter),
                 new InPredicate(AE, new InListExpression(ImmutableList.of(bigintLiteral(1), bigintLiteral(2)))));
 
         // one column with null
@@ -595,7 +682,8 @@ public class TestEffectivePredicateExtractor
                                         new Row(ImmutableList.of(bigintLiteral(2))),
                                         new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT)))))),
                         types,
-                        typeAnalyzer),
+                        typeAnalyzer,
+                        expressionInterpreter),
                 or(
                         new InPredicate(AE, new InListExpression(ImmutableList.of(bigintLiteral(1), bigintLiteral(2)))),
                         new IsNullPredicate(AE)));
@@ -609,7 +697,8 @@ public class TestEffectivePredicateExtractor
                                 ImmutableList.of(A),
                                 ImmutableList.of(new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT)))))),
                         types,
-                        typeAnalyzer),
+                        typeAnalyzer,
+                        expressionInterpreter),
                 new IsNullPredicate(AE));
 
         // nested row
@@ -621,7 +710,8 @@ public class TestEffectivePredicateExtractor
                                 ImmutableList.of(R),
                                 ImmutableList.of(new Row(ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new NullLiteral())))))),
                         types,
-                        typeAnalyzer),
+                        typeAnalyzer,
+                        expressionInterpreter),
                 TRUE_LITERAL);
 
         // many rows
@@ -638,7 +728,8 @@ public class TestEffectivePredicateExtractor
                                 ImmutableList.of(A),
                                 rows),
                         types,
-                        typeAnalyzer),
+                        typeAnalyzer,
+                        expressionInterpreter),
                 new BetweenPredicate(AE, bigintLiteral(0), bigintLiteral(499)));
 
         // NaN
@@ -650,7 +741,8 @@ public class TestEffectivePredicateExtractor
                                 ImmutableList.of(D),
                                 ImmutableList.of(new Row(ImmutableList.of(doubleLiteral(Double.NaN))))),
                         types,
-                        typeAnalyzer),
+                        typeAnalyzer,
+                        expressionInterpreter),
                 new NotExpression(new IsNullPredicate(DE)));
 
         // NaN and NULL
@@ -664,7 +756,8 @@ public class TestEffectivePredicateExtractor
                                         new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(DOUBLE)))),
                                         new Row(ImmutableList.of(doubleLiteral(Double.NaN))))),
                         types,
-                        typeAnalyzer),
+                        typeAnalyzer,
+                        expressionInterpreter),
                 TRUE_LITERAL);
 
         // NaN and value
@@ -678,7 +771,8 @@ public class TestEffectivePredicateExtractor
                                         new Row(ImmutableList.of(doubleLiteral(42.))),
                                         new Row(ImmutableList.of(doubleLiteral(Double.NaN))))),
                         types,
-                        typeAnalyzer),
+                        typeAnalyzer,
+                        expressionInterpreter),
                 new NotExpression(new IsNullPredicate(DE)));
 
         // Real NaN
@@ -690,7 +784,8 @@ public class TestEffectivePredicateExtractor
                                 ImmutableList.of(D),
                                 ImmutableList.of(new Row(ImmutableList.of(new Cast(doubleLiteral(Double.NaN), toSqlType(REAL)))))),
                         TypeProvider.copyOf(ImmutableMap.of(D, REAL)),
-                        typeAnalyzer),
+                        typeAnalyzer,
+                        expressionInterpreter),
                 new NotExpression(new IsNullPredicate(DE)));
 
         // multiple columns
@@ -704,7 +799,8 @@ public class TestEffectivePredicateExtractor
                                         new Row(ImmutableList.of(bigintLiteral(1), bigintLiteral(100))),
                                         new Row(ImmutableList.of(bigintLiteral(2), bigintLiteral(200))))),
                         types,
-                        typeAnalyzer),
+                        typeAnalyzer,
+                        expressionInterpreter),
                 and(
                         new InPredicate(AE, new InListExpression(ImmutableList.of(bigintLiteral(1), bigintLiteral(2)))),
                         new InPredicate(BE, new InListExpression(ImmutableList.of(bigintLiteral(100), bigintLiteral(200))))));
@@ -720,7 +816,8 @@ public class TestEffectivePredicateExtractor
                                         new Row(ImmutableList.of(bigintLiteral(1), new Cast(new NullLiteral(), toSqlType(BIGINT)))),
                                         new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT)), bigintLiteral(200))))),
                         types,
-                        typeAnalyzer),
+                        typeAnalyzer,
+                        expressionInterpreter),
                 and(
                         or(new ComparisonExpression(EQUAL, AE, bigintLiteral(1)), new IsNullPredicate(AE)),
                         or(new ComparisonExpression(EQUAL, BE, bigintLiteral(200)), new IsNullPredicate(BE))));
@@ -744,7 +841,8 @@ public class TestEffectivePredicateExtractor
                                         new Row(ImmutableList.of(bigintLiteral(1))),
                                         new Row(ImmutableList.of(BE)))),
                         types,
-                        typeAnalyzer),
+                        typeAnalyzer,
+                        expressionInterpreter),
                 TRUE_LITERAL);
     }
 
@@ -753,7 +851,12 @@ public class TestEffectivePredicateExtractor
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(SESSION, transactionSession -> {
-                    return effectivePredicateExtractor.extract(transactionSession, node, types, typeAnalyzer);
+                    return effectivePredicateExtractor.extract(
+                            transactionSession,
+                            node,
+                            types,
+                            typeAnalyzer,
+                            expressionInterpreter);
                 });
     }
 
@@ -770,7 +873,12 @@ public class TestEffectivePredicateExtractor
                 symbolMapping,
                 ImmutableList.copyOf(symbolMapping.keySet()));
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // Only the common conjuncts can be inferred through a Union
         assertEquals(
@@ -821,7 +929,12 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // All predicates having output symbol should be carried through
         assertEquals(
@@ -865,7 +978,12 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         assertEquals(
                 normalizeConjuncts(effectivePredicate),
@@ -898,7 +1016,12 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         assertEquals(effectivePredicate, FALSE_LITERAL);
     }
@@ -945,7 +1068,12 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // All right side symbols having output symbols should be checked against NULL
         assertEquals(
@@ -994,7 +1122,12 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // False literal on the right side should be ignored
         assertEquals(
@@ -1047,7 +1180,12 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // All left side symbols should be checked against NULL
         assertEquals(
@@ -1095,7 +1233,12 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // False literal on the left side should be ignored
         assertEquals(
@@ -1119,7 +1262,12 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                node,
+                TypeProvider.empty(),
+                typeAnalyzer,
+                expressionInterpreter);
 
         // Currently, only pull predicates through the source plan
         assertEquals(

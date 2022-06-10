@@ -778,9 +778,9 @@ public final class FunctionAssertions
     private Object interpret(Expression expression, Type expectedType, Session session)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(session, getPlannerContext(), INPUT_TYPES, expression);
-        ExpressionInterpreter evaluator = new ExpressionInterpreter(expression, runner.getPlannerContext(), session, expressionTypes);
+        ExpressionInterpreter evaluator = new ExpressionInterpreter(runner.getPlannerContext(), session);
 
-        Object result = evaluator.evaluate(symbol -> {
+        Object result = evaluator.evaluate(expression, expressionTypes, symbol -> {
             int position = 0;
             int channel = INPUT_MAPPING.get(symbol);
             Type type = INPUT_TYPES.get(symbol);

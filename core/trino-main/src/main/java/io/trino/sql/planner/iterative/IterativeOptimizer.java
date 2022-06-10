@@ -31,10 +31,10 @@ import io.trino.matching.Match;
 import io.trino.matching.Pattern;
 import io.trino.spi.TrinoException;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
@@ -98,22 +98,31 @@ public class IterativeOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, PlanOptimizer.Context optimizerContext)
     {
         // only disable new rules if we have legacy rules to fall back to
-        if (useLegacyRules.test(session) && !legacyRules.isEmpty()) {
+        if (useLegacyRules.test(optimizerContext.getSession()) && !legacyRules.isEmpty()) {
             for (PlanOptimizer optimizer : legacyRules) {
-                plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
+                plan = optimizer.optimize(plan, optimizerContext);
             }
 
             return plan;
         }
 
-        Memo memo = new Memo(idAllocator, plan);
+        Memo memo = new Memo(optimizerContext.getIdAllocator(), plan);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
-        Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
-        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, nanoTime(), timeout.toMillis(), session, warningCollector);
+        Duration timeout = SystemSessionProperties.getOptimizerTimeout(optimizerContext.getSession());
+        Context context = new Context(
+                memo,
+                lookup,
+                optimizerContext.getIdAllocator(),
+                optimizerContext.getSymbolAllocator(),
+                nanoTime(),
+                timeout.toMillis(),
+                optimizerContext.getSession(),
+                optimizerContext.getWarningCollector(),
+                optimizerContext.getExpressionInterpreter());
         exploreGroup(memo.getRootGroup(), context);
 
         return memo.extract();
@@ -310,6 +319,12 @@ public class IterativeOptimizer
             {
                 return context.warningCollector;
             }
+
+            @Override
+            public ExpressionInterpreter getExpressionInterpreter()
+            {
+                return context.expressionInterpreter;
+            }
         };
     }
 
@@ -323,6 +338,7 @@ public class IterativeOptimizer
         private final long timeoutInMilliseconds;
         private final Session session;
         private final WarningCollector warningCollector;
+        private final ExpressionInterpreter expressionInterpreter;
 
         private final Map<Rule<?>, RuleInvocationStats> ruleStats = new HashMap<>();
 
@@ -334,7 +350,8 @@ public class IterativeOptimizer
                 long startTimeInNanos,
                 long timeoutInMilliseconds,
                 Session session,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                ExpressionInterpreter expressionInterpreter)
         {
             checkArgument(timeoutInMilliseconds >= 0, "Timeout has to be a non-negative number [milliseconds]");
 
@@ -346,6 +363,7 @@ public class IterativeOptimizer
             this.timeoutInMilliseconds = timeoutInMilliseconds;
             this.session = session;
             this.warningCollector = warningCollector;
+            this.expressionInterpreter = expressionInterpreter;
         }
 
         public void checkTimeoutNotExhausted()

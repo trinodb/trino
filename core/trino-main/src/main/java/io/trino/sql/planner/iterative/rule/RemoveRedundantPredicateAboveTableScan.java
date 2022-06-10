@@ -26,6 +26,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -96,7 +97,8 @@ public class RemoveRedundantPredicateAboveTableScan
         ExtractionResult decomposedPredicate = getFullyExtractedPredicates(
                 session,
                 deterministicPredicate,
-                context.getSymbolAllocator().getTypes());
+                context.getSymbolAllocator().getTypes(),
+                context.getExpressionInterpreter());
 
         if (decomposedPredicate.getTupleDomain().isAll()) {
             // no conjunct could be fully converted to tuple domain
@@ -141,6 +143,7 @@ public class RemoveRedundantPredicateAboveTableScan
                 session,
                 context.getSymbolAllocator(),
                 typeAnalyzer,
+                context.getExpressionInterpreter(),
                 TRUE_LITERAL, // Dynamic filters are included in decomposedPredicate.getRemainingExpression()
                 new DomainTranslator(plannerContext).toPredicate(session, unenforcedDomain.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
@@ -153,10 +156,14 @@ public class RemoveRedundantPredicateAboveTableScan
         return Result.ofPlanNode(node);
     }
 
-    private ExtractionResult getFullyExtractedPredicates(Session session, Expression predicate, TypeProvider types)
+    private ExtractionResult getFullyExtractedPredicates(
+            Session session,
+            Expression predicate,
+            TypeProvider types,
+            ExpressionInterpreter expressionInterpreter)
     {
         Map<Boolean, List<ExtractionResult>> extractedPredicates = extractConjuncts(predicate).stream()
-                .map(conjunct -> DomainTranslator.getExtractionResult(plannerContext, session, conjunct, types))
+                .map(conjunct -> DomainTranslator.getExtractionResult(plannerContext, session, conjunct, types, expressionInterpreter))
                 .collect(groupingBy(result -> result.getRemainingExpression().equals(TRUE_LITERAL), toList()));
         return new ExtractionResult(
                 intersect(extractedPredicates.getOrDefault(TRUE, ImmutableList.of()).stream()

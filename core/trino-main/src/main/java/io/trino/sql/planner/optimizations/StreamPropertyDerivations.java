@@ -25,6 +25,7 @@ import io.trino.metadata.TableProperties;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -110,12 +111,13 @@ public final class StreamPropertyDerivations
             PlannerContext plannerContext,
             Session session,
             TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            TypeAnalyzer typeAnalyzer,
+            ExpressionInterpreter expressionInterpreter)
     {
         List<StreamProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, plannerContext, session, types, typeAnalyzer))
+                .map(source -> derivePropertiesRecursively(source, plannerContext, session, types, typeAnalyzer, expressionInterpreter))
                 .collect(toImmutableList());
-        return deriveProperties(node, inputProperties, plannerContext, session, types, typeAnalyzer);
+        return deriveProperties(node, inputProperties, plannerContext, session, types, typeAnalyzer, expressionInterpreter);
     }
 
     public static StreamProperties deriveProperties(
@@ -124,9 +126,10 @@ public final class StreamPropertyDerivations
             PlannerContext plannerContext,
             Session session,
             TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            TypeAnalyzer typeAnalyzer,
+            ExpressionInterpreter expressionInterpreter)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties), plannerContext, session, types, typeAnalyzer);
+        return deriveProperties(node, ImmutableList.of(inputProperties), plannerContext, session, types, typeAnalyzer, expressionInterpreter);
     }
 
     public static StreamProperties deriveProperties(
@@ -135,7 +138,8 @@ public final class StreamPropertyDerivations
             PlannerContext plannerContext,
             Session session,
             TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            TypeAnalyzer typeAnalyzer,
+            ExpressionInterpreter expressionInterpreter)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");
@@ -143,6 +147,7 @@ public final class StreamPropertyDerivations
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+        requireNonNull(expressionInterpreter, "expressionInterpreter is null");
 
         // properties.otherActualProperties will never be null here because the only way
         // an external caller should obtain StreamProperties is from this method, and the
@@ -155,7 +160,8 @@ public final class StreamPropertyDerivations
                 plannerContext,
                 session,
                 types,
-                typeAnalyzer);
+                typeAnalyzer,
+                expressionInterpreter);
 
         StreamProperties result = node.accept(new Visitor(plannerContext.getMetadata(), session), inputProperties)
                 .withOtherActualProperties(otherProperties);

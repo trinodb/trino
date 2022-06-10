@@ -235,8 +235,9 @@ public class LogicalPlanner
         planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
 
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
+            PlanOptimizer.Context context = createOptimizerContext(new ExpressionInterpreter(plannerContext, session));
             for (PlanOptimizer optimizer : planOptimizers) {
-                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
+                root = optimizer.optimize(root, context);
                 requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
 
                 if (LOG.isDebugEnabled()) {
@@ -267,6 +268,42 @@ public class LogicalPlanner
             statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);
         }
         return new Plan(root, types, statsAndCosts);
+    }
+
+    private PlanOptimizer.Context createOptimizerContext(ExpressionInterpreter interpreter)
+    {
+        return new PlanOptimizer.Context()
+        {
+            @Override
+            public Session getSession()
+            {
+                return session;
+            }
+
+            @Override
+            public SymbolAllocator getSymbolAllocator()
+            {
+                return symbolAllocator;
+            }
+
+            @Override
+            public PlanNodeIdAllocator getIdAllocator()
+            {
+                return idAllocator;
+            }
+
+            @Override
+            public WarningCollector getWarningCollector()
+            {
+                return warningCollector;
+            }
+
+            @Override
+            public ExpressionInterpreter getExpressionInterpreter()
+            {
+                return interpreter;
+            }
+        };
     }
 
     public PlanNode planStatement(Analysis analysis, Statement statement)

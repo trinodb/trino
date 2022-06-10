@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import io.trino.spi.type.Type;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -266,7 +267,13 @@ public class TestSimplifyExpressions
     private static Expression simplify(@Language("SQL") String expression)
     {
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, new ParsingOptions()));
-        return normalize(rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)));
+        return normalize(rewrite(
+                actualExpression,
+                TEST_SESSION,
+                new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)),
+                PLANNER_CONTEXT,
+                createTestingTypeAnalyzer(PLANNER_CONTEXT),
+                new ExpressionInterpreter(PLANNER_CONTEXT, TEST_SESSION)));
     }
 
     private static Map<Symbol, Type> booleanSymbolTypeMapFor(Expression expression)
@@ -342,7 +349,13 @@ public class TestSimplifyExpressions
         ParsingOptions parsingOptions = new ParsingOptions();
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, parsingOptions));
         Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, parsingOptions));
-        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT));
+        Expression rewritten = rewrite(
+                actualExpression,
+                TEST_SESSION,
+                new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)),
+                PLANNER_CONTEXT,
+                createTestingTypeAnalyzer(PLANNER_CONTEXT),
+                new ExpressionInterpreter(PLANNER_CONTEXT, TEST_SESSION));
         assertEquals(
                 normalize(rewritten),
                 normalize(expectedExpression));
