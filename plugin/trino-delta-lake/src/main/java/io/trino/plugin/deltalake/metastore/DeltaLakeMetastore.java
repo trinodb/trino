@@ -47,6 +47,8 @@ public interface DeltaLakeMetastore
 
     void dropTable(ConnectorSession session, String databaseName, String tableName);
 
+    void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
+
     Optional<MetadataEntry> getMetadata(TableSnapshot tableSnapshot, ConnectorSession session);
 
     ProtocolEntry getProtocol(ConnectorSession session, TableSnapshot table);

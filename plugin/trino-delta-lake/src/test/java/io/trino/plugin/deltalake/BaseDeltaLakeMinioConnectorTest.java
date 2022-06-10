@@ -108,7 +108,6 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
             case SUPPORTS_AGGREGATION_PUSHDOWN:
-            case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -273,6 +272,36 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                         "WITH (\n" +
                         "   location = 's3://%s/test_schema'\n" +
                         ")", getSession().getCatalog().orElseThrow(), schemaName, bucketName));
+    }
+
+    /**
+     * @see io.trino.plugin.deltalake.BaseDeltaLakeConnectorSmokeTest#testRenameExternalTable for more test coverage
+     */
+    @Override
+    public void testRenameTable()
+    {
+        assertThatThrownBy(super::testRenameTable)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+    }
+
+    /**
+     * @see io.trino.plugin.deltalake.BaseDeltaLakeConnectorSmokeTest#testRenameExternalTableAcrossSchemas for more test coverage
+     */
+    @Override
+    public void testRenameTableAcrossSchema()
+    {
+        assertThatThrownBy(super::testRenameTableAcrossSchema)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+    }
+
+    @Override
+    public void testRenameTableToUnqualifiedPreservesSchema()
+    {
+        assertThatThrownBy(super::testRenameTableToUnqualifiedPreservesSchema)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_source_schema_");
     }
 
     @Override
