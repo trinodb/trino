@@ -29,7 +29,6 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.MetadataListing;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
@@ -107,6 +106,8 @@ import static io.trino.connector.informationschema.InformationSchemaTable.COLUMN
 import static io.trino.connector.informationschema.InformationSchemaTable.SCHEMATA;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLES;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
+import static io.trino.metadata.MetadataListing.listCatalogNames;
+import static io.trino.metadata.MetadataListing.listCatalogs;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -442,7 +443,7 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowCatalogs(ShowCatalogs node, Void context)
         {
-            List<Expression> rows = MetadataListing.listCatalogNames(session, metadata, accessControl).stream()
+            List<Expression> rows = listCatalogNames(session, metadata, accessControl).stream()
                     .map(name -> row(new StringLiteral(name)))
                     .collect(toImmutableList());
 
@@ -830,7 +831,7 @@ public final class ShowQueriesRewrite
         protected Node visitShowSession(ShowSession node, Void context)
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-            List<CatalogInfo> catalogInfos = MetadataListing.listCatalogs(session, metadata, accessControl);
+            List<CatalogInfo> catalogInfos = listCatalogs(session, metadata, accessControl);
             List<SessionPropertyValue> sessionProperties = sessionPropertyManager.getAllSessionProperties(session, catalogInfos);
             for (SessionPropertyValue sessionProperty : sessionProperties) {
                 if (sessionProperty.isHidden()) {
