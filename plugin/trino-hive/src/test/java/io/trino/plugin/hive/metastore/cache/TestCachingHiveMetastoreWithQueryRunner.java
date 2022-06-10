@@ -143,8 +143,8 @@ public class TestCachingHiveMetastoreWithQueryRunner
     @Test
     public void testIllegalFlushHiveMetastoreCacheProcedureCalls()
     {
-        var illegalParameterMessage = "Illegal parameter set passed. ";
-        var validUsageExample = "Valid usages:\n - 'flush_metadata_cache()'\n - flush_metadata_cache(schema_name => ..., table_name => ..., partition_column => ARRAY['...'], partition_value => ARRAY['...'])";
+        String illegalParameterMessage = "Illegal parameter set passed. ";
+        String validUsageExample = "Valid usages:\n - 'flush_metadata_cache()'\n - flush_metadata_cache(schema_name => ..., table_name => ..., partition_column => ARRAY['...'], partition_value => ARRAY['...'])";
 
         assertThatThrownBy(() -> getQueryRunner().execute("CALL system.flush_metadata_cache('dummy_schema')"))
                 .hasMessage("Procedure should only be invoked with named parameters. " + validUsageExample);
