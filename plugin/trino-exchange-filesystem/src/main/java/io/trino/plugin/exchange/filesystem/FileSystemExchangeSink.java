@@ -413,9 +413,7 @@ public class FileSystemExchangeSink
                 }
                 return blockedFuture;
             }
-            else {
-                return NOT_BLOCKED;
-            }
+            return NOT_BLOCKED;
         }
 
         public synchronized SliceOutput take()
@@ -459,9 +457,7 @@ public class FileSystemExchangeSink
             if (closed) {
                 return INSTANCE_SIZE;
             }
-            else {
-                return INSTANCE_SIZE + numBuffers * bufferRetainedSize;
-            }
+            return INSTANCE_SIZE + numBuffers * bufferRetainedSize;
         }
 
         public void close()
