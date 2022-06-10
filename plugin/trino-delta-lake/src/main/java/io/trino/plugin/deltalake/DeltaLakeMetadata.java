@@ -1768,8 +1768,7 @@ public class DeltaLakeMetadata
         SchemaTableName tableName = tableHandle.getSchemaTableName();
 
         Set<DeltaLakeColumnHandle> partitionColumns = ImmutableSet.copyOf(extractPartitionColumns(tableHandle.getMetadataEntry(), typeManager));
-        verify(!constraint.getSummary().isNone(), "applyFilter constraint has summary NONE");
-        Map<ColumnHandle, Domain> constraintDomains = constraint.getSummary().getDomains().orElseThrow();
+        Map<ColumnHandle, Domain> constraintDomains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
 
         ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> enforceableDomains = ImmutableMap.builder();
         ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> unenforceableDomains = ImmutableMap.builder();
