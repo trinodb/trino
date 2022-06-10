@@ -170,6 +170,12 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
+    public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
+    {
+        delegate.renameTable(from.getSchemaName(), from.getTableName(), to.getSchemaName(), to.getTableName());
+    }
+
+    @Override
     public Optional<MetadataEntry> getMetadata(TableSnapshot tableSnapshot, ConnectorSession session)
     {
         return transactionLogAccess.getMetadataEntry(tableSnapshot, session);

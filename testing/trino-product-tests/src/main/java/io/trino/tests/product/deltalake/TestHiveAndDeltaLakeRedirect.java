@@ -435,15 +435,15 @@ public class TestHiveAndDeltaLakeRedirect
     public void testHiveToDeltaAlterTable()
     {
         String tableName = "delta_alter_table_by_hive_" + randomTableSuffix();
+        String newTableName = tableName + "_new";
 
         onDelta().executeQuery(createTableInDatabricks(tableName, true));
 
         try {
-            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE hive.default.\"" + tableName + "\" RENAME TO \"" + tableName + "_new\""))
-                    .hasMessageMatching(".*This connector does not support renaming tables");
+            onTrino().executeQuery("ALTER TABLE hive.default.\"" + tableName + "\" RENAME TO \"" + newTableName + "\"");
         }
         finally {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            onDelta().executeQuery("DROP TABLE " + newTableName);
         }
     }
 

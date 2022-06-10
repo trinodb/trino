@@ -1654,6 +1654,18 @@ public class DeltaLakeMetadata
     }
 
     @Override
+    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    {
+        DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
+        Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
+        if (table.getTableType().equals(MANAGED_TABLE.name())) {
+            throw new TrinoException(NOT_SUPPORTED, "Renaming managed tables is not supported");
+        }
+        metastore.renameTable(session, handle.getSchemaTableName(), newTableName);
+    }
+
+    @Override
     public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
         String schema = schemaName.getSchemaName();
