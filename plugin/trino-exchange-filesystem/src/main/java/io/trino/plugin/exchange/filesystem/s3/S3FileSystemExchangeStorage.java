@@ -567,6 +567,7 @@ public class S3FileSystemExchangeStorage
             inProgressReadFuture = immediateVoidFuture(); // such that we don't retain reference to the buffer
         }
 
+        @GuardedBy("this")
         private void fillBuffer()
         {
             if (currentFile == null || fileOffset == currentFile.getFileSize()) {
