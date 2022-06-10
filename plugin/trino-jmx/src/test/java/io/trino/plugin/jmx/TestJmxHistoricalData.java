@@ -17,6 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+import javax.management.StandardMBean;
+
+import java.util.ArrayList;
 import java.util.List;
 
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
@@ -27,6 +32,7 @@ public class TestJmxHistoricalData
 {
     private static final String TABLE_NAME = "java.lang:type=classloading";
     private static final String NOT_EXISTING_TABLE_NAME = "not-existing-test";
+    private static final String ON_FLY_TABLE_NAME = "trino.test.onfly:type=history";
     private static final int MAX_ENTRIES = 2;
 
     @Test
@@ -73,5 +79,24 @@ public class TestJmxHistoricalData
         JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of("java.lang:type=c*"), getPlatformMBeanServer());
 
         assertEquals(jmxHistoricalData.getTables(), ImmutableSet.of("java.lang:type=classloading", "java.lang:type=compilation"));
+    }
+
+    @Test
+    public void testLoadDynamicTable() throws Exception
+    {
+        MBeanServer mbeanServer = getPlatformMBeanServer();
+        JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of(TABLE_NAME, ON_FLY_TABLE_NAME), mbeanServer);
+
+        List<Integer> columns = ImmutableList.of(0);
+        assertEquals(jmxHistoricalData.getRows(TABLE_NAME, columns), ImmutableList.of());
+
+        StandardMBean newMBean = new StandardMBean(new ArrayList<>(), List.class);
+        mbeanServer.registerMBean(newMBean, ObjectName.getInstance(ON_FLY_TABLE_NAME));
+
+        assertEquals(2, jmxHistoricalData.getTables().size());
+        assertEquals(jmxHistoricalData.getRows(ON_FLY_TABLE_NAME, columns), ImmutableList.of());
+
+        jmxHistoricalData.addRow(ON_FLY_TABLE_NAME, ImmutableList.of(1));
+        assertEquals(ImmutableList.of(ImmutableList.of(1)), jmxHistoricalData.getRows(ON_FLY_TABLE_NAME, columns));
     }
 }

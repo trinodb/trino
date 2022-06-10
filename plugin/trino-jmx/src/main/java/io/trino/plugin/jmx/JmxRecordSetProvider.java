@@ -41,7 +41,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Objects.requireNonNull;
@@ -169,9 +168,7 @@ public class JmxRecordSetProvider
             }
             else {
                 List<Integer> selectedColumns = calculateSelectedColumns(tableHandle.getColumnHandles(), getColumnNames(columns));
-                rows = tableHandle.getObjectNames().stream()
-                        .flatMap(objectName -> jmxHistoricalData.getRows(objectName, selectedColumns).stream())
-                        .collect(toImmutableList());
+                rows = ImmutableList.copyOf(jmxHistoricalData.getRows(tableHandle.getTableName().getTableName(), selectedColumns));
             }
         }
         catch (JMException e) {

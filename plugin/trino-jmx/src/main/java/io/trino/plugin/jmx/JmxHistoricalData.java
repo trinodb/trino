@@ -17,7 +17,14 @@ import com.google.common.collect.EvictingQueue;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
+import javax.management.InstanceNotFoundException;
 import javax.management.MBeanServer;
+import javax.management.MBeanServerDelegate;
+import javax.management.MBeanServerNotification;
+import javax.management.Notification;
+import javax.management.NotificationListener;
+import javax.management.ObjectName;
+import javax.management.relation.MBeanServerNotificationFilter;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -26,15 +33,16 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.jmx.JmxMetadata.toPattern;
 import static java.util.Locale.ENGLISH;
 import static javax.management.ObjectName.WILDCARD;
 
 public class JmxHistoricalData
 {
+    private final int maxEntries;
+    private final Set<String> tableNames;
     private final Set<String> tables;
     private final Map<String, EvictingQueue<List<Object>>> tableData = new HashMap<>();
 
@@ -46,15 +54,29 @@ public class JmxHistoricalData
 
     public JmxHistoricalData(int maxEntries, Set<String> tableNames, MBeanServer mbeanServer)
     {
+        this.tableNames = tableNames;
+        this.maxEntries = maxEntries;
+
         tables = tableNames.stream()
                 .map(objectNamePattern -> toPattern(objectNamePattern.toLowerCase(ENGLISH)))
                 .flatMap(objectNamePattern -> mbeanServer.queryNames(WILDCARD, null).stream()
                         .map(objectName -> objectName.getCanonicalName().toLowerCase(ENGLISH))
                         .filter(name -> name.matches(objectNamePattern)))
-                .collect(toImmutableSet());
+                .collect(Collectors.toSet());
 
         for (String tableName : tables) {
             tableData.put(tableName, EvictingQueue.create(maxEntries));
+        }
+
+        MBeanServerNotificationFilter filter = new MBeanServerNotificationFilter();
+        filter.enableAllObjectNames();
+        try {
+            mbeanServer.addNotificationListener(MBeanServerDelegate.DELEGATE_NAME,
+                    new AddDynamicTableListener(this.tableNames, this.tableData, this.tables),
+                    filter, null);
+        }
+        catch (InstanceNotFoundException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -66,17 +88,18 @@ public class JmxHistoricalData
     public synchronized void addRow(String tableName, List<Object> row)
     {
         String lowerCaseTableName = tableName.toLowerCase(Locale.ENGLISH);
-        checkArgument(tableData.containsKey(lowerCaseTableName));
-        tableData.get(lowerCaseTableName).add(row);
+        if (tableData.containsKey(lowerCaseTableName)) {
+            tableData.get(lowerCaseTableName).add(row);
+        }
     }
 
-    public synchronized List<List<Object>> getRows(String objectName, List<Integer> selectedColumns)
+    public synchronized List<List<Object>> getRows(String tableName, List<Integer> selectedColumns)
     {
-        String lowerCaseObjectName = objectName.toLowerCase(Locale.ENGLISH);
-        if (!tableData.containsKey(lowerCaseObjectName)) {
+        String lowerCaseTableName = tableName.toLowerCase(Locale.ENGLISH);
+        if (!tableData.containsKey(lowerCaseTableName)) {
             return ImmutableList.of();
         }
-        return projectRows(tableData.get(lowerCaseObjectName), selectedColumns);
+        return projectRows(tableData.get(lowerCaseTableName), selectedColumns);
     }
 
     private List<List<Object>> projectRows(Collection<List<Object>> rows, List<Integer> selectedColumns)
@@ -90,5 +113,43 @@ public class JmxHistoricalData
             result.add(projectedRow);
         }
         return result.build();
+    }
+
+    public class AddDynamicTableListener
+            implements NotificationListener
+    {
+        private final Set<String> tableNames;
+        private final Map<String, EvictingQueue<List<Object>>> tableData;
+        private final Set<String> tables;
+
+        private AddDynamicTableListener(
+                Set<String> tableNames, Map<String,
+                EvictingQueue<List<Object>>> tableData,
+                Set<String> tables)
+        {
+            this.tableNames = tableNames;
+            this.tableData = tableData;
+            this.tables = tables;
+        }
+
+        @Override
+        public void handleNotification(Notification notification, Object handback)
+        {
+            MBeanServerNotification mbeanNotification = (MBeanServerNotification) notification;
+            ObjectName objectName = mbeanNotification.getMBeanName();
+            List<String> matchedTables = tableNames.stream()
+                                                   .filter(tableName -> objectName.getCanonicalName()
+                                                                                  .toLowerCase(ENGLISH)
+                                                                                  .matches(toPattern(tableName.toLowerCase(ENGLISH))))
+                                                   .collect(Collectors.toList());
+
+            if (!matchedTables.isEmpty()
+                    && MBeanServerNotification.REGISTRATION_NOTIFICATION.equals(notification.getType())) {
+                for (String table : matchedTables) {
+                    this.tableData.putIfAbsent(table, EvictingQueue.create(maxEntries));
+                    this.tables.add(table);
+                }
+            }
+        }
     }
 }

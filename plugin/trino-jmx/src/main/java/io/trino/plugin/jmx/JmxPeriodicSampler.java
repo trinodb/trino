@@ -39,7 +39,9 @@ public class JmxPeriodicSampler
     private final JmxRecordSetProvider jmxRecordSetProvider;
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("jmx-history-%s"));
     private final long period;
-    private final List<JmxTableHandle> tableHandles;
+    private final JmxMetadata jmxMetadata;
+
+    private List<JmxTableHandle> tableHandles;
     private long lastDumpTimestamp;
 
     @Inject
@@ -54,16 +56,9 @@ public class JmxPeriodicSampler
         this.jmxRecordSetProvider = requireNonNull(jmxRecordSetProvider, "jmxRecordSetProvider is null");
         requireNonNull(jmxConfig, "jmxConfig is null");
         this.period = jmxConfig.getDumpPeriod().toMillis();
+        this.jmxMetadata = jmxMetadata;
 
-        ImmutableList.Builder<JmxTableHandle> tableHandleBuilder = ImmutableList.builder();
-
-        for (String tableName : jmxHistoricalData.getTables()) {
-            tableHandleBuilder.add(requireNonNull(
-                    jmxMetadata.getTableHandle(new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME, tableName)),
-                    format("tableHandle is null for table [%s]", tableName)));
-        }
-
-        tableHandles = tableHandleBuilder.build();
+        refreshTables();
     }
 
     @PostConstruct
@@ -100,6 +95,18 @@ public class JmxPeriodicSampler
         }
     }
 
+    private void refreshTables()
+    {
+        ImmutableList.Builder<JmxTableHandle> tableHandleBuilder = ImmutableList.builder();
+        for (String tableName : jmxHistoricalData.getTables()) {
+            tableHandleBuilder.add(requireNonNull(
+                    jmxMetadata.getTableHandle(new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME, tableName)),
+                    format("tableHandle is null for table [%s]", tableName)));
+        }
+
+        this.tableHandles = tableHandleBuilder.build();
+    }
+
     private void runUnsafe()
     {
         // we are using rounded up timestamp, so that records from different nodes and different
@@ -113,6 +120,9 @@ public class JmxPeriodicSampler
             return;
         }
         lastDumpTimestamp = dumpTimestamp;
+
+        // we must reload tables since some tables may be registered during the runtime
+        refreshTables();
 
         for (JmxTableHandle tableHandle : tableHandles) {
             try {
