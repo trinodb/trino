@@ -160,20 +160,18 @@ public class AtopMetadata
     {
         AtopTableHandle handle = (AtopTableHandle) table;
 
-        Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
+        Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
 
         Domain oldEndTimeDomain = handle.getEndTimeConstraint();
         Domain oldStartTimeDomain = handle.getStartTimeConstraint();
         Domain newEndTimeDomain = oldEndTimeDomain;
         Domain newStartTimeDomain = oldStartTimeDomain;
 
-        if (domains.isPresent()) {
-            if (domains.get().containsKey(START_TIME_HANDLE)) {
-                newStartTimeDomain = domains.get().get(START_TIME_HANDLE).intersect(oldStartTimeDomain);
-            }
-            if (domains.get().containsKey(END_TIME_HANDLE)) {
-                newEndTimeDomain = domains.get().get(END_TIME_HANDLE).intersect(oldEndTimeDomain);
-            }
+        if (domains.containsKey(START_TIME_HANDLE)) {
+            newStartTimeDomain = domains.get(START_TIME_HANDLE).intersect(oldStartTimeDomain);
+        }
+        if (domains.containsKey(END_TIME_HANDLE)) {
+            newEndTimeDomain = domains.get(END_TIME_HANDLE).intersect(oldEndTimeDomain);
         }
 
         if (oldEndTimeDomain.equals(newEndTimeDomain) && oldStartTimeDomain.equals(newStartTimeDomain)) {
