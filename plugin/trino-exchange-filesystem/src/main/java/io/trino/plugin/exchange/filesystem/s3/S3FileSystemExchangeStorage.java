@@ -243,34 +243,33 @@ public class S3FileSystemExchangeStorage
                 batch.submit();
             })));
         }
-        else {
-            ImmutableMultimap.Builder<String, ListenableFuture<List<String>>> bucketToListObjectsFuturesBuilder = ImmutableMultimap.builder();
-            for (URI dir : directories) {
-                ImmutableList.Builder<String> keys = ImmutableList.builder();
-                ListenableFuture<List<String>> listObjectsFuture = Futures.transform(
-                        toListenableFuture((listObjectsRecursively(dir)
-                                .subscribe(listObjectsV2Response -> listObjectsV2Response.contents().stream()
-                                        .map(S3Object::key)
-                                        .forEach(keys::add)))),
-                        ignored -> keys.build(),
-                        directExecutor());
-                bucketToListObjectsFuturesBuilder.put(getBucketName(dir), listObjectsFuture);
-            }
-            Multimap<String, ListenableFuture<List<String>>> bucketToListObjectsFutures = bucketToListObjectsFuturesBuilder.build();
 
-            ImmutableList.Builder<ListenableFuture<List<DeleteObjectsResponse>>> deleteObjectsFutures = ImmutableList.builder();
-            for (String bucketName : bucketToListObjectsFutures.keySet()) {
-                deleteObjectsFutures.add(Futures.transformAsync(
-                        Futures.allAsList(bucketToListObjectsFutures.get(bucketName)),
-                        keys -> deleteObjects(
-                                bucketName,
-                                keys.stream()
-                                        .flatMap(Collection::stream)
-                                        .collect(toImmutableList())),
-                        directExecutor()));
-            }
-            return translateFailures(Futures.allAsList(deleteObjectsFutures.build()));
+        ImmutableMultimap.Builder<String, ListenableFuture<List<String>>> bucketToListObjectsFuturesBuilder = ImmutableMultimap.builder();
+        for (URI dir : directories) {
+            ImmutableList.Builder<String> keys = ImmutableList.builder();
+            ListenableFuture<List<String>> listObjectsFuture = Futures.transform(
+                    toListenableFuture((listObjectsRecursively(dir)
+                            .subscribe(listObjectsV2Response -> listObjectsV2Response.contents().stream()
+                                    .map(S3Object::key)
+                                    .forEach(keys::add)))),
+                    ignored -> keys.build(),
+                    directExecutor());
+            bucketToListObjectsFuturesBuilder.put(getBucketName(dir), listObjectsFuture);
         }
+        Multimap<String, ListenableFuture<List<String>>> bucketToListObjectsFutures = bucketToListObjectsFuturesBuilder.build();
+
+        ImmutableList.Builder<ListenableFuture<List<DeleteObjectsResponse>>> deleteObjectsFutures = ImmutableList.builder();
+        for (String bucketName : bucketToListObjectsFutures.keySet()) {
+            deleteObjectsFutures.add(Futures.transformAsync(
+                    Futures.allAsList(bucketToListObjectsFutures.get(bucketName)),
+                    keys -> deleteObjects(
+                            bucketName,
+                            keys.stream()
+                                    .flatMap(Collection::stream)
+                                    .collect(toImmutableList())),
+                    directExecutor()));
+        }
+        return translateFailures(Futures.allAsList(deleteObjectsFutures.build()));
     }
 
     @Override
