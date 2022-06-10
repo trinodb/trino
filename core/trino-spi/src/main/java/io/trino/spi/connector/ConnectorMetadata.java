@@ -941,9 +941,14 @@ public interface ConnectorMetadata
      * <b>Note</b>: Implementation must not maintain reference to {@code constraint}'s {@link Constraint#predicate()} after the
      * call returns.
      * </p>
+     *
+     * @param constraint constraint to be applied to the table. {@link Constraint#getSummary()} is guaranteed not to be {@link TupleDomain#isNone() none}.
      */
     default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
+        if (constraint.getSummary().getDomains().isEmpty()) {
+            throw new IllegalArgumentException("constraint summary is NONE");
+        }
         return Optional.empty();
     }
 
