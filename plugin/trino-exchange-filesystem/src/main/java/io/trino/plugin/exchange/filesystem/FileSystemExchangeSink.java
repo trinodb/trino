@@ -333,6 +333,7 @@ public class FileSystemExchangeSink
             return INSTANCE_SIZE + estimatedSizeOf(writers, ExchangeStorageWriter::getRetainedSize);
         }
 
+        @GuardedBy("this")
         private void setupWriterForNextPart()
         {
             currentWriter = exchangeStorage.createExchangeStorageWriter(
@@ -340,6 +341,7 @@ public class FileSystemExchangeSink
             writers.add(currentWriter);
         }
 
+        @GuardedBy("this")
         private void writeInternal(Slice slice)
         {
             int position = 0;
@@ -359,6 +361,7 @@ public class FileSystemExchangeSink
             }
         }
 
+        @GuardedBy("this")
         private void flushIfNeeded(boolean finished)
         {
             SliceOutput buffer = currentBuffer;
