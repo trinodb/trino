@@ -3291,6 +3291,12 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT file_path FROM \"" + tableName + "$files\""))
                 .matches("SELECT DISTINCT \"$path\" as file_path FROM " + tableName);
 
+        String somePath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE userid = 2");
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$path\" = '" + somePath + "'"))
+                .matches("VALUES 2, 5");
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$path\" = '" + somePath + "' AND userid > 0"))
+                .matches("VALUES 2, 5");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
