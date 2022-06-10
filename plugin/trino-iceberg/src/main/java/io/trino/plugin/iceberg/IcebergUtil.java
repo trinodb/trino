@@ -241,7 +241,7 @@ public final class IcebergUtil
         ImmutableMap.Builder<PartitionField, Integer> columns = ImmutableMap.builder();
         for (int i = 0; i < partitionSpec.fields().size(); i++) {
             PartitionField field = partitionSpec.fields().get(i);
-            if (field.transform().toString().equals("identity")) {
+            if (field.transform().isIdentity()) {
                 columns.put(field, i);
             }
         }
