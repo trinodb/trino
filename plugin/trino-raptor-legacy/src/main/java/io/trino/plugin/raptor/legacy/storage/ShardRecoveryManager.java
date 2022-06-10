@@ -171,7 +171,9 @@ public class ShardRecoveryManager
             }
         }
         catch (Throwable t) {
-            log.error(t, "Error creating shard recovery tasks");
+            if (!executorService.isShutdown()) {
+                log.error(t, "Error creating shard recovery tasks");
+            }
         }
     }
 
