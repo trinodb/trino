@@ -57,6 +57,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -136,8 +137,8 @@ public class ShardRecoveryManager
     @PreDestroy
     public void shutdown()
     {
-        executorService.shutdownNow();
-        missingShardExecutor.shutdownNow();
+        shutdownAndAwaitTermination(missingShardExecutor, 10, SECONDS);
+        shutdownAndAwaitTermination(executorService, 10, SECONDS);
     }
 
     private void scheduleRecoverMissingShards()

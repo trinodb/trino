@@ -36,12 +36,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class BackupManager
 {
@@ -72,7 +74,7 @@ public class BackupManager
     @PreDestroy
     public void shutdown()
     {
-        executorService.shutdownNow();
+        shutdownAndAwaitTermination(executorService, 10, SECONDS);
     }
 
     public CompletableFuture<Void> submit(UUID uuid, File source)

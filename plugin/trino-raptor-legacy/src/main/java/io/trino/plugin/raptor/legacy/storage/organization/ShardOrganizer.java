@@ -28,14 +28,15 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ShardOrganizer
 {
@@ -43,8 +44,6 @@ public class ShardOrganizer
 
     private final ExecutorService executorService;
     private final ThreadPoolExecutorMBean executorMBean;
-
-    private final AtomicBoolean shutdown = new AtomicBoolean();
 
     // Tracks shards that are scheduled for compaction so that we do not schedule them more than once
     private final Set<UUID> shardsInProgress = newConcurrentHashSet();
@@ -69,9 +68,7 @@ public class ShardOrganizer
     @PreDestroy
     public void shutdown()
     {
-        if (!shutdown.getAndSet(true)) {
-            executorService.shutdownNow();
-        }
+        shutdownAndAwaitTermination(executorService, 10, SECONDS);
     }
 
     public CompletableFuture<?> enqueue(OrganizationSet organizationSet)
