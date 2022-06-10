@@ -78,85 +78,85 @@ public final class PartitionTransforms
 
     private PartitionTransforms() {}
 
-    public static ColumnTransform getColumnTransform(PartitionField field, Type type)
+    public static ColumnTransform getColumnTransform(PartitionField field, Type sourceType)
     {
         String transform = field.transform().toString();
 
         switch (transform) {
             case "identity":
-                return identity(type);
+                return identity(sourceType);
             case "year":
-                if (type.equals(DATE)) {
+                if (sourceType.equals(DATE)) {
                     return yearsFromDate();
                 }
-                if (type.equals(TIMESTAMP_MICROS)) {
+                if (sourceType.equals(TIMESTAMP_MICROS)) {
                     return yearsFromTimestamp();
                 }
-                if (type.equals(TIMESTAMP_TZ_MICROS)) {
+                if (sourceType.equals(TIMESTAMP_TZ_MICROS)) {
                     return yearsFromTimestampWithTimeZone();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
             case "month":
-                if (type.equals(DATE)) {
+                if (sourceType.equals(DATE)) {
                     return monthsFromDate();
                 }
-                if (type.equals(TIMESTAMP_MICROS)) {
+                if (sourceType.equals(TIMESTAMP_MICROS)) {
                     return monthsFromTimestamp();
                 }
-                if (type.equals(TIMESTAMP_TZ_MICROS)) {
+                if (sourceType.equals(TIMESTAMP_TZ_MICROS)) {
                     return monthsFromTimestampWithTimeZone();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
             case "day":
-                if (type.equals(DATE)) {
+                if (sourceType.equals(DATE)) {
                     return daysFromDate();
                 }
-                if (type.equals(TIMESTAMP_MICROS)) {
+                if (sourceType.equals(TIMESTAMP_MICROS)) {
                     return daysFromTimestamp();
                 }
-                if (type.equals(TIMESTAMP_TZ_MICROS)) {
+                if (sourceType.equals(TIMESTAMP_TZ_MICROS)) {
                     return daysFromTimestampWithTimeZone();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
             case "hour":
-                if (type.equals(TIMESTAMP_MICROS)) {
+                if (sourceType.equals(TIMESTAMP_MICROS)) {
                     return hoursFromTimestamp();
                 }
-                if (type.equals(TIMESTAMP_TZ_MICROS)) {
+                if (sourceType.equals(TIMESTAMP_TZ_MICROS)) {
                     return hoursFromTimestampWithTimeZone();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
             case "void":
-                return voidTransform(type);
+                return voidTransform(sourceType);
         }
 
         Matcher matcher = BUCKET_PATTERN.matcher(transform);
         if (matcher.matches()) {
             int count = parseInt(matcher.group(1));
-            return bucket(type, count);
+            return bucket(sourceType, count);
         }
 
         matcher = TRUNCATE_PATTERN.matcher(transform);
         if (matcher.matches()) {
             int width = parseInt(matcher.group(1));
-            if (type.equals(INTEGER)) {
+            if (sourceType.equals(INTEGER)) {
                 return truncateInteger(width);
             }
-            if (type.equals(BIGINT)) {
+            if (sourceType.equals(BIGINT)) {
                 return truncateBigint(width);
             }
-            if (isShortDecimal(type)) {
-                DecimalType decimal = (DecimalType) type;
-                return truncateShortDecimal(type, width, decimal);
+            if (isShortDecimal(sourceType)) {
+                DecimalType decimal = (DecimalType) sourceType;
+                return truncateShortDecimal(sourceType, width, decimal);
             }
-            if (isLongDecimal(type)) {
-                DecimalType decimal = (DecimalType) type;
-                return truncateLongDecimal(type, width, decimal);
+            if (isLongDecimal(sourceType)) {
+                DecimalType decimal = (DecimalType) sourceType;
+                return truncateLongDecimal(sourceType, width, decimal);
             }
-            if (type instanceof VarcharType) {
+            if (sourceType instanceof VarcharType) {
                 return truncateVarchar(width);
             }
-            if (type.equals(VARBINARY)) {
+            if (sourceType.equals(VARBINARY)) {
                 return truncateVarbinary(width);
             }
             throw new UnsupportedOperationException("Unsupported type for 'truncate': " + field);
