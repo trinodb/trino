@@ -1792,10 +1792,18 @@ public class DeltaLakeMetadata
 
     private boolean allowWrite(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
-        String tableLocation = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
-        Path tableMetadataDirectory = new Path(new Path(tableLocation).getParent().toString(), tableHandle.getTableName());
-        boolean requiresOptIn = transactionLogWriterFactory.newWriter(session, tableMetadataDirectory.toString()).isUnsafe();
-        return !requiresOptIn || unsafeWritesEnabled;
+        try {
+            String tableLocation = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
+            Path tableMetadataDirectory = new Path(new Path(tableLocation).getParent().toString(), tableHandle.getTableName());
+            boolean requiresOptIn = transactionLogWriterFactory.newWriter(session, tableMetadataDirectory.toString()).isUnsafe();
+            return !requiresOptIn || unsafeWritesEnabled;
+        }
+        catch (TrinoException e) {
+            if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
+                return false;
+            }
+            throw e;
+        }
     }
 
     private void checkSupportedWriterVersion(ConnectorSession session, SchemaTableName schemaTableName)
