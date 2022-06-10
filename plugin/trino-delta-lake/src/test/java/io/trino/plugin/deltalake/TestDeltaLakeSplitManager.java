@@ -270,6 +270,12 @@ public class TestDeltaLakeSplitManager
         }
 
         @Override
+        public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
+        {
+            throw new UnsupportedOperationException("Unimplemented");
+        }
+
+        @Override
         public Optional<MetadataEntry> getMetadata(TableSnapshot tableSnapshot, ConnectorSession session)
         {
             throw new UnsupportedOperationException("Unimplemented");
