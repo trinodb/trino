@@ -106,12 +106,10 @@ public final class S3SelectPushdown
     public static boolean isCompressionCodecSupported(InputFormat<?, ?> inputFormat, Path path)
     {
         if (inputFormat instanceof TextInputFormat) {
-            var compressionCodec = getCompressionCodec((TextInputFormat) inputFormat, path);
-
             // S3 Select supports the following formats: uncompressed, GZIP and BZIP2.
-            return compressionCodec.isEmpty() || compressionCodec
+            return getCompressionCodec((TextInputFormat) inputFormat, path)
                     .map(codec -> (codec instanceof GzipCodec) || (codec instanceof BZip2Codec))
-                    .orElse(false);
+                    .orElse(true);
         }
 
         return false;
