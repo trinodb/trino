@@ -27,23 +27,23 @@ import static java.util.Objects.requireNonNull;
 public class BridgingHiveMetastoreFactory
         implements HiveMetastoreFactory
 {
-    private final ThriftMetastore thriftMetastore;
+    private final ThriftMetastoreFactory thriftMetastoreFactory;
 
     @Inject
-    public BridgingHiveMetastoreFactory(ThriftMetastore thriftMetastore)
+    public BridgingHiveMetastoreFactory(ThriftMetastoreFactory thriftMetastoreFactory)
     {
-        this.thriftMetastore = requireNonNull(thriftMetastore, "thriftMetastore is null");
+        this.thriftMetastoreFactory = requireNonNull(thriftMetastoreFactory, "thriftMetastore is null");
     }
 
     @Override
     public boolean isImpersonationEnabled()
     {
-        return thriftMetastore.isImpersonationEnabled();
+        return thriftMetastoreFactory.isImpersonationEnabled();
     }
 
     @Override
     public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
     {
-        return new BridgingHiveMetastore(thriftMetastore, identity.map(HiveIdentity::new).orElse(HiveIdentity.none()));
+        return new BridgingHiveMetastore(thriftMetastoreFactory.createMetastore(), identity.map(HiveIdentity::new).orElse(HiveIdentity.none()));
     }
 }

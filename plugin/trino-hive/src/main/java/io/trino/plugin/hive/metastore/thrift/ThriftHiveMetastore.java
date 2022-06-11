@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -20,7 +21,6 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
@@ -85,11 +85,8 @@ import org.apache.hadoop.hive.metastore.api.UnknownDBException;
 import org.apache.hadoop.hive.metastore.api.UnknownTableException;
 import org.apache.thrift.TApplicationException;
 import org.apache.thrift.TException;
-import org.weakref.jmx.Flatten;
-import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -160,7 +157,6 @@ public class ThriftHiveMetastore
     private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
     private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s]*$");
 
-    private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
     private final HdfsContext hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
 
     private final HdfsEnvironment hdfsEnvironment;
@@ -171,10 +167,10 @@ public class ThriftHiveMetastore
     private final Duration maxRetryTime;
     private final Duration maxWaitForLock;
     private final int maxRetries;
-    private final boolean impersonationEnabled;
     private final boolean deleteFilesOnDrop;
     private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
+    private final ThriftMetastoreStats stats;
 
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
@@ -183,32 +179,35 @@ public class ThriftHiveMetastore
     private final AtomicReference<Optional<Boolean>> metastoreSupportsDateStatistics = new AtomicReference<>(Optional.empty());
     private final CoalescingCounter metastoreSetDateStatisticsFailures = new CoalescingCounter(new Duration(1, SECONDS));
 
-    @Inject
     public ThriftHiveMetastore(
+            HdfsEnvironment hdfsEnvironment,
             TokenDelegationThriftMetastoreFactory metastoreFactory,
-            @HideDeltaLakeTables boolean hideDeltaLakeTables,
-            @TranslateHiveViews boolean translateHiveViews,
-            ThriftMetastoreConfig thriftConfig,
-            HdfsEnvironment hdfsEnvironment)
+            double backoffScaleFactor,
+            Duration minBackoffDelay,
+            Duration maxBackoffDelay,
+            Duration maxRetryTime,
+            Duration maxWaitForLock,
+            int maxRetries,
+            boolean deleteFilesOnDrop,
+            boolean translateHiveViews,
+            boolean assumeCanonicalPartitionKeys,
+            ThriftMetastoreStats stats)
     {
-        this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.backoffScaleFactor = thriftConfig.getBackoffScaleFactor();
-        this.minBackoffDelay = thriftConfig.getMinBackoffDelay();
-        this.maxBackoffDelay = thriftConfig.getMaxBackoffDelay();
-        this.maxRetryTime = thriftConfig.getMaxRetryTime();
-        this.maxRetries = thriftConfig.getMaxRetries();
-        this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
-        this.deleteFilesOnDrop = thriftConfig.isDeleteFilesOnDrop();
+        this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
+        this.backoffScaleFactor = backoffScaleFactor;
+        this.minBackoffDelay = requireNonNull(minBackoffDelay, "minBackoffDelay is null");
+        this.maxBackoffDelay = requireNonNull(maxBackoffDelay, "maxBackoffDelay is null");
+        this.maxRetryTime = requireNonNull(maxRetryTime, "maxRetryTime is null");
+        this.maxWaitForLock = requireNonNull(maxWaitForLock, "maxWaitForLock is null");
+        this.maxRetries = maxRetries;
+        this.deleteFilesOnDrop = deleteFilesOnDrop;
         this.translateHiveViews = translateHiveViews;
-        checkArgument(!hideDeltaLakeTables, "Hiding Delta Lake tables is not supported"); // TODO
-        this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
-
-        this.assumeCanonicalPartitionKeys = thriftConfig.isAssumeCanonicalPartitionKeys();
+        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
-    @Managed
-    @Flatten
+    @VisibleForTesting
     public ThriftMetastoreStats getStats()
     {
         return stats;
@@ -1933,12 +1932,6 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
-    }
-
-    @Override
-    public boolean isImpersonationEnabled()
-    {
-        return impersonationEnabled;
     }
 
     private static PrivilegeBag buildPrivilegeBag(

@@ -32,6 +32,7 @@ import io.trino.plugin.hive.metastore.UnimplementedHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreStats;
 import io.trino.spi.predicate.Domain;
@@ -122,7 +123,7 @@ public class TestCachingHiveMetastore
     public void setUp()
     {
         mockClient = new MockThriftMetastoreClient();
-        ThriftHiveMetastore thriftHiveMetastore = createThriftHiveMetastore();
+        ThriftMetastore thriftHiveMetastore = createThriftHiveMetastore();
         executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s")));
         metastore = cachingHiveMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore, IDENTITY),
@@ -131,7 +132,7 @@ public class TestCachingHiveMetastore
                 Optional.of(new Duration(1, TimeUnit.MINUTES)),
                 1000,
                 true);
-        stats = thriftHiveMetastore.getStats();
+        stats = ((ThriftHiveMetastore) thriftHiveMetastore).getStats();
     }
 
     @AfterClass(alwaysRun = true)
@@ -142,12 +143,12 @@ public class TestCachingHiveMetastore
         metastore = null;
     }
 
-    private ThriftHiveMetastore createThriftHiveMetastore()
+    private ThriftMetastore createThriftHiveMetastore()
     {
         return createThriftHiveMetastore(mockClient);
     }
 
-    private static ThriftHiveMetastore createThriftHiveMetastore(ThriftMetastoreClient client)
+    private static ThriftMetastore createThriftHiveMetastore(ThriftMetastoreClient client)
     {
         return testingThriftHiveMetastoreBuilder()
                 .metastoreClient(client)
@@ -584,7 +585,7 @@ public class TestCachingHiveMetastore
     @Test
     public void testCachingHiveMetastoreCreationViaMemoize()
     {
-        ThriftHiveMetastore thriftHiveMetastore = createThriftHiveMetastore();
+        ThriftMetastore thriftHiveMetastore = createThriftHiveMetastore();
         metastore = memoizeMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore, IDENTITY),
                 1000);
