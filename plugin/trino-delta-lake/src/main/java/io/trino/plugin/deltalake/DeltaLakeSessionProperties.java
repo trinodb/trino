@@ -47,6 +47,7 @@ public final class DeltaLakeSessionProperties
     private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
+    private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "experimental_parquet_optimized_writer_enabled"; // = HiveSessionProperties#PARQUET_OPTIMIZED_WRITER_ENABLED
     private static final String COMPRESSION_CODEC = "compression_codec";
     // This property is not supported by Delta Lake and exists solely for technical reasons.
@@ -106,6 +107,11 @@ public final class DeltaLakeSessionProperties
                         PARQUET_WRITER_PAGE_SIZE,
                         "Parquet: Writer page size",
                         parquetWriterConfig.getPageSize(),
+                        false),
+                dataSizeProperty(
+                        TARGET_MAX_FILE_SIZE,
+                        "Target maximum size of written files; the actual size may be larger",
+                        deltaLakeConfig.getTargetMaxFileSize(),
                         false),
                 booleanProperty(
                         PARQUET_OPTIMIZED_WRITER_ENABLED,
@@ -191,6 +197,11 @@ public final class DeltaLakeSessionProperties
     public static DataSize getParquetWriterPageSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
+    }
+
+    public static long getTargetMaxFileSize(ConnectorSession session)
+    {
+        return session.getProperty(TARGET_MAX_FILE_SIZE, DataSize.class).toBytes();
     }
 
     public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)

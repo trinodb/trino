@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -60,7 +61,8 @@ public class TestDeltaLakeConfig
                 .setCompressionCodec(HiveCompressionCodec.SNAPPY)
                 .setDeleteSchemaLocationsFallback(false)
                 .setParquetTimeZone(TimeZone.getDefault().getID())
-                .setPerTransactionMetastoreCacheMaximumSize(1000));
+                .setPerTransactionMetastoreCacheMaximumSize(1000)
+                .setTargetMaxFileSize(DataSize.of(1, GIGABYTE)));
     }
 
     @Test
@@ -90,6 +92,7 @@ public class TestDeltaLakeConfig
                 .put("delta.per-transaction-metastore-cache-maximum-size", "500")
                 .put("delta.delete-schema-locations-fallback", "true")
                 .put("delta.parquet.time-zone", nonDefaultTimeZone().getID())
+                .put("delta.target-max-file-size", "2 GB")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -99,7 +102,7 @@ public class TestDeltaLakeConfig
                 .setMaxOutstandingSplits(200)
                 .setMaxSplitsPerSecond(10)
                 .setMaxInitialSplits(5)
-                .setMaxInitialSplitSize(DataSize.of(1, DataSize.Unit.GIGABYTE))
+                .setMaxInitialSplitSize(DataSize.of(1, GIGABYTE))
                 .setMaxSplitSize(DataSize.of(10, DataSize.Unit.MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.01)
                 .setMaxPartitionsPerWriter(200)
@@ -115,7 +118,8 @@ public class TestDeltaLakeConfig
                 .setCompressionCodec(HiveCompressionCodec.GZIP)
                 .setDeleteSchemaLocationsFallback(true)
                 .setParquetTimeZone(nonDefaultTimeZone().getID())
-                .setPerTransactionMetastoreCacheMaximumSize(500);
+                .setPerTransactionMetastoreCacheMaximumSize(500)
+                .setTargetMaxFileSize(DataSize.of(2, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

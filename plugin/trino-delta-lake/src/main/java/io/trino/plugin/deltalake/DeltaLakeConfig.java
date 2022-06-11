@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -67,6 +68,7 @@ public class DeltaLakeConfig
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private boolean deleteSchemaLocationsFallback;
     private String parquetTimeZone = TimeZone.getDefault().getID();
+    private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
 
     public Duration getMetadataCacheTtl()
     {
@@ -380,6 +382,20 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setParquetTimeZone(String parquetTimeZone)
     {
         this.parquetTimeZone = parquetTimeZone;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getTargetMaxFileSize()
+    {
+        return targetMaxFileSize;
+    }
+
+    @Config("delta.target-max-file-size")
+    @ConfigDescription("Target maximum size of written files; the actual size may be larger")
+    public DeltaLakeConfig setTargetMaxFileSize(DataSize targetMaxFileSize)
+    {
+        this.targetMaxFileSize = targetMaxFileSize;
         return this;
     }
 }
