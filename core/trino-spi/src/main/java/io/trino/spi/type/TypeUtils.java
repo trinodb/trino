@@ -41,11 +41,11 @@ public final class TypeUtils
      */
     public static Object readNativeValue(Type type, Block block, int position)
     {
-        Class<?> javaType = type.getJavaType();
-
         if (block.isNull(position)) {
             return null;
         }
+
+        Class<?> javaType = type.getJavaType();
         if (javaType == long.class) {
             return type.getLong(block, position);
         }
@@ -69,30 +69,33 @@ public final class TypeUtils
         if (value == null) {
             blockBuilder.appendNull();
         }
-        else if (type.getJavaType() == boolean.class) {
-            type.writeBoolean(blockBuilder, (Boolean) value);
-        }
-        else if (type.getJavaType() == double.class) {
-            type.writeDouble(blockBuilder, ((double) value));
-        }
-        else if (type.getJavaType() == long.class) {
-            type.writeLong(blockBuilder, ((long) value));
-        }
-        else if (type.getJavaType() == Slice.class) {
-            Slice slice;
-            if (value instanceof byte[]) {
-                slice = Slices.wrappedBuffer((byte[]) value);
+        else {
+            Class<?> javaType = type.getJavaType();
+            if (javaType == boolean.class) {
+                type.writeBoolean(blockBuilder, (boolean) value);
             }
-            else if (value instanceof String) {
-                slice = Slices.utf8Slice((String) value);
+            else if (javaType == double.class) {
+                type.writeDouble(blockBuilder, (double) value);
+            }
+            else if (javaType == long.class) {
+                type.writeLong(blockBuilder, (long) value);
+            }
+            else if (javaType == Slice.class) {
+                Slice slice;
+                if (value instanceof byte[]) {
+                    slice = Slices.wrappedBuffer((byte[]) value);
+                }
+                else if (value instanceof String) {
+                    slice = Slices.utf8Slice((String) value);
+                }
+                else {
+                    slice = (Slice) value;
+                }
+                type.writeSlice(blockBuilder, slice, 0, slice.length());
             }
             else {
-                slice = (Slice) value;
+                type.writeObject(blockBuilder, value);
             }
-            type.writeSlice(blockBuilder, slice, 0, slice.length());
-        }
-        else {
-            type.writeObject(blockBuilder, value);
         }
     }
 
