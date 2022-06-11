@@ -16,10 +16,13 @@ package io.trino.plugin.hive.metastore.thrift;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HideDeltaLakeTables;
+import io.trino.spi.security.ConnectorIdentity;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
+
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -79,9 +82,10 @@ public class ThriftHiveMetastoreFactory
     }
 
     @Override
-    public ThriftMetastore createMetastore()
+    public ThriftMetastore createMetastore(Optional<ConnectorIdentity> identity)
     {
         return new ThriftHiveMetastore(
+                identity,
                 hdfsEnvironment,
                 metastoreFactory,
                 backoffScaleFactor,

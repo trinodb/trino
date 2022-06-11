@@ -18,9 +18,9 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
 import org.apache.thrift.TException;
 
 import javax.inject.Inject;
@@ -66,14 +66,15 @@ public class TokenDelegationThriftMetastoreFactory
         return clientProvider.createMetastoreClient(Optional.empty());
     }
 
-    public ThriftMetastoreClient createMetastoreClient(HiveIdentity identity)
+    public ThriftMetastoreClient createMetastoreClient(Optional<ConnectorIdentity> identity)
             throws TException
     {
         if (!impersonationEnabled) {
             return createMetastoreClient();
         }
 
-        String username = identity.getUsername().orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled"));
+        String username = identity.map(ConnectorIdentity::getUser)
+                .orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled"));
         if (authenticationEnabled) {
             String delegationToken;
             try {

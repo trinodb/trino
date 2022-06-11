@@ -15,7 +15,6 @@ package io.trino.plugin.hive.s3;
 
 import com.google.common.net.HostAndPort;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.DistributedQueryRunner;
@@ -133,8 +132,7 @@ public final class S3HiveQueryRunner
             setMetastore(distributedQueryRunner -> new BridgingHiveMetastore(
                     testingThriftHiveMetastoreBuilder()
                             .metastoreClient(hiveMetastoreEndpoint)
-                            .build(),
-                    new HiveIdentity(distributedQueryRunner.getDefaultSession().getIdentity().toConnectorIdentity())));
+                            .build()));
             setInitialSchemasLocationBase("s3a://" + bucketName); // cannot use s3:// as Hive metastore is not configured to accept it
             return super.build();
         }

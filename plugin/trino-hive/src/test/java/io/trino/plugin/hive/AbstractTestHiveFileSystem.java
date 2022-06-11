@@ -27,7 +27,6 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.AbstractTestHive.HiveTransaction;
 import io.trino.plugin.hive.AbstractTestHive.Transaction;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
 import io.trino.plugin.hive.fs.HiveFileIterator;
@@ -189,8 +188,7 @@ public abstract class AbstractTestHiveFileSystem
                                 .metastoreClient(HostAndPort.fromParts(host, port))
                                 .hiveConfig(config)
                                 .hdfsEnvironment(hdfsEnvironment)
-                                .build(),
-                        new HiveIdentity(getHiveSession(config).getIdentity())),
+                                .build()),
                 getBasePath(),
                 hdfsEnvironment);
         locationService = new HiveLocationService(hdfsEnvironment);
