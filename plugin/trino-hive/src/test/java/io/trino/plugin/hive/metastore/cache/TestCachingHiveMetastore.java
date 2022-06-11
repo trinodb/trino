@@ -22,7 +22,6 @@ import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.PartitionStatistics;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
@@ -92,7 +91,6 @@ import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TE
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -109,7 +107,6 @@ public class TestCachingHiveMetastore
 {
     private static final Logger log = Logger.get(TestCachingHiveMetastore.class);
 
-    private static final HiveIdentity IDENTITY = new HiveIdentity(SESSION.getIdentity());
     private static final PartitionStatistics TEST_STATS = PartitionStatistics.builder()
             .setColumnStatistics(ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty())))
             .build();
@@ -126,7 +123,7 @@ public class TestCachingHiveMetastore
         ThriftMetastore thriftHiveMetastore = createThriftHiveMetastore();
         executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s")));
         metastore = cachingHiveMetastore(
-                new BridgingHiveMetastore(thriftHiveMetastore, IDENTITY),
+                new BridgingHiveMetastore(thriftHiveMetastore),
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
                 Optional.of(new Duration(1, TimeUnit.MINUTES)),
@@ -587,7 +584,7 @@ public class TestCachingHiveMetastore
     {
         ThriftMetastore thriftHiveMetastore = createThriftHiveMetastore();
         metastore = memoizeMetastore(
-                new BridgingHiveMetastore(thriftHiveMetastore, IDENTITY),
+                new BridgingHiveMetastore(thriftHiveMetastore),
                 1000);
 
         assertEquals(mockClient.getAccessCount(), 0);
@@ -784,7 +781,7 @@ public class TestCachingHiveMetastore
         {
             thriftClient = new MockThriftMetastoreClient();
             cachingHiveMetastore = (CachingHiveMetastore) cachingHiveMetastore(
-                    new BridgingHiveMetastore(createThriftHiveMetastore(thriftClient), IDENTITY),
+                    new BridgingHiveMetastore(createThriftHiveMetastore(thriftClient)),
                     listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                     new Duration(5, TimeUnit.MINUTES),
                     Optional.of(new Duration(1, TimeUnit.MINUTES)),
@@ -833,7 +830,7 @@ public class TestCachingHiveMetastore
     private CachingHiveMetastore createMetastoreWithDirectExecutor(CachingHiveMetastoreConfig config)
     {
         return cachingHiveMetastore(
-                new BridgingHiveMetastore(createThriftHiveMetastore(), IDENTITY),
+                new BridgingHiveMetastore(createThriftHiveMetastore()),
                 directExecutor(),
                 config.getMetastoreCacheTtl(),
                 config.getMetastoreRefreshInterval(),

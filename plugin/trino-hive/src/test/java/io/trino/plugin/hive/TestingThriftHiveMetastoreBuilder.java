@@ -32,6 +32,8 @@ import io.trino.plugin.hive.metastore.thrift.TokenDelegationThriftMetastoreFacto
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 
+import java.util.Optional;
+
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -102,6 +104,6 @@ public final class TestingThriftHiveMetastoreBuilder
                 hiveConfig.isTranslateHiveViews(),
                 new ThriftMetastoreConfig(),
                 hdfsEnvironment);
-        return metastoreFactory.createMetastore();
+        return metastoreFactory.createMetastore(Optional.empty());
     }
 }

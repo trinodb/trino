@@ -13,9 +13,13 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import io.trino.spi.security.ConnectorIdentity;
+
+import java.util.Optional;
+
 public interface ThriftMetastoreFactory
 {
     boolean isImpersonationEnabled();
 
-    ThriftMetastore createMetastore();
+    ThriftMetastore createMetastore(Optional<ConnectorIdentity> identity);
 }

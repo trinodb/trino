@@ -17,7 +17,6 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Partition;
@@ -71,8 +70,7 @@ public abstract class BaseTestHiveOnDataLake
         this.metastoreClient = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
                         .metastoreClient(this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint())
-                        .build(),
-                HiveIdentity.none());
+                        .build());
         return S3HiveQueryRunner.builder(dockerizedS3DataLake)
                 .setHiveProperties(
                         ImmutableMap.<String, String>builder()

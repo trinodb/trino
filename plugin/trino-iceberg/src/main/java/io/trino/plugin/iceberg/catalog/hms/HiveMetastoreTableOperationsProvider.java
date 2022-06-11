@@ -52,7 +52,7 @@ public class HiveMetastoreTableOperationsProvider
         return new HiveMetastoreTableOperations(
                 fileIoProvider.createFileIo(new HdfsContext(session), session.getQueryId()),
                 ((TrinoHiveCatalog) catalog).getMetastore(),
-                thriftMetastoreFactory.createMetastore(),
+                thriftMetastoreFactory.createMetastore(Optional.of(session.getIdentity())),
                 session,
                 database,
                 table,
