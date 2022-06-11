@@ -137,6 +137,9 @@ values. Typical usage does not require you to configure them.
     * - ``delta.parquet.time-zone``
       - Time zone for Parquet read and write.
       - JVM default
+    * - ``delta.target-max-file-size``
+      - Target maximum size of written files; the actual size may be larger.
+      - ``1GB``
 
 The following table describes performance tuning catalog properties for the
 connector.
