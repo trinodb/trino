@@ -29,7 +29,6 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.LocationService.WriteInfo;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Column;
@@ -785,8 +784,7 @@ public abstract class AbstractTestHive
                         .metastoreClient(HostAndPort.fromParts(host, port))
                         .hiveConfig(hiveConfig)
                         .hdfsEnvironment(hdfsEnvironment)
-                        .build(),
-                        new HiveIdentity(SESSION.getIdentity())),
+                        .build()),
                 executor,
                 new Duration(1, MINUTES),
                 Optional.of(new Duration(15, SECONDS)),
