@@ -110,6 +110,19 @@ is used.
   * - ``iceberg.max-partitions-per-writer``
     - Maximum number of partitions handled per writer.
     - 100
+  * - ``iceberg.target-max-file-size``
+    - Target maximum size of written files; the actual size may be larger
+    - ``1GB``
+  * - ``iceberg.unique-table-location``
+    - Use randomized, unique table locations
+    - ``false``
+  * - ``iceberg.delete-schema-locations-fallback``
+    - Whether schema locations should be deleted when Trino can't determine whether they contain external files.
+    - ``false``
+  * - ``iceberg.minimum-assigned-split-weight``
+    - A decimal value in the range (0, 1] used as a minimum for weights assigned to each split. A low value may improve performance
+      on tables with small files. A higher value may improve performance for queries with highly skewed aggregations or joins.
+    - 0.05
   * - ``iceberg.table-statistics-enabled``
     - Enables :doc:`/optimizer/statistics`. The equivalent
       :doc:`catalog session property </sql/set-session>`
@@ -135,19 +148,6 @@ with ORC files performed by the Iceberg connector.
   * - ``hive.orc.bloom-filters.enabled``
     - Enable bloom filters for predicate pushdown.
     - ``false``
-  * - ``iceberg.target-max-file-size``
-    - Target maximum size of written files; the actual size may be larger
-    - ``1GB``
-  * - ``iceberg.unique-table-location``
-    - Use randomized, unique table locations
-    - ``false``
-  * - ``iceberg.delete-schema-locations-fallback``
-    - Whether schema locations should be deleted when Trino can't determine whether they contain external files.
-    - ``false``
-  * - ``iceberg.minimum-assigned-split-weight``
-    - A decimal value in the range (0, 1] used as a minimum for weights assigned to each split. A low value may improve performance
-      on tables with small files. A higher value may improve performance for queries with highly skewed aggregations or joins.
-    - 0.05
 
 .. _iceberg-authorization:
 
