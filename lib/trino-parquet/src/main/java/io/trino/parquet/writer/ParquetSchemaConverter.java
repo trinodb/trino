@@ -54,6 +54,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
+import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 
 public class ParquetSchemaConverter
 {
@@ -189,7 +190,7 @@ public class ParquetSchemaConverter
         Type keyType = type.getKeyType();
         Type valueType = type.getValueType();
         return Types.map(repetition)
-                .key(convert(keyType, "key", parent, OPTIONAL))
+                .key(convert(keyType, "key", parent, REQUIRED))
                 .value(convert(valueType, "value", parent, OPTIONAL))
                 .named(name);
     }
