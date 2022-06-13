@@ -227,6 +227,7 @@ It is shorthand of mutiple ``OR`` conditions::
     SELECT * FROM region WHERE name = 'AMERICA' OR name = 'AFRICA';
     
 It will return null if there are no rows matching the ``IN`` condition and hence the query will be null.
+
 It will return null if the left-hand side expression yields null::
 
     SELECT * FROM region WHERE NULL IN ('AMERICA', 'AFRICA');
