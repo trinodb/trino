@@ -436,6 +436,40 @@ Press :kbd:`→` to accept the suggestion and replace the current command line
 buffer. Press :kbd:`Ctrl+→` (:kbd:`Option+→` on Mac) to accept only the next
 keyword. Continue typing to reject the suggestion.
 
+Configuration file
+------------------
+
+The CLI can read default values for all options from a file. It uses the first
+file found from the ordered list of locations:
+
+* File path set as value of the ``TRINO_CONFIG`` environment variable.
+* ``.trino_config`` in the current users home directory.
+* ``$XDG_CONFIG_HOME/trino/config``.
+
+For example, you could create separate configuration files with different
+authentication options, like ``kerberos-cli.properties`` and ``ldap-cli.properties``.
+Assuming they're located in the current directory, you can set the
+``TRINO_CONFIG`` environment variable for a single invocation of the CLI by
+adding it before the ``trino`` command:
+
+.. code-block:: text
+
+    TRINO_CONFIG=kerberos-cli.properties trino --server https://first-cluster.example.com:8443
+    TRINO_CONFIG=ldap-cli.properties trino --server https://second-cluster.example.com:8443
+
+In the preceding example, the default configuration files are not used.
+
+You can use all supported options without the ``--`` prefix in the configuration
+properties file. Options that normally don't take an argument are boolean, so
+set them to either ``true`` or ``false``. For example:
+
+.. code-block:: properties
+
+    timezone=Europe/Warsaw
+    user=trino-client
+    network-logging=BASIC
+    krb5-disable-remote-service-hostname-canonicalization=true
+
 Batch mode
 ----------
 
