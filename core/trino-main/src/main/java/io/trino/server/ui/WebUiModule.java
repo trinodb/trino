@@ -26,8 +26,6 @@ public class WebUiModule
     @Override
     protected void setup(Binder binder)
     {
-        jaxrsBinder(binder).bind(WebUiStaticResource.class);
-
         configBinder(binder).bindConfig(WebUiConfig.class);
 
         if (buildConfigObject(WebUiConfig.class).isEnabled()) {

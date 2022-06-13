@@ -19,7 +19,6 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.server.security.oauth2.OAuth2ServiceModule;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 
 public class OAuth2WebUiModule
         extends AbstractConfigurationAwareModule
@@ -29,7 +28,6 @@ public class OAuth2WebUiModule
     {
         newOptionalBinder(binder, OAuth2WebUiInstalled.class).setBinding().toInstance(OAuth2WebUiInstalled.INSTANCE);
         binder.bind(WebUiAuthenticationFilter.class).to(OAuth2WebUiAuthenticationFilter.class).in(Scopes.SINGLETON);
-        jaxrsBinder(binder).bind(OAuth2WebUiLogoutResource.class);
         install(new OAuth2ServiceModule());
     }
 }
