@@ -2629,8 +2629,8 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE test_all_types");
     }
 
-    @Test
-    public void testLocalDynamicFilteringWithSelectiveBuildSizeJoin()
+    @Test(timeOut = 25_000)
+    public void testLocalDynamicFilteringWithSelectiveBuildSideJoin()
     {
         // We need to prepare tables for this test. The test is required to use tables that are backed by at lest two files
         Session session = Session.builder(getSession())
@@ -2651,6 +2651,7 @@ public abstract class BaseIcebergConnectorTest
 
         session = Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, "dynamic_filtering_wait_timeout", "1h")
                 .build();
 
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
