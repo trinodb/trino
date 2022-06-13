@@ -77,7 +77,7 @@ public class TrimmedBasicQueryInfo
         this.preparedQuery = requireNonNull(queryInfo.getPreparedQuery(), "preparedQuery is null");
         this.queryStats = requireNonNull(queryInfo.getQueryStats(), "queryStats is null");
         this.queryType = requireNonNull(queryInfo.getQueryType(), "queryType is null");
-        this.retryPolicy = requireNonNull(queryInfo.getRetryPolicy(), " is null");
+        this.retryPolicy = requireNonNull(queryInfo.getRetryPolicy(), "retryPolicy is null");
     }
 
     @JsonProperty
