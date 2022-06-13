@@ -16,6 +16,7 @@ package io.trino.plugin.hive.fs;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -25,7 +26,9 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -45,12 +48,17 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        return createQueryRunner(ImmutableMap.of("hive.allow-register-partition-procedure", "true"));
+    }
+
+    protected QueryRunner createQueryRunner(Map<String, String> properties)
+            throws Exception
+    {
         Path temporaryMetastoreDirectory = createTempDirectory(null);
         closeAfterClass(() -> deleteRecursively(temporaryMetastoreDirectory, ALLOW_INSECURE));
         directoryLister = createDirectoryLister();
         return HiveQueryRunner.builder()
-                .setHiveProperties(ImmutableMap.of(
-                        "hive.allow-register-partition-procedure", "true"))
+                .setHiveProperties(properties)
                 .setMetastore(distributedQueryRunner -> fileHiveMetastore = createTestingFileHiveMetastore(temporaryMetastoreDirectory.toFile()))
                 .setDirectoryLister(directoryLister)
                 .build();
@@ -324,17 +332,32 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
         assertThat(isCached(tableGroup3PartitionLocation)).isFalse();
     }
 
-    private org.apache.hadoop.fs.Path getTableLocation(String schemaName, String tableName)
+    protected Optional<Table> getTable(String schemaName, String tableName)
     {
-        return fileHiveMetastore.getTable(schemaName, tableName)
+        return fileHiveMetastore.getTable(schemaName, tableName);
+    }
+
+    protected void createTable(Table table, PrincipalPrivileges principalPrivileges)
+    {
+        fileHiveMetastore.createTable(table, principalPrivileges);
+    }
+
+    protected void dropTable(String schemaName, String tableName, boolean deleteData)
+    {
+        fileHiveMetastore.dropTable(schemaName, tableName, deleteData);
+    }
+
+    protected org.apache.hadoop.fs.Path getTableLocation(String schemaName, String tableName)
+    {
+        return getTable(schemaName, tableName)
                 .map(table -> table.getStorage().getLocation())
                 .map(tableLocation -> new org.apache.hadoop.fs.Path(tableLocation))
                 .orElseThrow(() -> new NoSuchElementException(format("The table %s.%s could not be found", schemaName, tableName)));
     }
 
-    private org.apache.hadoop.fs.Path getPartitionLocation(String schemaName, String tableName, List<String> partitionValues)
+    protected org.apache.hadoop.fs.Path getPartitionLocation(String schemaName, String tableName, List<String> partitionValues)
     {
-        Table table = fileHiveMetastore.getTable(schemaName, tableName)
+        Table table = getTable(schemaName, tableName)
                 .orElseThrow(() -> new NoSuchElementException(format("The table %s.%s could not be found", schemaName, tableName)));
 
         return fileHiveMetastore.getPartition(table, partitionValues)
@@ -343,7 +366,7 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
                 .orElseThrow(() -> new NoSuchElementException(format("The partition %s from the table %s.%s could not be found", partitionValues, schemaName, tableName)));
     }
 
-    private boolean isCached(org.apache.hadoop.fs.Path path)
+    protected boolean isCached(org.apache.hadoop.fs.Path path)
     {
         return isCached(directoryLister, path);
     }
