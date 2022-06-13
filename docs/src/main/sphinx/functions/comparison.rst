@@ -214,3 +214,28 @@ you need to match the used escape character as well, you can escape it.
 
 If you want to match for the chosen escape character, you simply escape itself.
 For example, you can use ``\\`` to match for ''\''.
+
+Row comparison: IN
+------------------------
+
+The ``IN`` operator can be use to fetch multiple rows according to mutiple values specified in WHERE clause::
+
+    SELECT * FROM region WHERE name IN ('AMERICA', 'AFRICA');
+    
+It is shorthand of mutiple ``OR`` conditions::
+    
+    SELECT * FROM region WHERE name = 'AMERICA' OR name = 'AFRICA';
+    
+It will return null if there are no rows matching the ``IN`` condition and hence the query will be null.
+It will return null if the left-hand side expression yields null::
+
+    SELECT * FROM region WHERE NULL IN ('AMERICA', 'AFRICA');
+    
+The below query will return rows containing name as 'AFRICA'::
+    
+    SELECT * FROM region WHERE name IN (NULL, 'AFRICA');
+    
+The above applies to subqueries also::
+    SELECT name FROM nation 
+    WHERE regionkey IN ( SELECT regionkey FROM region 
+    WHERE name IN ('AMERICA','AFRICA'));
