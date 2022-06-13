@@ -143,6 +143,16 @@ public final class SimpleSliceInputStream
         return UnsafeSlice.getIntUnchecked(slice, offset + index);
     }
 
+    /**
+     * Use this method only if there is a significant performance boost validated in benchmarks.
+     * Always check if needed data is available with ensureBytesAvailable method.
+     * Failing to do so may result in instant JVM crash.
+     */
+    public long getLongUnsafe(int index)
+    {
+        return UnsafeSlice.getLongUnchecked(slice, offset + index);
+    }
+
     public Slice readSlice(int length)
     {
         Slice result = slice.slice(offset, length);
