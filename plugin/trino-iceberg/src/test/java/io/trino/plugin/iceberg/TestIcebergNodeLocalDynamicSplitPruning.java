@@ -173,7 +173,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         TableType.DATA,
                         Optional.empty(),
                         SchemaParser.toJson(TABLE_SCHEMA),
-                        PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
+                        Optional.of(PartitionSpecParser.toJson(PartitionSpec.unpartitioned())),
                         2,
                         TupleDomain.withColumnDomains(ImmutableMap.of(KEY_ICEBERG_COLUMN_HANDLE, Domain.singleValue(INTEGER, (long) KEY_COLUMN_VALUE))),
                         TupleDomain.all(),

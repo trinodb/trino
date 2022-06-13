@@ -128,7 +128,7 @@ public class TestIcebergSplitSource
                 TableType.DATA,
                 Optional.empty(),
                 SchemaParser.toJson(nationTable.schema()),
-                PartitionSpecParser.toJson(nationTable.spec()),
+                Optional.of(PartitionSpecParser.toJson(nationTable.spec())),
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
