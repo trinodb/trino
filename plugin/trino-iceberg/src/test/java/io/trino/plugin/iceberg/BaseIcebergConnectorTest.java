@@ -4879,11 +4879,14 @@ public abstract class BaseIcebergConnectorTest
                 .hasMessage("Modifying old snapshot is not supported in Iceberg.");
         assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, oldSnapshotId)))
                 .hasMessage("Modifying old snapshot is not supported in Iceberg.");
+        // TODO Change to assertThatThrownBy because the syntax `table@versionid` should not be supported for DML operations
         assertUpdate(sessionWithLegacySyntaxSupport, format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, getCurrentSnapshotId(tableName)), 3);
         assertUpdate(sessionWithLegacySyntaxSupport, format("DELETE FROM \"%s@%d\" WHERE col = 9", tableName, getCurrentSnapshotId(tableName)), 1);
-        assertUpdate(sessionWithLegacySyntaxSupport, format("UPDATE \"%s@%d\" set col = 50 WHERE col = 5", tableName, getCurrentSnapshotId(tableName)), 1);
+        assertThatThrownBy(() -> assertUpdate(sessionWithLegacySyntaxSupport, format("UPDATE \"%s@%d\" set col = 50 WHERE col = 5", tableName, getCurrentSnapshotId(tableName))))
+                .hasMessage("Partition spec missing in the table handle");
+        // TODO Change to assertThatThrownBy because the syntax `table@versionid` should not be supported for DML operations
         assertQuerySucceeds(sessionWithLegacySyntaxSupport, format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, getCurrentSnapshotId(tableName)));
-        assertQuery(format("SELECT * FROM %s", tableName), "VALUES 1,2,3,4,50,6,7,8");
+        assertQuery(format("SELECT * FROM %s", tableName), "VALUES 1,2,3,4,5,6,7,8");
 
         assertUpdate("DROP TABLE " + tableName);
     }

@@ -316,8 +316,21 @@ public class IcebergMetadata
             throw new TrinoException(GENERIC_USER_ERROR, "Cannot specify end version both in table name and FOR clause");
         }
 
-        Optional<Long> snapshotId = endVersion.map(version -> getSnapshotIdFromVersion(table, version))
-                .or(() -> getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session)));
+        Optional<Long> tableSnapshotId;
+        Schema tableSchema;
+        Optional<PartitionSpec> partitionSpec;
+        if (endVersion.isPresent() || name.getSnapshotId().isPresent()) {
+            long snapshotId = endVersion.map(connectorTableVersion -> getSnapshotIdFromVersion(table, connectorTableVersion))
+                    .orElseGet(() -> resolveSnapshotId(table, name.getSnapshotId().get(), isAllowLegacySnapshotSyntax(session)));
+            tableSnapshotId = Optional.of(snapshotId);
+            tableSchema = table.schemas().get(table.snapshot(snapshotId).schemaId());
+            partitionSpec = Optional.empty();
+        }
+        else {
+            tableSnapshotId = Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId);
+            tableSchema = table.schema();
+            partitionSpec = Optional.of(table.spec());
+        }
 
         Map<String, String> tableProperties = table.properties();
         String nameMappingJson = tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING);
@@ -325,9 +338,9 @@ public class IcebergMetadata
                 tableName.getSchemaName(),
                 name.getTableName(),
                 name.getTableType(),
-                snapshotId,
-                SchemaParser.toJson(table.schema()),
-                PartitionSpecParser.toJson(table.spec()),
+                tableSnapshotId,
+                SchemaParser.toJson(tableSchema),
+                partitionSpec.map(PartitionSpecParser::toJson),
                 table.operations().current().formatVersion(),
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -1282,13 +1295,12 @@ public class IcebergMetadata
     public Optional<Object> getInfo(ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
-        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(
-                SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson()),
-                icebergTableHandle.getPartitionSpecJson());
+        Optional<Boolean> partitioned = icebergTableHandle.getPartitionSpecJson()
+                .map(partitionSpecJson -> PartitionSpecParser.fromJson(SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson()), partitionSpecJson).isPartitioned());
 
         return Optional.of(new IcebergInputInfo(
                 icebergTableHandle.getSnapshotId(),
-                partitionSpec.isPartitioned(),
+                partitioned,
                 getFileFormat(icebergTableHandle.getStorageProperties()).name()));
     }
 
@@ -1958,11 +1970,15 @@ public class IcebergMetadata
     {
         // table.name() is an encoded version of SchemaTableName
         return snapshotId
-                .map(id ->
-                        snapshotIds.computeIfAbsent(
-                                table.name() + "@" + id,
-                                ignored -> IcebergUtil.resolveSnapshotId(table, id, allowLegacySnapshotSyntax)))
+                .map(id -> resolveSnapshotId(table, id, allowLegacySnapshotSyntax))
                 .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId));
+    }
+
+    private long resolveSnapshotId(Table table, long id, boolean allowLegacySnapshotSyntax)
+    {
+        return snapshotIds.computeIfAbsent(
+                table.name() + "@" + id,
+                ignored -> IcebergUtil.resolveSnapshotId(table, id, allowLegacySnapshotSyntax));
     }
 
     Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
