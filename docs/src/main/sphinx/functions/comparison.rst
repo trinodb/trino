@@ -236,6 +236,8 @@ The below query will return rows containing name as 'AFRICA'::
     SELECT * FROM region WHERE name IN (NULL, 'AFRICA');
     
 The above applies to subqueries also::
+    
     SELECT name FROM nation 
     WHERE regionkey IN ( SELECT regionkey FROM region 
-    WHERE name IN ('AMERICA','AFRICA'));
+    WHERE name IN ('AMERICA', 'AFRICA'));
+    
