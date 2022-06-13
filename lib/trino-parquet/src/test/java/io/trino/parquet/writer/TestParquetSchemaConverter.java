@@ -14,15 +14,25 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Type;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.MAX_PRECISION;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.StructuralTestUtil.mapType;
+import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
+import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetSchemaConverter
@@ -69,5 +79,35 @@ public class TestParquetSchemaConverter
             BigInteger bigInteger = new BigInteger("9".repeat(precision));
             assertThat(bigInteger.toByteArray().length).isEqualTo(primitiveType.getTypeLength());
         }
+    }
+
+    @Test
+    public void testMapKeyRepetitionLevel()
+    {
+        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                ImmutableList.of(mapType(VARCHAR, INTEGER)),
+                ImmutableList.of("test"),
+                false);
+        GroupType mapType = schemaConverter.getMessageType().getType(0).asGroupType();
+        GroupType keyValueValue = mapType.getType(0).asGroupType();
+        assertThat(keyValueValue.isRepetition(REPEATED)).isTrue();
+        Type keyType = keyValueValue.getType(0).asPrimitiveType();
+        assertThat(keyType.isRepetition(OPTIONAL)).isTrue();
+        PrimitiveType valueType = keyValueValue.getType(1).asPrimitiveType();
+        assertThat(valueType.isRepetition(OPTIONAL)).isTrue();
+
+        schemaConverter = new ParquetSchemaConverter(
+                ImmutableList.of(mapType(rowType(field("a", VARCHAR), field("b", BIGINT)), INTEGER)),
+                ImmutableList.of("test"),
+                false);
+        mapType = schemaConverter.getMessageType().getType(0).asGroupType();
+        keyValueValue = mapType.getType(0).asGroupType();
+        assertThat(keyValueValue.isRepetition(REPEATED)).isTrue();
+        keyType = keyValueValue.getType(0).asGroupType();
+        assertThat(keyType.isRepetition(OPTIONAL)).isTrue();
+        assertThat(keyType.asGroupType().getType(0).asPrimitiveType().isRepetition(OPTIONAL)).isTrue();
+        assertThat(keyType.asGroupType().getType(1).asPrimitiveType().isRepetition(OPTIONAL)).isTrue();
+        valueType = keyValueValue.getType(1).asPrimitiveType();
+        assertThat(valueType.isRepetition(OPTIONAL)).isTrue();
     }
 }
