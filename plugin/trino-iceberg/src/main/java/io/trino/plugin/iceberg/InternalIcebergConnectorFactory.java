@@ -35,6 +35,8 @@ import io.trino.plugin.hive.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.rubix.RubixEnabledConfig;
+import io.trino.plugin.hive.rubix.RubixModule;
 import io.trino.plugin.hive.s3.HiveS3Module;
 import io.trino.plugin.iceberg.catalog.IcebergCatalogModule;
 import io.trino.spi.NodeManager;
@@ -57,6 +59,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 
 public final class InternalIcebergConnectorFactory
 {
@@ -89,6 +92,7 @@ public final class InternalIcebergConnectorFactory
                     fileIoProvider
                             .<Module>map(provider -> binder -> binder.bind(FileIoProvider.class).toInstance(provider))
                             .orElse(binder -> binder.bind(FileIoProvider.class).to(HdfsFileIoProvider.class).in(SINGLETON)),
+                    conditionalModule(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
                     binder -> {
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
