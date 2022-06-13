@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 import static java.util.Objects.requireNonNull;
 
 public class JsonRenderer
@@ -47,6 +48,7 @@ public class JsonRenderer
                 node.getId().toString(),
                 node.getName(),
                 node.getIdentifier(),
+                node.getOutputs(),
                 node.getDetails(),
                 children,
                 node.getRemoteSources().stream()
@@ -59,15 +61,24 @@ public class JsonRenderer
         private final String id;
         private final String name;
         private final String identifier;
+        private final List<TypedSymbol> outputs;
         private final String details;
         private final List<JsonRenderedNode> children;
         private final List<String> remoteSources;
 
-        public JsonRenderedNode(String id, String name, String identifier, String details, List<JsonRenderedNode> children, List<String> remoteSources)
+        public JsonRenderedNode(
+                String id,
+                String name,
+                String identifier,
+                List<TypedSymbol> outputs,
+                String details,
+                List<JsonRenderedNode> children,
+                List<String> remoteSources)
         {
             this.id = requireNonNull(id, "id is null");
             this.name = requireNonNull(name, "name is null");
             this.identifier = requireNonNull(identifier, "identifier is null");
+            this.outputs = requireNonNull(outputs, "outputs is null");
             this.details = requireNonNull(details, "details is null");
             this.children = requireNonNull(children, "children is null");
             this.remoteSources = requireNonNull(remoteSources, "remoteSources is null");
@@ -89,6 +100,12 @@ public class JsonRenderer
         public String getIdentifier()
         {
             return identifier;
+        }
+
+        @JsonProperty
+        public List<TypedSymbol> getOutputs()
+        {
+            return outputs;
         }
 
         @JsonProperty
