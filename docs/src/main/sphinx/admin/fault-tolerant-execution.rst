@@ -30,6 +30,22 @@ depending on the desired :ref:`retry policy <fte-retry-policy>`.
 
     retry-policy=QUERY
 
+.. warning::
+
+  Setting ``retry-policy`` disables :ref:`write operations
+  <sql-write-operations>` with connectors that do not support fault-tolerant
+  execution of write operations, resulting in a "This connector does not support
+  query retries" error message.
+
+  Support for fault-tolerant execution of SQL statements varies on a
+  per-connector basis:
+
+  * Fault-tolerant execution of :ref:`read operations <sql-read-operations>` is
+    supported by all connectors.
+  * Fault tolerant execution of :ref:`write operations <sql-write-operations>`
+    is only supported by the :doc:`/connector/delta-lake`,
+    :doc:`/connector/hive`, and :doc:`/connector/iceberg`.
+
 The following configuration properties control the behavior of fault-tolerant
 execution on a Trino cluster:
 
