@@ -24,17 +24,17 @@ import static java.util.Objects.requireNonNull;
 public class IcebergInputInfo
 {
     private final Optional<Long> snapshotId;
-    private final boolean partitioned;
+    private final Optional<Boolean> partitioned;
     private final String tableDefaultFileFormat;
 
     @JsonCreator
     public IcebergInputInfo(
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
-            @JsonProperty("partitioned") boolean partitioned,
+            @JsonProperty("partitioned") Optional<Boolean> partitioned,
             @JsonProperty("fileFormat") String tableDefaultFileFormat)
     {
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
-        this.partitioned = partitioned;
+        this.partitioned = requireNonNull(partitioned, "partitioned is null");
         this.tableDefaultFileFormat = requireNonNull(tableDefaultFileFormat, "tableDefaultFileFormat is null");
     }
 
@@ -45,7 +45,7 @@ public class IcebergInputInfo
     }
 
     @JsonProperty
-    public boolean isPartitioned()
+    public Optional<Boolean> getPartitioned()
     {
         return partitioned;
     }
@@ -66,7 +66,7 @@ public class IcebergInputInfo
             return false;
         }
         IcebergInputInfo that = (IcebergInputInfo) o;
-        return partitioned == that.partitioned
+        return partitioned.equals(that.partitioned)
                 && snapshotId.equals(that.snapshotId)
                 && tableDefaultFileFormat.equals(that.tableDefaultFileFormat);
     }

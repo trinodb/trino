@@ -365,7 +365,10 @@ public class IcebergPageSourceProvider
 
         Supplier<IcebergPageSink> updatedRowPageSinkSupplier = () -> new IcebergPageSink(
                 tableSchema,
-                PartitionSpecParser.fromJson(tableSchema, table.getPartitionSpecJson()),
+                PartitionSpecParser.fromJson(
+                        tableSchema,
+                        table.getPartitionSpecJson()
+                                .orElseThrow(() -> new VerifyException("Partition spec missing in the table handle"))),
                 locationProvider,
                 fileWriterFactory,
                 pageIndexerFactory,
