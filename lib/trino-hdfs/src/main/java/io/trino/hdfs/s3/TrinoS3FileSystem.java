@@ -20,14 +20,7 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
 import com.amazonaws.Request;
 import com.amazonaws.Response;
-import com.amazonaws.SdkClientException;
-import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.auth.BasicSessionCredentials;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.auth.Signer;
 import com.amazonaws.auth.SignerFactory;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
@@ -36,7 +29,6 @@ import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.metrics.RequestMetricCollector;
-import com.amazonaws.regions.DefaultAwsRegionProviderChain;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
@@ -74,9 +66,7 @@ import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
-import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -88,6 +78,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v1_11.AwsSdkTelemetry;
+import io.trino.aws.AwsCredentialsProviderConfig;
+import io.trino.aws.AwsCredentialsProviderFactory;
 import io.trino.hdfs.FSDataInputStreamTail;
 import io.trino.hdfs.FileSystemWithBatchDelete;
 import io.trino.hdfs.MemoryAwareFileSystem;
@@ -154,6 +146,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -164,6 +157,7 @@ import static com.google.common.collect.Iterables.toArray;
 import static com.google.common.hash.Hashing.md5;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.aws.AwsCredentialsProviderConfig.DEFAULT_ROLE_SESSION_NAME;
 import static io.trino.hdfs.s3.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.hdfs.s3.RetryDriver.retry;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -250,7 +244,6 @@ public class TrinoS3FileSystem
     private static final String S3_CUSTOM_SIGNER = "TrinoS3CustomSigner";
     private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
     private static final MediaType DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
-    private static final String S3_DEFAULT_ROLE_SESSION_NAME = "trino-session";
     public static final int DELETE_BATCH_SIZE = 1000;
 
     static final String NO_SUCH_KEY_ERROR_CODE = "NoSuchKey";
@@ -264,8 +257,6 @@ public class TrinoS3FileSystem
     private int maxAttempts;
     private Duration maxBackoffTime;
     private Duration maxRetryTime;
-    private String iamRole;
-    private String externalId;
     private boolean pinS3ClientToCurrentRegion;
     private boolean sseEnabled;
     private TrinoS3SseType sseType;
@@ -279,7 +270,6 @@ public class TrinoS3FileSystem
     private boolean streamingUploadEnabled;
     private int streamingUploadPartSize;
     private TrinoS3StorageClass s3StorageClass;
-    private String s3RoleSessionName;
 
     private final ExecutorService uploadExecutor = newCachedThreadPool(threadsNamed("s3-upload-%s"));
     private final ForwardingRequestHandler forwardingRequestHandler = new ForwardingRequestHandler();
@@ -314,8 +304,6 @@ public class TrinoS3FileSystem
         this.multiPartUploadMinFileSize = conf.getLong(S3_MULTIPART_MIN_FILE_SIZE, defaults.getS3MultipartMinFileSize().toBytes());
         this.multiPartUploadMinPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
         this.isPathStyleAccess = conf.getBoolean(S3_PATH_STYLE_ACCESS, defaults.isS3PathStyleAccess());
-        this.iamRole = conf.get(S3_IAM_ROLE, defaults.getS3IamRole());
-        this.externalId = conf.get(S3_EXTERNAL_ID, defaults.getS3ExternalId());
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
         verify(!pinS3ClientToCurrentRegion || conf.get(S3_ENDPOINT) == null,
                 "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region");
@@ -329,7 +317,6 @@ public class TrinoS3FileSystem
         this.streamingUploadEnabled = conf.getBoolean(S3_STREAMING_UPLOAD_ENABLED, defaults.isS3StreamingUploadEnabled());
         this.streamingUploadPartSize = toIntExact(conf.getLong(S3_STREAMING_UPLOAD_PART_SIZE, defaults.getS3StreamingPartSize().toBytes()));
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
-        this.s3RoleSessionName = conf.get(S3_ROLE_SESSION_NAME, S3_DEFAULT_ROLE_SESSION_NAME);
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -369,7 +356,22 @@ public class TrinoS3FileSystem
                     conf.getBoolean(S3_PREEMPTIVE_BASIC_PROXY_AUTH, defaults.getS3PreemptiveBasicProxyAuth()));
         }
 
-        this.credentialsProvider = createAwsCredentialsProvider(uri, conf);
+        this.credentialsProvider = new AwsCredentialsProviderFactory().createAwsCredentialsProvider(
+                new AwsCredentialsProviderConfig()
+                        .setServiceUri(uri)
+                        .setCustomCredentialsProvider(emptyToNull(conf.get(S3_CREDENTIALS_PROVIDER)))
+                        .setCustomProviderResolver(providerClass -> conf.getClassByName(providerClass)
+                                .asSubclass(AWSCredentialsProvider.class)
+                                .getConstructor(URI.class, Configuration.class)
+                                .newInstance(uri, conf))
+                        .setAccessKey(emptyToNull(conf.get(S3_ACCESS_KEY)))
+                        .setSecretKey(emptyToNull(conf.get(S3_SECRET_KEY)))
+                        .setSessionToken(emptyToNull(conf.get(S3_SESSION_TOKEN)))
+                        .setIamRole(emptyToNull(conf.get(S3_IAM_ROLE, defaults.getS3IamRole())))
+                        .setIamRoleSessionName(conf.get(S3_ROLE_SESSION_NAME, DEFAULT_ROLE_SESSION_NAME))
+                        .setRegion(emptyToNull(conf.get(S3_STS_REGION)))
+                        .setStsEndpoint(emptyToNull(conf.get(S3_STS_ENDPOINT)))
+                        .setExternalId(emptyToNull(conf.get(S3_EXTERNAL_ID, defaults.getS3ExternalId()))));
         this.s3 = createAmazonS3Client(conf, configuration);
     }
 
@@ -1138,108 +1140,6 @@ public class TrinoS3FileSystem
         catch (ReflectiveOperationException e) {
             throw new RuntimeException("Unable to load or create S3 encryption materials provider: " + empClassName, e);
         }
-    }
-
-    private AWSCredentialsProvider createAwsCredentialsProvider(URI uri, Configuration conf)
-    {
-        // credentials embedded in the URI take precedence and are used alone
-        Optional<AWSCredentials> credentials = getEmbeddedAwsCredentials(uri);
-        if (credentials.isPresent()) {
-            return new AWSStaticCredentialsProvider(credentials.get());
-        }
-
-        // a custom credential provider is also used alone
-        String providerClass = conf.get(S3_CREDENTIALS_PROVIDER);
-        if (!isNullOrEmpty(providerClass)) {
-            return getCustomAWSCredentialsProvider(uri, conf, providerClass);
-        }
-
-        // use configured credentials or default chain with optional role
-        AWSCredentialsProvider provider = getAwsCredentials(conf)
-                .map(value -> (AWSCredentialsProvider) new AWSStaticCredentialsProvider(value))
-                .orElseGet(DefaultAWSCredentialsProviderChain::getInstance);
-
-        if (iamRole != null) {
-            String stsEndpointOverride = conf.get(S3_STS_ENDPOINT);
-            String stsRegionOverride = conf.get(S3_STS_REGION);
-
-            AWSSecurityTokenServiceClientBuilder stsClientBuilder = AWSSecurityTokenServiceClientBuilder.standard()
-                    .withCredentials(provider);
-
-            String region;
-            if (!isNullOrEmpty(stsRegionOverride)) {
-                region = stsRegionOverride;
-            }
-            else {
-                DefaultAwsRegionProviderChain regionProviderChain = new DefaultAwsRegionProviderChain();
-                try {
-                    region = regionProviderChain.getRegion();
-                }
-                catch (SdkClientException ex) {
-                    log.warn("Falling back to default AWS region %s", US_EAST_1);
-                    region = US_EAST_1.getName();
-                }
-            }
-
-            if (!isNullOrEmpty(stsEndpointOverride)) {
-                stsClientBuilder.withEndpointConfiguration(new EndpointConfiguration(stsEndpointOverride, region));
-            }
-            else {
-                stsClientBuilder.withRegion(region);
-            }
-
-            provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, s3RoleSessionName)
-                    .withExternalId(externalId)
-                    .withStsClient(stsClientBuilder.build())
-                    .build();
-        }
-
-        return provider;
-    }
-
-    private static AWSCredentialsProvider getCustomAWSCredentialsProvider(URI uri, Configuration conf, String providerClass)
-    {
-        try {
-            log.debug("Using AWS credential provider %s for URI %s", providerClass, uri);
-            return conf.getClassByName(providerClass)
-                    .asSubclass(AWSCredentialsProvider.class)
-                    .getConstructor(URI.class, Configuration.class)
-                    .newInstance(uri, conf);
-        }
-        catch (ReflectiveOperationException e) {
-            throw new RuntimeException(format("Error creating an instance of %s for URI %s", providerClass, uri), e);
-        }
-    }
-
-    private static Optional<AWSCredentials> getEmbeddedAwsCredentials(URI uri)
-    {
-        String userInfo = nullToEmpty(uri.getUserInfo());
-        List<String> parts = Splitter.on(':').limit(2).splitToList(userInfo);
-        if (parts.size() == 2) {
-            String accessKey = parts.get(0);
-            String secretKey = parts.get(1);
-            if (!accessKey.isEmpty() && !secretKey.isEmpty()) {
-                return Optional.of(new BasicAWSCredentials(accessKey, secretKey));
-            }
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<AWSCredentials> getAwsCredentials(Configuration conf)
-    {
-        String accessKey = conf.get(S3_ACCESS_KEY);
-        String secretKey = conf.get(S3_SECRET_KEY);
-
-        if (isNullOrEmpty(accessKey) || isNullOrEmpty(secretKey)) {
-            return Optional.empty();
-        }
-
-        String sessionToken = conf.get(S3_SESSION_TOKEN);
-        if (!isNullOrEmpty(sessionToken)) {
-            return Optional.of(new BasicSessionCredentials(accessKey, secretKey, sessionToken));
-        }
-
-        return Optional.of(new BasicAWSCredentials(accessKey, secretKey));
     }
 
     private void customizePutObjectRequest(PutObjectRequest request)

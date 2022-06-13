@@ -594,7 +594,7 @@ public class TestTrinoS3FileSystem
         try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             assertThatThrownBy(() -> fs.initialize(new URI("s3n://test-bucket/"), config))
                     .isInstanceOf(RuntimeException.class)
-                    .hasMessage("Error creating an instance of com.example.DoesNotExist for URI s3n://test-bucket/")
+                    .hasMessage("Error creating an instance of com.example.DoesNotExist")
                     .cause()
                     .isInstanceOf(ClassNotFoundException.class)
                     .hasMessage("Class com.example.DoesNotExist not found");
