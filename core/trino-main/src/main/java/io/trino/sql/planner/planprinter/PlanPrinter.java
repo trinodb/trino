@@ -242,6 +242,27 @@ public class PlanPrinter
         return new PlanPrinter(root, typeProvider, Optional.empty(), tableInfoSupplier, ImmutableMap.of(), valuePrinter, StatsAndCosts.empty(), Optional.empty()).toJson();
     }
 
+    public static String jsonLogicalPlan(
+            PlanNode plan,
+            Session session,
+            TypeProvider types,
+            Metadata metadata,
+            FunctionManager functionManager,
+            StatsAndCosts estimatedStatsAndCosts)
+    {
+        TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
+        ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
+        return new PlanPrinter(
+                plan,
+                types,
+                Optional.empty(),
+                tableInfoSupplier,
+                ImmutableMap.of(),
+                valuePrinter,
+                estimatedStatsAndCosts,
+                Optional.empty()).toJson();
+    }
+
     public static String textLogicalPlan(
             PlanNode plan,
             TypeProvider types,
