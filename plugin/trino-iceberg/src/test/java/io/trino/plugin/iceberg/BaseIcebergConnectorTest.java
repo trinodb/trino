@@ -5105,6 +5105,84 @@ public abstract class BaseIcebergConnectorTest
                 .matches("VALUES (VARCHAR 'a', 11, NULL), (VARCHAR 'b', 22, BIGINT '32')");
     }
 
+    @Test
+    public void testReadFromVersionedTableWithPartitionSpecEvolution()
+            throws Exception
+    {
+        String tableName = "test_version_table_with_partition_spec_evolution_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (day varchar, views bigint) WITH(partitioning = ARRAY['day'])");
+        long v1SnapshotId = getLatestSnapshotId(tableName);
+        long v1EpochMillis = getCommittedAtInEpochMilliseconds(tableName, v1SnapshotId);
+        Thread.sleep(1);
+
+        assertUpdate("INSERT INTO " + tableName + " (day, views) VALUES ('2022-06-01', 1)", 1);
+        long v2SnapshotId = getLatestSnapshotId(tableName);
+        long v2EpochMillis = getCommittedAtInEpochMilliseconds(tableName, v2SnapshotId);
+        Thread.sleep(1);
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN hour varchar");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['day', 'hour']");
+        assertUpdate("INSERT INTO " + tableName + " (day, hour, views) VALUES ('2022-06-02', '10', 2), ('2022-06-02', '10', 3), ('2022-06-02', '11', 10)", 3);
+        long v3SnapshotId = getLatestSnapshotId(tableName);
+        long v3EpochMillis = getCommittedAtInEpochMilliseconds(tableName, v3SnapshotId);
+
+        assertThat(query("SELECT sum(views), day  FROM " + tableName + " GROUP BY day"))
+                .matches("VALUES ROW(BIGINT '1', VARCHAR '2022-06-01'), ROW(BIGINT '15', VARCHAR '2022-06-02')");
+        assertThat(query("SELECT sum(views), day  FROM " + tableName + " FOR VERSION AS OF " + v1SnapshotId + " GROUP BY day"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT sum(views), day  FROM " + tableName + " FOR TIMESTAMP AS OF " + timestampLiteral(v1EpochMillis, 9) + " GROUP BY day"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT sum(views), day  FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId + " GROUP BY day"))
+                .matches("VALUES ROW(BIGINT '1', VARCHAR '2022-06-01')");
+        assertThat(query("SELECT sum(views), day  FROM " + tableName + " FOR TIMESTAMP AS OF " + timestampLiteral(v2EpochMillis, 9) + " GROUP BY day"))
+                .matches("VALUES ROW(BIGINT '1', VARCHAR '2022-06-01')");
+        assertThat(query("SELECT sum(views), day  FROM " + tableName + " FOR VERSION AS OF " + v3SnapshotId + " GROUP BY day"))
+                .matches("VALUES ROW(BIGINT '1', VARCHAR '2022-06-01'), ROW(BIGINT '15', VARCHAR '2022-06-02')");
+        assertThat(query("SELECT sum(views), day  FROM " + tableName + " FOR TIMESTAMP AS OF " + timestampLiteral(v3EpochMillis, 9) + " GROUP BY day"))
+                .matches("VALUES ROW(BIGINT '1', VARCHAR '2022-06-01'), ROW(BIGINT '15', VARCHAR '2022-06-02')");
+
+        assertThat(query("SELECT sum(views), day, hour  FROM " + tableName + " FOR VERSION AS OF " + v3SnapshotId + " WHERE day = '2022-06-02' GROUP BY day, hour"))
+                .matches("VALUES ROW(BIGINT '5', VARCHAR '2022-06-02', VARCHAR '10'), ROW(BIGINT '10', VARCHAR '2022-06-02', VARCHAR '11')");
+        assertThat(query("SELECT sum(views), day, hour  FROM " + tableName + " FOR TIMESTAMP AS OF " + timestampLiteral(v3EpochMillis, 9) + " WHERE day = '2022-06-02' GROUP BY day, hour"))
+                .matches("VALUES ROW(BIGINT '5', VARCHAR '2022-06-02', VARCHAR '10'), ROW(BIGINT '10', VARCHAR '2022-06-02', VARCHAR '11')");
+    }
+
+    @Test
+    public void testReadFromVersionedTableWithExpiredHistory()
+            throws Exception
+    {
+        String tableName = "test_version_table_with_expired_snapshots_" + randomTableSuffix();
+        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
+        long v1SnapshotId = getLatestSnapshotId(tableName);
+        long v1EpochMillis = getCommittedAtInEpochMilliseconds(tableName, v1SnapshotId);
+        Thread.sleep(1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        long v2SnapshotId = getLatestSnapshotId(tableName);
+        long v2EpochMillis = getCommittedAtInEpochMilliseconds(tableName, v2SnapshotId);
+        Thread.sleep(1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
+        long v3SnapshotId = getLatestSnapshotId(tableName);
+        long v3EpochMillis = getCommittedAtInEpochMilliseconds(tableName, v3SnapshotId);
+        assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
+                .matches("VALUES (BIGINT '3', VARCHAR 'one two')");
+        List<Long> initialSnapshots = getSnapshotIds(tableName);
+        assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
+        List<Long> updatedSnapshots = getSnapshotIds(tableName);
+        assertThat(updatedSnapshots.size()).isLessThan(initialSnapshots.size());
+        assertThat(updatedSnapshots.size()).isEqualTo(1);
+
+        assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName + " FOR VERSION AS OF " + v3SnapshotId))
+                .matches("VALUES (BIGINT '3', VARCHAR 'one two')");
+        assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName + " FOR TIMESTAMP AS OF " + timestampLiteral(v3EpochMillis, 9)))
+                .matches("VALUES (BIGINT '3', VARCHAR 'one two')");
+
+        assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId, "Iceberg snapshot ID does not exists\\: " + v2SnapshotId);
+        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF " + timestampLiteral(v2EpochMillis, 9), "No version history table .* at or before .*");
+        assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v1SnapshotId, "Iceberg snapshot ID does not exists\\: " + v1SnapshotId);
+        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF " + timestampLiteral(v1EpochMillis, 9), "No version history table .* at or before .*");
+    }
+
     @Override
     protected OptionalInt maxTableNameLength()
     {
