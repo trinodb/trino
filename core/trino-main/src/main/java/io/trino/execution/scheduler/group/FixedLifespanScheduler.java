@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -50,7 +49,6 @@ public class FixedLifespanScheduler
     private final Int2ObjectMap<InternalNode> driverGroupToNodeMap;
     private final Map<InternalNode, IntListIterator> nodeToDriverGroupsMap;
     private final List<ConnectorPartitionHandle> partitionHandles;
-    private final OptionalInt concurrentLifespansPerTask;
 
     private boolean initialScheduled;
     private SettableFuture<Void> newDriverGroupReady = SettableFuture.create();
@@ -58,7 +56,7 @@ public class FixedLifespanScheduler
     private final List<Lifespan> recentlyCompletedDriverGroups = new ArrayList<>();
     private int totalDriverGroupsScheduled;
 
-    public FixedLifespanScheduler(BucketNodeMap bucketNodeMap, List<ConnectorPartitionHandle> partitionHandles, OptionalInt concurrentLifespansPerTask)
+    public FixedLifespanScheduler(BucketNodeMap bucketNodeMap, List<ConnectorPartitionHandle> partitionHandles)
     {
         checkArgument(!partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)));
         checkArgument(partitionHandles.size() == bucketNodeMap.getBucketCount());
@@ -75,10 +73,6 @@ public class FixedLifespanScheduler
         this.nodeToDriverGroupsMap = nodeToDriverGroupMap.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().iterator()));
         this.partitionHandles = requireNonNull(partitionHandles, "partitionHandles is null");
-        if (concurrentLifespansPerTask.isPresent()) {
-            checkArgument(concurrentLifespansPerTask.getAsInt() >= 1, "concurrentLifespansPerTask must be great or equal to 1 if present");
-        }
-        this.concurrentLifespansPerTask = requireNonNull(concurrentLifespansPerTask, "concurrentLifespansPerTask is null");
     }
 
     @Override
@@ -89,16 +83,11 @@ public class FixedLifespanScheduler
 
         for (Map.Entry<InternalNode, IntListIterator> entry : nodeToDriverGroupsMap.entrySet()) {
             IntListIterator driverGroupsIterator = entry.getValue();
-            int driverGroupsScheduled = 0;
             while (driverGroupsIterator.hasNext()) {
                 int driverGroupId = driverGroupsIterator.nextInt();
                 scheduler.startLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
 
                 totalDriverGroupsScheduled++;
-                driverGroupsScheduled++;
-                if (concurrentLifespansPerTask.isPresent() && driverGroupsScheduled == concurrentLifespansPerTask.getAsInt()) {
-                    break;
-                }
             }
         }
 

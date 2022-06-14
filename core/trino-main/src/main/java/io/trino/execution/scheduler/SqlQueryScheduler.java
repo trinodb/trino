@@ -122,7 +122,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.trino.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerStage;
 import static io.trino.SystemSessionProperties.getQueryRetryAttempts;
@@ -1476,7 +1475,6 @@ public class SqlQueryScheduler
                             stageNodeList,
                             bucketNodeMap,
                             splitBatchSize,
-                            getConcurrentLifespansPerNode(session),
                             nodeScheduler.createNodeSelector(session, catalogName),
                             connectorPartitionHandles,
                             dynamicFilterService,
