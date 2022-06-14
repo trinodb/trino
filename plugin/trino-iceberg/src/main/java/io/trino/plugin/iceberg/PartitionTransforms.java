@@ -167,7 +167,7 @@ public final class PartitionTransforms
 
     private static ColumnTransform identity(Type type)
     {
-        return new ColumnTransform(type, Function.identity(), ValueTransform.identity(type));
+        return new ColumnTransform(type, false, true, Function.identity(), ValueTransform.identity(type));
     }
 
     @VisibleForTesting
@@ -176,6 +176,8 @@ public final class PartitionTransforms
         Hasher hasher = getBucketingHash(type);
         return new ColumnTransform(
                 INTEGER,
+                false,
+                false,
                 block -> bucketBlock(block, count, hasher),
                 (block, position) -> {
                     if (block.isNull(position)) {
@@ -230,6 +232,8 @@ public final class PartitionTransforms
         LongUnaryOperator transform = value -> epochYear(DAYS.toMillis(value));
         return new ColumnTransform(
                 INTEGER,
+                false,
+                true,
                 block -> transformBlock(DATE, INTEGER, block, transform),
                 ValueTransform.from(DATE, transform));
     }
@@ -239,6 +243,8 @@ public final class PartitionTransforms
         LongUnaryOperator transform = value -> epochMonth(DAYS.toMillis(value));
         return new ColumnTransform(
                 INTEGER,
+                false,
+                true,
                 block -> transformBlock(DATE, INTEGER, block, transform),
                 ValueTransform.from(DATE, transform));
     }
@@ -248,6 +254,8 @@ public final class PartitionTransforms
         LongUnaryOperator transform = LongUnaryOperator.identity();
         return new ColumnTransform(
                 INTEGER,
+                false,
+                true,
                 block -> transformBlock(DATE, INTEGER, block, transform),
                 ValueTransform.from(DATE, transform));
     }
@@ -257,6 +265,8 @@ public final class PartitionTransforms
         LongUnaryOperator transform = epochMicros -> epochYear(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND));
         return new ColumnTransform(
                 INTEGER,
+                false,
+                true,
                 block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, transform),
                 ValueTransform.from(TIMESTAMP_MICROS, transform));
     }
@@ -266,6 +276,8 @@ public final class PartitionTransforms
         LongUnaryOperator transform = epochMicros -> epochMonth(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND));
         return new ColumnTransform(
                 INTEGER,
+                false,
+                true,
                 block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, transform),
                 ValueTransform.from(TIMESTAMP_MICROS, transform));
     }
@@ -275,6 +287,8 @@ public final class PartitionTransforms
         LongUnaryOperator transform = epochMicros -> epochDay(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND));
         return new ColumnTransform(
                 INTEGER,
+                false,
+                true,
                 block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, transform),
                 ValueTransform.from(TIMESTAMP_MICROS, transform));
     }
@@ -284,6 +298,8 @@ public final class PartitionTransforms
         LongUnaryOperator transform = epochMicros -> epochHour(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND));
         return new ColumnTransform(
                 INTEGER,
+                false,
+                true,
                 block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, transform),
                 ValueTransform.from(TIMESTAMP_MICROS, transform));
     }
@@ -293,6 +309,8 @@ public final class PartitionTransforms
         ToLongFunction<LongTimestampWithTimeZone> transform = value -> epochYear(value.getEpochMillis());
         return new ColumnTransform(
                 INTEGER,
+                false,
+                true,
                 block -> extractTimestampWithTimeZone(block, transform),
                 ValueTransform.fromTimestampTzTransform(transform));
     }
@@ -302,6 +320,8 @@ public final class PartitionTransforms
         ToLongFunction<LongTimestampWithTimeZone> transform = value -> epochMonth(value.getEpochMillis());
         return new ColumnTransform(
                 INTEGER,
+                false,
+                true,
                 block -> extractTimestampWithTimeZone(block, transform),
                 ValueTransform.fromTimestampTzTransform(transform));
     }
@@ -311,6 +331,8 @@ public final class PartitionTransforms
         ToLongFunction<LongTimestampWithTimeZone> transform = value -> epochDay(value.getEpochMillis());
         return new ColumnTransform(
                 INTEGER,
+                false,
+                true,
                 block -> extractTimestampWithTimeZone(block, transform),
                 ValueTransform.fromTimestampTzTransform(transform));
     }
@@ -320,6 +342,8 @@ public final class PartitionTransforms
         ToLongFunction<LongTimestampWithTimeZone> transform = value -> epochHour(value.getEpochMillis());
         return new ColumnTransform(
                 INTEGER,
+                false,
+                true,
                 block -> extractTimestampWithTimeZone(block, transform),
                 ValueTransform.fromTimestampTzTransform(transform));
     }
@@ -431,6 +455,8 @@ public final class PartitionTransforms
     {
         return new ColumnTransform(
                 INTEGER,
+                false,
+                true,
                 block -> truncateInteger(block, width),
                 (block, position) -> {
                     if (block.isNull(position)) {
@@ -463,6 +489,8 @@ public final class PartitionTransforms
     {
         return new ColumnTransform(
                 BIGINT,
+                false,
+                true,
                 block -> truncateBigint(block, width),
                 (block, position) -> {
                     if (block.isNull(position)) {
@@ -496,6 +524,8 @@ public final class PartitionTransforms
         BigInteger unscaledWidth = BigInteger.valueOf(width);
         return new ColumnTransform(
                 type,
+                false,
+                true,
                 block -> truncateShortDecimal(decimal, block, unscaledWidth),
                 (block, position) -> {
                     if (block.isNull(position)) {
@@ -531,6 +561,8 @@ public final class PartitionTransforms
         BigInteger unscaledWidth = BigInteger.valueOf(width);
         return new ColumnTransform(
                 type,
+                false,
+                true,
                 block -> truncateLongDecimal(decimal, block, unscaledWidth),
                 (block, position) -> {
                     if (block.isNull(position)) {
@@ -576,6 +608,8 @@ public final class PartitionTransforms
     {
         return new ColumnTransform(
                 VARCHAR,
+                false,
+                true,
                 block -> truncateVarchar(block, width),
                 (block, position) -> {
                     if (block.isNull(position)) {
@@ -615,6 +649,8 @@ public final class PartitionTransforms
     {
         return new ColumnTransform(
                 VARBINARY,
+                false,
+                true,
                 block -> truncateVarbinary(block, width),
                 (block, position) -> {
                     if (block.isNull(position)) {
@@ -651,6 +687,8 @@ public final class PartitionTransforms
         Block nullBlock = nativeValueToBlock(type, null);
         return new ColumnTransform(
                 type,
+                true,
+                true,
                 block -> new RunLengthEncodedBlock(nullBlock, block.getPositionCount()),
                 (block, position) -> null);
     }
@@ -703,19 +741,36 @@ public final class PartitionTransforms
     public static class ColumnTransform
     {
         private final Type type;
+        private final boolean preservesNonNull;
+        private final boolean monotonic;
         private final Function<Block, Block> blockTransform;
         private final ValueTransform valueTransform;
 
-        public ColumnTransform(Type type, Function<Block, Block> blockTransform, ValueTransform valueTransform)
+        public ColumnTransform(Type type, boolean preservesNonNull, boolean monotonic, Function<Block, Block> blockTransform, ValueTransform valueTransform)
         {
             this.type = requireNonNull(type, "type is null");
+            this.preservesNonNull = preservesNonNull;
+            this.monotonic = monotonic;
             this.blockTransform = requireNonNull(blockTransform, "transform is null");
             this.valueTransform = requireNonNull(valueTransform, "valueTransform is null");
         }
 
+        /**
+         * Result type.
+         */
         public Type getType()
         {
             return type;
+        }
+
+        public boolean preservesNonNull()
+        {
+            return preservesNonNull;
+        }
+
+        public boolean isMonotonic()
+        {
+            return monotonic;
         }
 
         public Function<Block, Block> getBlockTransform()
