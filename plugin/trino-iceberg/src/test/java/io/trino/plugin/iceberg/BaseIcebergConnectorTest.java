@@ -1724,9 +1724,9 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testApplyFilterWithNonEmptyConstraintPredicate()
     {
-        assertUpdate("CREATE TABLE test_bucket_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['bucket(d, 2)'])");
+        assertUpdate("CREATE TABLE test_apply_functional_constraint (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['bucket(d, 2)'])");
         assertUpdate(
-                "INSERT INTO test_bucket_transform VALUES" +
+                "INSERT INTO test_apply_functional_constraint VALUES" +
                         "('abcd', 1)," +
                         "('abxy', 2)," +
                         "('ab598', 3)," +
@@ -1737,8 +1737,10 @@ public abstract class BaseIcebergConnectorTest
                 7);
 
         assertQuery(
-                "SELECT * FROM test_bucket_transform WHERE length(d) = 4 AND b % 7 = 2",
+                "SELECT * FROM test_apply_functional_constraint WHERE length(d) = 4 AND b % 7 = 2",
                 "VALUES ('abxy', 2)");
+
+        assertUpdate("DROP TABLE test_apply_functional_constraint");
     }
 
     @Test
