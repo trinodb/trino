@@ -103,6 +103,7 @@ public class FeaturesConfig
     private boolean allowSetViewAuthorization;
 
     private boolean hideInaccessibleColumns;
+    private boolean acceleratedRepartitioningEnabled = true;
 
     public enum DataIntegrityVerification
     {
@@ -519,6 +520,19 @@ public class FeaturesConfig
     public FeaturesConfig setAllowSetViewAuthorization(boolean allowSetViewAuthorization)
     {
         this.allowSetViewAuthorization = allowSetViewAuthorization;
+        return this;
+    }
+
+    public boolean isAcceleratedRepartitioningEnabled()
+    {
+        return acceleratedRepartitioningEnabled;
+    }
+
+    @Config("accelerated-repartitioning.enabled")
+    @ConfigDescription("Use accelerated repartitioning")
+    public FeaturesConfig setAcceleratedRepartitioningEnabled(boolean acceleratedRepartitioningEnabled)
+    {
+        this.acceleratedRepartitioningEnabled = acceleratedRepartitioningEnabled;
         return this;
     }
 }

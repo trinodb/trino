@@ -66,7 +66,8 @@ public class TestFeaturesConfig
                 .setLegacyCatalogRoles(false)
                 .setIncrementalHashArrayLoadFactorEnabled(true)
                 .setHideInaccessibleColumns(false)
-                .setAllowSetViewAuthorization(false));
+                .setAllowSetViewAuthorization(false)
+                .setAcceleratedRepartitioningEnabled(true));
     }
 
     @Test
@@ -104,6 +105,7 @@ public class TestFeaturesConfig
                 .put("incremental-hash-array-load-factor.enabled", "false")
                 .put("hide-inaccessible-columns", "true")
                 .put("legacy.allow-set-view-authorization", "true")
+                .put("accelerated-repartitioning.enabled", "false")
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -137,7 +139,8 @@ public class TestFeaturesConfig
                 .setLegacyCatalogRoles(true)
                 .setIncrementalHashArrayLoadFactorEnabled(false)
                 .setHideInaccessibleColumns(true)
-                .setAllowSetViewAuthorization(true);
+                .setAllowSetViewAuthorization(true)
+                .setAcceleratedRepartitioningEnabled(false);
         assertFullMapping(properties, expected);
     }
 }

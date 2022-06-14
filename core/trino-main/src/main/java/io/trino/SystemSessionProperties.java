@@ -172,6 +172,7 @@ public final class SystemSessionProperties
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT = "join_partitioned_build_min_row_count";
+    public static final String ACCELERATED_REPARTITIONING_ENABLED = "accelerated_repartitioning_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -837,6 +838,11 @@ public final class SystemSessionProperties
                         "Minimum number of join build side rows required to use partitioned join lookup",
                         optimizerConfig.getJoinPartitionedBuildMinRowCount(),
                         value -> validateNonNegativeLongValue(value, JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT),
+                        false),
+                booleanProperty(
+                        ACCELERATED_REPARTITIONING_ENABLED,
+                        "Use accelerated repartitioning",
+                        featuresConfig.isAcceleratedRepartitioningEnabled(),
                         false));
     }
 
@@ -1509,5 +1515,10 @@ public final class SystemSessionProperties
     public static long getJoinPartitionedBuildMinRowCount(Session session)
     {
         return session.getSystemProperty(JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT, Long.class);
+    }
+
+    public static boolean isAcceleratedRepartitioningEnabled(Session session)
+    {
+        return session.getSystemProperty(ACCELERATED_REPARTITIONING_ENABLED, Boolean.class);
     }
 }

@@ -71,6 +71,7 @@ public class PagePartitioner
     private final AtomicLong rowsAdded = new AtomicLong();
     private final AtomicLong pagesAdded = new AtomicLong();
     private final OperatorContext operatorContext;
+    private final boolean acceleratedRepartitioningEnabled;
 
     private boolean hasAnyRowBeenReplicated;
 
@@ -85,7 +86,8 @@ public class PagePartitioner
             List<Type> sourceTypes,
             DataSize maxMemory,
             OperatorContext operatorContext,
-            PositionsAppenderFactory positionsAppenderFactory)
+            PositionsAppenderFactory positionsAppenderFactory,
+            boolean acceleratedRepartitioningEnabled)
     {
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitionChannels = Ints.toArray(requireNonNull(partitionChannels, "partitionChannels is null"));
@@ -105,6 +107,7 @@ public class PagePartitioner
         this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null").toArray(new Type[0]);
         this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.acceleratedRepartitioningEnabled = acceleratedRepartitioningEnabled;
 
         //  Ensure partition channels align with constant arguments provided
         for (int i = 0; i < this.partitionChannels.length; i++) {
@@ -118,9 +121,14 @@ public class PagePartitioner
         int pageSize = toIntExact(min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, maxMemory.toBytes() / partitionCount));
         pageSize = max(1, pageSize);
 
-        this.positionsAppenders = new PositionsAppenderPageBuilder[partitionCount];
-        for (int i = 0; i < partitionCount; i++) {
-            positionsAppenders[i] = PositionsAppenderPageBuilder.withMaxPageSize(pageSize, sourceTypes, positionsAppenderFactory);
+        if (acceleratedRepartitioningEnabled) {
+            this.positionsAppenders = new PositionsAppenderPageBuilder[partitionCount];
+            for (int i = 0; i < partitionCount; i++) {
+                positionsAppenders[i] = PositionsAppenderPageBuilder.withMaxPageSize(pageSize, sourceTypes, positionsAppenderFactory);
+            }
+        }
+        else {
+            this.positionsAppenders = new PositionsAppenderPageBuilder[0];
         }
         this.pageBuilders = new PageBuilder[partitionCount];
         for (int i = 0; i < partitionCount; i++) {
@@ -182,7 +190,7 @@ public class PagePartitioner
             return;
         }
 
-        if (page.getPositionCount() < partitionFunction.getPartitionCount() * COLUMNAR_STRATEGY_COEFFICIENT) {
+        if (!acceleratedRepartitioningEnabled || page.getPositionCount() < partitionFunction.getPartitionCount() * COLUMNAR_STRATEGY_COEFFICIENT) {
             // Partition will have on average less than COLUMNAR_STRATEGY_COEFFICIENT rows.
             // Doing it column-wise would degrade performance, so we fall back to row-wise approach.
             // Performance degradation is the worst in case of skewed hash distribution when only small subset

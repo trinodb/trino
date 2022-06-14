@@ -39,6 +39,7 @@ import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.SystemSessionProperties.isAcceleratedRepartitioningEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionedOutputOperator
@@ -164,7 +165,8 @@ public class PartitionedOutputOperator
                     outputBuffer,
                     serdeFactory,
                     maxMemory,
-                    positionsAppenderFactory);
+                    positionsAppenderFactory,
+                    isAcceleratedRepartitioningEnabled(driverContext.getSession()));
         }
 
         @Override
@@ -212,7 +214,8 @@ public class PartitionedOutputOperator
             OutputBuffer outputBuffer,
             PagesSerdeFactory serdeFactory,
             DataSize maxMemory,
-            PositionsAppenderFactory positionsAppenderFactory)
+            PositionsAppenderFactory positionsAppenderFactory,
+            boolean acceleratedRepartitioningEnabled)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
@@ -227,7 +230,8 @@ public class PartitionedOutputOperator
                 sourceTypes,
                 maxMemory,
                 operatorContext,
-                positionsAppenderFactory);
+                positionsAppenderFactory,
+                acceleratedRepartitioningEnabled);
 
         operatorContext.setInfoSupplier(this.partitionFunction.getOperatorInfoSupplier());
         this.memoryContext = operatorContext.newLocalUserMemoryContext(PartitionedOutputOperator.class.getSimpleName());

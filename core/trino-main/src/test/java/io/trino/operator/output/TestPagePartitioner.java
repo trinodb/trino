@@ -134,7 +134,7 @@ public class TestPagePartitioner
     @Test
     public void testOutputForEmptyPage()
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
+        PagePartitioner pagePartitioner = pagePartitioner(PartitioningMode.DEFAULT_WITH_COLUMNAR_ON, BIGINT).build();
         Page page = new Page(createLongsBlock(ImmutableList.of()));
 
         pagePartitioner.partitionPage(page);
@@ -147,7 +147,7 @@ public class TestPagePartitioner
     @Test(dataProvider = "partitioningMode")
     public void testOutputEqualsInput(PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT).build();
         Page page = new Page(createLongSequenceBlock(0, POSITIONS_PER_PAGE));
         List<Object> expected = readLongs(Stream.of(page), 0);
 
@@ -160,7 +160,7 @@ public class TestPagePartitioner
     @Test(dataProvider = "partitioningMode")
     public void testOutputForPageWithNoBlockPartitionFunction(PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT)
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT)
                 .withPartitionFunction(new BucketPartitionFunction(
                         ROUND_ROBIN.createBucketFunction(null, false, PARTITION_COUNT, null),
                         IntStream.range(0, PARTITION_COUNT).toArray()))
@@ -179,7 +179,7 @@ public class TestPagePartitioner
     @Test(dataProvider = "partitioningMode")
     public void testOutputForMultipleSimplePages(PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT).build();
         Page page1 = new Page(createLongSequenceBlock(0, POSITIONS_PER_PAGE));
         Page page2 = new Page(createLongSequenceBlock(1, POSITIONS_PER_PAGE));
         Page page3 = new Page(createLongSequenceBlock(2, POSITIONS_PER_PAGE));
@@ -194,7 +194,7 @@ public class TestPagePartitioner
     @Test(dataProvider = "partitioningMode")
     public void testOutputForSimplePageWithReplication(PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).replicate().build();
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT).replicate().build();
         Page page = new Page(createLongsBlock(0L, 1L, 2L, 3L, null));
 
         processPages(pagePartitioner, partitioningMode, page);
@@ -208,7 +208,7 @@ public class TestPagePartitioner
     @Test(dataProvider = "partitioningMode")
     public void testOutputForSimplePageWithNullChannel(PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).withNullChannel(0).build();
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT).withNullChannel(0).build();
         Page page = new Page(createLongsBlock(0L, 1L, 2L, 3L, null));
 
         processPages(pagePartitioner, partitioningMode, page);
@@ -222,7 +222,7 @@ public class TestPagePartitioner
     @Test(dataProvider = "partitioningMode")
     public void testOutputForSimplePageWithPartitionConstant(PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT)
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT)
                 .withPartitionConstants(ImmutableList.of(Optional.of(new NullableValue(BIGINT, 1L))))
                 .withPartitionChannels(-1)
                 .build();
@@ -240,7 +240,7 @@ public class TestPagePartitioner
     @Test(dataProvider = "partitioningMode")
     public void testOutputForSimplePageWithPartitionConstantAndHashBlock(PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT)
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT)
                 .withPartitionConstants(ImmutableList.of(Optional.empty(), Optional.of(new NullableValue(BIGINT, 1L))))
                 .withPartitionChannels(0, -1) // use first block and constant block at index 1 as input to partitionFunction
                 .withHashChannels(0, 1) // use both channels to calculate partition (a+b) mod 2
@@ -258,7 +258,7 @@ public class TestPagePartitioner
     @Test(dataProvider = "partitioningMode")
     public void testPartitionPositionsWithRleNotNull(PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).build();
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT, BIGINT).build();
         Page page = new Page(createRLEBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
         processPages(pagePartitioner, partitioningMode, page);
@@ -273,7 +273,7 @@ public class TestPagePartitioner
     @Test(dataProvider = "partitioningMode")
     public void testPartitionPositionsWithRleNotNullWithReplication(PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).replicate().build();
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT, BIGINT).replicate().build();
         Page page = new Page(createRLEBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
         processPages(pagePartitioner, partitioningMode, page);
@@ -287,7 +287,7 @@ public class TestPagePartitioner
     @Test(dataProvider = "partitioningMode")
     public void testPartitionPositionsWithRleNullWithNullChannel(PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).withNullChannel(0).build();
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT, BIGINT).withNullChannel(0).build();
         Page page = new Page(new RunLengthEncodedBlock(createLongsBlock((Long) null), POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
         processPages(pagePartitioner, partitioningMode, page);
@@ -301,7 +301,7 @@ public class TestPagePartitioner
     @Test(dataProvider = "partitioningMode")
     public void testOutputForDictionaryBlock(PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT).build();
         Page page = new Page(createLongDictionaryBlock(0, 10)); // must have at least 10 position to have non-trivial dict
 
         processPages(pagePartitioner, partitioningMode, page);
@@ -315,7 +315,7 @@ public class TestPagePartitioner
     @Test(dataProvider = "partitioningMode")
     public void testOutputForOneValueDictionaryBlock(PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT).build();
         Page page = new Page(new DictionaryBlock(createLongsBlock(0), new int[] {0, 0, 0, 0}));
 
         processPages(pagePartitioner, partitioningMode, page);
@@ -329,7 +329,7 @@ public class TestPagePartitioner
     @Test(dataProvider = "partitioningMode")
     public void testOutputForViewDictionaryBlock(PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT).build();
         Page page = new Page(new DictionaryBlock(createLongSequenceBlock(4, 8), new int[] {1, 0, 3, 2}));
 
         processPages(pagePartitioner, partitioningMode, page);
@@ -343,7 +343,9 @@ public class TestPagePartitioner
     @Test(dataProvider = "typesWithPartitioningMode")
     public void testOutputForSimplePageWithType(Type type, PartitioningMode partitioningMode)
     {
-        PagePartitioner pagePartitioner = pagePartitioner(BIGINT, type).build();
+        PagePartitioner pagePartitioner = pagePartitioner(partitioningMode, BIGINT, type)
+                .withAcceleratedRepartitioningEnabled(partitioningMode.isAcceleratedRepartitioningEnabled())
+                .build();
         Page page = new Page(
                 createLongSequenceBlock(0, POSITIONS_PER_PAGE), // partition block
                 createBlockForType(type, POSITIONS_PER_PAGE));
@@ -364,7 +366,7 @@ public class TestPagePartitioner
 
     private void testOutputEqualsInput(Type type, PartitioningMode mode1, PartitioningMode mode2)
     {
-        PagePartitionerBuilder pagePartitionerBuilder = pagePartitioner(BIGINT, type, type);
+        PagePartitionerBuilder pagePartitionerBuilder = pagePartitioner(PartitioningMode.DEFAULT_WITH_COLUMNAR_ON, BIGINT, type, type);
         PagePartitioner pagePartitioner = pagePartitionerBuilder.build();
         Page input = new Page(
                 createLongSequenceBlock(0, POSITIONS_PER_PAGE), // partition block
@@ -386,7 +388,9 @@ public class TestPagePartitioner
     @DataProvider(name = "partitioningMode")
     public static Object[][] partitioningMode()
     {
-        return new Object[][] {{PartitioningMode.ROW_WISE}, {PartitioningMode.COLUMNAR}};
+        return Stream.of(PartitioningMode.values())
+                .map(partitioningMode -> new Object[] {partitioningMode})
+                .toArray(Object[][]::new);
     }
 
     @DataProvider(name = "types")
@@ -461,9 +465,10 @@ public class TestPagePartitioner
         return unmodifiableList(result);
     }
 
-    private PagePartitionerBuilder pagePartitioner(Type... types)
+    private PagePartitionerBuilder pagePartitioner(PartitioningMode partitioningMode, Type... types)
     {
-        return pagePartitioner(ImmutableList.copyOf(types));
+        return pagePartitioner(ImmutableList.copyOf(types))
+                .withAcceleratedRepartitioningEnabled(partitioningMode.isAcceleratedRepartitioningEnabled());
     }
 
     private PagePartitionerBuilder pagePartitioner(List<Type> types)
@@ -478,22 +483,48 @@ public class TestPagePartitioner
 
     private enum PartitioningMode
     {
-        ROW_WISE {
+        ROW_WISE(true) {
             @Override
             public void partitionPage(PagePartitioner pagePartitioner, Page page)
             {
                 pagePartitioner.partitionPageByRow(page);
             }
         },
-        COLUMNAR {
+        COLUMNAR(true) {
             @Override
             public void partitionPage(PagePartitioner pagePartitioner, Page page)
             {
                 pagePartitioner.partitionPageByColumn(page);
             }
+        },
+        DEFAULT_WITH_COLUMNAR_ON(true) {
+            @Override
+            public void partitionPage(PagePartitioner pagePartitioner, Page page)
+            {
+                pagePartitioner.partitionPage(page);
+            }
+        },
+        DEFAULT_WITH_COLUMNAR_OFF(false) {
+            @Override
+            public void partitionPage(PagePartitioner pagePartitioner, Page page)
+            {
+                pagePartitioner.partitionPage(page);
+            }
         };
 
+        private final boolean acceleratedRepartitioningEnabled;
+
+        PartitioningMode(boolean acceleratedRepartitioningEnabled)
+        {
+            this.acceleratedRepartitioningEnabled = acceleratedRepartitioningEnabled;
+        }
+
         public abstract void partitionPage(PagePartitioner pagePartitioner, Page page);
+
+        public boolean isAcceleratedRepartitioningEnabled()
+        {
+            return acceleratedRepartitioningEnabled;
+        }
     }
 
     public static class PagePartitionerBuilder
@@ -509,6 +540,7 @@ public class TestPagePartitioner
         private boolean shouldReplicate;
         private OptionalInt nullChannel = OptionalInt.empty();
         private List<Type> types;
+        private boolean acceleratedRepartitioningEnabled = true;
 
         PagePartitionerBuilder(ExecutorService executor, ScheduledExecutorService scheduledExecutor, OutputBuffer outputBuffer)
         {
@@ -578,6 +610,12 @@ public class TestPagePartitioner
             return this;
         }
 
+        public PagePartitionerBuilder withAcceleratedRepartitioningEnabled(boolean acceleratedRepartitioningEnabled)
+        {
+            this.acceleratedRepartitioningEnabled = acceleratedRepartitioningEnabled;
+            return this;
+        }
+
         public PartitionedOutputOperator buildPartitionedOutputOperator()
         {
             DriverContext driverContext = buildDriverContext();
@@ -614,7 +652,8 @@ public class TestPagePartitioner
                     types,
                     PARTITION_MAX_MEMORY,
                     operatorContext,
-                    POSITIONS_APPENDER_FACTORY);
+                    POSITIONS_APPENDER_FACTORY,
+                    acceleratedRepartitioningEnabled);
         }
 
         private DriverContext buildDriverContext()
