@@ -549,6 +549,7 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = format("test_%s_by_uuid", partitioned ? "partitioned" : "selected");
         String partitioning = partitioned ? "WITH (partitioning = ARRAY['x'])" : "";
+        assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
         assertUpdate(format("CREATE TABLE %s (x uuid, y bigint) %s", tableName, partitioning));
 
         assertUpdate(format("INSERT INTO %s VALUES (UUID '406caec7-68b9-4778-81b2-a12ece70c8b1', 12345)", tableName), 1);
@@ -560,10 +561,33 @@ public abstract class BaseIcebergConnectorTest
         assertQuery(format("SELECT count(*) FROM %s", tableName), "SELECT 3");
         assertQuery(format("SELECT * FROM %s WHERE x = UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'", tableName), "SELECT CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID), 12345");
         assertQuery(format("SELECT * FROM %s WHERE x = UUID 'f79c3e09-677c-4bbd-a479-3f349cb785e7'", tableName), "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890");
+        assertQuery(
+                format("SELECT * FROM %s WHERE x >= UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'", tableName),
+                (format == ORC && partitioned || format == PARQUET)
+                        // TODO (https://github.com/trinodb/trino/issues/12834): reading Parquet, or partitioned ORC, with UUID filter yields incorrect results
+                        ? "VALUES (CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID), 12345)"
+                        : "VALUES (CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890), (CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID), 12345)");
+        assertQuery(
+                format("SELECT * FROM %s WHERE x >= UUID 'f79c3e09-677c-4bbd-a479-3f349cb785e7'", tableName),
+                partitioned
+                        ? "VALUES (CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890), (CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID), 12345)"
+                        : "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890");
         assertQuery(format("SELECT * FROM %s WHERE x IS NULL", tableName), "SELECT NULL, 7531");
         assertQuery(format("SELECT x FROM %s WHERE y = 12345", tableName), "SELECT CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)");
         assertQuery(format("SELECT x FROM %s WHERE y = 67890", tableName), "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID)");
         assertQuery(format("SELECT x FROM %s WHERE y = 7531", tableName), "SELECT NULL");
+
+        assertUpdate(format("INSERT INTO %s VALUES (UUID '206caec7-68b9-4778-81b2-a12ece70c8b1', 313), (UUID '906caec7-68b9-4778-81b2-a12ece70c8b1', 314)", tableName), 2);
+        assertThat(query("SELECT y FROM " + tableName + " WHERE x >= UUID '206caec7-68b9-4778-81b2-a12ece70c8b1'"))
+                .matches(
+                        (partitioned)
+                                // TODO (https://github.com/trinodb/trino/issues/12834): reading Parquet with UUID filter yields incorrect results
+                                ? "VALUES BIGINT '12345', 313"
+                                : ((format == PARQUET)
+                                // TODO (https://github.com/trinodb/trino/issues/12834): reading Parquet with UUID filter yields incorrect results
+                                ? "VALUES BIGINT '12345'"
+                                // this one is correct
+                                : "VALUES BIGINT '12345', 67890, 313, 314"));
 
         assertUpdate("DROP TABLE " + tableName);
     }
