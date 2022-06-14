@@ -34,7 +34,6 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
 import io.trino.operator.DriverStats;
 import io.trino.operator.PipelineContext;
-import io.trino.operator.PipelineExecutionStrategy;
 import io.trino.operator.TaskContext;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
@@ -75,7 +74,6 @@ import static io.trino.SystemSessionProperties.getSplitConcurrencyAdjustmentInte
 import static io.trino.execution.SqlTaskExecution.SplitsState.ADDING_SPLITS;
 import static io.trino.execution.SqlTaskExecution.SplitsState.FINISHED;
 import static io.trino.execution.SqlTaskExecution.SplitsState.NO_MORE_SPLITS;
-import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -200,16 +198,7 @@ public class SqlTaskExecution
                     driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true));
                 }
                 else {
-                    switch (driverFactory.getPipelineExecutionStrategy()) {
-                        case GROUPED_EXECUTION:
-                            driverRunnerFactoriesWithDriverGroupLifeCycle.add(new DriverSplitRunnerFactory(driverFactory, false));
-                            break;
-                        case UNGROUPED_EXECUTION:
-                            driverRunnerFactoriesWithTaskLifeCycle.add(new DriverSplitRunnerFactory(driverFactory, false));
-                            break;
-                        default:
-                            throw new UnsupportedOperationException();
-                    }
+                    driverRunnerFactoriesWithTaskLifeCycle.add(new DriverSplitRunnerFactory(driverFactory, false));
                 }
             }
             this.driverRunnerFactoriesWithSplitLifeCycle = driverRunnerFactoriesWithSplitLifeCycle.buildOrThrow();
@@ -221,7 +210,8 @@ public class SqlTaskExecution
             this.status = new Status(
                     taskContext,
                     localExecutionPlan.getDriverFactories().stream()
-                            .collect(toImmutableMap(DriverFactory::getPipelineId, DriverFactory::getPipelineExecutionStrategy)));
+                            .mapToInt(DriverFactory::getPipelineId)
+                            .toArray());
             this.schedulingLifespanManager = new SchedulingLifespanManager(localExecutionPlan.getPartitionedSourceOrder(), this.status);
 
             checkArgument(this.driverRunnerFactoriesWithSplitLifeCycle.keySet().equals(partitionedSources),
@@ -230,11 +220,8 @@ public class SqlTaskExecution
             // Pre-register Lifespans for ungrouped partitioned drivers in case they end up get no splits.
             for (Entry<PlanNodeId, DriverSplitRunnerFactory> entry : this.driverRunnerFactoriesWithSplitLifeCycle.entrySet()) {
                 PlanNodeId planNodeId = entry.getKey();
-                DriverSplitRunnerFactory driverSplitRunnerFactory = entry.getValue();
-                if (driverSplitRunnerFactory.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION) {
-                    this.schedulingLifespanManager.addLifespanIfAbsent(Lifespan.taskWide());
-                    this.pendingSplitsByPlanNode.get(planNodeId).getLifespan(Lifespan.taskWide());
-                }
+                this.schedulingLifespanManager.addLifespanIfAbsent(Lifespan.taskWide());
+                this.pendingSplitsByPlanNode.get(planNodeId).getLifespan(Lifespan.taskWide());
             }
 
             // don't register the task if it is already completed (most likely failed during planning above)
@@ -374,12 +361,10 @@ public class SqlTaskExecution
         partitionedDriverFactory.splitsAdded(scheduledSplits.size(), SplitWeight.rawValueSum(scheduledSplits, scheduledSplit -> scheduledSplit.getSplit().getSplitWeight()));
         for (ScheduledSplit scheduledSplit : scheduledSplits) {
             Lifespan lifespan = scheduledSplit.getSplit().getLifespan();
-            checkLifespan(partitionedDriverFactory.getPipelineExecutionStrategy(), lifespan);
             pendingSplitsForPlanNode.getLifespan(lifespan).addSplit(scheduledSplit);
             schedulingLifespanManager.addLifespanIfAbsent(lifespan);
         }
         for (Lifespan lifespanWithNoMoreSplits : noMoreSplitsForLifespan) {
-            checkLifespan(partitionedDriverFactory.getPipelineExecutionStrategy(), lifespanWithNoMoreSplits);
             pendingSplitsForPlanNode.getLifespan(lifespanWithNoMoreSplits).noMoreSplits();
             schedulingLifespanManager.addLifespanIfAbsent(lifespanWithNoMoreSplits);
         }
@@ -674,19 +659,6 @@ public class SqlTaskExecution
                 .toString();
     }
 
-    private void checkLifespan(PipelineExecutionStrategy executionStrategy, Lifespan lifespan)
-    {
-        switch (executionStrategy) {
-            case GROUPED_EXECUTION:
-                checkArgument(!lifespan.isTaskWide(), "Expect driver-group life cycle for grouped ExecutionStrategy. Got task-wide life cycle.");
-                return;
-            case UNGROUPED_EXECUTION:
-                checkArgument(lifespan.isTaskWide(), "Expect task-wide life cycle for ungrouped ExecutionStrategy. Got driver-group life cycle.");
-                return;
-        }
-        throw new IllegalArgumentException("Unknown executionStrategy: " + executionStrategy);
-    }
-
     private void checkHoldsLock()
     {
         // This method serves a similar purpose at runtime as GuardedBy on method serves during static analysis.
@@ -934,7 +906,6 @@ public class SqlTaskExecution
         // The former will take two arguments, and the latter will take one. This will simplify the signature quite a bit.
         public DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit, Lifespan lifespan)
         {
-            checkLifespan(driverFactory.getPipelineExecutionStrategy(), lifespan);
             status.incrementPendingCreation(pipelineContext.getPipelineId(), lifespan);
             // create driver context immediately so the driver existence is recorded in the stats
             // the number of drivers is used to balance work across nodes
@@ -997,11 +968,6 @@ public class SqlTaskExecution
             }
             driverFactory.noMoreDrivers();
             closed = true;
-        }
-
-        public PipelineExecutionStrategy getPipelineExecutionStrategy()
-        {
-            return driverFactory.getPipelineExecutionStrategy();
         }
 
         public OptionalInt getDriverInstances()
@@ -1157,28 +1123,17 @@ public class SqlTaskExecution
         @GuardedBy("this")
         private boolean noMoreLifespans;
 
-        public Status(TaskContext taskContext, Map<Integer, PipelineExecutionStrategy> pipelineToExecutionStrategy)
+        public Status(TaskContext taskContext, int[] pipelines)
         {
             this.taskContext = requireNonNull(taskContext, "taskContext is null");
             int pipelineWithTaskLifeCycleCount = 0;
             int pipelineWithDriverGroupLifeCycleCount = 0;
             ImmutableMap.Builder<Integer, Map<Lifespan, PerPipelineAndLifespanStatus>> perPipelineAndLifespan = ImmutableMap.builder();
             ImmutableMap.Builder<Integer, PerPipelineStatus> perPipeline = ImmutableMap.builder();
-            for (Entry<Integer, PipelineExecutionStrategy> entry : pipelineToExecutionStrategy.entrySet()) {
-                int pipelineId = entry.getKey();
-                PipelineExecutionStrategy executionStrategy = entry.getValue();
+            for (int pipelineId : pipelines) {
                 perPipelineAndLifespan.put(pipelineId, new HashMap<>());
-                perPipeline.put(pipelineId, new PerPipelineStatus(executionStrategy));
-                switch (executionStrategy) {
-                    case UNGROUPED_EXECUTION:
-                        pipelineWithTaskLifeCycleCount++;
-                        break;
-                    case GROUPED_EXECUTION:
-                        pipelineWithDriverGroupLifeCycleCount++;
-                        break;
-                    default:
-                        throw new IllegalArgumentException(format("Unknown ExecutionStrategy (%s) for pipeline %s.", executionStrategy, pipelineId));
-                }
+                perPipeline.put(pipelineId, new PerPipelineStatus());
+                pipelineWithTaskLifeCycleCount++;
             }
             this.pipelineWithTaskLifeCycleCount = pipelineWithTaskLifeCycleCount;
             this.pipelineWithDriverGroupLifeCycleCount = pipelineWithDriverGroupLifeCycleCount;
@@ -1262,31 +1217,7 @@ public class SqlTaskExecution
 
         public synchronized boolean isNoMoreDriverRunners(int pipelineId)
         {
-            int driverGroupCount;
-            switch (per(pipelineId).executionStrategy) {
-                case UNGROUPED_EXECUTION:
-                    // Even if noMoreLifespans is not set, UNGROUPED_EXECUTION pipelines can only have 1 driver group by nature.
-                    driverGroupCount = 1;
-                    break;
-                case GROUPED_EXECUTION:
-                    if (!noMoreLifespans) {
-                        // There may still be new driver groups, which means potentially new splits.
-                        return false;
-                    }
-
-                    // We are trying to figure out the number of driver life cycles that has this pipeline here.
-                    // Since the pipeline has grouped execution strategy, all Lifespans except for the task-wide one
-                    // should have this pipeline.
-                    // Therefore, we get the total number of Lifespans in the task, and deduct 1 if the task-wide one exists.
-                    driverGroupCount = perLifespan.size();
-                    if (perLifespan.containsKey(Lifespan.taskWide())) {
-                        driverGroupCount--;
-                    }
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
-            }
-            return per(pipelineId).lifespansWithNoMoreDriverRunners == driverGroupCount;
+            return per(pipelineId).lifespansWithNoMoreDriverRunners == 1;
         }
 
         public synchronized boolean isNoMoreDriverRunners(Lifespan lifespan)
@@ -1353,15 +1284,13 @@ public class SqlTaskExecution
 
     private static class PerPipelineStatus
     {
-        final PipelineExecutionStrategy executionStrategy;
 
         int pendingCreation;
         int lifespansWithNoMoreDriverRunners;
         final List<Lifespan> unacknowledgedLifespansWithNoMoreDrivers = new ArrayList<>();
 
-        public PerPipelineStatus(PipelineExecutionStrategy executionStrategy)
+        public PerPipelineStatus()
         {
-            this.executionStrategy = requireNonNull(executionStrategy, "executionStrategy is null");
         }
     }
 

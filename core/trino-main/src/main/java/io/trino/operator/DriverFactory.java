@@ -38,13 +38,12 @@ public class DriverFactory
     private final List<OperatorFactory> operatorFactories;
     private final Optional<PlanNodeId> sourceId;
     private final OptionalInt driverInstances;
-    private final PipelineExecutionStrategy pipelineExecutionStrategy;
 
     private boolean closed;
     private final Set<Lifespan> encounteredLifespans = new HashSet<>();
     private final Set<Lifespan> closedLifespans = new HashSet<>();
 
-    public DriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
+    public DriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
     {
         this.pipelineId = pipelineId;
         this.inputDriver = inputDriver;
@@ -52,7 +51,6 @@ public class DriverFactory
         this.operatorFactories = ImmutableList.copyOf(requireNonNull(operatorFactories, "operatorFactories is null"));
         checkArgument(!operatorFactories.isEmpty(), "There must be at least one operator");
         this.driverInstances = requireNonNull(driverInstances, "driverInstances is null");
-        this.pipelineExecutionStrategy = requireNonNull(pipelineExecutionStrategy, "pipelineExecutionStrategy is null");
 
         List<PlanNodeId> sourceIds = operatorFactories.stream()
                 .filter(SourceOperatorFactory.class::isInstance)
@@ -91,11 +89,6 @@ public class DriverFactory
     public OptionalInt getDriverInstances()
     {
         return driverInstances;
-    }
-
-    public PipelineExecutionStrategy getPipelineExecutionStrategy()
-    {
-        return pipelineExecutionStrategy;
     }
 
     public List<OperatorFactory> getOperatorFactories()

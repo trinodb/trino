@@ -18,7 +18,6 @@ import io.trino.RowPagesBuilder;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
-import io.trino.operator.PipelineExecutionStrategy;
 import io.trino.operator.TaskContext;
 import io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import io.trino.operator.join.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
@@ -512,8 +511,6 @@ public class TestNestedLoopJoinOperator
 
         JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                 false,
-                PipelineExecutionStrategy.UNGROUPED_EXECUTION,
-                PipelineExecutionStrategy.UNGROUPED_EXECUTION,
                 lifespan -> new NestedLoopJoinPagesSupplier(),
                 buildPages.getTypes());
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(1, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
