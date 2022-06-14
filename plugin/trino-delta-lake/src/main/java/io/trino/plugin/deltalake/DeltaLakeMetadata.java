@@ -18,6 +18,7 @@ import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
@@ -59,6 +60,7 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -95,11 +97,13 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
+import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.HyperLogLogType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -128,6 +132,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
@@ -195,6 +200,7 @@ import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.predicate.ValueSet.ofRanges;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES_SUMMARY;
+import static io.trino.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -242,6 +248,10 @@ public class DeltaLakeMetadata
     // Matches the dummy column Databricks stores in the metastore
     private static final List<Column> DUMMY_DATA_COLUMNS = ImmutableList.of(
             new Column("col", HiveType.toHiveType(new ArrayType(VarcharType.createUnboundedVarcharType())), Optional.empty()));
+    private static final Set<ColumnStatisticType> SUPPORTED_STATISTICS_TYPE = ImmutableSet.<ColumnStatisticType>builder()
+            .add(TOTAL_SIZE_IN_BYTES)
+            .add(NUMBER_OF_DISTINCT_VALUES_SUMMARY)
+            .build();
 
     private final DeltaLakeMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -1932,8 +1942,14 @@ public class DeltaLakeMetadata
                         analyzeColumnNames
                                 .map(columnNames -> columnNames.contains(columnMetadata.getName()))
                                 .orElse(true))
-                .map(columnMetadata -> new ColumnStatisticMetadata(columnMetadata.getName(), NUMBER_OF_DISTINCT_VALUES_SUMMARY))
-                .forEach(columnStatistics::add);
+                .forEach(columnMetadata -> {
+                    if (!(columnMetadata.getType() instanceof FixedWidthType)) {
+                        if (statistics.isEmpty() || totalSizeStatisticsExists(statistics.get().getColumnStatistics(), columnMetadata.getName())) {
+                            columnStatistics.add(new ColumnStatisticMetadata(columnMetadata.getName(), TOTAL_SIZE_IN_BYTES));
+                        }
+                    }
+                    columnStatistics.add(new ColumnStatisticMetadata(columnMetadata.getName(), NUMBER_OF_DISTINCT_VALUES_SUMMARY));
+                });
 
         // collect max(file modification time) for sake of incremental ANALYZE
         columnStatistics.add(new ColumnStatisticMetadata(FILE_MODIFIED_TIME_COLUMN_NAME, MAX_VALUE));
@@ -1956,6 +1972,11 @@ public class DeltaLakeMetadata
             return false;
         }
         return true;
+    }
+
+    private static boolean totalSizeStatisticsExists(Map<String, DeltaLakeColumnStatistics> statistics, String columnName)
+    {
+        return statistics.containsKey(columnName) && statistics.get(columnName).getTotalSizeInBytes().isPresent();
     }
 
     @Override
@@ -2130,26 +2151,53 @@ public class DeltaLakeMetadata
     {
         // Only statistics for whole table are collected
         ComputedStatistics singleStatistics = Iterables.getOnlyElement(computedStatistics);
+        return createColumnToComputedStatisticsMap(singleStatistics.getColumnStatistics()).entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> createDeltaLakeColumnStatistics(entry.getValue())));
+    }
 
-        return singleStatistics.getColumnStatistics().entrySet().stream()
-                .filter(not(entry -> entry.getKey().getColumnName().equals(FILE_MODIFIED_TIME_COLUMN_NAME)))
-                .collect(toImmutableMap(
-                        entry -> entry.getKey().getColumnName(),
-                        entry -> {
-                            ColumnStatisticMetadata columnStatisticMetadata = entry.getKey();
-                            if (columnStatisticMetadata.getStatisticType() != NUMBER_OF_DISTINCT_VALUES_SUMMARY) {
-                                throw new TrinoException(
-                                        GENERIC_INTERNAL_ERROR,
-                                        "Unexpected statistics type " + columnStatisticMetadata.getStatisticType() + " found for column " + columnStatisticMetadata.getColumnName());
-                            }
-                            if (entry.getValue().isNull(0)) {
-                                return DeltaLakeColumnStatistics.create(HyperLogLog.newInstance(4096)); // empty HLL with number of buckets used by $approx_set
-                            }
-                            else {
-                                Slice serializedSummary = (Slice) blockToNativeValue(HyperLogLogType.HYPER_LOG_LOG, entry.getValue());
-                                return DeltaLakeColumnStatistics.create(HyperLogLog.newInstance(serializedSummary));
-                            }
-                        }));
+    private static Map<String, Map<ColumnStatisticType, Block>> createColumnToComputedStatisticsMap(Map<ColumnStatisticMetadata, Block> computedStatistics)
+    {
+        ImmutableTable.Builder<String, ColumnStatisticType, Block> result = ImmutableTable.builder();
+        computedStatistics.forEach((metadata, block) -> {
+            if (metadata.getColumnName().equals(FILE_MODIFIED_TIME_COLUMN_NAME)) {
+                return;
+            }
+            if (!SUPPORTED_STATISTICS_TYPE.contains(metadata.getStatisticType())) {
+                throw new TrinoException(
+                        GENERIC_INTERNAL_ERROR,
+                        "Unexpected statistics type " + metadata.getStatisticType() + " found for column " + metadata.getColumnName());
+            }
+
+            result.put(metadata.getColumnName(), metadata.getStatisticType(), block);
+        });
+        return result.buildOrThrow().rowMap();
+    }
+
+    private static DeltaLakeColumnStatistics createDeltaLakeColumnStatistics(Map<ColumnStatisticType, Block> computedStatistics)
+    {
+        OptionalLong totalSize = OptionalLong.empty();
+        if (computedStatistics.containsKey(TOTAL_SIZE_IN_BYTES)) {
+            totalSize = getLongValue(computedStatistics.get(TOTAL_SIZE_IN_BYTES));
+        }
+        HyperLogLog ndvSummary = getHyperLogLogForNdv(computedStatistics.get(NUMBER_OF_DISTINCT_VALUES_SUMMARY));
+        return DeltaLakeColumnStatistics.create(totalSize, ndvSummary);
+    }
+
+    private static OptionalLong getLongValue(Block block)
+    {
+        if (block.isNull(0)) {
+            return OptionalLong.of(0);
+        }
+        return OptionalLong.of(BIGINT.getLong(block, 0));
+    }
+
+    private static HyperLogLog getHyperLogLogForNdv(Block block)
+    {
+        if (block.isNull(0)) {
+            return HyperLogLog.newInstance(4096); // number of buckets used by $approx_set
+        }
+        Slice serializedSummary = (Slice) blockToNativeValue(HyperLogLogType.HYPER_LOG_LOG, block);
+        return HyperLogLog.newInstance(serializedSummary);
     }
 
     private static Optional<Instant> getMaxFileModificationTime(Collection<ComputedStatistics> computedStatistics)
