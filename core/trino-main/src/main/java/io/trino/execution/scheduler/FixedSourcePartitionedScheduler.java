@@ -22,12 +22,8 @@ import io.trino.execution.Lifespan;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.ScheduleResult.BlockedReason;
-import io.trino.execution.scheduler.group.DynamicLifespanScheduler;
-import io.trino.execution.scheduler.group.FixedLifespanScheduler;
-import io.trino.execution.scheduler.group.LifespanScheduler;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
-import io.trino.operator.StageExecutionDescriptor;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.split.SplitSource;
@@ -43,7 +39,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsSourceScheduler;
@@ -59,7 +54,6 @@ public class FixedSourcePartitionedScheduler
     private final List<InternalNode> nodes;
     private final List<SourceScheduler> sourceSchedulers;
     private final List<ConnectorPartitionHandle> partitionHandles;
-    private final Optional<LifespanScheduler> groupedLifespanScheduler;
 
     private final PartitionIdAllocator partitionIdAllocator;
     private final Map<InternalNode, RemoteTask> scheduledTasks;
@@ -67,7 +61,6 @@ public class FixedSourcePartitionedScheduler
     public FixedSourcePartitionedScheduler(
             StageExecution stageExecution,
             Map<PlanNodeId, SplitSource> splitSources,
-            StageExecutionDescriptor stageExecutionDescriptor,
             List<PlanNodeId> schedulingOrder,
             List<InternalNode> nodes,
             BucketNodeMap bucketNodeMap,
@@ -93,20 +86,14 @@ public class FixedSourcePartitionedScheduler
         BucketedSplitPlacementPolicy splitPlacementPolicy = new BucketedSplitPlacementPolicy(nodeSelector, nodes, bucketNodeMap, stageExecution::getAllTasks);
 
         ArrayList<SourceScheduler> sourceSchedulers = new ArrayList<>();
-        checkArgument(
-                partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)) != stageExecutionDescriptor.isStageGroupedExecution(),
-                "PartitionHandles should be [NOT_PARTITIONED] if and only if all scan nodes use ungrouped execution strategy");
-        int nodeCount = nodes.size();
         int concurrentLifespans = partitionHandles.size();
 
         boolean firstPlanNode = true;
-        Optional<LifespanScheduler> groupedLifespanScheduler = Optional.empty();
 
         partitionIdAllocator = new PartitionIdAllocator();
         scheduledTasks = new HashMap<>();
         for (PlanNodeId planNodeId : schedulingOrder) {
             SplitSource splitSource = splitSources.get(planNodeId);
-            boolean groupedExecutionForScanNode = stageExecutionDescriptor.isScanGroupedExecution(planNodeId);
             // TODO : change anySourceTaskBlocked to accommodate the correct blocked status of source tasks
             //  (ref : https://github.com/trinodb/trino/issues/4713)
             SourceScheduler sourceScheduler = newSourcePartitionedSchedulerAsSourceScheduler(
@@ -115,47 +102,21 @@ public class FixedSourcePartitionedScheduler
                     splitSource,
                     splitPlacementPolicy,
                     Math.max(splitBatchSize / concurrentLifespans, 1),
-                    groupedExecutionForScanNode,
+                    false,
                     dynamicFilterService,
                     tableExecuteContextManager,
                     () -> true,
                     partitionIdAllocator,
                     scheduledTasks);
 
-            if (stageExecutionDescriptor.isStageGroupedExecution() && !groupedExecutionForScanNode) {
-                sourceScheduler = new AsGroupedSourceScheduler(sourceScheduler);
-            }
             sourceSchedulers.add(sourceScheduler);
 
             if (firstPlanNode) {
                 firstPlanNode = false;
-                if (!stageExecutionDescriptor.isStageGroupedExecution()) {
-                    sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
-                    sourceScheduler.noMoreLifespans();
-                }
-                else {
-                    LifespanScheduler lifespanScheduler;
-                    if (bucketNodeMap.isDynamic()) {
-                        // Callee of the constructor guarantees dynamic bucket node map will only be
-                        // used when the stage has no remote source.
-                        //
-                        // When the stage has no remote source, any scan is grouped execution guarantees
-                        // all scan is grouped execution.
-                        lifespanScheduler = new DynamicLifespanScheduler(bucketNodeMap, nodes, partitionHandles);
-                    }
-                    else {
-                        lifespanScheduler = new FixedLifespanScheduler(bucketNodeMap, partitionHandles);
-                    }
-
-                    // Schedule the first few lifespans
-                    lifespanScheduler.scheduleInitial(sourceScheduler);
-                    // Schedule new lifespans for finished ones
-                    stageExecution.addCompletedDriverGroupsChangedListener(lifespanScheduler::onLifespanFinished);
-                    groupedLifespanScheduler = Optional.of(lifespanScheduler);
-                }
+                sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
+                sourceScheduler.noMoreLifespans();
             }
         }
-        this.groupedLifespanScheduler = groupedLifespanScheduler;
         this.sourceSchedulers = sourceSchedulers;
     }
 
@@ -187,15 +148,6 @@ public class FixedSourcePartitionedScheduler
         boolean allBlocked = true;
         List<ListenableFuture<Void>> blocked = new ArrayList<>();
         BlockedReason blockedReason = BlockedReason.NO_ACTIVE_DRIVER_GROUP;
-
-        if (groupedLifespanScheduler.isPresent()) {
-            // Start new driver groups on the first scheduler if necessary,
-            // i.e. when previous ones have finished execution (not finished scheduling).
-            //
-            // Invoke schedule method to get a new SettableFuture every time.
-            // Reusing previously returned SettableFuture could lead to the ListenableFuture retaining too many listeners.
-            blocked.add(groupedLifespanScheduler.get().schedule(sourceSchedulers.get(0)));
-        }
 
         int splitsScheduled = 0;
         Iterator<SourceScheduler> schedulerIterator = sourceSchedulers.iterator();
@@ -297,79 +249,6 @@ public class FixedSourcePartitionedScheduler
         public InternalNode getNodeForBucket(int bucketId)
         {
             return bucketNodeMap.getAssignedNode(bucketId).get();
-        }
-    }
-
-    private static class AsGroupedSourceScheduler
-            implements SourceScheduler
-    {
-        private final SourceScheduler sourceScheduler;
-        private boolean started;
-        private boolean completed;
-        private final List<Lifespan> pendingCompleted;
-
-        public AsGroupedSourceScheduler(SourceScheduler sourceScheduler)
-        {
-            this.sourceScheduler = requireNonNull(sourceScheduler, "sourceScheduler is null");
-            pendingCompleted = new ArrayList<>();
-        }
-
-        @Override
-        public void start()
-        {
-            sourceScheduler.start();
-        }
-
-        @Override
-        public ScheduleResult schedule()
-        {
-            return sourceScheduler.schedule();
-        }
-
-        @Override
-        public void close()
-        {
-            sourceScheduler.close();
-        }
-
-        @Override
-        public PlanNodeId getPlanNodeId()
-        {
-            return sourceScheduler.getPlanNodeId();
-        }
-
-        @Override
-        public void startLifespan(Lifespan lifespan, ConnectorPartitionHandle partitionHandle)
-        {
-            pendingCompleted.add(lifespan);
-            if (started) {
-                return;
-            }
-            started = true;
-            sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
-            sourceScheduler.noMoreLifespans();
-        }
-
-        @Override
-        public void noMoreLifespans()
-        {
-            checkState(started);
-        }
-
-        @Override
-        public List<Lifespan> drainCompletedLifespans()
-        {
-            if (!completed) {
-                List<Lifespan> lifespans = sourceScheduler.drainCompletedLifespans();
-                if (lifespans.isEmpty()) {
-                    return ImmutableList.of();
-                }
-                checkState(ImmutableList.of(Lifespan.taskWide()).equals(lifespans));
-                completed = true;
-            }
-            List<Lifespan> result = ImmutableList.copyOf(pendingCompleted);
-            pendingCompleted.clear();
-            return result;
         }
     }
 }

@@ -111,7 +111,6 @@ public class TestCostCalculator
         planFragmenter = new PlanFragmenter(
                 localQueryRunner.getMetadata(),
                 localQueryRunner.getFunctionManager(),
-                localQueryRunner.getNodePartitioningManager(),
                 new QueryManagerConfig());
     }
 

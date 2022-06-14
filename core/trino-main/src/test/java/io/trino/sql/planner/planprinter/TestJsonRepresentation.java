@@ -207,7 +207,6 @@ public class TestJsonRepresentation
         PlanPrinter planPrinter = new PlanPrinter(
                 sourceNodeSupplier.apply(planBuilder),
                 planBuilder.getTypes(),
-                Optional.empty(),
                 scanNode -> TABLE_INFO,
                 ImmutableMap.of(),
                 valuePrinter,
