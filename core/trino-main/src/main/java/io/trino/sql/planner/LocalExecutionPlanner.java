@@ -86,7 +86,6 @@ import io.trino.operator.SourceOperatorFactory;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialIndexBuilderOperatorFactory;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.trino.operator.SpatialJoinOperator.SpatialJoinOperatorFactory;
-import io.trino.operator.StageExecutionDescriptor;
 import io.trino.operator.StatisticsWriterOperator.StatisticsWriterOperatorFactory;
 import io.trino.operator.StreamingAggregationOperator;
 import io.trino.operator.TableDeleteOperator.TableDeleteOperatorFactory;
@@ -472,7 +471,6 @@ public class LocalExecutionPlanner
             PlanNode plan,
             TypeProvider types,
             PartitioningScheme partitioningScheme,
-            StageExecutionDescriptor stageExecutionDescriptor,
             List<PlanNodeId> partitionedSourceOrder,
             OutputBuffer outputBuffer)
     {
@@ -483,7 +481,7 @@ public class LocalExecutionPlanner
                 partitioningScheme.getPartitioning().getHandle().equals(SCALED_WRITER_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(COORDINATOR_DISTRIBUTION)) {
-            return plan(taskContext, stageExecutionDescriptor, plan, outputLayout, types, partitionedSourceOrder, new TaskOutputFactory(outputBuffer));
+            return plan(taskContext, plan, outputLayout, types, partitionedSourceOrder, new TaskOutputFactory(outputBuffer));
         }
 
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
@@ -534,7 +532,6 @@ public class LocalExecutionPlanner
 
         return plan(
                 taskContext,
-                stageExecutionDescriptor,
                 plan,
                 outputLayout,
                 types,
@@ -552,7 +549,6 @@ public class LocalExecutionPlanner
 
     public LocalExecutionPlan plan(
             TaskContext taskContext,
-            StageExecutionDescriptor stageExecutionDescriptor,
             PlanNode plan,
             List<Symbol> outputLayout,
             TypeProvider types,
@@ -562,7 +558,7 @@ public class LocalExecutionPlanner
         Session session = taskContext.getSession();
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, types);
 
-        PhysicalOperation physicalOperation = plan.accept(new Visitor(session, stageExecutionDescriptor), context);
+        PhysicalOperation physicalOperation = plan.accept(new Visitor(session), context);
 
         Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(outputLayout, physicalOperation.getLayout());
 
@@ -591,7 +587,7 @@ public class LocalExecutionPlanner
                 .map(LocalPlannerAware.class::cast)
                 .forEach(LocalPlannerAware::localPlannerComplete);
 
-        return new LocalExecutionPlan(context.getDriverFactories(), partitionedSourceOrder, stageExecutionDescriptor);
+        return new LocalExecutionPlan(context.getDriverFactories(), partitionedSourceOrder);
     }
 
     private static class LocalExecutionPlanContext
@@ -822,13 +818,11 @@ public class LocalExecutionPlanner
     {
         private final List<DriverFactory> driverFactories;
         private final List<PlanNodeId> partitionedSourceOrder;
-        private final StageExecutionDescriptor stageExecutionDescriptor;
 
-        public LocalExecutionPlan(List<DriverFactory> driverFactories, List<PlanNodeId> partitionedSourceOrder, StageExecutionDescriptor stageExecutionDescriptor)
+        public LocalExecutionPlan(List<DriverFactory> driverFactories, List<PlanNodeId> partitionedSourceOrder)
         {
             this.driverFactories = ImmutableList.copyOf(requireNonNull(driverFactories, "driverFactories is null"));
             this.partitionedSourceOrder = ImmutableList.copyOf(requireNonNull(partitionedSourceOrder, "partitionedSourceOrder is null"));
-            this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
         }
 
         public List<DriverFactory> getDriverFactories()
@@ -839,11 +833,6 @@ public class LocalExecutionPlanner
         public List<PlanNodeId> getPartitionedSourceOrder()
         {
             return partitionedSourceOrder;
-        }
-
-        public StageExecutionDescriptor getStageExecutionDescriptor()
-        {
-            return stageExecutionDescriptor;
         }
     }
 
@@ -873,12 +862,10 @@ public class LocalExecutionPlanner
             extends PlanVisitor<PhysicalOperation, LocalExecutionPlanContext>
     {
         private final Session session;
-        private final StageExecutionDescriptor stageExecutionDescriptor;
 
-        private Visitor(Session session, StageExecutionDescriptor stageExecutionDescriptor)
+        private Visitor(Session session)
         {
             this.session = session;
-            this.stageExecutionDescriptor = stageExecutionDescriptor;
         }
 
         @Override
@@ -1970,7 +1957,7 @@ public class LocalExecutionPlanner
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session));
 
-                    return new PhysicalOperation(operatorFactory, outputMappings, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
+                    return new PhysicalOperation(operatorFactory, outputMappings, context, UNGROUPED_EXECUTION);
                 }
                 else {
                     Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
@@ -2018,7 +2005,7 @@ public class LocalExecutionPlanner
 
             DynamicFilter dynamicFilter = getDynamicFilter(node, filterExpression, context);
             OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), pageSourceProvider, node.getTable(), columns, dynamicFilter);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
         }
 
         private Optional<Expression> getStaticFilter(Expression filterExpression)

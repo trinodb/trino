@@ -33,7 +33,6 @@ import io.trino.execution.TableInfo;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
-import io.trino.operator.StageExecutionDescriptor;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -143,9 +142,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
-import static io.trino.operator.StageExecutionDescriptor.StageExecutionStrategy;
-import static io.trino.operator.StageExecutionDescriptor.StageExecutionStrategy.UNGROUPED_EXECUTION;
-import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ExpressionUtils.combineConjunctsWithDuplicates;
@@ -178,7 +174,6 @@ public class PlanPrinter
     PlanPrinter(
             PlanNode planRoot,
             TypeProvider types,
-            Optional<StageExecutionDescriptor> stageExecutionStrategy,
             Function<TableScanNode, TableInfo> tableInfoSupplier,
             Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats,
             ValuePrinter valuePrinter,
@@ -211,7 +206,7 @@ public class PlanPrinter
 
         this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime, totalBlockedTime);
 
-        Visitor visitor = new Visitor(stageExecutionStrategy, types, estimatedStatsAndCosts, stats);
+        Visitor visitor = new Visitor(types, estimatedStatsAndCosts, stats);
         planRoot.accept(visitor, null);
     }
 
@@ -239,7 +234,7 @@ public class PlanPrinter
 
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        return new PlanPrinter(root, typeProvider, Optional.empty(), tableInfoSupplier, ImmutableMap.of(), valuePrinter, StatsAndCosts.empty(), Optional.empty()).toJson();
+        return new PlanPrinter(root, typeProvider, tableInfoSupplier, ImmutableMap.of(), valuePrinter, StatsAndCosts.empty(), Optional.empty()).toJson();
     }
 
     public static String jsonLogicalPlan(
@@ -255,7 +250,6 @@ public class PlanPrinter
         return new PlanPrinter(
                 plan,
                 types,
-                Optional.empty(),
                 tableInfoSupplier,
                 ImmutableMap.of(),
                 valuePrinter,
@@ -275,7 +269,7 @@ public class PlanPrinter
     {
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        return new PlanPrinter(plan, types, Optional.empty(), tableInfoSupplier, ImmutableMap.of(), valuePrinter, estimatedStatsAndCosts, Optional.empty()).toText(verbose, level);
+        return new PlanPrinter(plan, types, tableInfoSupplier, ImmutableMap.of(), valuePrinter, estimatedStatsAndCosts, Optional.empty()).toText(verbose, level);
     }
 
     public static String textDistributedPlan(
@@ -411,13 +405,11 @@ public class PlanPrinter
                     Joiner.on(", ").join(arguments),
                     formatHash(partitioningScheme.getHashColumn())));
         }
-        builder.append(indentString(1)).append(format("Stage Execution Strategy: %s\n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
 
         builder.append(
                 new PlanPrinter(
                         fragment.getRoot(),
                         typeProvider,
-                        Optional.of(fragment.getStageExecutionDescriptor()),
                         tableInfoSupplier,
                         dynamicFilterDomainStats,
                         valuePrinter,
@@ -446,7 +438,6 @@ public class PlanPrinter
                 SINGLE_DISTRIBUTION,
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
-                ungroupedExecution(),
                 StatsAndCosts.empty(),
                 Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
@@ -460,14 +451,12 @@ public class PlanPrinter
     private class Visitor
             extends PlanVisitor<Void, Void>
     {
-        private final Optional<StageExecutionDescriptor> stageExecutionStrategy;
         private final TypeProvider types;
         private final StatsAndCosts estimatedStatsAndCosts;
         private final Optional<Map<PlanNodeId, PlanNodeStats>> stats;
 
-        public Visitor(Optional<StageExecutionDescriptor> stageExecutionStrategy, TypeProvider types, StatsAndCosts estimatedStatsAndCosts, Optional<Map<PlanNodeId, PlanNodeStats>> stats)
+        public Visitor(TypeProvider types, StatsAndCosts estimatedStatsAndCosts, Optional<Map<PlanNodeId, PlanNodeStats>> stats)
         {
-            this.stageExecutionStrategy = requireNonNull(stageExecutionStrategy, "stageExecutionStrategy is null");
             this.types = requireNonNull(types, "types is null");
             this.estimatedStatsAndCosts = requireNonNull(estimatedStatsAndCosts, "estimatedStatsAndCosts is null");
             this.stats = requireNonNull(stats, "stats is null");
@@ -975,19 +964,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput;
             ImmutableMap.Builder<String, String> descriptor = ImmutableMap.builder();
             descriptor.put("table", table.toString());
-            if (stageExecutionStrategy.isPresent()) {
-                StageExecutionStrategy executionStrategy = stageExecutionStrategy.get().isScanGroupedExecution(node.getId())
-                        ? stageExecutionStrategy.get().getStageExecutionStrategy()
-                        : UNGROUPED_EXECUTION;
-
-                nodeOutput = addNode(
-                        node,
-                        "TableScan",
-                        descriptor.put("stageExecutionStrategy", executionStrategy.name()).buildOrThrow());
-            }
-            else {
-                nodeOutput = addNode(node, "TableScan", descriptor.buildOrThrow());
-            }
+            nodeOutput = addNode(node, "TableScan", descriptor.buildOrThrow());
             printTableScanInfo(nodeOutput, node);
             return null;
         }
@@ -1065,12 +1042,6 @@ public class PlanPrinter
             if (scanNode.isPresent()) {
                 operatorName += "Scan";
                 descriptor.put("table", scanNode.get().getTable().toString());
-                stageExecutionStrategy.ifPresent(executionDescriptor -> {
-                    StageExecutionStrategy executionStrategy = executionDescriptor.isScanGroupedExecution(node.getId())
-                            ? executionDescriptor.getStageExecutionStrategy()
-                            : UNGROUPED_EXECUTION;
-                    descriptor.put("stageExecutionStrategy", executionStrategy.name());
-                });
             }
 
             List<DynamicFilters.Descriptor> dynamicFilters = ImmutableList.of();

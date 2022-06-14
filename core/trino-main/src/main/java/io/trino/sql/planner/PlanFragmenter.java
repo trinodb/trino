@@ -19,7 +19,6 @@ import com.google.common.collect.Maps;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryManagerConfig;
-import io.trino.execution.scheduler.BucketNodeMap;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -28,22 +27,16 @@ import io.trino.metadata.TableProperties.TablePartitioning;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
-import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
-import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.OutputNode;
-import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
-import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -51,9 +44,7 @@ import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
-import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.planner.plan.WindowNode;
 
 import javax.inject.Inject;
 
@@ -71,9 +62,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getQueryMaxStageCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
-import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
 import static io.trino.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
@@ -95,19 +84,16 @@ public class PlanFragmenter
 
     private final Metadata metadata;
     private final FunctionManager functionManager;
-    private final NodePartitioningManager nodePartitioningManager;
     private final QueryManagerConfig config;
 
     @Inject
     public PlanFragmenter(
             Metadata metadata,
             FunctionManager functionManager,
-            NodePartitioningManager nodePartitioningManager,
             QueryManagerConfig queryManagerConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
-        this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
     }
 
@@ -123,7 +109,6 @@ public class PlanFragmenter
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
         subPlan = reassignPartitioningHandleIfNecessary(session, subPlan);
-        subPlan = analyzeGroupedExecution(session, subPlan);
 
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
@@ -151,26 +136,6 @@ public class PlanFragmenter
                     stageCountSoftLimit,
                     TOO_MANY_STAGES_MESSAGE)));
         }
-    }
-
-    private SubPlan analyzeGroupedExecution(Session session, SubPlan subPlan)
-    {
-        PlanFragment fragment = subPlan.getFragment();
-        GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager), null);
-        if (properties.isSubTreeUseful()) {
-            BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, fragment.getPartitioning(), false);
-            if (bucketNodeMap.isDynamic()) {
-                fragment = fragment.withDynamicLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes());
-            }
-            else {
-                fragment = fragment.withFixedLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes());
-            }
-        }
-        ImmutableList.Builder<SubPlan> result = ImmutableList.builder();
-        for (SubPlan child : subPlan.getChildren()) {
-            result.add(analyzeGroupedExecution(session, child));
-        }
-        return new SubPlan(fragment, result.build());
     }
 
     private SubPlan reassignPartitioningHandleIfNecessary(Session session, SubPlan subPlan)
@@ -206,7 +171,6 @@ public class PlanFragmenter
                         outputPartitioningScheme.getHashColumn(),
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition()),
-                fragment.getStageExecutionDescriptor(),
                 fragment.getStatsAndCosts(),
                 fragment.getJsonRepresentation());
 
@@ -265,7 +229,6 @@ public class PlanFragmenter
                     properties.getPartitioningHandle(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
-                    ungroupedExecution(),
                     statsAndCosts.getForSubplan(root),
                     Optional.of(jsonFragmentPlan(root, symbols, metadata, functionManager, session)));
 
@@ -575,159 +538,6 @@ public class PlanFragmenter
         public Set<PlanNodeId> getPartitionedSources()
         {
             return partitionedSources;
-        }
-    }
-
-    private static class GroupedExecutionTagger
-            extends PlanVisitor<GroupedExecutionProperties, Void>
-    {
-        private final Session session;
-        private final Metadata metadata;
-        private final NodePartitioningManager nodePartitioningManager;
-
-        public GroupedExecutionTagger(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager)
-        {
-            this.session = requireNonNull(session, "session is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
-        }
-
-        @Override
-        protected GroupedExecutionProperties visitPlan(PlanNode node, Void context)
-        {
-            if (node.getSources().isEmpty()) {
-                return GroupedExecutionProperties.notCapable();
-            }
-            return processChildren(node);
-        }
-
-        @Override
-        public GroupedExecutionProperties visitJoin(JoinNode node, Void context)
-        {
-                return GroupedExecutionProperties.notCapable();
-        }
-
-        @Override
-        public GroupedExecutionProperties visitAggregation(AggregationNode node, Void context)
-        {
-            return GroupedExecutionProperties.notCapable();
-        }
-
-        @Override
-        public GroupedExecutionProperties visitWindow(WindowNode node, Void context)
-        {
-            return processWindowFunction(node);
-        }
-
-        @Override
-        public GroupedExecutionProperties visitRowNumber(RowNumberNode node, Void context)
-        {
-            return processWindowFunction(node);
-        }
-
-        @Override
-        public GroupedExecutionProperties visitTopNRanking(TopNRankingNode node, Void context)
-        {
-            return processWindowFunction(node);
-        }
-
-        private GroupedExecutionProperties processWindowFunction(PlanNode node)
-        {
-            return GroupedExecutionProperties.notCapable();
-        }
-
-        @Override
-        public GroupedExecutionProperties visitPatternRecognition(PatternRecognitionNode node, Void context)
-        {
-            return GroupedExecutionProperties.notCapable();
-        }
-
-        @Override
-        public GroupedExecutionProperties visitTableScan(TableScanNode node, Void context)
-        {
-            Optional<TablePartitioning> tablePartitioning = metadata.getTableProperties(session, node.getTable()).getTablePartitioning();
-            if (tablePartitioning.isEmpty() || !node.isUseConnectorNodePartitioning()) {
-                return GroupedExecutionProperties.notCapable();
-            }
-            List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.get().getPartitioningHandle());
-            if (ImmutableList.of(NOT_PARTITIONED).equals(partitionHandles)) {
-                return new GroupedExecutionProperties(false, false, ImmutableList.of());
-            }
-            return new GroupedExecutionProperties(true, false, ImmutableList.of(node.getId()));
-        }
-
-        private GroupedExecutionProperties processChildren(PlanNode node)
-        {
-            // Each fragment has a partitioning handle, which is derived from leaf nodes in the fragment.
-            // Leaf nodes with different partitioning handle are not allowed to share a single fragment
-            // (except for special cases as detailed in addSourceDistribution).
-            // As a result, it is not necessary to check the compatibility between node.getSources because
-            // they are guaranteed to be compatible.
-
-            // * If any child is "not capable", return "not capable"
-            // * When all children are capable ("capable and useful" or "capable but not useful")
-            //   * if any child is "capable and useful", return "capable and useful"
-            //   * if no children is "capable and useful", return "capable but not useful"
-            boolean anyUseful = false;
-            ImmutableList.Builder<PlanNodeId> capableTableScanNodes = ImmutableList.builder();
-            for (PlanNode source : node.getSources()) {
-                GroupedExecutionProperties properties = source.accept(this, null);
-                if (!properties.isCurrentNodeCapable()) {
-                    return GroupedExecutionProperties.notCapable();
-                }
-                anyUseful |= properties.isSubTreeUseful();
-                capableTableScanNodes.addAll(properties.capableTableScanNodes);
-            }
-            return new GroupedExecutionProperties(true, anyUseful, capableTableScanNodes.build());
-        }
-    }
-
-    private static class GroupedExecutionProperties
-    {
-        // currentNodeCapable:
-        //   Whether grouped execution is possible with the current node.
-        //   For example, a table scan is capable iff it supports addressable split discovery.
-        // subTreeUseful:
-        //   Whether grouped execution is beneficial in the current node, or any node below it.
-        //   For example, a JOIN can benefit from grouped execution because build can be flushed early, reducing peak memory requirement.
-        //
-        // In the current implementation, subTreeUseful implies currentNodeCapable.
-        // In theory, this doesn't have to be the case. Take an example where a GROUP BY feeds into the build side of a JOIN.
-        // Even if JOIN cannot take advantage of grouped execution, it could still be beneficial to execute the GROUP BY with grouped execution
-        // (e.g. when the underlying aggregation's intermediate group state may be larger than aggregation output).
-
-        private final boolean currentNodeCapable;
-        private final boolean subTreeUseful;
-        private final List<PlanNodeId> capableTableScanNodes;
-
-        public GroupedExecutionProperties(boolean currentNodeCapable, boolean subTreeUseful, List<PlanNodeId> capableTableScanNodes)
-        {
-            this.currentNodeCapable = currentNodeCapable;
-            this.subTreeUseful = subTreeUseful;
-            this.capableTableScanNodes = ImmutableList.copyOf(requireNonNull(capableTableScanNodes, "capableTableScanNodes is null"));
-            // Verify that `subTreeUseful` implies `currentNodeCapable`
-            checkArgument(!subTreeUseful || currentNodeCapable);
-            checkArgument(currentNodeCapable == !capableTableScanNodes.isEmpty());
-        }
-
-        public static GroupedExecutionProperties notCapable()
-        {
-            return new GroupedExecutionProperties(false, false, ImmutableList.of());
-        }
-
-        public boolean isCurrentNodeCapable()
-        {
-            return currentNodeCapable;
-        }
-
-        public boolean isSubTreeUseful()
-        {
-            return subTreeUseful;
-        }
-
-        public List<PlanNodeId> getCapableTableScanNodes()
-        {
-            return capableTableScanNodes;
         }
     }
 

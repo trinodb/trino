@@ -1393,8 +1393,6 @@ public class SqlQueryScheduler
                 NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, catalogName);
                 SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
-                checkArgument(!fragment.getStageExecutionDescriptor().isStageGroupedExecution());
-
                 return newSourcePartitionedSchedulerAsStageScheduler(
                         stageExecution,
                         planNodeId,
@@ -1431,38 +1429,20 @@ public class SqlQueryScheduler
                     List<PlanNodeId> schedulingOrder = fragment.getPartitionedSources();
                     Optional<CatalogName> catalogName = partitioningHandle.getConnectorId();
                     checkArgument(catalogName.isPresent(), "No connector ID for partitioning handle: %s", partitioningHandle);
-                    List<ConnectorPartitionHandle> connectorPartitionHandles;
-                    boolean groupedExecutionForStage = fragment.getStageExecutionDescriptor().isStageGroupedExecution();
-                    if (groupedExecutionForStage) {
-                        connectorPartitionHandles = nodePartitioningManager.listPartitionHandles(session, partitioningHandle);
-                        checkState(!ImmutableList.of(NOT_PARTITIONED).equals(connectorPartitionHandles));
-                    }
-                    else {
-                        connectorPartitionHandles = ImmutableList.of(NOT_PARTITIONED);
-                    }
+                    List<ConnectorPartitionHandle> connectorPartitionHandles = ImmutableList.of(NOT_PARTITIONED);
 
                     BucketNodeMap bucketNodeMap;
                     List<InternalNode> stageNodeList;
                     if (fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
                         // no remote source
-                        boolean dynamicLifespanSchedule = fragment.getStageExecutionDescriptor().isDynamicLifespanSchedule();
-                        bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, dynamicLifespanSchedule);
-
-                        // verify execution is consistent with planner's decision on dynamic lifespan schedule
-                        verify(bucketNodeMap.isDynamic() == dynamicLifespanSchedule);
+                        bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, false);
 
                         stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogName).allNodes());
                         Collections.shuffle(stageNodeList);
                     }
                     else {
-                        // cannot use dynamic lifespan schedule
-                        verify(!fragment.getStageExecutionDescriptor().isDynamicLifespanSchedule());
-
                         // remote source requires nodePartitionMap
                         NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
-                        if (groupedExecutionForStage) {
-                            checkState(connectorPartitionHandles.size() == nodePartitionMap.getBucketToPartition().length);
-                        }
                         stageNodeList = nodePartitionMap.getPartitionToNode();
                         bucketNodeMap = nodePartitionMap.asBucketNodeMap();
                     }
@@ -1470,7 +1450,6 @@ public class SqlQueryScheduler
                     return new FixedSourcePartitionedScheduler(
                             stageExecution,
                             splitSources,
-                            fragment.getStageExecutionDescriptor(),
                             schedulingOrder,
                             stageNodeList,
                             bucketNodeMap,
