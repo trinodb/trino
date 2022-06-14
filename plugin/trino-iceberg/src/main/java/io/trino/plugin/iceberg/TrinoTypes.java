@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.Type.Range;
 
@@ -25,6 +27,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
 
@@ -65,6 +70,26 @@ public final class TrinoTypes
             return getAdjacentValue(Long.MIN_VALUE, Long.MAX_VALUE, (long) value, Direction.PREV);
         }
 
+        if (type instanceof TimestampWithTimeZoneType) {
+            // Iceberg supports only timestamp(6)
+            checkArgument(((TimestampWithTimeZoneType) type).getPrecision() == 6, "Unexpected type: %s", type);
+            verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
+            LongTimestampWithTimeZone timestampTzValue = (LongTimestampWithTimeZone) value;
+            long epochMillis = timestampTzValue.getEpochMillis();
+            int picosOfMilli = timestampTzValue.getPicosOfMilli();
+            // Calculate value 1 microsecond earlier
+            picosOfMilli -= PICOSECONDS_PER_MICROSECOND;
+            if (picosOfMilli < 0) {
+                if (epochMillis == Long.MIN_VALUE) {
+                    return Optional.empty();
+                }
+                epochMillis--;
+                picosOfMilli += PICOSECONDS_PER_MILLISECOND;
+            }
+            // The zone doesn't matter for timestamp with time zone comparisons. Use UTC to avoid confusion.
+            return Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMilli, UTC_KEY));
+        }
+
         return Optional.empty();
     }
 
@@ -99,6 +124,26 @@ public final class TrinoTypes
             // TODO update the code here when type implements getRange
             verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
             return getAdjacentValue(Long.MIN_VALUE, Long.MAX_VALUE, (long) value, Direction.NEXT);
+        }
+
+        if (type instanceof TimestampWithTimeZoneType) {
+            // Iceberg supports only timestamp(6)
+            checkArgument(((TimestampWithTimeZoneType) type).getPrecision() == 6, "Unexpected type: %s", type);
+            verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
+            LongTimestampWithTimeZone timestampTzValue = (LongTimestampWithTimeZone) value;
+            long epochMillis = timestampTzValue.getEpochMillis();
+            int picosOfMilli = timestampTzValue.getPicosOfMilli();
+            // Calculate value 1 microsecond later
+            picosOfMilli += PICOSECONDS_PER_MICROSECOND;
+            if (picosOfMilli >= PICOSECONDS_PER_MILLISECOND) {
+                if (epochMillis == Long.MAX_VALUE) {
+                    return Optional.empty();
+                }
+                epochMillis++;
+                picosOfMilli -= PICOSECONDS_PER_MILLISECOND;
+            }
+            // The zone doesn't matter for timestamp with time zone comparisons. Use UTC to avoid confusion.
+            return Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMilli, UTC_KEY));
         }
 
         return Optional.empty();

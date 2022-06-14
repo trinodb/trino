@@ -94,6 +94,7 @@ import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -1442,10 +1443,10 @@ public abstract class BaseIcebergConnectorTest
 
         // Tests run with non-UTC session, so timestamp_tz > a_date will not align with partition boundaries. Use with_timezone to align it.
         assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE d >= with_timezone(DATE '2015-05-15', 'UTC')"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp with time zone
+                .isFullyPushedDown();
 
         assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-15 00:00:00 UTC'"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp with time zone
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-15 00:00:00.000001 UTC'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
@@ -1660,12 +1661,12 @@ public abstract class BaseIcebergConnectorTest
 
         // Tests run with non-UTC session, so timestamp_tz > a_date will not align with partition boundaries. Use with_timezone to align it.
         assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE d >= with_timezone(DATE '2015-05-01', 'UTC')"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp with time zone
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE d >= with_timezone(DATE '2015-05-02', 'UTC')"))
                 .isNotFullyPushedDown(FilterNode.class);
 
         assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-01 00:00:00 UTC'"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp with time zone
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-01 00:00:00.000001 UTC'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
@@ -1871,12 +1872,12 @@ public abstract class BaseIcebergConnectorTest
 
         // Tests run with non-UTC session, so timestamp_tz > a_date will not align with partition boundaries. Use with_timezone to align it.
         assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d >= with_timezone(DATE '2015-01-01', 'UTC')"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp with time zone
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d >= with_timezone(DATE '2015-01-02', 'UTC')"))
                 .isNotFullyPushedDown(FilterNode.class);
 
         assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d >= TIMESTAMP '2015-01-01 00:00:00 UTC'"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp with time zone
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d >= TIMESTAMP '2015-01-01 00:00:00.000001 UTC'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
@@ -3682,7 +3683,12 @@ public abstract class BaseIcebergConnectorTest
                 .as("file count after optimize date")
                 .isGreaterThanOrEqualTo(5);
 
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize WHERE p >= " + optimizeDate);
+        assertUpdate(
+                // Use UTC zone so that DATE and TIMESTAMP WITH TIME ZONE comparisons align with partition boundaries.
+                Session.builder(getSession())
+                        .setTimeZoneKey(UTC_KEY)
+                        .build(),
+                "ALTER TABLE " + tableName + " EXECUTE optimize WHERE p >= " + optimizeDate);
 
         assertThat((long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName + " WHERE p < " + optimizeDate))
                 .as("file count before optimize date, after the optimize")
@@ -3703,6 +3709,8 @@ public abstract class BaseIcebergConnectorTest
                 {"date", "month(%s)", 3},
                 {"timestamp(6)", "day(%s)", 15},
                 {"timestamp(6)", "month(%s)", 3},
+                {"timestamp(6) with time zone", "day(%s)", 15},
+                {"timestamp(6) with time zone", "month(%s)", 3},
         };
     }
 
