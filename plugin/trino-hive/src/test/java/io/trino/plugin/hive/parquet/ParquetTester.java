@@ -95,6 +95,7 @@ import static com.google.common.base.Functions.constant;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
@@ -224,8 +225,8 @@ public class ParquetTester
                 new Iterable<?>[] {readValues}, TEST_COLUMN, singletonList(type), Optional.empty(), false);
 
         // all nulls
-        assertRoundTrip(singletonList(objectInspector), new Iterable<?>[] {transform(writeValues, constant(null))},
-                new Iterable<?>[] {transform(writeValues, constant(null))}, TEST_COLUMN, singletonList(type), Optional.empty());
+        assertRoundTrip(objectInspector, transform(writeValues, constant(null)),
+                transform(writeValues, constant(null)), getOnlyElement(TEST_COLUMN), type, Optional.empty());
         if (objectInspector.getTypeName().contains("map<")) {
             List<TypeInfo> typeInfos = getTypeInfosFromTypeString(objectInspector.getTypeName());
             MessageType schema = MapKeyValuesSchemaConverter.convert(TEST_COLUMN, typeInfos);
@@ -234,8 +235,8 @@ public class ParquetTester
                     readValues}, TEST_COLUMN, singletonList(type), Optional.of(schema), false);
 
             // all nulls
-            assertRoundTrip(singletonList(objectInspector), new Iterable<?>[] {transform(writeValues, constant(null))},
-                    new Iterable<?>[] {transform(writeValues, constant(null))}, TEST_COLUMN, singletonList(type), Optional.of(schema));
+            assertRoundTrip(objectInspector, transform(writeValues, constant(null)),
+                    transform(writeValues, constant(null)), getOnlyElement(TEST_COLUMN), type, Optional.of(schema));
         }
     }
 
@@ -311,15 +312,22 @@ public class ParquetTester
     }
 
     void assertRoundTrip(
-            List<ObjectInspector> objectInspectors,
-            Iterable<?>[] writeValues,
-            Iterable<?>[] readValues,
-            List<String> columnNames,
-            List<Type> columnTypes,
+            ObjectInspector objectInspectors,
+            Iterable<?> writeValues,
+            Iterable<?> readValues,
+            String columnName,
+            Type columnType,
             Optional<MessageType> parquetSchema)
             throws Exception
     {
-        assertRoundTrip(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema, false);
+        assertRoundTrip(
+                singletonList(objectInspectors),
+                new Iterable[] {writeValues},
+                new Iterable[] {readValues},
+                singletonList(columnName),
+                singletonList(columnType),
+                parquetSchema,
+                false);
     }
 
     void assertRoundTrip(
