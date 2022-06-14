@@ -23,6 +23,7 @@ import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.DeltaLakeColumnStatistics;
 import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -90,6 +91,7 @@ public class TestDeltaLakeMetastoreStatistics
 
     private DeltaLakeMetastore deltaLakeMetastore;
     private HiveMetastore hiveMetastore;
+    private CachingExtendedStatisticsAccess statistics;
 
     @BeforeClass
     public void setupMetastore()
@@ -123,7 +125,7 @@ public class TestDeltaLakeMetastoreStatistics
 
         hiveMetastore.createDatabase(new Database("db_name", Optional.empty(), Optional.of("test"), Optional.of(PrincipalType.USER), Optional.empty(), ImmutableMap.of()));
 
-        CachingExtendedStatisticsAccess statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(hdfsEnvironment, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
+        statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(hdfsEnvironment, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
         deltaLakeMetastore = new HiveMetastoreBackedDeltaLakeMetastore(
                 hiveMetastore,
                 transactionLogAccess,
@@ -439,5 +441,55 @@ public class TestDeltaLakeMetastoreStatistics
         Map<ColumnHandle, ColumnStatistics> statisticsMap = stats.getColumnStatistics();
         ColumnStatistics columnStats = statisticsMap.get(new DeltaLakeColumnHandle("i", INTEGER, REGULAR));
         assertEquals(columnStats.getNullsFraction(), Estimate.of(3.0 / 9.0));
+    }
+
+    @Test
+    public void testExtendedStatisticsWithoutDataSize()
+    {
+        // Read extended_stats.json that was generated before supporting data_size
+        String tableLocation = Resources.getResource("statistics/extended_stats_without_data_size").toExternalForm();
+        Optional<ExtendedStatistics> extendedStatistics = statistics.readExtendedStatistics(SESSION, tableLocation);
+        assertThat(extendedStatistics).isNotEmpty();
+        Map<String, DeltaLakeColumnStatistics> columnStatistics = extendedStatistics.get().getColumnStatistics();
+        assertThat(columnStatistics).hasSize(3);
+    }
+
+    @Test
+    public void testExtendedStatisticsWithDataSize()
+    {
+        // Read extended_stats.json that was generated after supporting data_size
+        String tableLocation = Resources.getResource("statistics/extended_stats_with_data_size").toExternalForm();
+        Optional<ExtendedStatistics> extendedStatistics = statistics.readExtendedStatistics(SESSION, tableLocation);
+        assertThat(extendedStatistics).isNotEmpty();
+        Map<String, DeltaLakeColumnStatistics> columnStatistics = extendedStatistics.get().getColumnStatistics();
+        assertThat(columnStatistics).hasSize(3);
+        assertEquals(columnStatistics.get("regionkey").getTotalSizeInBytes(), OptionalLong.empty());
+        assertEquals(columnStatistics.get("name").getTotalSizeInBytes(), OptionalLong.of(34));
+        assertEquals(columnStatistics.get("comment").getTotalSizeInBytes(), OptionalLong.of(330));
+    }
+
+    @Test
+    public void testMergeExtendedStatisticsWithoutAndWithDataSize()
+    {
+        // Merge two extended stats files. The first file doesn't have totalSizeInBytes field and the second file has totalSizeInBytes field
+        Optional<ExtendedStatistics> statisticsWithoutDataSize = statistics.readExtendedStatistics(SESSION, Resources.getResource("statistics/extended_stats_without_data_size").toExternalForm());
+        Optional<ExtendedStatistics> statisticsWithDataSize = statistics.readExtendedStatistics(SESSION, Resources.getResource("statistics/extended_stats_with_data_size").toExternalForm());
+        assertThat(statisticsWithoutDataSize).isNotEmpty();
+        assertThat(statisticsWithDataSize).isNotEmpty();
+
+        Map<String, DeltaLakeColumnStatistics> columnStatisticsWithoutDataSize = statisticsWithoutDataSize.get().getColumnStatistics();
+        Map<String, DeltaLakeColumnStatistics> columnStatisticsWithDataSize = statisticsWithDataSize.get().getColumnStatistics();
+
+        DeltaLakeColumnStatistics mergedRegionKey = columnStatisticsWithoutDataSize.get("regionkey").update(columnStatisticsWithDataSize.get("regionkey"));
+        assertEquals(mergedRegionKey.getTotalSizeInBytes(), OptionalLong.empty());
+        assertEquals(mergedRegionKey.getNdvSummary().cardinality(), 5);
+
+        DeltaLakeColumnStatistics mergedName = columnStatisticsWithoutDataSize.get("name").update(columnStatisticsWithDataSize.get("name"));
+        assertEquals(mergedName.getTotalSizeInBytes(), OptionalLong.empty());
+        assertEquals(mergedName.getNdvSummary().cardinality(), 5);
+
+        DeltaLakeColumnStatistics mergedComment = columnStatisticsWithoutDataSize.get("comment").update(columnStatisticsWithDataSize.get("comment"));
+        assertEquals(mergedComment.getTotalSizeInBytes(), OptionalLong.empty());
+        assertEquals(mergedComment.getNdvSummary().cardinality(), 5);
     }
 }
