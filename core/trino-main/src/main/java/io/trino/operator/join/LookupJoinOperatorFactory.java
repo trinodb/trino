@@ -20,6 +20,7 @@ import io.trino.operator.HashGenerator;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorFactory;
 import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
@@ -65,7 +66,7 @@ public class LookupJoinOperatorFactory
     private final boolean outputSingleMatch;
     private final boolean waitForBuild;
     private final JoinProbeFactory joinProbeFactory;
-    private final Optional<OuterOperatorFactoryResult> outerOperatorFactoryResult;
+    private final Optional<OperatorFactory> outerOperatorFactory;
     private final JoinBridgeManager<? extends LookupSourceFactory> joinBridgeManager;
     private final OptionalInt totalOperatorsCount;
     private final HashGenerator probeHashGenerator;
@@ -103,17 +104,15 @@ public class LookupJoinOperatorFactory
         joinBridgeManager.incrementProbeFactoryCount();
 
         if (joinType == INNER || joinType == PROBE_OUTER) {
-            this.outerOperatorFactoryResult = Optional.empty();
+            this.outerOperatorFactory = Optional.empty();
         }
         else {
-            this.outerOperatorFactoryResult = Optional.of(new OuterOperatorFactoryResult(
-                    new LookupOuterOperatorFactory(
-                            operatorId,
-                            planNodeId,
-                            probeOutputTypes,
-                            buildOutputTypes,
-                            lookupSourceFactoryManager),
-                    lookupSourceFactoryManager.getBuildExecutionStrategy()));
+            this.outerOperatorFactory = Optional.of(new LookupOuterOperatorFactory(
+                    operatorId,
+                    planNodeId,
+                    probeOutputTypes,
+                    buildOutputTypes,
+                    lookupSourceFactoryManager));
         }
         this.totalOperatorsCount = requireNonNull(totalOperatorsCount, "totalOperatorsCount is null");
 
@@ -145,8 +144,8 @@ public class LookupJoinOperatorFactory
         outputSingleMatch = other.outputSingleMatch;
         waitForBuild = other.waitForBuild;
         joinProbeFactory = other.joinProbeFactory;
+        outerOperatorFactory = other.outerOperatorFactory;
         joinBridgeManager = other.joinBridgeManager;
-        outerOperatorFactoryResult = other.outerOperatorFactoryResult;
         totalOperatorsCount = other.totalOperatorsCount;
         probeHashGenerator = other.probeHashGenerator;
         partitioningSpillerFactory = other.partitioningSpillerFactory;
@@ -156,9 +155,9 @@ public class LookupJoinOperatorFactory
     }
 
     @Override
-    public Optional<OuterOperatorFactoryResult> createOuterOperatorFactory()
+    public Optional<OperatorFactory> createOuterOperatorFactory()
     {
-        return outerOperatorFactoryResult;
+        return outerOperatorFactory;
     }
 
     // Methods from OperatorFactory

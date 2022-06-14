@@ -74,7 +74,6 @@ import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesSpatialIndexFactory;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.PipelineExecutionStrategy;
 import io.trino.operator.RefreshMaterializedViewOperator.RefreshMaterializedViewOperatorFactory;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.RowNumberOperator;
@@ -118,8 +117,6 @@ import io.trino.operator.index.IndexSourceOperator;
 import io.trino.operator.join.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.JoinOperatorFactory;
-import io.trino.operator.join.JoinOperatorFactory.OuterOperatorFactoryResult;
-import io.trino.operator.join.LookupOuterOperator.LookupOuterOperatorFactory;
 import io.trino.operator.join.LookupSourceFactory;
 import io.trino.operator.join.NestedLoopJoinBridge;
 import io.trino.operator.join.NestedLoopJoinPagesSupplier;
@@ -302,8 +299,6 @@ import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
-import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
-import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
 import static io.trino.operator.TableFinishOperator.TableFinisher;
 import static io.trino.operator.TableWriterOperator.FRAGMENT_CHANNEL;
@@ -631,7 +626,6 @@ public class LocalExecutionPlanner
         public void addDriverFactory(boolean inputDriver, boolean outputDriver, PhysicalOperation physicalOperation, OptionalInt driverInstances)
         {
             List<OperatorFactoryWithTypes> operatorFactoriesWithTypes = physicalOperation.getOperatorFactoriesWithTypes();
-            validateFirstOperatorFactory(inputDriver, operatorFactoriesWithTypes.get(0).getOperatorFactory(), physicalOperation.getPipelineExecutionStrategy());
             addLookupOuterDrivers(outputDriver, toOperatorFactories(operatorFactoriesWithTypes));
             List<OperatorFactory> operatorFactories;
             if (isLateMaterializationEnabled(taskContext.getSession())) {
@@ -640,7 +634,7 @@ public class LocalExecutionPlanner
             else {
                 operatorFactories = toOperatorFactories(operatorFactoriesWithTypes);
             }
-            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, physicalOperation.getPipelineExecutionStrategy()));
+            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances));
         }
 
         private List<OperatorFactory> handleLateMaterialization(List<OperatorFactoryWithTypes> operatorFactories)
@@ -662,38 +656,25 @@ public class LocalExecutionPlanner
                 }
 
                 JoinOperatorFactory lookupJoin = (JoinOperatorFactory) operatorFactory;
-                Optional<OuterOperatorFactoryResult> outerOperatorFactoryResult = lookupJoin.createOuterOperatorFactory();
+                Optional<OperatorFactory> outerOperatorFactoryResult = lookupJoin.createOuterOperatorFactory();
                 if (outerOperatorFactoryResult.isPresent()) {
                     // Add a new driver to output the unmatched rows in an outer join.
                     // We duplicate all of the factories above the JoinOperator (the ones reading from the joins),
                     // and replace the JoinOperator with the OuterOperator (the one that produces unmatched rows).
                     ImmutableList.Builder<OperatorFactory> newOperators = ImmutableList.builder();
-                    newOperators.add(outerOperatorFactoryResult.get().getOuterOperatorFactory());
+                    newOperators.add(outerOperatorFactoryResult.get());
                     operatorFactories.subList(i + 1, operatorFactories.size()).stream()
                             .map(OperatorFactory::duplicate)
                             .forEach(newOperators::add);
 
-                    addDriverFactory(false, isOutputDriver, newOperators.build(), OptionalInt.of(1), outerOperatorFactoryResult.get().getBuildExecutionStrategy());
+                    addDriverFactory(false, isOutputDriver, newOperators.build(), OptionalInt.of(1));
                 }
             }
         }
 
-        private void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
+        private void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
         {
-            validateFirstOperatorFactory(inputDriver, operatorFactories.get(0), pipelineExecutionStrategy);
-            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, pipelineExecutionStrategy));
-        }
-
-        private void validateFirstOperatorFactory(boolean inputDriver, OperatorFactory firstOperatorFactory, PipelineExecutionStrategy pipelineExecutionStrategy)
-        {
-            if (pipelineExecutionStrategy == GROUPED_EXECUTION) {
-                if (inputDriver) {
-                    checkArgument(firstOperatorFactory instanceof ScanFilterAndProjectOperatorFactory || firstOperatorFactory instanceof TableScanOperatorFactory);
-                }
-                else {
-                    checkArgument(firstOperatorFactory instanceof LocalExchangeSourceOperatorFactory || firstOperatorFactory instanceof LookupOuterOperatorFactory);
-                }
-            }
+            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances));
         }
 
         private List<DriverFactory> getDriverFactories()
@@ -907,7 +888,7 @@ public class LocalExecutionPlanner
                     sortChannels,
                     sortOrder);
 
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
         }
 
         private PhysicalOperation createRemoteSource(RemoteSourceNode node, LocalExecutionPlanContext context)
@@ -924,7 +905,7 @@ public class LocalExecutionPlanner
                     node.getRetryPolicy(),
                     exchangeManagerRegistry);
 
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
         }
 
         @Override
@@ -1957,7 +1938,7 @@ public class LocalExecutionPlanner
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session));
 
-                    return new PhysicalOperation(operatorFactory, outputMappings, context, UNGROUPED_EXECUTION);
+                    return new PhysicalOperation(operatorFactory, outputMappings, context);
                 }
                 else {
                     Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
@@ -2005,7 +1986,7 @@ public class LocalExecutionPlanner
 
             DynamicFilter dynamicFilter = getDynamicFilter(node, filterExpression, context);
             OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), pageSourceProvider, node.getTable(), columns, dynamicFilter);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
         }
 
         private Optional<Expression> getStaticFilter(Expression filterExpression)
@@ -2046,7 +2027,7 @@ public class LocalExecutionPlanner
 
             if (node.getRowCount() == 0) {
                 OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), node.getId(), ImmutableList.of());
-                return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
+                return new PhysicalOperation(operatorFactory, makeLayout(node), context);
             }
 
             List<Type> outputTypes = getSymbolTypes(node.getOutputSymbols(), context.getTypes());
@@ -2069,7 +2050,7 @@ public class LocalExecutionPlanner
             }
 
             OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), node.getId(), ImmutableList.of(pageBuilder.build()));
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
         }
 
         @Override
@@ -2185,7 +2166,7 @@ public class LocalExecutionPlanner
             ConnectorIndex index = indexManager.getIndex(session, node.getIndexHandle(), lookupSchema, outputSchema);
 
             OperatorFactory operatorFactory = new IndexSourceOperator.IndexSourceOperatorFactory(context.getNextOperatorId(), node.getId(), index, probeKeyNormalizer);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
         }
 
         /**
@@ -2302,12 +2283,8 @@ public class LocalExecutionPlanner
                     joinCompiler,
                     blockTypeOperators);
 
-            verify(probeSource.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION);
-            verify(indexSource.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION);
             JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<>(
                     false,
-                    UNGROUPED_EXECUTION,
-                    UNGROUPED_EXECUTION,
                     lifespan -> {
                         indexLookupSourceFactory.setTaskContext(context.taskContext);
                         return indexLookupSourceFactory;
@@ -2522,15 +2499,10 @@ public class LocalExecutionPlanner
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = node.getRight().accept(this, buildContext);
 
-            checkState(
-                    buildSource.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION,
-                    "Build source of a nested loop join is expected to be UNGROUPED_EXECUTION.");
             checkArgument(node.getType() == INNER, "NestedLoopJoin is only used for inner join");
 
             JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                     false,
-                    probeSource.getPipelineExecutionStrategy(),
-                    buildSource.getPipelineExecutionStrategy(),
                     lifespan -> new NestedLoopJoinPagesSupplier(),
                     buildSource.getTypes());
             NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(
@@ -2713,7 +2685,6 @@ public class LocalExecutionPlanner
             boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
             boolean spillEnabled = isSpillEnabled(session)
                     && node.isSpillable().orElseThrow(() -> new IllegalArgumentException("spillable not yet set"))
-                    && probeSource.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION
                     && !buildOuter;
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory =
                     createLookupSourceFactory(node, buildNode, buildSymbols, buildHashSymbol, probeSource, context, spillEnabled, localDynamicFilters);
@@ -2750,12 +2721,6 @@ public class LocalExecutionPlanner
         {
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
-
-            if (buildSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION) {
-                checkState(
-                        probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION,
-                        "Build execution is GROUPED_EXECUTION. Probe execution is expected be GROUPED_EXECUTION, but is UNGROUPED_EXECUTION.");
-            }
 
             List<Integer> buildOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(node.getRightOutputSymbols(), buildSource.getLayout()));
             List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
@@ -2800,8 +2765,6 @@ public class LocalExecutionPlanner
             List<Type> buildTypes = buildSource.getTypes();
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<>(
                     buildOuter,
-                    probeSource.getPipelineExecutionStrategy(),
-                    buildSource.getPipelineExecutionStrategy(),
                     lifespan -> new PartitionedLookupSourceFactory(
                             buildTypes,
                             buildOutputTypes,
@@ -2915,9 +2878,6 @@ public class LocalExecutionPlanner
             if (collectedDynamicFilters.isEmpty()) {
                 return Optional.empty();
             }
-            checkState(
-                    buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION,
-                    "Dynamic filtering cannot be used with grouped execution");
             log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
             ImmutableList.Builder<Consumer<Map<DynamicFilterId, Domain>>> collectors = ImmutableList.builder();
             if (!localDynamicFilters.isEmpty()) {
@@ -3073,7 +3033,6 @@ public class LocalExecutionPlanner
             // Plan build
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = node.getFilteringSource().accept(this, buildContext);
-            checkState(buildSource.getPipelineExecutionStrategy() == probeSource.getPipelineExecutionStrategy(), "build and probe have different pipelineExecutionStrategy");
             int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
             checkArgument(partitionCount == 1, "Expected local execution to not be parallel");
 
@@ -3157,7 +3116,7 @@ public class LocalExecutionPlanner
         {
             context.setDriverInstanceCount(1);
             OperatorFactory operatorFactory = new RefreshMaterializedViewOperatorFactory(context.getNextOperatorId(), node.getId(), metadata, node.getViewName());
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
         }
 
         @Override
@@ -3361,7 +3320,7 @@ public class LocalExecutionPlanner
                             session,
                             node.getExecuteHandle());
 
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
         }
 
         @Override
@@ -3399,7 +3358,7 @@ public class LocalExecutionPlanner
         {
             OperatorFactory operatorFactory = new TableDeleteOperatorFactory(context.getNextOperatorId(), node.getId(), metadata, session, node.getTarget());
 
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
         }
 
         @Override
@@ -3462,7 +3421,6 @@ public class LocalExecutionPlanner
                     types,
                     ImmutableList.of(),
                     Optional.empty(),
-                    source.getPipelineExecutionStrategy(),
                     maxLocalExchangeBufferSize,
                     blockTypeOperators);
 
@@ -3495,7 +3453,7 @@ public class LocalExecutionPlanner
                     orderingCompiler,
                     sortChannels,
                     orderings);
-            return new PhysicalOperation(operatorFactory, layout, context, UNGROUPED_EXECUTION);
+            return new PhysicalOperation(operatorFactory, layout, context);
         }
 
         private PhysicalOperation createLocalExchange(ExchangeNode node, LocalExecutionPlanContext context)
@@ -3520,7 +3478,6 @@ public class LocalExecutionPlanner
             Optional<Integer> hashChannel = node.getPartitioningScheme().getHashColumn()
                     .map(symbol -> node.getOutputSymbols().indexOf(symbol));
 
-            PipelineExecutionStrategy exchangeSourcePipelineExecutionStrategy = GROUPED_EXECUTION;
             List<DriverFactoryParameters> driverFactoryParametersList = new ArrayList<>();
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode sourceNode = node.getSources().get(i);
@@ -3528,10 +3485,6 @@ public class LocalExecutionPlanner
                 LocalExecutionPlanContext subContext = context.createSubContext();
                 PhysicalOperation source = sourceNode.accept(this, subContext);
                 driverFactoryParametersList.add(new DriverFactoryParameters(subContext, source));
-
-                if (source.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION) {
-                    exchangeSourcePipelineExecutionStrategy = UNGROUPED_EXECUTION;
-                }
             }
 
             LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
@@ -3542,7 +3495,6 @@ public class LocalExecutionPlanner
                     types,
                     channels,
                     hashChannel,
-                    exchangeSourcePipelineExecutionStrategy,
                     maxLocalExchangeBufferSize,
                     blockTypeOperators);
             for (int i = 0; i < node.getSources().size(); i++) {
@@ -3574,7 +3526,7 @@ public class LocalExecutionPlanner
             verify(context.getDriverInstanceCount().getAsInt() == localExchangeFactory.getBufferCount(),
                     "driver instance count must match the number of exchange partitions");
 
-            return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchangeFactory), makeLayout(node), context, exchangeSourcePipelineExecutionStrategy);
+            return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchangeFactory), makeLayout(node), context);
         }
 
         @Override
@@ -4070,35 +4022,31 @@ public class LocalExecutionPlanner
         private final Map<Symbol, Integer> layout;
         private final List<Type> types;
 
-        private final PipelineExecutionStrategy pipelineExecutionStrategy;
-
-        public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, LocalExecutionPlanContext context, PipelineExecutionStrategy pipelineExecutionStrategy)
+        public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, LocalExecutionPlanContext context)
         {
-            this(operatorFactory, layout, context.getTypes(), Optional.empty(), pipelineExecutionStrategy);
+            this(operatorFactory, layout, context.getTypes(), Optional.empty());
         }
 
         public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, LocalExecutionPlanContext context, PhysicalOperation source)
         {
-            this(operatorFactory, layout, context.getTypes(), Optional.of(requireNonNull(source, "source is null")), source.getPipelineExecutionStrategy());
+            this(operatorFactory, layout, context.getTypes(), Optional.of(requireNonNull(source, "source is null")));
         }
 
         public PhysicalOperation(OperatorFactory outputOperatorFactory, PhysicalOperation source)
         {
-            this(outputOperatorFactory, ImmutableMap.of(), TypeProvider.empty(), Optional.of(requireNonNull(source, "source is null")), source.getPipelineExecutionStrategy());
+            this(outputOperatorFactory, ImmutableMap.of(), TypeProvider.empty(), Optional.of(requireNonNull(source, "source is null")));
         }
 
         private PhysicalOperation(
                 OperatorFactory operatorFactory,
                 Map<Symbol, Integer> layout,
                 TypeProvider typeProvider,
-                Optional<PhysicalOperation> source,
-                PipelineExecutionStrategy pipelineExecutionStrategy)
+                Optional<PhysicalOperation> source)
         {
             requireNonNull(operatorFactory, "operatorFactory is null");
             requireNonNull(layout, "layout is null");
             requireNonNull(typeProvider, "typeProvider is null");
             requireNonNull(source, "source is null");
-            requireNonNull(pipelineExecutionStrategy, "pipelineExecutionStrategy is null");
 
             this.types = toTypes(layout, typeProvider);
             this.operatorFactoriesWithTypes = ImmutableList.<OperatorFactoryWithTypes>builder()
@@ -4106,7 +4054,6 @@ public class LocalExecutionPlanner
                     .add(new OperatorFactoryWithTypes(operatorFactory, types))
                     .build();
             this.layout = ImmutableMap.copyOf(layout);
-            this.pipelineExecutionStrategy = pipelineExecutionStrategy;
         }
 
         private static List<Type> toTypes(Map<Symbol, Integer> layout, TypeProvider typeProvider)
@@ -4148,11 +4095,6 @@ public class LocalExecutionPlanner
         private List<OperatorFactoryWithTypes> getOperatorFactoriesWithTypes()
         {
             return operatorFactoriesWithTypes;
-        }
-
-        public PipelineExecutionStrategy getPipelineExecutionStrategy()
-        {
-            return pipelineExecutionStrategy;
         }
     }
 

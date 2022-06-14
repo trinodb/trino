@@ -24,7 +24,6 @@ import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.PipelineExecutionStrategy;
 import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
@@ -54,7 +53,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
@@ -350,7 +348,6 @@ public class LocalExchange
         private final List<Integer> partitionChannels;
         private final List<Type> partitionChannelTypes;
         private final Optional<Integer> partitionHashChannel;
-        private final PipelineExecutionStrategy exchangeSourcePipelineExecutionStrategy;
         private final DataSize maxBufferedBytes;
         private final BlockTypeOperators blockTypeOperators;
         private final int bufferCount;
@@ -375,7 +372,6 @@ public class LocalExchange
                 List<Type> types,
                 List<Integer> partitionChannels,
                 Optional<Integer> partitionHashChannel,
-                PipelineExecutionStrategy exchangeSourcePipelineExecutionStrategy,
                 DataSize maxBufferedBytes,
                 BlockTypeOperators blockTypeOperators)
         {
@@ -388,7 +384,6 @@ public class LocalExchange
                     .map(types::get)
                     .collect(toImmutableList());
             this.partitionHashChannel = requireNonNull(partitionHashChannel, "partitionHashChannel is null");
-            this.exchangeSourcePipelineExecutionStrategy = requireNonNull(exchangeSourcePipelineExecutionStrategy, "exchangeSourcePipelineExecutionStrategy is null");
             this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
             this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
 
@@ -415,12 +410,6 @@ public class LocalExchange
 
         public synchronized LocalExchange getLocalExchange(Lifespan lifespan)
         {
-            if (exchangeSourcePipelineExecutionStrategy == UNGROUPED_EXECUTION) {
-                checkArgument(lifespan.isTaskWide(), "LocalExchangeFactory is declared as UNGROUPED_EXECUTION. Driver-group exchange cannot be created.");
-            }
-            else {
-                checkArgument(!lifespan.isTaskWide(), "LocalExchangeFactory is declared as GROUPED_EXECUTION. Task-wide exchange cannot be created.");
-            }
             return localExchangeMap.computeIfAbsent(lifespan, ignored -> {
                 checkState(noMoreSinkFactories);
                 LocalExchange localExchange = new LocalExchange(
