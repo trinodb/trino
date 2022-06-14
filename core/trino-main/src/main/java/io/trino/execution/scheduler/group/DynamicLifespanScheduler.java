@@ -27,7 +27,6 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -45,7 +44,6 @@ public class DynamicLifespanScheduler
     private final BucketNodeMap bucketNodeMap;
     private final List<InternalNode> allNodes;
     private final List<ConnectorPartitionHandle> partitionHandles;
-    private final OptionalInt concurrentLifespansPerTask;
 
     private final IntListIterator driverGroups;
 
@@ -59,15 +57,12 @@ public class DynamicLifespanScheduler
     @GuardedBy("this")
     private final List<Lifespan> recentlyCompletedDriverGroups = new ArrayList<>();
 
-    public DynamicLifespanScheduler(BucketNodeMap bucketNodeMap, List<InternalNode> allNodes, List<ConnectorPartitionHandle> partitionHandles, OptionalInt concurrentLifespansPerTask)
+    public DynamicLifespanScheduler(BucketNodeMap bucketNodeMap, List<InternalNode> allNodes, List<ConnectorPartitionHandle> partitionHandles)
     {
         this.bucketNodeMap = requireNonNull(bucketNodeMap, "bucketNodeMap is null");
         this.allNodes = requireNonNull(allNodes, "allNodes is null");
         this.partitionHandles = unmodifiableList(new ArrayList<>(
                 requireNonNull(partitionHandles, "partitionHandles is null")));
-
-        this.concurrentLifespansPerTask = requireNonNull(concurrentLifespansPerTask, "concurrentLifespansPerTask is null");
-        concurrentLifespansPerTask.ifPresent(lifespansPerTask -> checkArgument(lifespansPerTask >= 1, "concurrentLifespansPerTask must be great or equal to 1 if present"));
 
         int bucketCount = partitionHandles.size();
         verify(bucketCount > 0);
@@ -80,18 +75,12 @@ public class DynamicLifespanScheduler
         checkState(!initialScheduled);
         initialScheduled = true;
 
-        int driverGroupsScheduledPerTask = 0;
         while (driverGroups.hasNext()) {
             for (int i = 0; i < allNodes.size() && driverGroups.hasNext(); i++) {
                 int driverGroupId = driverGroups.nextInt();
                 checkState(bucketNodeMap.getAssignedNode(driverGroupId).isEmpty());
                 bucketNodeMap.assignBucketToNode(driverGroupId, allNodes.get(i));
                 scheduler.startLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
-            }
-
-            driverGroupsScheduledPerTask++;
-            if (concurrentLifespansPerTask.isPresent() && driverGroupsScheduledPerTask == concurrentLifespansPerTask.getAsInt()) {
-                break;
             }
         }
 

@@ -68,9 +68,6 @@ public class FeaturesConfig
     static final String SPILL_ENABLED = "spill-enabled";
     public static final String SPILLER_SPILL_PATH = "spiller-spill-path";
 
-    private boolean groupedExecutionEnabled;
-    private boolean dynamicScheduleForGroupedExecution;
-    private int concurrentLifespansPerTask;
     private boolean redistributeWrites = true;
     private boolean scaleWriters = true;
     private DataSize writerMinSize = DataSize.of(32, DataSize.Unit.MEGABYTE);
@@ -134,47 +131,6 @@ public class FeaturesConfig
     public FeaturesConfig setLegacyRowToJsonCast(boolean legacyRowToJsonCast)
     {
         this.legacyRowToJsonCast = legacyRowToJsonCast;
-        return this;
-    }
-
-    public boolean isGroupedExecutionEnabled()
-    {
-        return groupedExecutionEnabled;
-    }
-
-    @Config("grouped-execution-enabled")
-    @ConfigDescription("Experimental: Use grouped execution when possible")
-    public FeaturesConfig setGroupedExecutionEnabled(boolean groupedExecutionEnabled)
-    {
-        this.groupedExecutionEnabled = groupedExecutionEnabled;
-        return this;
-    }
-
-    public boolean isDynamicScheduleForGroupedExecutionEnabled()
-    {
-        return dynamicScheduleForGroupedExecution;
-    }
-
-    @Config("dynamic-schedule-for-grouped-execution")
-    @ConfigDescription("Experimental: Use dynamic schedule for grouped execution when possible")
-    public FeaturesConfig setDynamicScheduleForGroupedExecutionEnabled(boolean dynamicScheduleForGroupedExecution)
-    {
-        this.dynamicScheduleForGroupedExecution = dynamicScheduleForGroupedExecution;
-        return this;
-    }
-
-    @Min(0)
-    public int getConcurrentLifespansPerTask()
-    {
-        return concurrentLifespansPerTask;
-    }
-
-    @Config("concurrent-lifespans-per-task")
-    @ConfigDescription("Experimental: Default number of lifespans that run in parallel on each task when grouped execution is enabled")
-    // When set to zero, a limit is not imposed on the number of lifespans that run in parallel
-    public FeaturesConfig setConcurrentLifespansPerTask(int concurrentLifespansPerTask)
-    {
-        this.concurrentLifespansPerTask = concurrentLifespansPerTask;
         return this;
     }
 

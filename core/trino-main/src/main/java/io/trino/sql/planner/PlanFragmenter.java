@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.Session;
-import io.trino.SystemSessionProperties;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.scheduler.BucketNodeMap;
@@ -69,10 +68,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getQueryMaxStageCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
-import static io.trino.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
@@ -83,7 +80,6 @@ import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBU
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.planprinter.PlanPrinter.jsonFragmentPlan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -162,9 +158,7 @@ public class PlanFragmenter
         PlanFragment fragment = subPlan.getFragment();
         GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager), null);
         if (properties.isSubTreeUseful()) {
-            boolean preferDynamic = fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)
-                    && isDynamicScheduleForGroupedExecution(session);
-            BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, fragment.getPartitioning(), preferDynamic);
+            BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, fragment.getPartitioning(), false);
             if (bucketNodeMap.isDynamic()) {
                 fragment = fragment.withDynamicLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes());
             }
@@ -590,14 +584,12 @@ public class PlanFragmenter
         private final Session session;
         private final Metadata metadata;
         private final NodePartitioningManager nodePartitioningManager;
-        private final boolean groupedExecutionEnabled;
 
         public GroupedExecutionTagger(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
-            this.groupedExecutionEnabled = SystemSessionProperties.isGroupedExecutionEnabled(session);
         }
 
         @Override
@@ -612,85 +604,12 @@ public class PlanFragmenter
         @Override
         public GroupedExecutionProperties visitJoin(JoinNode node, Void context)
         {
-            GroupedExecutionProperties left = node.getLeft().accept(this, null);
-            GroupedExecutionProperties right = node.getRight().accept(this, null);
-
-            if (!groupedExecutionEnabled) {
                 return GroupedExecutionProperties.notCapable();
-            }
-
-            if (node.getDistributionType().isEmpty()) {
-                // This is possible when the optimizers is invoked with `forceSingleNode` set to true.
-                return GroupedExecutionProperties.notCapable();
-            }
-
-            if ((node.getType() == JoinNode.Type.RIGHT || node.getType() == JoinNode.Type.FULL) && !right.currentNodeCapable) {
-                // For a plan like this, if the fragment participates in grouped execution,
-                // the LookupOuterOperator corresponding to the RJoin will not work execute properly.
-                //
-                // * The operator has to execute as not-grouped because it can only look at the "used" flags in
-                //   join build after all probe has finished.
-                // * The operator has to execute as grouped the subsequent LJoin expects that incoming
-                //   operators are grouped. Otherwise, the LJoin won't be able to throw out the build side
-                //   for each group as soon as the group completes.
-                //
-                //       LJoin
-                //       /   \
-                //   RJoin   Scan
-                //   /   \
-                // Scan Remote
-                //
-                // TODO:
-                // The RJoin can still execute as grouped if there is no subsequent operator that depends
-                // on the RJoin being executed in a grouped manner. However, this is not currently implemented.
-                // Support for this scenario is already implemented in the execution side.
-                return GroupedExecutionProperties.notCapable();
-            }
-
-            switch (node.getDistributionType().get()) {
-                case REPLICATED:
-                    // Broadcast join maintains partitioning for the left side.
-                    // Right side of a broadcast is not capable of grouped execution because it always comes from a remote exchange.
-                    checkState(!right.currentNodeCapable);
-                    return left;
-                case PARTITIONED:
-                    if (left.currentNodeCapable && right.currentNodeCapable) {
-                        return new GroupedExecutionProperties(
-                                true,
-                                true,
-                                ImmutableList.<PlanNodeId>builder()
-                                        .addAll(left.capableTableScanNodes)
-                                        .addAll(right.capableTableScanNodes)
-                                        .build());
-                    }
-                    // right.subTreeUseful && !left.currentNodeCapable:
-                    //   It's not particularly helpful to do grouped execution on the right side
-                    //   because the benefit is likely cancelled out due to required buffering for hash build.
-                    //   In theory, it could still be helpful (e.g. when the underlying aggregation's intermediate group state maybe larger than aggregation output).
-                    //   However, this is not currently implemented. JoinBridgeManager need to support such a lifecycle.
-                    // !right.currentNodeCapable:
-                    //   The build/right side needs to buffer fully for this JOIN, but the probe/left side will still stream through.
-                    //   As a result, there is no reason to change currentNodeCapable or subTreeUseful to false.
-                    //
-                    return left;
-            }
-            throw new UnsupportedOperationException("Unknown distribution type: " + node.getDistributionType());
         }
 
         @Override
         public GroupedExecutionProperties visitAggregation(AggregationNode node, Void context)
         {
-            GroupedExecutionProperties properties = node.getSource().accept(this, null);
-            if (groupedExecutionEnabled && properties.isCurrentNodeCapable()) {
-                switch (node.getStep()) {
-                    case SINGLE:
-                    case FINAL:
-                        return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes);
-                    case PARTIAL:
-                    case INTERMEDIATE:
-                        return properties;
-                }
-            }
             return GroupedExecutionProperties.notCapable();
         }
 
@@ -714,10 +633,6 @@ public class PlanFragmenter
 
         private GroupedExecutionProperties processWindowFunction(PlanNode node)
         {
-            GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
-            if (groupedExecutionEnabled && properties.isCurrentNodeCapable()) {
-                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes);
-            }
             return GroupedExecutionProperties.notCapable();
         }
 
