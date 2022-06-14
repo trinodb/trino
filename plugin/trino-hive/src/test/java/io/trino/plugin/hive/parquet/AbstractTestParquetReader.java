@@ -631,7 +631,7 @@ public abstract class AbstractTestParquetReader
         List<Type> types = ImmutableList.of(struct1Type, struct2Type, struct3Type, struct4Type, mapType(INTEGER, DOUBLE), new ArrayType(BOOLEAN), mapType(VARCHAR, VARCHAR));
 
         Iterable<?>[] values = new Iterable<?>[] {structs1, structs2, structs3, structs4, mapsIntDouble, arraysBoolean, mapsStringString};
-        tester.assertRoundTrip(objectInspectors, values, values, structFieldNames, types, Optional.empty());
+        tester.assertRoundTrip(objectInspectors, values, values, structFieldNames, types, Optional.empty(), false);
     }
 
     @Test
@@ -1275,8 +1275,7 @@ public abstract class AbstractTestParquetReader
         List<List<?>> aValues = createTestStructs(bValues, eValues);
         ObjectInspector bInspector = getStandardStructObjectInspector(asList("c", "d"), asList(javaStringObjectInspector, javaIntObjectInspector));
         ObjectInspector aInspector = getStandardStructObjectInspector(asList("b", "e"), asList(bInspector, javaStringObjectInspector));
-        tester.assertRoundTrip(singletonList(aInspector), new Iterable<?>[] {aValues}, new Iterable<?>[] {
-                aValues}, singletonList("a"), singletonList(aType), Optional.of(parquetSchema));
+        tester.assertRoundTrip(aInspector, aValues, aValues, "a", aType, Optional.of(parquetSchema));
     }
 
     @Test
@@ -1381,8 +1380,13 @@ public abstract class AbstractTestParquetReader
                 "  }" +
                 "} ");
         Iterable<List<Integer>> values = createTestArrays(limit(cycle(asList(1, null, 3, 5, null, null, null, 7, 11, null, 13, 17)), 30_000));
-        tester.assertRoundTrip(singletonList(getStandardListObjectInspector(javaIntObjectInspector)), new Iterable<?>[] {values}, new Iterable<?>[] {
-                values}, singletonList("my_list"), singletonList(new ArrayType(INTEGER)), Optional.of(parquetMrNonNullSpecSchema));
+        tester.assertRoundTrip(
+                getStandardListObjectInspector(javaIntObjectInspector),
+                values,
+                values,
+                "my_list",
+                new ArrayType(INTEGER),
+                Optional.of(parquetMrNonNullSpecSchema));
 
         MessageType sparkSchema = parseMessageType("message hive_schema {" +
                 "  optional group my_list (LIST){" +
@@ -1455,8 +1459,13 @@ public abstract class AbstractTestParquetReader
                 "    }   " +
                 "  }" +
                 " }  ");
-        tester.assertRoundTrip(singletonList(getStandardMapObjectInspector(javaStringObjectInspector, javaIntObjectInspector)), new Iterable<?>[] {nullableValues},
-                new Iterable<?>[] {nullableValues}, singletonList("my_map"), singletonList(mapType(VARCHAR, INTEGER)), Optional.of(map));
+        tester.assertRoundTrip(
+                getStandardMapObjectInspector(javaStringObjectInspector, javaIntObjectInspector),
+                nullableValues,
+                nullableValues,
+                "my_map",
+                mapType(VARCHAR, INTEGER),
+                Optional.of(map));
 
         // Map<String, Integer> (non-null map, nullable values)
         map = parseMessageType("message hive_schema {" +
@@ -1467,8 +1476,13 @@ public abstract class AbstractTestParquetReader
                 "    }   " +
                 "  }" +
                 " }  ");
-        tester.assertRoundTrip(singletonList(getStandardMapObjectInspector(javaStringObjectInspector, javaIntObjectInspector)), new Iterable<?>[] {nullableValues},
-                new Iterable<?>[] {nullableValues}, singletonList("my_map"), singletonList(mapType(VARCHAR, INTEGER)), Optional.of(map));
+        tester.assertRoundTrip(
+                getStandardMapObjectInspector(javaStringObjectInspector, javaIntObjectInspector),
+                nullableValues,
+                nullableValues,
+                "my_map",
+                mapType(VARCHAR, INTEGER),
+                Optional.of(map));
 
         // Map<String, Integer> (non-null map, nullable values)
         map = parseMessageType("message hive_schema {" +
@@ -1479,8 +1493,13 @@ public abstract class AbstractTestParquetReader
                 "    }   " +
                 "  }" +
                 " }  ");
-        tester.assertRoundTrip(singletonList(getStandardMapObjectInspector(javaStringObjectInspector, javaIntObjectInspector)), new Iterable<?>[] {values},
-                new Iterable<?>[] {values}, singletonList("my_map"), singletonList(mapType(VARCHAR, INTEGER)), Optional.of(map));
+        tester.assertRoundTrip(
+                getStandardMapObjectInspector(javaStringObjectInspector, javaIntObjectInspector),
+                values,
+                values,
+                "my_map",
+                mapType(VARCHAR, INTEGER),
+                Optional.of(map));
 
         // Map<String, Integer> (non-null map, nullable values)
         map = parseMessageType("message hive_schema {" +
@@ -1491,8 +1510,13 @@ public abstract class AbstractTestParquetReader
                 "    }   " +
                 "  }" +
                 " }  ");
-        tester.assertRoundTrip(singletonList(getStandardMapObjectInspector(javaStringObjectInspector, javaIntObjectInspector)), new Iterable<?>[] {values},
-                new Iterable<?>[] {values}, singletonList("my_map"), singletonList(mapType(VARCHAR, INTEGER)), Optional.of(map));
+        tester.assertRoundTrip(
+                getStandardMapObjectInspector(javaStringObjectInspector, javaIntObjectInspector),
+                values,
+                values,
+                "my_map",
+                mapType(VARCHAR, INTEGER),
+                Optional.of(map));
 
         // Map<String, Integer> (nullable map, nullable values)
         map = parseMessageType("message hive_schema {" +
