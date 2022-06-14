@@ -36,9 +36,6 @@ public class TestFeaturesConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(FeaturesConfig.class)
-                .setGroupedExecutionEnabled(false)
-                .setDynamicScheduleForGroupedExecutionEnabled(false)
-                .setConcurrentLifespansPerTask(0)
                 .setRedistributeWrites(true)
                 .setScaleWriters(true)
                 .setWriterMinSize(DataSize.of(32, MEGABYTE))
@@ -73,9 +70,6 @@ public class TestFeaturesConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("grouped-execution-enabled", "true")
-                .put("dynamic-schedule-for-grouped-execution", "true")
-                .put("concurrent-lifespans-per-task", "1")
                 .put("redistribute-writes", "false")
                 .put("scale-writers", "false")
                 .put("writer-min-size", "42GB")
@@ -107,9 +101,6 @@ public class TestFeaturesConfig
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
-                .setGroupedExecutionEnabled(true)
-                .setDynamicScheduleForGroupedExecutionEnabled(true)
-                .setConcurrentLifespansPerTask(1)
                 .setRedistributeWrites(false)
                 .setScaleWriters(false)
                 .setWriterMinSize(DataSize.of(42, GIGABYTE))

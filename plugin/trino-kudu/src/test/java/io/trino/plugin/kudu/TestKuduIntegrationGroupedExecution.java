@@ -27,10 +27,7 @@ import org.testng.annotations.Test;
 import java.util.function.Consumer;
 
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
-import static io.trino.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
-import static io.trino.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
-import static io.trino.SystemSessionProperties.GROUPED_EXECUTION;
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createSession;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -52,9 +49,6 @@ public class TestKuduIntegrationGroupedExecution
         kuduServer = new TestingKuduServer();
         Session groupedExecutionSessionProperties = Session.builder(createSession("test_grouped_execution"))
                 .setSystemProperty(COLOCATED_JOIN, "true")
-                .setSystemProperty(GROUPED_EXECUTION, "true")
-                .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
-                .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                 .setCatalogSessionProperty(SCHEMA_KUDU, KUDU_GROUPED_EXECUTION, "true")
                 .build();

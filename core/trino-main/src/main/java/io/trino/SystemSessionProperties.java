@@ -39,7 +39,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
@@ -61,8 +60,6 @@ public final class SystemSessionProperties
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
-    public static final String GROUPED_EXECUTION = "grouped_execution";
-    public static final String DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION = "dynamic_schedule_for_grouped_execution";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
@@ -89,7 +86,6 @@ public final class SystemSessionProperties
     public static final String SPATIAL_JOIN = "spatial_join";
     public static final String SPATIAL_PARTITIONING_TABLE_NAME = "spatial_partitioning_table_name";
     public static final String COLOCATED_JOIN = "colocated_join";
-    public static final String CONCURRENT_LIFESPANS_PER_NODE = "concurrent_lifespans_per_task";
     public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
     public static final String MAX_REORDERED_JOINS = "max_reordered_joins";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
@@ -239,16 +235,6 @@ public final class SystemSessionProperties
                         HASH_PARTITION_COUNT,
                         "Number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getHashPartitionCount(),
-                        false),
-                booleanProperty(
-                        GROUPED_EXECUTION,
-                        "Use grouped execution when possible",
-                        featuresConfig.isGroupedExecutionEnabled(),
-                        false),
-                booleanProperty(
-                        DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION,
-                        "Experimental: Use dynamic schedule for grouped execution when possible",
-                        featuresConfig.isDynamicScheduleForGroupedExecutionEnabled(),
                         false),
                 booleanProperty(
                         PREFER_STREAMING_OPERATORS,
@@ -422,11 +408,6 @@ public final class SystemSessionProperties
                         SPATIAL_PARTITIONING_TABLE_NAME,
                         "Name of the table containing spatial partitioning scheme",
                         null,
-                        false),
-                integerProperty(
-                        CONCURRENT_LIFESPANS_PER_NODE,
-                        "Experimental: Run a fixed number of groups concurrently for eligible JOINs",
-                        featuresConfig.getConcurrentLifespansPerTask(),
                         false),
                 booleanProperty(
                         SPILL_ENABLED,
@@ -886,16 +867,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
     }
 
-    public static boolean isGroupedExecutionEnabled(Session session)
-    {
-        return session.getSystemProperty(GROUPED_EXECUTION, Boolean.class);
-    }
-
-    public static boolean isDynamicScheduleForGroupedExecution(Session session)
-    {
-        return session.getSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, Boolean.class);
-    }
-
     public static boolean preferStreamingOperators(Session session)
     {
         return session.getSystemProperty(PREFER_STREAMING_OPERATORS, Boolean.class);
@@ -1024,16 +995,6 @@ public final class SystemSessionProperties
     public static Optional<String> getSpatialPartitioningTableName(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(SPATIAL_PARTITIONING_TABLE_NAME, String.class));
-    }
-
-    public static OptionalInt getConcurrentLifespansPerNode(Session session)
-    {
-        Integer result = session.getSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, Integer.class);
-        if (result == 0) {
-            return OptionalInt.empty();
-        }
-        checkArgument(result > 0, "Concurrent lifespans per node is negative: %s", result);
-        return OptionalInt.of(result);
     }
 
     public static int getInitialSplitsPerNode(Session session)
@@ -1402,13 +1363,7 @@ public final class SystemSessionProperties
 
     public static RetryPolicy getRetryPolicy(Session session)
     {
-        RetryPolicy retryPolicy = session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
-        if (retryPolicy == RetryPolicy.TASK) {
-            if (isGroupedExecutionEnabled(session) || isDynamicScheduleForGroupedExecution(session)) {
-                throw new TrinoException(NOT_SUPPORTED, "Grouped execution is not supported with task level retries enabled");
-            }
-        }
-        return retryPolicy;
+        return session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
     }
 
     public static int getQueryRetryAttempts(Session session)

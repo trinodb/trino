@@ -39,7 +39,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -73,7 +72,6 @@ public class FixedSourcePartitionedScheduler
             List<InternalNode> nodes,
             BucketNodeMap bucketNodeMap,
             int splitBatchSize,
-            OptionalInt concurrentLifespansPerTask,
             NodeSelector nodeSelector,
             List<ConnectorPartitionHandle> partitionHandles,
             DynamicFilterService dynamicFilterService,
@@ -99,13 +97,7 @@ public class FixedSourcePartitionedScheduler
                 partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)) != stageExecutionDescriptor.isStageGroupedExecution(),
                 "PartitionHandles should be [NOT_PARTITIONED] if and only if all scan nodes use ungrouped execution strategy");
         int nodeCount = nodes.size();
-        int concurrentLifespans;
-        if (concurrentLifespansPerTask.isPresent() && concurrentLifespansPerTask.getAsInt() * nodeCount <= partitionHandles.size()) {
-            concurrentLifespans = concurrentLifespansPerTask.getAsInt() * nodeCount;
-        }
-        else {
-            concurrentLifespans = partitionHandles.size();
-        }
+        int concurrentLifespans = partitionHandles.size();
 
         boolean firstPlanNode = true;
         Optional<LifespanScheduler> groupedLifespanScheduler = Optional.empty();
@@ -149,10 +141,10 @@ public class FixedSourcePartitionedScheduler
                         //
                         // When the stage has no remote source, any scan is grouped execution guarantees
                         // all scan is grouped execution.
-                        lifespanScheduler = new DynamicLifespanScheduler(bucketNodeMap, nodes, partitionHandles, concurrentLifespansPerTask);
+                        lifespanScheduler = new DynamicLifespanScheduler(bucketNodeMap, nodes, partitionHandles);
                     }
                     else {
-                        lifespanScheduler = new FixedLifespanScheduler(bucketNodeMap, partitionHandles, concurrentLifespansPerTask);
+                        lifespanScheduler = new FixedLifespanScheduler(bucketNodeMap, partitionHandles);
                     }
 
                     // Schedule the first few lifespans
