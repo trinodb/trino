@@ -1710,6 +1710,14 @@ public abstract class BaseIcebergConnectorTest
             assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 0", format("VALUES(0, %d, null, null)", 2));
             assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 1", format("VALUES(1, %d, null, null)", 1));
         }
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .skippingTypesCheck()
+                .projected(0, 2, 3, 4) // data size, min and max may vary between types
+                .matches("VALUES " +
+                        "  ('d', NULL, 0e0, NULL), " +
+                        "  (NULL, NULL, NULL, 3e0)");
+
         dropTable(tableName);
     }
 
@@ -1731,13 +1739,6 @@ public abstract class BaseIcebergConnectorTest
         assertQuery(
                 "SELECT * FROM test_bucket_transform WHERE length(d) = 4 AND b % 7 = 2",
                 "VALUES ('abxy', 2)");
-
-        assertThat(query("SHOW STATS FOR test_bucket_transform"))
-                .skippingTypesCheck()
-                .matches("VALUES " +
-                        "  ('d', " + (format == PARQUET ? "136e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
-                        "  ('b', NULL, NULL, 0e0, NULL, '1', '7'), " +
-                        "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)");
     }
 
     @Test
