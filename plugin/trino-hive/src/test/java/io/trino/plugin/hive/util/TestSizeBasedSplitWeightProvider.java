@@ -40,7 +40,7 @@ public class TestSizeBasedSplitWeightProvider
         assertEquals(provider.weightForSplitSizeInBytes(1), SplitWeight.fromProportion(minimumWeight));
 
         DataSize largerThanTarget = DataSize.of(128, MEGABYTE);
-        assertEquals(provider.weightForSplitSizeInBytes(largerThanTarget.toBytes()), SplitWeight.standard());
+        assertEquals(provider.weightForSplitSizeInBytes(largerThanTarget.toBytes()), SplitWeight.fromProportion(2));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "^minimumWeight must be > 0 and <= 1, found: 1\\.01$")

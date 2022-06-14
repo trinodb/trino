@@ -57,6 +57,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxInitial
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
+import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -262,7 +263,7 @@ public class DeltaLakeSplitManager
                     fileSize,
                     addFileEntry.getModificationTime(),
                     ImmutableList.of(),
-                    SplitWeight.fromProportion(Math.min(Math.max((double) splitSize / maxSplitSize, minimumAssignedSplitWeight), 1.0)),
+                    SplitWeight.fromProportion(max((double) splitSize / maxSplitSize, minimumAssignedSplitWeight)),
                     statisticsPredicate,
                     partitionKeys));
 

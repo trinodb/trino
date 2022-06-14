@@ -79,6 +79,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
+import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -393,7 +394,7 @@ public class IcebergSplitSource
                 task.deletes().stream()
                         .map(TrinoDeleteFile::copyOf)
                         .collect(toImmutableList()),
-                SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)));
+                SplitWeight.fromProportion(max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight)));
     }
 
     private static String hadoopPath(String path)
