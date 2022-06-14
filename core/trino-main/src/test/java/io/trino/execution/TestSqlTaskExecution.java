@@ -82,7 +82,6 @@ import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -136,8 +135,7 @@ public class TestSqlTaskExecution
                             true,
                             true,
                             ImmutableList.of(testingScanOperatorFactory, taskOutputOperatorFactory),
-                            OptionalInt.empty(),
-                            UNGROUPED_EXECUTION)),
+                            OptionalInt.empty())),
                     ImmutableList.of(TABLE_SCAN_NODE_ID));
             TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
             SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(

@@ -64,7 +64,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
-import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
@@ -151,7 +150,6 @@ public final class JoinTestUtils
                 buildPages.getTypes(),
                 hashChannels,
                 buildPages.getHashChannel(),
-                UNGROUPED_EXECUTION,
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
                 TYPE_OPERATOR_FACTORY);
         LocalExchange.LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();

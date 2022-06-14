@@ -27,7 +27,6 @@ import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PageAssertions;
-import io.trino.operator.PipelineExecutionStrategy;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
@@ -47,7 +46,6 @@ import io.trino.testing.TestingTransactionHandle;
 import io.trino.type.BlockTypeOperators;
 import io.trino.util.FinalizerService;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -58,8 +56,6 @@ import java.util.function.Consumer;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
-import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -105,14 +101,8 @@ public class TestLocalExchange
                 });
     }
 
-    @DataProvider
-    public static Object[][] executionStrategy()
-    {
-        return new Object[][] {{UNGROUPED_EXECUTION}, {GROUPED_EXECUTION}};
-    }
-
-    @Test(dataProvider = "executionStrategy")
-    public void testGatherSingleWriter(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void testGatherSingleWriter()
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
                 nodePartitioningManager,
@@ -122,13 +112,12 @@ public class TestLocalExchange
                 TYPES,
                 ImmutableList.of(),
                 Optional.empty(),
-                executionStrategy,
                 DataSize.ofBytes(retainedSizeOfPages(99)),
                 TYPE_OPERATOR_FACTORY);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchangeFactory, exchange -> {
             assertEquals(exchange.getBufferCount(), 1);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -186,8 +175,8 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void testBroadcast(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void testBroadcast()
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
                 nodePartitioningManager,
@@ -197,13 +186,12 @@ public class TestLocalExchange
                 TYPES,
                 ImmutableList.of(),
                 Optional.empty(),
-                executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchangeFactory, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -276,8 +264,8 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void testRandom(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void testRandom()
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
                 nodePartitioningManager,
@@ -287,13 +275,12 @@ public class TestLocalExchange
                 TYPES,
                 ImmutableList.of(),
                 Optional.empty(),
-                executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchangeFactory, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -327,8 +314,8 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void testPassthrough(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void testPassthrough()
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
                 nodePartitioningManager,
@@ -338,14 +325,13 @@ public class TestLocalExchange
                 TYPES,
                 ImmutableList.of(),
                 Optional.empty(),
-                executionStrategy,
                 DataSize.ofBytes(retainedSizeOfPages(1)),
                 TYPE_OPERATOR_FACTORY);
 
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchangeFactory, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -397,8 +383,8 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void testPartition(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void testPartition()
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
                 nodePartitioningManager,
@@ -408,13 +394,12 @@ public class TestLocalExchange
                 TYPES,
                 ImmutableList.of(0),
                 Optional.empty(),
-                executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchangeFactory, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -466,8 +451,8 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void testPartitionCustomPartitioning(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void testPartitionCustomPartitioning()
     {
         ConnectorPartitioningHandle connectorPartitioningHandle = new ConnectorPartitioningHandle() {};
         ConnectorNodePartitioningProvider connectorNodePartitioningProvider = new ConnectorNodePartitioningProvider()
@@ -512,13 +497,12 @@ public class TestLocalExchange
                 types,
                 ImmutableList.of(1),
                 Optional.empty(),
-                executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchangeFactory, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -554,8 +538,8 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void writeUnblockWhenAllReadersFinish(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void writeUnblockWhenAllReadersFinish()
     {
         ImmutableList<Type> types = ImmutableList.of(BIGINT);
 
@@ -567,13 +551,12 @@ public class TestLocalExchange
                 types,
                 ImmutableList.of(),
                 Optional.empty(),
-                executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchangeFactory, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -605,8 +588,8 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "executionStrategy")
-    public void writeUnblockWhenAllReadersFinishAndPagesConsumed(PipelineExecutionStrategy executionStrategy)
+    @Test
+    public void writeUnblockWhenAllReadersFinishAndPagesConsumed()
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
                 nodePartitioningManager,
@@ -616,13 +599,12 @@ public class TestLocalExchange
                 TYPES,
                 ImmutableList.of(),
                 Optional.empty(),
-                executionStrategy,
                 DataSize.ofBytes(1),
                 TYPE_OPERATOR_FACTORY);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, executionStrategy, exchange -> {
+        run(localExchangeFactory, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
@@ -687,7 +669,6 @@ public class TestLocalExchange
                 TYPES,
                 ImmutableList.of(0),
                 Optional.empty(),
-                UNGROUPED_EXECUTION,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
         assertThatThrownBy(() -> ungroupedLocalExchangeFactory.getLocalExchange(Lifespan.driverGroup(3)))
@@ -702,7 +683,6 @@ public class TestLocalExchange
                 TYPES,
                 ImmutableList.of(0),
                 Optional.empty(),
-                GROUPED_EXECUTION,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
         assertThatThrownBy(() -> groupedLocalExchangeFactory.getLocalExchange(Lifespan.taskWide()))
@@ -710,19 +690,9 @@ public class TestLocalExchange
                 .hasMessage("LocalExchangeFactory is declared as GROUPED_EXECUTION. Task-wide exchange cannot be created.");
     }
 
-    private void run(LocalExchangeFactory localExchangeFactory, PipelineExecutionStrategy pipelineExecutionStrategy, Consumer<LocalExchange> test)
+    private void run(LocalExchangeFactory localExchangeFactory, Consumer<LocalExchange> test)
     {
-        switch (pipelineExecutionStrategy) {
-            case UNGROUPED_EXECUTION:
-                test.accept(localExchangeFactory.getLocalExchange(Lifespan.taskWide()));
-                return;
-            case GROUPED_EXECUTION:
-                test.accept(localExchangeFactory.getLocalExchange(Lifespan.driverGroup(1)));
-                test.accept(localExchangeFactory.getLocalExchange(Lifespan.driverGroup(12)));
-                test.accept(localExchangeFactory.getLocalExchange(Lifespan.driverGroup(23)));
-                return;
-        }
-        throw new IllegalArgumentException("Unknown pipelineExecutionStrategy");
+        test.accept(localExchangeFactory.getLocalExchange(Lifespan.taskWide()));
     }
 
     private static void assertSource(LocalExchangeSource source, int pageCount)
