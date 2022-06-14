@@ -1171,6 +1171,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE test_hour_transform (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['hour(d)'])");
 
         @Language("SQL") String values = "VALUES " +
+                "(NULL, 101)," +
                 "(TIMESTAMP '1969-12-31 22:22:22.222222', 8)," +
                 "(TIMESTAMP '1969-12-31 23:33:11.456789', 9)," +
                 "(TIMESTAMP '1969-12-31 23:44:55.567890', 10)," +
@@ -1182,10 +1183,11 @@ public abstract class BaseIcebergConnectorTest
                 "(TIMESTAMP '2015-05-15 12:21:02.345678', 5)," +
                 "(TIMESTAMP '2020-02-21 13:11:11.876543', 6)," +
                 "(TIMESTAMP '2020-02-21 13:12:12.654321', 7)";
-        assertUpdate("INSERT INTO test_hour_transform " + values, 11);
+        assertUpdate("INSERT INTO test_hour_transform " + values, 12);
         assertQuery("SELECT * FROM test_hour_transform", values);
 
         @Language("SQL") String expected = "VALUES " +
+                "(NULL, 1, NULL, NULL, 101, 101), " +
                 "(-2, 1, TIMESTAMP '1969-12-31 22:22:22.222222', TIMESTAMP '1969-12-31 22:22:22.222222', 8, 8), " +
                 "(-1, 2, TIMESTAMP '1969-12-31 23:33:11.456789', TIMESTAMP '1969-12-31 23:44:55.567890', 9, 10), " +
                 "(0, 1, TIMESTAMP '1970-01-01 00:55:44.765432', TIMESTAMP '1970-01-01 00:55:44.765432', 11, 11), " +
@@ -1195,6 +1197,7 @@ public abstract class BaseIcebergConnectorTest
         String expectedTimestampStats = "'1969-12-31 22:22:22.222222', '2020-02-21 13:12:12.654321'";
         if (format == ORC) {
             expected = "VALUES " +
+                    "(NULL, 1, NULL, NULL, 101, 101), " +
                     "(-2, 1, TIMESTAMP '1969-12-31 22:22:22.222000', TIMESTAMP '1969-12-31 22:22:22.222999', 8, 8), " +
                     "(-1, 2, TIMESTAMP '1969-12-31 23:33:11.456000', TIMESTAMP '1969-12-31 23:44:55.567999', 9, 10), " +
                     "(0, 1, TIMESTAMP '1970-01-01 00:55:44.765000', TIMESTAMP '1970-01-01 00:55:44.765999', 11, 11), " +
@@ -1214,9 +1217,9 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_hour_transform"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', NULL, NULL, 0e0, NULL, " + expectedTimestampStats + "), " +
-                        "  ('b', NULL, NULL, 0e0, NULL, '1', '11'), " +
-                        "  (NULL, NULL, NULL, NULL, 11e0, NULL, NULL)");
+                        "  ('d', NULL, NULL, 0.0833333e0, NULL, " + expectedTimestampStats + "), " +
+                        "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
+                        "  (NULL, NULL, NULL, NULL, 12e0, NULL, NULL)");
 
         dropTable("test_hour_transform");
     }
@@ -1227,6 +1230,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE test_day_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
 
         @Language("SQL") String values = "VALUES " +
+                "(NULL, 101)," +
                 "(DATE '1969-01-01', 10), " +
                 "(DATE '1969-12-31', 11), " +
                 "(DATE '1970-01-01', 1), " +
@@ -1238,12 +1242,13 @@ public abstract class BaseIcebergConnectorTest
                 "(DATE '2015-05-15', 7), " +
                 "(DATE '2020-02-21', 8), " +
                 "(DATE '2020-02-21', 9)";
-        assertUpdate("INSERT INTO test_day_transform_date " + values, 11);
+        assertUpdate("INSERT INTO test_day_transform_date " + values, 12);
         assertQuery("SELECT * FROM test_day_transform_date", values);
 
         assertQuery(
                 "SELECT partition.d_day, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_day_transform_date$partitions\"",
                 "VALUES " +
+                        "(NULL, 1, NULL, NULL, 101, 101), " +
                         "(DATE '1969-01-01', 1, DATE '1969-01-01', DATE '1969-01-01', 10, 10), " +
                         "(DATE '1969-12-31', 1, DATE '1969-12-31', DATE '1969-12-31', 11, 11), " +
                         "(DATE '1970-01-01', 1, DATE '1970-01-01', DATE '1970-01-01', 1, 1), " +
@@ -1261,9 +1266,9 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_day_transform_date"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', NULL, NULL, 0e0, NULL, '1969-01-01', '2020-02-21'), " +
-                        "  ('b', NULL, NULL, 0e0, NULL, '1', '11'), " +
-                        "  (NULL, NULL, NULL, NULL, 11e0, NULL, NULL)");
+                        "  ('d', NULL, NULL, 0.0833333e0, NULL, '1969-01-01', '2020-02-21'), " +
+                        "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
+                        "  (NULL, NULL, NULL, NULL, 12e0, NULL, NULL)");
 
         dropTable("test_day_transform_date");
     }
@@ -1274,6 +1279,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE test_day_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
 
         @Language("SQL") String values = "VALUES " +
+                "(NULL, 101)," +
                 "(TIMESTAMP '1969-12-25 15:13:12.876543', 8)," +
                 "(TIMESTAMP '1969-12-30 18:47:33.345678', 9)," +
                 "(TIMESTAMP '1969-12-31 00:00:00.000000', 10)," +
@@ -1286,10 +1292,11 @@ public abstract class BaseIcebergConnectorTest
                 "(TIMESTAMP '2015-05-15 14:21:02.345678', 5)," +
                 "(TIMESTAMP '2020-02-21 15:11:11.876543', 6)," +
                 "(TIMESTAMP '2020-02-21 16:12:12.654321', 7)";
-        assertUpdate("INSERT INTO test_day_transform_timestamp " + values, 12);
+        assertUpdate("INSERT INTO test_day_transform_timestamp " + values, 13);
         assertQuery("SELECT * FROM test_day_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
+                "(NULL, 1, NULL, NULL, 101, 101), " +
                 "(DATE '1969-12-25', 1, TIMESTAMP '1969-12-25 15:13:12.876543', TIMESTAMP '1969-12-25 15:13:12.876543', 8, 8), " +
                 "(DATE '1969-12-30', 1, TIMESTAMP '1969-12-30 18:47:33.345678', TIMESTAMP '1969-12-30 18:47:33.345678', 9, 9), " +
                 "(DATE '1969-12-31', 2, TIMESTAMP '1969-12-31 00:00:00.000000', TIMESTAMP '1969-12-31 05:06:07.234567', 10, 11), " +
@@ -1301,6 +1308,7 @@ public abstract class BaseIcebergConnectorTest
 
         if (format == ORC) {
             expected = "VALUES " +
+                    "(NULL, 1, NULL, NULL, 101, 101), " +
                     "(DATE '1969-12-25', 1, TIMESTAMP '1969-12-25 15:13:12.876000', TIMESTAMP '1969-12-25 15:13:12.876999', 8, 8), " +
                     "(DATE '1969-12-30', 1, TIMESTAMP '1969-12-30 18:47:33.345000', TIMESTAMP '1969-12-30 18:47:33.345999', 9, 9), " +
                     "(DATE '1969-12-31', 2, TIMESTAMP '1969-12-31 00:00:00.000000', TIMESTAMP '1969-12-31 05:06:07.234999', 10, 11), " +
@@ -1321,9 +1329,9 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_day_transform_timestamp"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', NULL, NULL, 0e0, NULL, " + expectedTimestampStats + "), " +
-                        "  ('b', NULL, NULL, 0e0, NULL, '1', '12'), " +
-                        "  (NULL, NULL, NULL, NULL, 12e0, NULL, NULL)");
+                        "  ('d', NULL, NULL, 0.0769231e0, NULL, " + expectedTimestampStats + "), " +
+                        "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
+                        "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)");
 
         dropTable("test_day_transform_timestamp");
     }
@@ -1334,6 +1342,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE test_month_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
 
         @Language("SQL") String values = "VALUES " +
+                "(NULL, 101)," +
                 "(DATE '1969-11-13', 1)," +
                 "(DATE '1969-12-01', 2)," +
                 "(DATE '1969-12-02', 3)," +
@@ -1348,12 +1357,13 @@ public abstract class BaseIcebergConnectorTest
                 "(DATE '2020-07-18', 12), " +
                 "(DATE '2020-07-28', 13), " +
                 "(DATE '2020-12-31', 14)";
-        assertUpdate("INSERT INTO test_month_transform_date " + values, 14);
+        assertUpdate("INSERT INTO test_month_transform_date " + values, 15);
         assertQuery("SELECT * FROM test_month_transform_date", values);
 
         assertQuery(
                 "SELECT partition.d_month, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_month_transform_date$partitions\"",
                 "VALUES " +
+                        "(NULL, 1, NULL, NULL, 101, 101), " +
                         "(-2, 1, DATE '1969-11-13', DATE '1969-11-13', 1, 1), " +
                         "(-1, 3, DATE '1969-12-01', DATE '1969-12-31', 2, 4), " +
                         "(0, 1, DATE '1970-01-01', DATE '1970-01-01', 5, 5), " +
@@ -1372,9 +1382,9 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_month_transform_date"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', NULL, NULL, 0e0, NULL, '1969-11-13', '2020-12-31'), " +
-                        "  ('b', NULL, NULL, 0e0, NULL, '1', '14'), " +
-                        "  (NULL, NULL, NULL, NULL, 14e0, NULL, NULL)");
+                        "  ('d', NULL, NULL, 0.0666667e0, NULL, '1969-11-13', '2020-12-31'), " +
+                        "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
+                        "  (NULL, NULL, NULL, NULL, 15e0, NULL, NULL)");
 
         dropTable("test_month_transform_date");
     }
@@ -1385,6 +1395,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE test_month_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
 
         @Language("SQL") String values = "VALUES " +
+                "(NULL, 101)," +
                 "(TIMESTAMP '1969-11-15 15:13:12.876543', 8)," +
                 "(TIMESTAMP '1969-11-19 18:47:33.345678', 9)," +
                 "(TIMESTAMP '1969-12-01 00:00:00.000000', 10)," +
@@ -1397,10 +1408,11 @@ public abstract class BaseIcebergConnectorTest
                 "(TIMESTAMP '2015-05-15 14:21:02.345678', 5)," +
                 "(TIMESTAMP '2020-02-21 15:11:11.876543', 6)," +
                 "(TIMESTAMP '2020-02-21 16:12:12.654321', 7)";
-        assertUpdate("INSERT INTO test_month_transform_timestamp " + values, 12);
+        assertUpdate("INSERT INTO test_month_transform_timestamp " + values, 13);
         assertQuery("SELECT * FROM test_month_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
+                "(NULL, 1, NULL, NULL, 101, 101), " +
                 "(-2, 2, TIMESTAMP '1969-11-15 15:13:12.876543', TIMESTAMP '1969-11-19 18:47:33.345678', 8, 9), " +
                 "(-1, 2, TIMESTAMP '1969-12-01 00:00:00.000000', TIMESTAMP '1969-12-01 05:06:07.234567', 10, 11), " +
                 "(0, 1, TIMESTAMP '1970-01-01 12:03:08.456789', TIMESTAMP '1970-01-01 12:03:08.456789', 12, 12), " +
@@ -1411,6 +1423,7 @@ public abstract class BaseIcebergConnectorTest
 
         if (format == ORC) {
             expected = "VALUES " +
+                    "(NULL, 1, NULL, NULL, 101, 101), " +
                     "(-2, 2, TIMESTAMP '1969-11-15 15:13:12.876000', TIMESTAMP '1969-11-19 18:47:33.345999', 8, 9), " +
                     "(-1, 2, TIMESTAMP '1969-12-01 00:00:00.000000', TIMESTAMP '1969-12-01 05:06:07.234999', 10, 11), " +
                     "(0, 1, TIMESTAMP '1970-01-01 12:03:08.456000', TIMESTAMP '1970-01-01 12:03:08.456999', 12, 12), " +
@@ -1430,9 +1443,9 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_month_transform_timestamp"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', NULL, NULL, 0e0, NULL, " + expectedTimestampStats + "), " +
-                        "  ('b', NULL, NULL, 0e0, NULL, '1', '12'), " +
-                        "  (NULL, NULL, NULL, NULL, 12e0, NULL, NULL)");
+                        "  ('d', NULL, NULL, 0.0769231e0, NULL, " + expectedTimestampStats + "), " +
+                        "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
+                        "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)");
 
         dropTable("test_month_transform_timestamp");
     }
@@ -1443,6 +1456,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE test_year_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
 
         @Language("SQL") String values = "VALUES " +
+                "(NULL, 101)," +
                 "(DATE '1968-10-13', 1), " +
                 "(DATE '1969-01-01', 2), " +
                 "(DATE '1969-03-15', 3), " +
@@ -1455,12 +1469,13 @@ public abstract class BaseIcebergConnectorTest
                 "(DATE '2016-06-06', 10), " +
                 "(DATE '2020-02-21', 11), " +
                 "(DATE '2020-11-10', 12)";
-        assertUpdate("INSERT INTO test_year_transform_date " + values, 12);
+        assertUpdate("INSERT INTO test_year_transform_date " + values, 13);
         assertQuery("SELECT * FROM test_year_transform_date", values);
 
         assertQuery(
                 "SELECT partition.d_year, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_year_transform_date$partitions\"",
                 "VALUES " +
+                        "(NULL, 1, NULL, NULL, 101, 101), " +
                         "(-2, 1, DATE '1968-10-13', DATE '1968-10-13', 1, 1), " +
                         "(-1, 2, DATE '1969-01-01', DATE '1969-03-15', 2, 3), " +
                         "(0, 2, DATE '1970-01-01', DATE '1970-03-05', 4, 5), " +
@@ -1476,9 +1491,9 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_year_transform_date"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', NULL, NULL, 0e0, NULL, '1968-10-13', '2020-11-10'), " +
-                        "  ('b', NULL, NULL, 0e0, NULL, '1', '12'), " +
-                        "  (NULL, NULL, NULL, NULL, 12e0, NULL, NULL)");
+                        "  ('d', NULL, NULL, 0.0769231e0, NULL, '1968-10-13', '2020-11-10'), " +
+                        "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
+                        "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)");
 
         dropTable("test_year_transform_date");
     }
@@ -1489,6 +1504,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE test_year_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
 
         @Language("SQL") String values = "VALUES " +
+                "(NULL, 101)," +
                 "(TIMESTAMP '1968-03-15 15:13:12.876543', 1)," +
                 "(TIMESTAMP '1968-11-19 18:47:33.345678', 2)," +
                 "(TIMESTAMP '1969-01-01 00:00:00.000000', 3)," +
@@ -1501,10 +1517,11 @@ public abstract class BaseIcebergConnectorTest
                 "(TIMESTAMP '2015-09-15 14:21:02.345678', 10)," +
                 "(TIMESTAMP '2020-02-21 15:11:11.876543', 11)," +
                 "(TIMESTAMP '2020-08-21 16:12:12.654321', 12)";
-        assertUpdate("INSERT INTO test_year_transform_timestamp " + values, 12);
+        assertUpdate("INSERT INTO test_year_transform_timestamp " + values, 13);
         assertQuery("SELECT * FROM test_year_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
+                "(NULL, 1, NULL, NULL, 101, 101), " +
                 "(-2, 2, TIMESTAMP '1968-03-15 15:13:12.876543', TIMESTAMP '1968-11-19 18:47:33.345678', 1, 2), " +
                 "(-1, 2, TIMESTAMP '1969-01-01 00:00:00.000000', TIMESTAMP '1969-01-01 05:06:07.234567', 3, 4), " +
                 "(0, 4, TIMESTAMP '1970-01-18 12:03:08.456789', TIMESTAMP '1970-12-31 12:55:00.456789', 5, 8), " +
@@ -1515,6 +1532,7 @@ public abstract class BaseIcebergConnectorTest
 
         if (format == ORC) {
             expected = "VALUES " +
+                    "(NULL, 1, NULL, NULL, 101, 101), " +
                     "(-2, 2, TIMESTAMP '1968-03-15 15:13:12.876000', TIMESTAMP '1968-11-19 18:47:33.345999', 1, 2), " +
                     "(-1, 2, TIMESTAMP '1969-01-01 00:00:00.000000', TIMESTAMP '1969-01-01 05:06:07.234999', 3, 4), " +
                     "(0, 4, TIMESTAMP '1970-01-18 12:03:08.456000', TIMESTAMP '1970-12-31 12:55:00.456999', 5, 8), " +
@@ -1533,9 +1551,9 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_year_transform_timestamp"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', NULL, NULL, 0e0, NULL, " + expectedTimestampStats + "), " +
-                        "  ('b', NULL, NULL, 0e0, NULL, '1', '12'), " +
-                        "  (NULL, NULL, NULL, NULL, 12e0, NULL, NULL)");
+                        "  ('d', NULL, NULL, 0.0769231e0, NULL, " + expectedTimestampStats + "), " +
+                        "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
+                        "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)");
 
         dropTable("test_year_transform_timestamp");
     }
@@ -1547,15 +1565,16 @@ public abstract class BaseIcebergConnectorTest
         String select = "SELECT partition.d_trunc, record_count, data.d.min AS d_min, data.d.max AS d_max, data.b.min AS b_min, data.b.max AS b_max FROM \"test_truncate_text_transform$partitions\"";
 
         assertUpdate("INSERT INTO test_truncate_text_transform VALUES" +
+                "(NULL, 101)," +
                 "('abcd', 1)," +
                 "('abxy', 2)," +
                 "('ab598', 3)," +
                 "('mommy', 4)," +
                 "('moscow', 5)," +
                 "('Greece', 6)," +
-                "('Grozny', 7)", 7);
+                "('Grozny', 7)", 8);
 
-        assertQuery("SELECT partition.d_trunc FROM \"test_truncate_text_transform$partitions\"", "VALUES 'ab', 'mo', 'Gr'");
+        assertQuery("SELECT partition.d_trunc FROM \"test_truncate_text_transform$partitions\"", "VALUES NULL, 'ab', 'mo', 'Gr'");
 
         assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'ab'", "VALUES 1, 2, 3");
         assertQuery(select + " WHERE partition.d_trunc = 'ab'", "VALUES ('ab', 3, 'ab598', 'abxy', 1, 3)");
@@ -1574,9 +1593,9 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_truncate_text_transform"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', " + (format == PARQUET ? "169e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
-                        "  ('b', NULL, NULL, 0e0, NULL, '1', '7'), " +
-                        "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)");
+                        "  ('d', " + (format == PARQUET ? "205e0" : "NULL") + ", NULL, 0.125e0, NULL, NULL, NULL), " +
+                        "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
+                        "  (NULL, NULL, NULL, NULL, 8e0, NULL, NULL)");
 
         dropTable("test_truncate_text_transform");
     }
@@ -1589,6 +1608,7 @@ public abstract class BaseIcebergConnectorTest
         String select = "SELECT partition.d_trunc, record_count, data.d.min AS d_min, data.d.max AS d_max, data.b.min AS b_min, data.b.max AS b_max FROM \"" + table + "$partitions\"";
 
         assertUpdate("INSERT INTO " + table + " VALUES" +
+                "(NULL, 101)," +
                 "(0, 1)," +
                 "(1, 2)," +
                 "(5, 3)," +
@@ -1603,9 +1623,9 @@ public abstract class BaseIcebergConnectorTest
                 "(-10, 12)," +
                 "(-11, 13)," +
                 "(-123, 14)," +
-                "(-130, 15)", 15);
+                "(-130, 15)", 16);
 
-        assertQuery("SELECT partition.d_trunc FROM \"" + table + "$partitions\"", "VALUES 0, 10, 120, -10, -20, -130");
+        assertQuery("SELECT partition.d_trunc FROM \"" + table + "$partitions\"", "VALUES NULL, 0, 10, 120, -10, -20, -130");
 
         assertQuery("SELECT b FROM " + table + " WHERE d IN (0, 1, 5, 9)", "VALUES 1, 2, 3, 4");
         assertQuery(select + " WHERE partition.d_trunc = 0", "VALUES (0, 4, 0, 9, 1, 4)");
@@ -1633,9 +1653,9 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR " + table))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', NULL, NULL, 0e0, NULL, '-130', '123'), " +
-                        "  ('b', NULL, NULL, 0e0, NULL, '1', '15'), " +
-                        "  (NULL, NULL, NULL, NULL, 15e0, NULL, NULL)");
+                        "  ('d', NULL, NULL, 0.0625e0, NULL, '-130', '123'), " +
+                        "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
+                        "  (NULL, NULL, NULL, NULL, 16e0, NULL, NULL)");
 
         dropTable(table);
     }
@@ -1656,13 +1676,14 @@ public abstract class BaseIcebergConnectorTest
         String select = "SELECT partition.d_trunc, record_count, data.d.min AS d_min, data.d.max AS d_max, data.b.min AS b_min, data.b.max AS b_max FROM \"test_truncate_decimal_transform$partitions\"";
 
         assertUpdate("INSERT INTO test_truncate_decimal_transform VALUES" +
+                "(NULL, 101)," +
                 "(12.34, 1)," +
                 "(12.30, 2)," +
                 "(12.29, 3)," +
                 "(0.05, 4)," +
-                "(-0.05, 5)", 5);
+                "(-0.05, 5)", 6);
 
-        assertQuery("SELECT partition.d_trunc FROM \"test_truncate_decimal_transform$partitions\"", "VALUES 12.30, 12.20, 0.00, -0.10");
+        assertQuery("SELECT partition.d_trunc FROM \"test_truncate_decimal_transform$partitions\"", "VALUES NULL, 12.30, 12.20, 0.00, -0.10");
 
         assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d IN (12.34, 12.30)", "VALUES 1, 2");
         assertQuery(select + " WHERE partition.d_trunc = 12.30", "VALUES (12.30, 2, 12.30, 12.34, 1, 2)");
@@ -1684,9 +1705,9 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_truncate_decimal_transform"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', NULL, NULL, 0e0, NULL, '-0.05', '12.34'), " +
-                        "  ('b', NULL, NULL, 0e0, NULL, '1', '5'), " +
-                        "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
+                        "  ('d', NULL, NULL, 0.166667e0, NULL, '-0.05', '12.34'), " +
+                        "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
+                        "  (NULL, NULL, NULL, NULL, 6e0, NULL, NULL)");
 
         dropTable("test_truncate_decimal_transform");
     }
@@ -1713,8 +1734,8 @@ public abstract class BaseIcebergConnectorTest
         String tableName = format("test_bucket_transform%s", type.toLowerCase(Locale.ENGLISH));
 
         assertUpdate(format("CREATE TABLE %s (d %s) WITH (partitioning = ARRAY['bucket(d, 2)'])", tableName, type));
-        assertUpdate(format("INSERT INTO %s VALUES (%s), (%s), (%s)", tableName, value, greaterValueInSameBucket, valueInOtherBucket), 3);
-        assertThat(query(format("SELECT * FROM %s", tableName))).matches(format("VALUES (%s), (%s), (%s)", value, greaterValueInSameBucket, valueInOtherBucket));
+        assertUpdate(format("INSERT INTO %s VALUES (NULL), (%s), (%s), (%s)", tableName, value, greaterValueInSameBucket, valueInOtherBucket), 4);
+        assertThat(query(format("SELECT * FROM %s", tableName))).matches(format("VALUES (NULL), (%s), (%s), (%s)", value, greaterValueInSameBucket, valueInOtherBucket));
 
         String selectFromPartitions = format("SELECT partition.d_bucket, record_count, data.d.min AS d_min, data.d.max AS d_max FROM \"%s$partitions\"", tableName);
 
@@ -1731,8 +1752,8 @@ public abstract class BaseIcebergConnectorTest
                 .skippingTypesCheck()
                 .projected(0, 2, 3, 4) // data size, min and max may vary between types
                 .matches("VALUES " +
-                        "  ('d', NULL, 0e0, NULL), " +
-                        "  (NULL, NULL, NULL, 3e0)");
+                        "  ('d', NULL, 0.25e0, NULL), " +
+                        "  (NULL, NULL, NULL, 4e0)");
 
         dropTable(tableName);
     }
