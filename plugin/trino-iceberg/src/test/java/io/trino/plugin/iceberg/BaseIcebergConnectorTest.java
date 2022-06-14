@@ -1228,10 +1228,10 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
 
         assertThat(query("SELECT * FROM test_hour_transform WHERE d >= DATE '2015-05-15'"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+                .isFullyPushedDown();
 
         assertThat(query("SELECT * FROM test_hour_transform WHERE d >= TIMESTAMP '2015-05-15 12:00:00'"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_hour_transform WHERE d >= TIMESTAMP '2015-05-15 12:00:00.000001'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
@@ -1366,10 +1366,10 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
 
         assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d >= DATE '2015-05-15'"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+                .isFullyPushedDown();
 
         assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 00:00:00'"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 00:00:00.000001'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
@@ -1584,12 +1584,12 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
 
         assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d >= DATE '2015-05-01'"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d >= DATE '2015-05-02'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
         assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d >= TIMESTAMP '2015-05-01 00:00:00'"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d >= TIMESTAMP '2015-05-01 00:00:00.000001'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
@@ -1797,12 +1797,12 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
 
         assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE d >= DATE '2015-01-01'"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE d >= DATE '2015-01-02'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
         assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE d >= TIMESTAMP '2015-01-01 00:00:00'"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE d >= TIMESTAMP '2015-01-01 00:00:00.000001'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
@@ -3701,6 +3701,8 @@ public abstract class BaseIcebergConnectorTest
                 {"date", "%s", 15},
                 {"date", "day(%s)", 15},
                 {"date", "month(%s)", 3},
+                {"timestamp(6)", "day(%s)", 15},
+                {"timestamp(6)", "month(%s)", 3},
         };
     }
 
