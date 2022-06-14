@@ -132,7 +132,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiPredicate;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -315,21 +314,18 @@ public class IcebergMetadata
                 Optional.empty());
     }
 
-    private long getSnapshotIdFromVersion(Table table, ConnectorTableVersion version)
+    private static long getSnapshotIdFromVersion(Table table, ConnectorTableVersion version)
     {
         io.trino.spi.type.Type versionType = version.getVersionType();
         switch (version.getPointerType()) {
             case TEMPORAL:
-                long epochMillis;
                 if (versionType instanceof TimestampWithTimeZoneType) {
-                    epochMillis = ((TimestampWithTimeZoneType) versionType).isShort()
+                    long epochMillis = ((TimestampWithTimeZoneType) versionType).isShort()
                             ? unpackMillisUtc((long) version.getVersion())
                             : ((LongTimestampWithTimeZone) version.getVersion()).getEpochMillis();
+                    return getSnapshotIdAsOfTime(table, epochMillis);
                 }
-                else {
-                    throw new TrinoException(NOT_SUPPORTED, "Unsupported type for temporal table version: " + versionType.getDisplayName());
-                }
-                return getSnapshotIdAsOfTime(table, epochMillis);
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported type for temporal table version: " + versionType.getDisplayName());
 
             case TARGET_ID:
                 if (versionType != BIGINT) {
@@ -351,7 +347,6 @@ public class IcebergMetadata
                 .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
     }
 
-    @SuppressWarnings("TryWithIdenticalCatches")
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
@@ -422,7 +417,7 @@ public class IcebergMetadata
             // Extract identity partition columns
             Map<Integer, IcebergColumnHandle> columns = getColumns(icebergTable.schema(), typeManager).stream()
                     .filter(column -> partitionSourceIds.contains(column.getId()))
-                    .collect(toImmutableMap(IcebergColumnHandle::getId, Function.identity()));
+                    .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
 
             Supplier<List<FileScanTask>> lazyFiles = Suppliers.memoize(() -> {
                 TableScan tableScan = icebergTable.newScan()
@@ -524,7 +519,6 @@ public class IcebergMetadata
     }
 
     @Override
-    @SuppressWarnings("TryWithIdenticalCatches")
     public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
@@ -588,7 +582,7 @@ public class IcebergMetadata
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         Optional<ConnectorTableLayout> layout = getNewTableLayout(session, tableMetadata);
-        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout, RetryMode.NO_RETRIES), ImmutableList.of(), ImmutableList.of());
+        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout, NO_RETRIES), ImmutableList.of(), ImmutableList.of());
     }
 
     @Override
@@ -803,7 +797,7 @@ public class IcebergMetadata
         }
     }
 
-    private boolean isFileCreatedByQuery(String fileName, String queryId)
+    private static boolean isFileCreatedByQuery(String fileName, String queryId)
     {
         verify(!queryId.contains("-"), "queryId(%s) should not contain hyphens", queryId);
         return fileName.startsWith(queryId + "-");
@@ -1084,7 +1078,7 @@ public class IcebergMetadata
     public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Optional<Object>> properties)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        BaseTable icebergTable = (BaseTable) catalog.loadTable(session, table.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
         Set<String> unsupportedProperties = Sets.difference(properties.keySet(), UPDATABLE_TABLE_PROPERTIES);
         if (!unsupportedProperties.isEmpty()) {
@@ -1104,7 +1098,7 @@ public class IcebergMetadata
             // UpdateProperties#commit will trigger any necessary metadata updates required for the new spec version
             int formatVersion = (int) properties.get(FORMAT_VERSION_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The format_version property cannot be empty"));
-            updateProperties.set(FORMAT_VERSION, Integer.toString((int) formatVersion));
+            updateProperties.set(FORMAT_VERSION, String.valueOf(formatVersion));
         }
 
         try {
@@ -1237,7 +1231,7 @@ public class IcebergMetadata
     @Override
     public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return IcebergUtil.getColumnHandle(ROW_POSITION, typeManager);
+        return getColumnHandle(ROW_POSITION, typeManager);
     }
 
     @Override
@@ -1419,7 +1413,7 @@ public class IcebergMetadata
         transaction = null;
     }
 
-    private boolean fileIsFullyDeleted(List<CommitTaskData> positionDeletes)
+    private static boolean fileIsFullyDeleted(List<CommitTaskData> positionDeletes)
     {
         checkArgument(!positionDeletes.isEmpty(), "Cannot call fileIsFullyDeletes with an empty list");
         String referencedDataFile = positionDeletes.get(0).getReferencedDataFile().orElseThrow();
@@ -1589,7 +1583,7 @@ public class IcebergMetadata
                 .collect(toImmutableSet());
 
         Map<ConnectorExpression, ProjectedColumnRepresentation> columnProjections = projectedExpressions.stream()
-                .collect(toImmutableMap(Function.identity(), HiveApplyProjectionUtil::createProjectedColumnRepresentation));
+                .collect(toImmutableMap(identity(), HiveApplyProjectionUtil::createProjectedColumnRepresentation));
 
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) handle;
 
@@ -1857,18 +1851,12 @@ public class IcebergMetadata
         catalog.renameMaterializedView(session, source, target);
     }
 
-    public Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public boolean isTableCurrent(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<TableToken> tableToken)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        return Optional.ofNullable(icebergTable.currentSnapshot())
+        Optional<TableToken> currentToken = Optional.ofNullable(icebergTable.currentSnapshot())
                 .map(snapshot -> new TableToken(snapshot.snapshotId()));
-    }
-
-    public boolean isTableCurrent(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<TableToken> tableToken)
-    {
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        Optional<TableToken> currentToken = getTableToken(session, handle);
 
         if (tableToken.isEmpty() || currentToken.isEmpty()) {
             return false;
@@ -1958,7 +1946,7 @@ public class IcebergMetadata
     private static class TableToken
     {
         // Current Snapshot ID of the table
-        private long snapshotId;
+        private final long snapshotId;
 
         public TableToken(long snapshotId)
         {
@@ -1967,7 +1955,7 @@ public class IcebergMetadata
 
         public long getSnapshotId()
         {
-            return this.snapshotId;
+            return snapshotId;
         }
     }
 }
