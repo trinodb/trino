@@ -235,7 +235,6 @@ import io.trino.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
 import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapRowSubscript;
 import io.trino.sql.planner.iterative.rule.UnwrapSingleColumnRowInApply;
-import io.trino.sql.planner.iterative.rule.UnwrapTimestampToDateCastInComparison;
 import io.trino.sql.planner.iterative.rule.UseNonPartitionedJoinLookupSource;
 import io.trino.sql.planner.optimizations.AddExchanges;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
@@ -365,7 +364,6 @@ public class PlanOptimizers
                 .addAll(new SimplifyExpressions(plannerContext, typeAnalyzer).rules())
                 .addAll(new UnwrapRowSubscript().rules())
                 .addAll(new PushCastIntoRow().rules())
-                .addAll(new UnwrapTimestampToDateCastInComparison(plannerContext, typeAnalyzer).rules())
                 .addAll(new UnwrapCastInComparison(plannerContext, typeAnalyzer).rules())
                 .addAll(new RemoveDuplicateConditions(metadata).rules())
                 .addAll(new CanonicalizeExpressions(plannerContext, typeAnalyzer).rules())
