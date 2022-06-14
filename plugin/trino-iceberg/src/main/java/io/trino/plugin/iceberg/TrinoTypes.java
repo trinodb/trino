@@ -13,11 +13,13 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.Type.Range;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -55,6 +57,14 @@ public final class TrinoTypes
             return getAdjacentValue(Integer.MIN_VALUE, Integer.MAX_VALUE, (long) value, Direction.PREV);
         }
 
+        if (type instanceof TimestampType) {
+            // Iceberg supports only timestamp(6)
+            checkArgument(((TimestampType) type).getPrecision() == 6, "Unexpected type: %s", type);
+            // TODO update the code here when type implements getRange
+            verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
+            return getAdjacentValue(Long.MIN_VALUE, Long.MAX_VALUE, (long) value, Direction.PREV);
+        }
+
         return Optional.empty();
     }
 
@@ -81,6 +91,14 @@ public final class TrinoTypes
             // TODO update the code here when type implements getRange
             verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
             return getAdjacentValue(Integer.MIN_VALUE, Integer.MAX_VALUE, (long) value, Direction.NEXT);
+        }
+
+        if (type instanceof TimestampType) {
+            // Iceberg supports only timestamp(6)
+            checkArgument(((TimestampType) type).getPrecision() == 6, "Unexpected type: %s", type);
+            // TODO update the code here when type implements getRange
+            verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
+            return getAdjacentValue(Long.MIN_VALUE, Long.MAX_VALUE, (long) value, Direction.NEXT);
         }
 
         return Optional.empty();
