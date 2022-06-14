@@ -57,7 +57,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
-import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
@@ -902,7 +901,6 @@ public class TestDynamicFilterService
                 stagePartitioning,
                 ImmutableList.of(tableScanNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
-                ungroupedExecution(),
                 StatsAndCosts.empty(),
                 Optional.empty());
     }

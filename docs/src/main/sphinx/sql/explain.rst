@@ -362,7 +362,6 @@ Distributed plan::
      Fragment 0 [SINGLE]
          Output layout: [regionkey, count]
          Output partitioning: SINGLE []
-         Stage Execution Strategy: UNGROUPED_EXECUTION
          Output[regionkey, _col1]
          │   Layout: [regionkey:bigint, count:bigint]
          │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
@@ -373,7 +372,6 @@ Distributed plan::
      Fragment 1 [HASH]
          Output layout: [regionkey, count]
          Output partitioning: SINGLE []
-         Stage Execution Strategy: UNGROUPED_EXECUTION
          Aggregate(FINAL)[regionkey]
          │   Layout: [regionkey:bigint, count:bigint]
          │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
@@ -387,7 +385,6 @@ Distributed plan::
      Fragment 2 [SOURCE]
          Output layout: [regionkey, count_8, $hashvalue_10]
          Output partitioning: HASH [regionkey][$hashvalue_10]
-         Stage Execution Strategy: UNGROUPED_EXECUTION
          Project[]
          │   Layout: [regionkey:bigint, count_8:bigint, $hashvalue_10:bigint]
          │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}

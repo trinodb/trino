@@ -197,8 +197,6 @@ public class FaultTolerantStageScheduler
             int taskRetryAttemptsPerTask,
             int maxTasksWaitingForNodePerStage)
     {
-        checkArgument(!stage.getFragment().getStageExecutionDescriptor().isStageGroupedExecution(), "grouped execution is expected to be disabled");
-
         this.session = requireNonNull(session, "session is null");
         this.stage = requireNonNull(stage, "stage is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");

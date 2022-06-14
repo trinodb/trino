@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.operator.StageExecutionDescriptor;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
@@ -75,7 +74,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
@@ -106,7 +104,7 @@ public class SplitSourceFactory
         try {
             // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
             return fragment.getRoot().accept(
-                    new Visitor(session, fragment.getStageExecutionDescriptor(), TypeProvider.copyOf(fragment.getSymbols()), allSplitSources),
+                    new Visitor(session, TypeProvider.copyOf(fragment.getSymbols()), allSplitSources),
                     null);
         }
         catch (Throwable t) {
@@ -129,18 +127,15 @@ public class SplitSourceFactory
             extends PlanVisitor<Map<PlanNodeId, SplitSource>, Void>
     {
         private final Session session;
-        private final StageExecutionDescriptor stageExecutionDescriptor;
         private final TypeProvider typeProvider;
         private final ImmutableList.Builder<SplitSource> splitSources;
 
         private Visitor(
                 Session session,
-                StageExecutionDescriptor stageExecutionDescriptor,
                 TypeProvider typeProvider,
                 ImmutableList.Builder<SplitSource> allSplitSources)
         {
             this.session = session;
-            this.stageExecutionDescriptor = stageExecutionDescriptor;
             this.typeProvider = typeProvider;
             this.splitSources = allSplitSources;
         }
@@ -183,7 +178,7 @@ public class SplitSourceFactory
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     node.getTable(),
-                    stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING,
+                    UNGROUPED_SCHEDULING,
                     dynamicFilter,
                     constraint);
 

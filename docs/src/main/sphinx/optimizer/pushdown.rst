@@ -102,7 +102,6 @@ operator. This shows you that the pushdown was successful.
     Fragment 0 [SINGLE]
         Output layout: [regionkey_0, _generated_1]
         Output partitioning: SINGLE []
-        Stage Execution Strategy: UNGROUPED_EXECUTION
         Output[regionkey, _col1]
         │   Layout: [regionkey_0:bigint, _generated_1:bigint]
         │   Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: ?}
@@ -114,7 +113,6 @@ operator. This shows you that the pushdown was successful.
     Fragment 1 [SOURCE]
         Output layout: [regionkey_0, _generated_1]
         Output partitioning: SINGLE []
-        Stage Execution Strategy: UNGROUPED_EXECUTION
         TableScan[postgresql:tpch.nation tpch.nation columns=[regionkey:bigint:int8, count(*):_generated_1:bigint:bigint] groupingSets=[[regionkey:bigint:int8]], gro
             Layout: [regionkey_0:bigint, _generated_1:bigint]
             Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: 0B}
@@ -136,7 +134,6 @@ performed, and instead Trino performs the aggregate processing.
  Fragment 0 [SINGLE]
      Output layout: [regionkey, count]
      Output partitioning: SINGLE []
-     Stage Execution Strategy: UNGROUPED_EXECUTION
      Output[regionkey, _col1]
      │   Layout: [regionkey:bigint, count:bigint]
      │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
@@ -147,7 +144,6 @@ performed, and instead Trino performs the aggregate processing.
  Fragment 1 [HASH]
      Output layout: [regionkey, count]
      Output partitioning: SINGLE []
-     Stage Execution Strategy: UNGROUPED_EXECUTION
      Aggregate(FINAL)[regionkey]
      │   Layout: [regionkey:bigint, count:bigint]
      │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
@@ -161,7 +157,6 @@ performed, and instead Trino performs the aggregate processing.
  Fragment 2 [SOURCE]
      Output layout: [regionkey, count_0, $hashvalue_2]
      Output partitioning: HASH [regionkey][$hashvalue_2]
-     Stage Execution Strategy: UNGROUPED_EXECUTION
      Project[]
      │   Layout: [regionkey:bigint, count_0:bigint, $hashvalue_2:bigint]
      │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
@@ -220,7 +215,6 @@ result of the successful join push down.
  Fragment 0 [SINGLE]
      Output layout: [custkey, orderkey]
      Output partitioning: SINGLE []
-     Stage Execution Strategy: UNGROUPED_EXECUTION
      Output[custkey, orderkey]
      │   Layout: [custkey:bigint, orderkey:bigint]
      │   Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: ?}
@@ -230,7 +224,6 @@ result of the successful join push down.
  Fragment 1 [SOURCE]
      Output layout: [orderkey, custkey]
      Output partitioning: SINGLE []
-     Stage Execution Strategy: UNGROUPED_EXECUTION
      TableScan[postgres:Query[SELECT l."orderkey" AS "orderkey_0", l."custkey" AS "custkey_1", r."custkey" AS "custkey_2" FROM (SELECT "orderkey", "custkey" FROM "tpch"."orders") l INNER JOIN (SELECT "custkey" FROM "tpch"."customer") r O
          Layout: [orderkey:bigint, custkey:bigint]
          Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: 0B}
