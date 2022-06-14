@@ -207,10 +207,11 @@ Retrieve all records stored in the partition ``_PARTITIONDATE = '2022-04-07'``::
 SQL support
 -----------
 
-The connector provides read and write access to data and metadata in
-the BigQuery database. In addition to the :ref:`globally available
-<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
-statements, the connector supports the following features:
+The connector provides read and write access to data and metadata in the
+BigQuery database, though write access is limited. In addition to the
+:ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements, the connector supports
+the following features:
 
 * :doc:`/sql/create-table`
 * :doc:`/sql/drop-table`
