@@ -30,6 +30,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DataProviders;
 import io.trino.testing.MaterializedResult;
@@ -1221,6 +1222,19 @@ public abstract class BaseIcebergConnectorTest
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
                         "  (NULL, NULL, NULL, NULL, 12e0, NULL, NULL)");
 
+        assertThat(query("SELECT * FROM test_hour_transform WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_hour_transform WHERE d >= DATE '2015-05-15'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+
+        assertThat(query("SELECT * FROM test_hour_transform WHERE d >= TIMESTAMP '2015-05-15 12:00:00'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+        assertThat(query("SELECT * FROM test_hour_transform WHERE d >= TIMESTAMP '2015-05-15 12:00:00.000001'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
         dropTable("test_hour_transform");
     }
 
@@ -1269,6 +1283,20 @@ public abstract class BaseIcebergConnectorTest
                         "  ('d', NULL, NULL, 0.0833333e0, NULL, '1969-01-01', '2020-02-21'), " +
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
                         "  (NULL, NULL, NULL, NULL, 12e0, NULL, NULL)");
+
+        assertThat(query("SELECT * FROM test_day_transform_date WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_date WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_day_transform_date WHERE d >= DATE '2015-01-13'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on date
+
+        // d comparison with TIMESTAMP can be unwrapped
+        assertThat(query("SELECT * FROM test_day_transform_date WHERE d >= TIMESTAMP '2015-01-13 00:00:00'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on date
+        assertThat(query("SELECT * FROM test_day_transform_date WHERE d >= TIMESTAMP '2015-01-13 00:00:00.000001'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on date
 
         dropTable("test_day_transform_date");
     }
@@ -1332,6 +1360,19 @@ public abstract class BaseIcebergConnectorTest
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
                         "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)");
 
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d >= DATE '2015-05-15'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 00:00:00'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 00:00:00.000001'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
         dropTable("test_day_transform_timestamp");
     }
 
@@ -1394,6 +1435,20 @@ public abstract class BaseIcebergConnectorTest
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
                         "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)");
 
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        // Tests run with non-UTC session, so timestamp_tz > a_date will not align with partition boundaries. Use with_timezone to align it.
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE d >= with_timezone(DATE '2015-05-15', 'UTC')"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp with time zone
+
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-15 00:00:00 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp with time zone
+        assertThat(query("SELECT * FROM test_day_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-15 00:00:00.000001 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
         assertUpdate("DROP TABLE test_day_transform_timestamptz");
     }
 
@@ -1446,6 +1501,22 @@ public abstract class BaseIcebergConnectorTest
                         "  ('d', NULL, NULL, 0.0666667e0, NULL, '1969-11-13', '2020-12-31'), " +
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
                         "  (NULL, NULL, NULL, NULL, 15e0, NULL, NULL)");
+
+        assertThat(query("SELECT * FROM test_month_transform_date WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_month_transform_date WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_month_transform_date WHERE d >= DATE '2020-06-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on date
+        assertThat(query("SELECT * FROM test_month_transform_date WHERE d >= DATE '2020-06-02'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // d comparison with TIMESTAMP can be unwrapped
+        assertThat(query("SELECT * FROM test_month_transform_date WHERE d >= TIMESTAMP '2015-06-01 00:00:00'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on date
+        assertThat(query("SELECT * FROM test_month_transform_date WHERE d >= TIMESTAMP '2015-05-01 00:00:00.000001'"))
+                .isNotFullyPushedDown(FilterNode.class);
 
         dropTable("test_month_transform_date");
     }
@@ -1507,6 +1578,21 @@ public abstract class BaseIcebergConnectorTest
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
                         "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)");
 
+        assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d >= DATE '2015-05-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+        assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d >= DATE '2015-05-02'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d >= TIMESTAMP '2015-05-01 00:00:00'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+        assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d >= TIMESTAMP '2015-05-01 00:00:00.000001'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
         dropTable("test_month_transform_timestamp");
     }
 
@@ -1567,6 +1653,22 @@ public abstract class BaseIcebergConnectorTest
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
                         "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)");
 
+        assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        // Tests run with non-UTC session, so timestamp_tz > a_date will not align with partition boundaries. Use with_timezone to align it.
+        assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE d >= with_timezone(DATE '2015-05-01', 'UTC')"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp with time zone
+        assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE d >= with_timezone(DATE '2015-05-02', 'UTC')"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-01 00:00:00 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp with time zone
+        assertThat(query("SELECT * FROM test_month_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-01 00:00:00.000001 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
         assertUpdate("DROP TABLE test_month_transform_timestamptz");
     }
 
@@ -1614,6 +1716,22 @@ public abstract class BaseIcebergConnectorTest
                         "  ('d', NULL, NULL, 0.0769231e0, NULL, '1968-10-13', '2020-11-10'), " +
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
                         "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)");
+
+        assertThat(query("SELECT * FROM test_year_transform_date WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_year_transform_date WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_year_transform_date WHERE d >= DATE '2015-01-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on date
+        assertThat(query("SELECT * FROM test_year_transform_date WHERE d >= DATE '2015-01-02'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // d comparison with TIMESTAMP can be unwrapped
+        assertThat(query("SELECT * FROM test_year_transform_date WHERE d >= TIMESTAMP '2015-01-01 00:00:00'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on date
+        assertThat(query("SELECT * FROM test_year_transform_date WHERE d >= TIMESTAMP '2015-01-01 00:00:00.000001'"))
+                .isNotFullyPushedDown(FilterNode.class);
 
         dropTable("test_year_transform_date");
     }
@@ -1673,6 +1791,21 @@ public abstract class BaseIcebergConnectorTest
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
                         "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)");
 
+        assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE d >= DATE '2015-01-01'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+        assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE d >= DATE '2015-01-02'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE d >= TIMESTAMP '2015-01-01 00:00:00'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp
+        assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE d >= TIMESTAMP '2015-01-01 00:00:00.000001'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
         dropTable("test_year_transform_timestamp");
     }
 
@@ -1731,6 +1864,22 @@ public abstract class BaseIcebergConnectorTest
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
                         "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)");
 
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        // Tests run with non-UTC session, so timestamp_tz > a_date will not align with partition boundaries. Use with_timezone to align it.
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d >= with_timezone(DATE '2015-01-01', 'UTC')"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp with time zone
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d >= with_timezone(DATE '2015-01-02', 'UTC')"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d >= TIMESTAMP '2015-01-01 00:00:00 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on timestamp with time zone
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d >= TIMESTAMP '2015-01-01 00:00:00.000001 UTC'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
         assertUpdate("DROP TABLE test_year_transform_timestamptz");
     }
 
@@ -1772,6 +1921,23 @@ public abstract class BaseIcebergConnectorTest
                         "  ('d', " + (format == PARQUET ? "205e0" : "NULL") + ", NULL, 0.125e0, NULL, NULL, NULL), " +
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
                         "  (NULL, NULL, NULL, NULL, 8e0, NULL, NULL)");
+
+        assertThat(query("SELECT * FROM test_truncate_text_transform WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_truncate_text_transform WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_truncate_text_transform WHERE d >= 'ab'"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on varchar
+        // Currently, prefix-checking LIKE -> range conversion is part of DomainTranslator and doesn't allow for filter elimination. TODO subsume prefix-checking LIKE with truncate().
+        assertThat(query("SELECT * FROM test_truncate_text_transform WHERE d LIKE 'ab%'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        // condition to long to subsume, we use truncate(2)
+        assertThat(query("SELECT * FROM test_truncate_text_transform WHERE d >= 'abc'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        // condition to long to subsume, we use truncate(2)
+        assertThat(query("SELECT * FROM test_truncate_text_transform WHERE d LIKE 'abc%'"))
+                .isNotFullyPushedDown(FilterNode.class);
 
         dropTable("test_truncate_text_transform");
     }
@@ -1833,6 +1999,18 @@ public abstract class BaseIcebergConnectorTest
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
                         "  (NULL, NULL, NULL, NULL, 16e0, NULL, NULL)");
 
+        assertThat(query("SELECT * FROM " + table + " WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM " + table + " WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM " + table + " WHERE d >= 10"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM " + table + " WHERE d > 10"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM " + table + " WHERE d >= 11"))
+                .isNotFullyPushedDown(FilterNode.class);
+
         dropTable(table);
     }
 
@@ -1885,6 +2063,18 @@ public abstract class BaseIcebergConnectorTest
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), " +
                         "  (NULL, NULL, NULL, NULL, 6e0, NULL, NULL)");
 
+        assertThat(query("SELECT * FROM test_truncate_decimal_transform WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_truncate_decimal_transform WHERE d IS NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM test_truncate_decimal_transform WHERE d >= 12.20"))
+                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on decimals
+        assertThat(query("SELECT * FROM test_truncate_decimal_transform WHERE d > 12.20"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_truncate_decimal_transform WHERE d >= 12.21"))
+                .isNotFullyPushedDown(FilterNode.class);
+
         dropTable("test_truncate_decimal_transform");
     }
 
@@ -1893,6 +2083,7 @@ public abstract class BaseIcebergConnectorTest
     {
         testBucketTransformForType("DATE", "DATE '2020-05-19'", "DATE '2020-08-19'", "DATE '2020-11-19'");
         testBucketTransformForType("VARCHAR", "CAST('abcd' AS VARCHAR)", "CAST('mommy' AS VARCHAR)", "CAST('abxy' AS VARCHAR)");
+        testBucketTransformForType("INTEGER", "10", "12", "20");
         testBucketTransformForType("BIGINT", "CAST(100000000 AS BIGINT)", "CAST(200000002 AS BIGINT)", "CAST(400000001 AS BIGINT)");
         testBucketTransformForType(
                 "UUID",
@@ -1912,6 +2103,10 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("CREATE TABLE %s (d %s) WITH (partitioning = ARRAY['bucket(d, 2)'])", tableName, type));
         assertUpdate(format("INSERT INTO %s VALUES (NULL), (%s), (%s), (%s)", tableName, value, greaterValueInSameBucket, valueInOtherBucket), 4);
         assertThat(query(format("SELECT * FROM %s", tableName))).matches(format("VALUES (NULL), (%s), (%s), (%s)", value, greaterValueInSameBucket, valueInOtherBucket));
+        assertThat(query(format("SELECT * FROM %s WHERE d <= %s AND (rand() = 42 OR d != %s)", tableName, value, valueInOtherBucket)))
+                .matches("VALUES " + value);
+        assertThat(query(format("SELECT * FROM %s WHERE d >= %s AND (rand() = 42 OR d != %s)", tableName, greaterValueInSameBucket, valueInOtherBucket)))
+                .matches("VALUES " + greaterValueInSameBucket);
 
         String selectFromPartitions = format("SELECT partition.d_bucket, record_count, data.d.min AS d_min, data.d.max AS d_max FROM \"%s$partitions\"", tableName);
 
@@ -1930,6 +2125,35 @@ public abstract class BaseIcebergConnectorTest
                 .matches("VALUES " +
                         "  ('d', NULL, 0.25e0, NULL), " +
                         "  (NULL, NULL, NULL, 4e0)");
+
+        assertThat(query("SELECT * FROM " + tableName + " WHERE d IS NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM " + tableName + " WHERE d IS NOT NULL"))
+                .isNotFullyPushedDown(FilterNode.class); // this could be subsumed
+
+        // Bucketing transform doesn't allow comparison filter elimination
+        if (format == PARQUET && type.equals("UUID")) {
+            // TODO (https://github.com/trinodb/trino/issues/12834): reading Parquet with UUID filter yields incorrect results
+            assertThatThrownBy(() -> assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + value)).isNotFullyPushedDown(FilterNode.class))
+                    .isInstanceOf(AssertionError.class)
+                    .hasMessageMatching("(?s)\\[Rows for query .*to contain exactly in any order:.*but could not find the following elements:.*");
+        }
+        else {
+            assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + value))
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
+        assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + greaterValueInSameBucket))
+                .isNotFullyPushedDown(FilterNode.class);
+        if (format == PARQUET && type.equals("UUID")) {
+            // TODO (https://github.com/trinodb/trino/issues/12834): reading Parquet with UUID filter yields incorrect results
+            assertThatThrownBy(() -> assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + valueInOtherBucket)).isNotFullyPushedDown(FilterNode.class))
+                    .isInstanceOf(AssertionError.class)
+                    .hasMessageMatching("(?s)\\[Rows for query .*to contain exactly in any order:.*but could not find the following elements:.*");
+        }
+        else {
+            assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + valueInOtherBucket))
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
 
         dropTable(tableName);
     }
@@ -1993,6 +2217,14 @@ public abstract class BaseIcebergConnectorTest
                         "  ('d', " + (format == PARQUET ? "76e0" : "NULL") + ", NULL, 0.2857142857142857, NULL, NULL, NULL), " +
                         "  ('b', NULL, NULL, 0e0, NULL, '1', '7'), " +
                         "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)");
+
+        // Void transform doesn't allow filter elimination
+        assertThat(query("SELECT * FROM test_void_transform WHERE d IS NULL"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_void_transform WHERE d IS NOT NULL"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_void_transform WHERE d >= 'abc'"))
+                .isNotFullyPushedDown(FilterNode.class);
 
         assertUpdate("DROP TABLE " + "test_void_transform");
     }
