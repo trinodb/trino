@@ -18,7 +18,9 @@ import io.trino.spi.type.Type.Range;
 
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -47,6 +49,12 @@ public final class TrinoTypes
             return getAdjacentValue((long) typeRange.getMin(), (long) typeRange.getMax(), (long) value, Direction.PREV);
         }
 
+        if (type == DATE) {
+            // TODO update the code here when type implements getRange
+            verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
+            return getAdjacentValue(Integer.MIN_VALUE, Integer.MAX_VALUE, (long) value, Direction.PREV);
+        }
+
         return Optional.empty();
     }
 
@@ -67,6 +75,12 @@ public final class TrinoTypes
         if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT) {
             Range typeRange = type.getRange().orElseThrow();
             return getAdjacentValue((long) typeRange.getMin(), (long) typeRange.getMax(), (long) value, Direction.NEXT);
+        }
+
+        if (type == DATE) {
+            // TODO update the code here when type implements getRange
+            verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
+            return getAdjacentValue(Integer.MIN_VALUE, Integer.MAX_VALUE, (long) value, Direction.NEXT);
         }
 
         return Optional.empty();
