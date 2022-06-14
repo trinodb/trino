@@ -81,6 +81,7 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
@@ -128,13 +129,13 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -174,6 +175,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERT
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInAllSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
@@ -230,6 +232,7 @@ public class IcebergMetadata
     public static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
     private final TypeManager typeManager;
+    private final TypeOperators typeOperators;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalog catalog;
     private final HdfsEnvironment hdfsEnvironment;
@@ -240,11 +243,13 @@ public class IcebergMetadata
 
     public IcebergMetadata(
             TypeManager typeManager,
+            TypeOperators typeOperators,
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalog catalog,
             HdfsEnvironment hdfsEnvironment)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -1715,32 +1720,34 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) handle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
-        Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
-        BiPredicate<IcebergColumnHandle, Domain> isIdentityPartition = (column, domain) -> partitionSourceIds.contains(column.getId());
-        // Iceberg metadata columns can not be used in table scans
-        BiPredicate<IcebergColumnHandle, Domain> isMetadataColumn = (column, domain) -> isMetadataColumnId(column.getId());
+        Map<IcebergColumnHandle, Domain> unsupported = new LinkedHashMap<>();
+        Map<IcebergColumnHandle, Domain> newEnforced = new LinkedHashMap<>();
+        Map<IcebergColumnHandle, Domain> newUnenforced = new LinkedHashMap<>();
+        Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
+        domains.forEach((column, domain) -> {
+            IcebergColumnHandle columnHandle = (IcebergColumnHandle) column;
+            // Iceberg metadata columns can not be used to filter a table scan in Iceberg library
+            // TODO (https://github.com/trinodb/trino/issues/8759) structural types cannot be used to filter a table scan in Iceberg library.
+            if (isMetadataColumnId(columnHandle.getId()) || isStructuralType(columnHandle.getType())) {
+                unsupported.put(columnHandle, domain);
+            }
+            else if (canEnforceColumnConstraintInAllSpecs(typeOperators, icebergTable, columnHandle, domain)) {
+                newEnforced.put(columnHandle, domain);
+            }
+            else {
+                newUnenforced.put(columnHandle, domain);
+            }
+        });
 
-        TupleDomain<IcebergColumnHandle> newEnforcedConstraint = constraint.getSummary()
-                .transformKeys(IcebergColumnHandle.class::cast)
-                .filter(isIdentityPartition)
-                .intersect(table.getEnforcedPredicate());
-
-        TupleDomain<IcebergColumnHandle> remainingConstraint = constraint.getSummary()
-                .transformKeys(IcebergColumnHandle.class::cast)
-                .filter(isIdentityPartition.negate());
-
-        TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = remainingConstraint
-                // TODO: Remove after completing https://github.com/trinodb/trino/issues/8759
-                // Only applies to the unenforced constraint because structural types cannot be partition keys
-                .filter((columnHandle, predicate) -> !isStructuralType(columnHandle.getType()))
-                .filter(isMetadataColumn.negate())
-                .intersect(table.getUnenforcedPredicate());
+        TupleDomain<IcebergColumnHandle> newEnforcedConstraint = TupleDomain.withColumnDomains(newEnforced).intersect(table.getEnforcedPredicate());
+        TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = TupleDomain.withColumnDomains(newUnenforced).intersect(table.getUnenforcedPredicate());
 
         if (newEnforcedConstraint.equals(table.getEnforcedPredicate())
                 && newUnenforcedConstraint.equals(table.getUnenforcedPredicate())) {
             return Optional.empty();
         }
 
+        TupleDomain<IcebergColumnHandle> remainingConstraint = TupleDomain.withColumnDomains(newUnenforced).intersect(TupleDomain.withColumnDomains(unsupported));
         return Optional.of(new ConstraintApplicationResult<>(
                 new IcebergTableHandle(
                         table.getSchemaName(),
