@@ -210,10 +210,10 @@ public class ParquetTester
     {
         List<TypeInfo> typeInfos = getTypeInfosFromTypeString(objectInspector.getTypeName());
         MessageType schema = SingleLevelArraySchemaConverter.convert(TEST_COLUMN, typeInfos);
-        testSingleLevelArrayRoundTrip(objectInspector, writeValues, readValues, type, Optional.of(schema));
+        testSingleLevelArrayRoundTrip(objectInspector, writeValues, readValues, getOnlyElement(TEST_COLUMN), type, Optional.of(schema));
         if (objectInspector.getTypeName().contains("map<")) {
             schema = SingleLevelArrayMapKeyValuesSchemaConverter.convert(TEST_COLUMN, typeInfos);
-            testSingleLevelArrayRoundTrip(objectInspector, writeValues, readValues, type, Optional.of(schema));
+            testSingleLevelArrayRoundTrip(objectInspector, writeValues, readValues, getOnlyElement(TEST_COLUMN), type, Optional.of(schema));
         }
     }
 
@@ -244,12 +244,6 @@ public class ParquetTester
             throws Exception
     {
         testRoundTrip(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {readValues}, TEST_COLUMN, singletonList(type), parquetSchema, false);
-    }
-
-    public void testSingleLevelArrayRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema)
-            throws Exception
-    {
-        testRoundTrip(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {readValues}, TEST_COLUMN, singletonList(type), parquetSchema, true);
     }
 
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, String columnName, Type type, Optional<MessageType> parquetSchema)
