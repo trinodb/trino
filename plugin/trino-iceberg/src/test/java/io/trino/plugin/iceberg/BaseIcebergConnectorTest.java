@@ -3416,6 +3416,64 @@ public abstract class BaseIcebergConnectorTest
                 .collect(DataProviders.toDataProvider());
     }
 
+    @Test(dataProvider = "testOptimizeTimePartitionedTableDataProvider")
+    public void testOptimizeTimePartitionedTable(String dataType, String partitioningFormat, int expectedFilesAfterOptimize)
+    {
+        String tableName = "test_optimize_time_partitioned_" +
+                (dataType + "_" + partitioningFormat).toLowerCase(Locale.ENGLISH).replaceAll("[^a-z0-9_]", "");
+        assertUpdate(format("CREATE TABLE %s(p %s, val varchar) WITH (partitioning = ARRAY['%s'])", tableName, dataType, format(partitioningFormat, "p")));
+
+        // Do several inserts so ensure more than one input file
+        for (int hour = 0; hour < 5; hour++) {
+            assertUpdate(
+                    "" +
+                            "INSERT INTO " + tableName + " " +
+                            "SELECT CAST(t AS " + dataType + "), CAST(t AS varchar) " +
+                            "FROM (" +
+                            "    SELECT " +
+                            "        TIMESTAMP '2022-01-16 10:05:06.123456 UTC'" +
+                            "            + month * INTERVAL '1' MONTH " +
+                            "            + day * INTERVAL '1' DAY " +
+                            "            + " + hour + " * INTERVAL '1' HOUR " +
+                            "            AS t" +
+                            "    FROM UNNEST(sequence(1, 5)) AS _(month)" +
+                            "    CROSS JOIN UNNEST(sequence(1, 5)) AS _(day)" +
+                            ")",
+                    25);
+        }
+
+        String optimizeDate = "DATE '2022-04-01'";
+        assertThat((long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName))
+                .as("total file count")
+                .isGreaterThanOrEqualTo(5);
+        long filesBeforeOptimizeDate = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName + " WHERE p < " + optimizeDate);
+        assertThat(filesBeforeOptimizeDate)
+                .as("file count before optimize date")
+                .isGreaterThanOrEqualTo(5);
+        assertThat((long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName + " WHERE p >= " + optimizeDate))
+                .as("file count after optimize date")
+                .isGreaterThanOrEqualTo(5);
+
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize WHERE p >= " + optimizeDate);
+
+        assertThat((long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName + " WHERE p < " + optimizeDate))
+                .as("file count before optimize date, after the optimize")
+                .isEqualTo(filesBeforeOptimizeDate);
+        assertThat((long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName + " WHERE p >= " + optimizeDate))
+                .as("file count after optimize date, after the optimize")
+                .isEqualTo(expectedFilesAfterOptimize);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public static Object[][] testOptimizeTimePartitionedTableDataProvider()
+    {
+        return new Object[][] {
+                {"date", "%s", 15},
+        };
+    }
+
     @Test
     public void testOptimizeTableAfterDeleteWithFormatVersion2()
     {
