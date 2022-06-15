@@ -44,7 +44,6 @@ public class KuduClientConfig
     private boolean disableStatistics;
     private boolean schemaEmulationEnabled;
     private String schemaEmulationPrefix = "presto::";
-    private boolean groupedExecutionEnabled;
     private Duration dynamicFilteringWaitTimeout = new Duration(0, MINUTES);
 
     @NotNull
@@ -129,18 +128,6 @@ public class KuduClientConfig
     {
         this.schemaEmulationEnabled = enabled;
         return this;
-    }
-
-    @Config("kudu.grouped-execution.enabled")
-    public KuduClientConfig setGroupedExecutionEnabled(boolean enabled)
-    {
-        this.groupedExecutionEnabled = enabled;
-        return this;
-    }
-
-    public boolean isGroupedExecutionEnabled()
-    {
-        return groupedExecutionEnabled;
     }
 
     @MinDuration("0ms")
