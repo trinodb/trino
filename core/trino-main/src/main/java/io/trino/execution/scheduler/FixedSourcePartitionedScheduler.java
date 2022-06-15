@@ -122,10 +122,7 @@ public class FixedSourcePartitionedScheduler
 
     private ConnectorPartitionHandle partitionHandleFor(Lifespan lifespan)
     {
-        if (lifespan.isTaskWide()) {
-            return NOT_PARTITIONED;
-        }
-        return partitionHandles.get(lifespan.getId());
+        return NOT_PARTITIONED;
     }
 
     @Override
