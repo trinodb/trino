@@ -55,7 +55,6 @@ import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.FailureInjector.InjectedFailureType;
-import io.trino.execution.Lifespan;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPreparer;
@@ -1128,7 +1127,7 @@ public class LocalQueryRunner
 
     private static List<Split> getNextBatch(SplitSource splitSource)
     {
-        return getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000)).getSplits();
+        return getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000)).getSplits();
     }
 
     private static List<TableScanNode> findTableScanNodes(PlanNode node)

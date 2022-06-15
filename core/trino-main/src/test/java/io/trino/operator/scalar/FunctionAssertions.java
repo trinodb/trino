@@ -25,7 +25,6 @@ import io.airlift.units.DataSize;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -973,12 +972,12 @@ public final class FunctionAssertions
 
     private static Split createRecordSetSplit()
     {
-        return new Split(new CatalogName("test"), new TestSplit(true), Lifespan.taskWide());
+        return new Split(new CatalogName("test"), new TestSplit(true));
     }
 
     private static Split createNormalSplit()
     {
-        return new Split(new CatalogName("test"), new TestSplit(false), Lifespan.taskWide());
+        return new Split(new CatalogName("test"), new TestSplit(false));
     }
 
     private static RowType createTestRowType(int numberOfFields)

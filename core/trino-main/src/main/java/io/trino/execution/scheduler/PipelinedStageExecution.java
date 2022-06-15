@@ -352,7 +352,6 @@ public class PipelinedStageExecution
         allTasks.add(task.getTaskId());
 
         task.addSplits(exchangeSplits.build());
-        noMoreSplitsForLifespan.forEach(task::noMoreSplits);
         completeSources.forEach(task::noMoreSplits);
 
         task.addStateChangeListener(this::updateTaskStatus);
@@ -570,7 +569,7 @@ public class PipelinedStageExecution
         // Fetch the results from the buffer assigned to the task based on id
         URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
         URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().getPartitionId())).build();
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(new DirectExchangeInput(sourceTask.getTaskId(), splitLocation.toString())), Lifespan.taskWide());
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(new DirectExchangeInput(sourceTask.getTaskId(), splitLocation.toString())));
     }
 
     private static class PipelinedStageStateMachine

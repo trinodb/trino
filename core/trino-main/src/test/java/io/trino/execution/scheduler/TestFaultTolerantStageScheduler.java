@@ -27,7 +27,6 @@ import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
 import io.trino.cost.StatsAndCosts;
-import io.trino.execution.Lifespan;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.SqlStage;
@@ -310,12 +309,12 @@ public class TestFaultTolerantStageScheduler
     {
         TestingRemoteTaskFactory remoteTaskFactory = new TestingRemoteTaskFactory();
         List<Split> splits = ImmutableList.of(
-                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort())), Lifespan.taskWide()),  // 0
-                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort())), Lifespan.taskWide()),  // 1
-                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort())), Lifespan.taskWide()),  // 2
-                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_2.getHostAndPort())), Lifespan.taskWide()),  // 3
-                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort())), Lifespan.taskWide()),  // 4
-                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_3.getHostAndPort())), Lifespan.taskWide())); // 5
+                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort()))),  // 0
+                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort()))),  // 1
+                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort()))),  // 2
+                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_2.getHostAndPort()))),  // 3
+                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort()))),  // 4
+                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_3.getHostAndPort())))); // 5
         TestingTaskSourceFactory taskSourceFactory = new TestingTaskSourceFactory(Optional.of(CATALOG), splits, 2);
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(
                 NODE_1, ImmutableList.of(CATALOG),
@@ -1053,7 +1052,7 @@ public class TestFaultTolerantStageScheduler
 
     private static List<Split> createSplits(int count)
     {
-        return ImmutableList.copyOf(limit(cycle(new Split(CATALOG, createRemoteSplit(), Lifespan.taskWide())), count));
+        return ImmutableList.copyOf(limit(cycle(new Split(CATALOG, createRemoteSplit())), count));
     }
 
     private static TaskId getTaskId(int partitionId, int attemptId)

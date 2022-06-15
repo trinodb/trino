@@ -218,11 +218,6 @@ public class TestingRemoteTaskFactory
         }
 
         @Override
-        public void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan)
-        {
-        }
-
-        @Override
         public synchronized void setOutputBuffers(OutputBuffers outputBuffers)
         {
             this.outputBuffers = outputBuffers;

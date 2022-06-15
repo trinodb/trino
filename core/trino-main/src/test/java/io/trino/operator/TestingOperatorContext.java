@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.MoreExecutors;
-import io.trino.execution.Lifespan;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSession;
@@ -53,7 +52,6 @@ public final class TestingOperatorContext
                 executor,
                 scheduledExecutor,
                 pipelineMemoryContext,
-                Lifespan.taskWide(),
                 0L);
 
         OperatorContext operatorContext = driverContext.addOperatorContext(

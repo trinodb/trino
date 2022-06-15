@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
-import io.trino.execution.Lifespan;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.matching.Capture;
@@ -471,7 +470,7 @@ public class ExtractSpatialJoins
         Optional<KdbTree> kdbTree = Optional.empty();
         try (SplitSource splitSource = splitManager.getSplits(session, tableHandle, EMPTY, alwaysTrue())) {
             while (!Thread.currentThread().isInterrupted()) {
-                SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000));
+                SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000));
                 List<Split> splits = splitBatch.getSplits();
 
                 for (Split split : splits) {

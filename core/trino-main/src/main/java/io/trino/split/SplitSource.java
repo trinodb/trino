@@ -15,7 +15,6 @@ package io.trino.split;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
 import io.trino.metadata.Split;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 
@@ -30,7 +29,7 @@ public interface SplitSource
 {
     CatalogName getCatalogName();
 
-    ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize);
+    ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize);
 
     @Override
     void close();

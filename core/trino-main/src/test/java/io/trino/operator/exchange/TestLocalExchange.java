@@ -19,7 +19,6 @@ import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -27,9 +26,7 @@ import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PageAssertions;
-import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
-import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
 import io.trino.spi.Page;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
@@ -65,7 +62,6 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUT
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -104,31 +100,29 @@ public class TestLocalExchange
     @Test
     public void testGatherSingleWriter()
     {
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                SINGLE_DISTRIBUTION,
                 8,
-                TYPES,
+                SINGLE_DISTRIBUTION,
                 ImmutableList.of(),
+                TYPES,
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(99)),
                 TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 1);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource source = exchange.getSource(0);
             assertSource(source, 0);
 
             LocalExchangeSink sink = sinkFactory.createSink();
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             assertSinkCanWrite(sink);
             assertSource(source, 0);
@@ -178,30 +172,28 @@ public class TestLocalExchange
     @Test
     public void testBroadcast()
     {
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                FIXED_BROADCAST_DISTRIBUTION,
                 2,
-                TYPES,
+                FIXED_BROADCAST_DISTRIBUTION,
                 ImmutableList.of(),
+                TYPES,
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sinkA = sinkFactory.createSink();
             assertSinkCanWrite(sinkA);
             LocalExchangeSink sinkB = sinkFactory.createSink();
             assertSinkCanWrite(sinkB);
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(0);
             assertSource(sourceA, 0);
@@ -267,28 +259,26 @@ public class TestLocalExchange
     @Test
     public void testRandom()
     {
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                FIXED_ARBITRARY_DISTRIBUTION,
                 2,
-                TYPES,
+                FIXED_ARBITRARY_DISTRIBUTION,
                 ImmutableList.of(),
+                TYPES,
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sink = sinkFactory.createSink();
             assertSinkCanWrite(sink);
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(0);
             assertSource(sourceA, 0);
@@ -317,31 +307,28 @@ public class TestLocalExchange
     @Test
     public void testPassthrough()
     {
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                FIXED_PASSTHROUGH_DISTRIBUTION,
                 2,
-                TYPES,
+                FIXED_PASSTHROUGH_DISTRIBUTION,
                 ImmutableList.of(),
+                TYPES,
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(1)),
                 TYPE_OPERATOR_FACTORY);
 
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
-
-        run(localExchangeFactory, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sinkA = sinkFactory.createSink();
             LocalExchangeSink sinkB = sinkFactory.createSink();
             assertSinkCanWrite(sinkA);
             assertSinkCanWrite(sinkB);
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(0);
             assertSource(sourceA, 0);
@@ -386,28 +373,26 @@ public class TestLocalExchange
     @Test
     public void testPartition()
     {
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                FIXED_HASH_DISTRIBUTION,
                 2,
-                TYPES,
+                FIXED_HASH_DISTRIBUTION,
                 ImmutableList.of(0),
+                TYPES,
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sink = sinkFactory.createSink();
             assertSinkCanWrite(sink);
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(0);
             assertSource(sourceA, 0);
@@ -489,28 +474,26 @@ public class TestLocalExchange
                 Optional.of(new CatalogName("foo")),
                 Optional.of(TestingTransactionHandle.create()),
                 connectorPartitioningHandle);
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                partitioningHandle,
                 2,
-                types,
+                partitioningHandle,
                 ImmutableList.of(1),
+                types,
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sink = sinkFactory.createSink();
             assertSinkCanWrite(sink);
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(1);
             assertSource(sourceA, 0);
@@ -543,30 +526,28 @@ public class TestLocalExchange
     {
         ImmutableList<Type> types = ImmutableList.of(BIGINT);
 
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                FIXED_BROADCAST_DISTRIBUTION,
                 2,
-                types,
+                FIXED_BROADCAST_DISTRIBUTION,
                 ImmutableList.of(),
+                types,
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sinkA = sinkFactory.createSink();
             assertSinkCanWrite(sinkA);
             LocalExchangeSink sinkB = sinkFactory.createSink();
             assertSinkCanWrite(sinkB);
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(0);
             assertSource(sourceA, 0);
@@ -591,30 +572,28 @@ public class TestLocalExchange
     @Test
     public void writeUnblockWhenAllReadersFinishAndPagesConsumed()
     {
-        LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
-                FIXED_BROADCAST_DISTRIBUTION,
                 2,
-                TYPES,
+                FIXED_BROADCAST_DISTRIBUTION,
                 ImmutableList.of(),
+                TYPES,
                 Optional.empty(),
                 DataSize.ofBytes(1),
                 TYPE_OPERATOR_FACTORY);
-        LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
 
-        run(localExchangeFactory, exchange -> {
+        run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
             assertExchangeTotalBufferedBytes(exchange, 0);
 
-            LocalExchangeSinkFactory sinkFactory = exchange.getSinkFactory(localExchangeSinkFactoryId);
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
             LocalExchangeSink sinkA = sinkFactory.createSink();
             assertSinkCanWrite(sinkA);
             LocalExchangeSink sinkB = sinkFactory.createSink();
             assertSinkCanWrite(sinkB);
             sinkFactory.close();
-            sinkFactory.noMoreSinkFactories();
 
             LocalExchangeSource sourceA = exchange.getSource(0);
             assertSource(sourceA, 0);
@@ -654,45 +633,9 @@ public class TestLocalExchange
         });
     }
 
-    @Test
-    public void testMismatchedExecutionStrategy()
+    private void run(LocalExchange localExchange, Consumer<LocalExchange> test)
     {
-        // If sink/source didn't create a matching set of exchanges, operators will block forever,
-        // waiting for the other half that will never show up.
-        // The most common reason of mismatch is when one of sink/source created the wrong kind of local exchange.
-        // In such case, we want to fail loudly.
-        LocalExchangeFactory ungroupedLocalExchangeFactory = new LocalExchangeFactory(
-                nodePartitioningManager,
-                SESSION,
-                FIXED_HASH_DISTRIBUTION,
-                2,
-                TYPES,
-                ImmutableList.of(0),
-                Optional.empty(),
-                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY);
-        assertThatThrownBy(() -> ungroupedLocalExchangeFactory.getLocalExchange(Lifespan.taskWide()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("LocalExchangeFactory is declared as UNGROUPED_EXECUTION. Driver-group exchange cannot be created.");
-
-        LocalExchangeFactory groupedLocalExchangeFactory = new LocalExchangeFactory(
-                nodePartitioningManager,
-                SESSION,
-                FIXED_HASH_DISTRIBUTION,
-                2,
-                TYPES,
-                ImmutableList.of(0),
-                Optional.empty(),
-                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY);
-        assertThatThrownBy(() -> groupedLocalExchangeFactory.getLocalExchange(Lifespan.taskWide()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("LocalExchangeFactory is declared as GROUPED_EXECUTION. Task-wide exchange cannot be created.");
-    }
-
-    private void run(LocalExchangeFactory localExchangeFactory, Consumer<LocalExchange> test)
-    {
-        test.accept(localExchangeFactory.getLocalExchange(Lifespan.taskWide()));
+        test.accept(localExchange);
     }
 
     private static void assertSource(LocalExchangeSource source, int pageCount)

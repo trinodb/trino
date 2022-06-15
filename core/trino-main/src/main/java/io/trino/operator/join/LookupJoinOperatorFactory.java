@@ -14,7 +14,6 @@
 package io.trino.operator.join;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.execution.Lifespan;
 import io.trino.operator.DriverContext;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.InterpretedHashGenerator;
@@ -175,12 +174,6 @@ public class LookupJoinOperatorFactory
         close();
     }
 
-    @Override
-    public void noMoreOperators(Lifespan lifespan)
-    {
-        lifespanFinished(lifespan);
-    }
-
     // Methods from AdapterWorkProcessorOperatorFactory
 
     @Override
@@ -205,9 +198,9 @@ public class LookupJoinOperatorFactory
     public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
     {
         checkState(!closed, "Factory is already closed");
-        LookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge(processorContext.getLifespan());
+        LookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge();
 
-        joinBridgeManager.probeOperatorCreated(processorContext.getLifespan());
+        joinBridgeManager.probeOperatorCreated();
         return new LookupJoinOperator(
                 probeTypes,
                 buildOutputTypes,
@@ -216,7 +209,7 @@ public class LookupJoinOperatorFactory
                 waitForBuild,
                 lookupSourceFactory,
                 joinProbeFactory,
-                () -> joinBridgeManager.probeOperatorClosed(processorContext.getLifespan()),
+                () -> joinBridgeManager.probeOperatorClosed(),
                 totalOperatorsCount,
                 probeHashGenerator,
                 partitioningSpillerFactory,
@@ -228,9 +221,9 @@ public class LookupJoinOperatorFactory
     public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
     {
         checkState(!closed, "Factory is already closed");
-        LookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge(processorContext.getLifespan());
+        LookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge();
 
-        joinBridgeManager.probeOperatorCreated(processorContext.getLifespan());
+        joinBridgeManager.probeOperatorCreated();
         return new LookupJoinOperator(
                 probeTypes,
                 buildOutputTypes,
@@ -239,7 +232,7 @@ public class LookupJoinOperatorFactory
                 waitForBuild,
                 lookupSourceFactory,
                 joinProbeFactory,
-                () -> joinBridgeManager.probeOperatorClosed(processorContext.getLifespan()),
+                () -> joinBridgeManager.probeOperatorClosed(),
                 totalOperatorsCount,
                 probeHashGenerator,
                 partitioningSpillerFactory,
@@ -248,17 +241,11 @@ public class LookupJoinOperatorFactory
     }
 
     @Override
-    public void lifespanFinished(Lifespan lifespan)
-    {
-        joinBridgeManager.probeOperatorFactoryClosed(lifespan);
-    }
-
-    @Override
     public void close()
     {
+        joinBridgeManager.probeOperatorFactoryClosed();
         checkState(!closed);
         closed = true;
-        joinBridgeManager.probeOperatorFactoryClosedForAllLifespans();
     }
 
     @Override
