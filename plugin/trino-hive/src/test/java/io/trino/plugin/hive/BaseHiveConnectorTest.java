@@ -810,22 +810,22 @@ public abstract class BaseHiveConnectorTest
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
-        assertUpdate(admin, "CREATE SCHEMA test_table_authorization");
-        assertUpdate(admin, "CREATE TABLE test_table_authorization.foo (col int)");
+        assertUpdate(admin, "CREATE SCHEMA test_table_authorization_role");
+        assertUpdate(admin, "CREATE TABLE test_table_authorization_role.foo (col int)");
 
         // TODO Change assertions once https://github.com/trinodb/trino/issues/5706 is done
         assertAccessDenied(
                 alice,
-                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION ROLE admin",
-                "Cannot set authorization for table test_table_authorization.foo to ROLE admin");
-        assertUpdate(admin, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice");
+                "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION ROLE admin",
+                "Cannot set authorization for table test_table_authorization_role.foo to ROLE admin");
+        assertUpdate(admin, "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION alice");
         assertQueryFails(
                 alice,
-                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION ROLE admin",
+                "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION ROLE admin",
                 "Setting table owner type as a role is not supported");
 
-        assertUpdate(admin, "DROP TABLE test_table_authorization.foo");
-        assertUpdate(admin, "DROP SCHEMA test_table_authorization");
+        assertUpdate(admin, "DROP TABLE test_table_authorization_role.foo");
+        assertUpdate(admin, "DROP SCHEMA test_table_authorization_role");
     }
 
     @Test
