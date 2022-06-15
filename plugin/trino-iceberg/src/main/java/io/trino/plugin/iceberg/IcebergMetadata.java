@@ -703,6 +703,8 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
+        validateNotModifyingOldSnapshot(table, icebergTable);
+
         verify(transaction == null, "transaction already set");
         transaction = icebergTable.newTransaction();
 
@@ -957,6 +959,8 @@ public class IcebergMetadata
     {
         IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.getProcedureHandle();
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+
+        validateNotModifyingOldSnapshot(table, icebergTable);
 
         int tableFormatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
         if (tableFormatVersion > OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION) {
@@ -1407,8 +1411,12 @@ public class IcebergMetadata
         if (table.getFormatVersion() < 2) {
             throw new TrinoException(NOT_SUPPORTED, "Iceberg table updates require at least format version 2");
         }
+
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        validateNotModifyingOldSnapshot(table, icebergTable);
+
         verify(transaction == null, "transaction already set");
-        transaction = catalog.loadTable(session, table.getSchemaTableName()).newTransaction();
+        transaction = icebergTable.newTransaction();
         return table.withRetryMode(retryMode);
     }
 
@@ -1431,8 +1439,12 @@ public class IcebergMetadata
         if (table.getFormatVersion() < 2) {
             throw new TrinoException(NOT_SUPPORTED, "Iceberg table updates require at least format version 2");
         }
+
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        validateNotModifyingOldSnapshot(table, icebergTable);
+
         verify(transaction == null, "transaction already set");
-        transaction = catalog.loadTable(session, table.getSchemaTableName()).newTransaction();
+        transaction = icebergTable.newTransaction();
         return table.withRetryMode(retryMode)
                 .withUpdatedColumns(updatedColumns.stream()
                         .map(IcebergColumnHandle.class::cast)
@@ -1465,6 +1477,13 @@ public class IcebergMetadata
 
         Types.NestedField icebergRowIdField = Types.NestedField.required(TRINO_UPDATE_ROW_ID_COLUMN_ID, TRINO_UPDATE_ROW_ID_COLUMN_NAME, Types.StructType.of(unmodifiedColumns));
         return getColumnHandle(icebergRowIdField, typeManager);
+    }
+
+    private void validateNotModifyingOldSnapshot(IcebergTableHandle table, Table icebergTable)
+    {
+        if (table.getSnapshotId().isPresent() && table.getSnapshotId().get() != icebergTable.currentSnapshot().snapshotId()) {
+            throw new TrinoException(NOT_SUPPORTED, "Modifying old snapshot is not supported in Iceberg.");
+        }
     }
 
     private void finishWrite(ConnectorSession session, IcebergTableHandle table, Collection<Slice> fragments, boolean runUpdateValidations)
