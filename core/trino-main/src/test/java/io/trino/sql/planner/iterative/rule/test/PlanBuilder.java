@@ -753,6 +753,7 @@ public class PlanBuilder
     {
         OutputTableHandle tableHandle = new OutputTableHandle(
                 catalog,
+                schemaTableName,
                 TestingConnectorTransactionHandle.INSTANCE,
                 TestingHandle.INSTANCE);
         return new CreateTarget(
