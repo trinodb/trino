@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
-import io.trino.execution.Lifespan;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.ScheduleResult.BlockedReason;
@@ -53,7 +52,6 @@ public class FixedSourcePartitionedScheduler
     private final StageExecution stageExecution;
     private final List<InternalNode> nodes;
     private final List<SourceScheduler> sourceSchedulers;
-    private final List<ConnectorPartitionHandle> partitionHandles;
 
     private final PartitionIdAllocator partitionIdAllocator;
     private final Map<InternalNode, RemoteTask> scheduledTasks;
@@ -79,14 +77,13 @@ public class FixedSourcePartitionedScheduler
 
         this.stageExecution = stageExecution;
         this.nodes = ImmutableList.copyOf(nodes);
-        this.partitionHandles = ImmutableList.copyOf(partitionHandles);
 
         checkArgument(splitSources.keySet().equals(ImmutableSet.copyOf(schedulingOrder)));
 
         BucketedSplitPlacementPolicy splitPlacementPolicy = new BucketedSplitPlacementPolicy(nodeSelector, nodes, bucketNodeMap, stageExecution::getAllTasks);
 
         ArrayList<SourceScheduler> sourceSchedulers = new ArrayList<>();
-        int concurrentLifespans = partitionHandles.size();
+        checkArgument(partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)), "PartitionHandles should be [NOT_PARTITIONED]");
 
         boolean firstPlanNode = true;
 
@@ -101,8 +98,7 @@ public class FixedSourcePartitionedScheduler
                     planNodeId,
                     splitSource,
                     splitPlacementPolicy,
-                    Math.max(splitBatchSize / concurrentLifespans, 1),
-                    false,
+                    splitBatchSize,
                     dynamicFilterService,
                     tableExecuteContextManager,
                     () -> true,
@@ -113,16 +109,9 @@ public class FixedSourcePartitionedScheduler
 
             if (firstPlanNode) {
                 firstPlanNode = false;
-                sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
-                sourceScheduler.noMoreLifespans();
             }
         }
         this.sourceSchedulers = sourceSchedulers;
-    }
-
-    private ConnectorPartitionHandle partitionHandleFor(Lifespan lifespan)
-    {
-        return NOT_PARTITIONED;
     }
 
     @Override
@@ -133,7 +122,7 @@ public class FixedSourcePartitionedScheduler
         if (scheduledTasks.isEmpty()) {
             ImmutableList.Builder<RemoteTask> newTasksBuilder = ImmutableList.builder();
             for (InternalNode node : nodes) {
-                Optional<RemoteTask> task = stageExecution.scheduleTask(node, partitionIdAllocator.getNextId(), ImmutableMultimap.of(), ImmutableMultimap.of());
+                Optional<RemoteTask> task = stageExecution.scheduleTask(node, partitionIdAllocator.getNextId(), ImmutableMultimap.of());
                 if (task.isPresent()) {
                     scheduledTasks.put(node, task.get());
                     newTasksBuilder.add(task.get());
@@ -148,17 +137,8 @@ public class FixedSourcePartitionedScheduler
 
         int splitsScheduled = 0;
         Iterator<SourceScheduler> schedulerIterator = sourceSchedulers.iterator();
-        List<Lifespan> driverGroupsToStart = ImmutableList.of();
-        boolean shouldInvokeNoMoreDriverGroups = false;
         while (schedulerIterator.hasNext()) {
             SourceScheduler sourceScheduler = schedulerIterator.next();
-
-            for (Lifespan lifespan : driverGroupsToStart) {
-                sourceScheduler.startLifespan(lifespan, partitionHandleFor(lifespan));
-            }
-            if (shouldInvokeNoMoreDriverGroups) {
-                sourceScheduler.noMoreLifespans();
-            }
 
             ScheduleResult schedule = sourceScheduler.schedule();
             splitsScheduled += schedule.getSplitsScheduled();
@@ -171,16 +151,10 @@ public class FixedSourcePartitionedScheduler
                 allBlocked = false;
             }
 
-            driverGroupsToStart = sourceScheduler.drainCompletedLifespans();
-
             if (schedule.isFinished()) {
                 stageExecution.schedulingComplete(sourceScheduler.getPlanNodeId());
                 schedulerIterator.remove();
                 sourceScheduler.close();
-                shouldInvokeNoMoreDriverGroups = true;
-            }
-            else {
-                shouldInvokeNoMoreDriverGroups = false;
             }
         }
 
@@ -241,11 +215,6 @@ public class FixedSourcePartitionedScheduler
         public List<InternalNode> allNodes()
         {
             return allNodes;
-        }
-
-        public InternalNode getNodeForBucket(int bucketId)
-        {
-            return bucketNodeMap.getAssignedNode(bucketId).get();
         }
     }
 }
