@@ -210,10 +210,10 @@ public class ParquetTester
     {
         List<TypeInfo> typeInfos = getTypeInfosFromTypeString(objectInspector.getTypeName());
         MessageType schema = SingleLevelArraySchemaConverter.convert(TEST_COLUMN, typeInfos);
-        testSingleLevelArrayRoundTrip(objectInspector, writeValues, readValues, getOnlyElement(TEST_COLUMN), type, Optional.of(schema));
+        testRoundTrip(objectInspector, writeValues, readValues, getOnlyElement(TEST_COLUMN), type, Optional.of(schema), ParquetSchemaOptions.withSingleLevelArray());
         if (objectInspector.getTypeName().contains("map<")) {
             schema = SingleLevelArrayMapKeyValuesSchemaConverter.convert(TEST_COLUMN, typeInfos);
-            testSingleLevelArrayRoundTrip(objectInspector, writeValues, readValues, getOnlyElement(TEST_COLUMN), type, Optional.of(schema));
+            testRoundTrip(objectInspector, writeValues, readValues, getOnlyElement(TEST_COLUMN), type, Optional.of(schema), ParquetSchemaOptions.withSingleLevelArray());
         }
     }
 
@@ -222,7 +222,7 @@ public class ParquetTester
     {
         // just the values
         testRoundTripType(singletonList(objectInspector), new Iterable<?>[] {writeValues},
-                new Iterable<?>[] {readValues}, TEST_COLUMN, singletonList(type), Optional.empty(), false);
+                new Iterable<?>[] {readValues}, TEST_COLUMN, singletonList(type), Optional.empty(), ParquetSchemaOptions.defaultOptions());
 
         // all nulls
         assertRoundTrip(objectInspector, transform(writeValues, constant(null)),
@@ -232,7 +232,7 @@ public class ParquetTester
             MessageType schema = MapKeyValuesSchemaConverter.convert(TEST_COLUMN, typeInfos);
             // just the values
             testRoundTripType(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {
-                    readValues}, TEST_COLUMN, singletonList(type), Optional.of(schema), false);
+                    readValues}, TEST_COLUMN, singletonList(type), Optional.of(schema), ParquetSchemaOptions.defaultOptions());
 
             // all nulls
             assertRoundTrip(objectInspector, transform(writeValues, constant(null)),
@@ -243,23 +243,30 @@ public class ParquetTester
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema)
             throws Exception
     {
-        testRoundTrip(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {readValues}, TEST_COLUMN, singletonList(type), parquetSchema, false);
+        testRoundTrip(
+                objectInspector,
+                writeValues,
+                readValues,
+                getOnlyElement(TEST_COLUMN),
+                type,
+                parquetSchema,
+                ParquetSchemaOptions.defaultOptions());
     }
 
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, String columnName, Type type, Optional<MessageType> parquetSchema)
             throws Exception
     {
         testRoundTrip(
-                singletonList(objectInspector),
-                new Iterable<?>[] {writeValues},
-                new Iterable<?>[] {readValues},
-                singletonList(columnName),
-                singletonList(type),
+                objectInspector,
+                writeValues,
+                readValues,
+                columnName,
+                type,
                 parquetSchema,
-                false);
+                ParquetSchemaOptions.defaultOptions());
     }
 
-    public void testSingleLevelArrayRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, String columnName, Type type, Optional<MessageType> parquetSchema)
+    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, String columnName, Type type, Optional<MessageType> parquetSchema, ParquetSchemaOptions schemaOptions)
             throws Exception
     {
         testRoundTrip(
@@ -269,17 +276,17 @@ public class ParquetTester
                 singletonList(columnName),
                 singletonList(type),
                 parquetSchema,
-                true);
+                schemaOptions);
     }
 
-    public void testRoundTrip(List<ObjectInspector> objectInspectors, Iterable<?>[] writeValues, Iterable<?>[] readValues, List<String> columnNames, List<Type> columnTypes, Optional<MessageType> parquetSchema, boolean singleLevelArray)
+    public void testRoundTrip(List<ObjectInspector> objectInspectors, Iterable<?>[] writeValues, Iterable<?>[] readValues, List<String> columnNames, List<Type> columnTypes, Optional<MessageType> parquetSchema, ParquetSchemaOptions schemaOptions)
             throws Exception
     {
         // just the values
-        testRoundTripType(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema, singleLevelArray);
+        testRoundTripType(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema, schemaOptions);
 
         // all nulls
-        assertRoundTrip(objectInspectors, transformToNulls(writeValues), transformToNulls(readValues), columnNames, columnTypes, parquetSchema, singleLevelArray);
+        assertRoundTrip(objectInspectors, transformToNulls(writeValues), transformToNulls(readValues), columnNames, columnTypes, parquetSchema, schemaOptions);
     }
 
     private void testRoundTripType(
@@ -289,20 +296,20 @@ public class ParquetTester
             List<String> columnNames,
             List<Type> columnTypes,
             Optional<MessageType> parquetSchema,
-            boolean singleLevelArray)
+            ParquetSchemaOptions schemaOptions)
             throws Exception
     {
         // forward order
-        assertRoundTrip(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema, singleLevelArray);
+        assertRoundTrip(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema, schemaOptions);
 
         // reverse order
-        assertRoundTrip(objectInspectors, reverse(writeValues), reverse(readValues), columnNames, columnTypes, parquetSchema, singleLevelArray);
+        assertRoundTrip(objectInspectors, reverse(writeValues), reverse(readValues), columnNames, columnTypes, parquetSchema, schemaOptions);
 
         // forward order with nulls
-        assertRoundTrip(objectInspectors, insertNullEvery(5, writeValues), insertNullEvery(5, readValues), columnNames, columnTypes, parquetSchema, singleLevelArray);
+        assertRoundTrip(objectInspectors, insertNullEvery(5, writeValues), insertNullEvery(5, readValues), columnNames, columnTypes, parquetSchema, schemaOptions);
 
         // reverse order with nulls
-        assertRoundTrip(objectInspectors, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), columnNames, columnTypes, parquetSchema, singleLevelArray);
+        assertRoundTrip(objectInspectors, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), columnNames, columnTypes, parquetSchema, schemaOptions);
     }
 
     void assertRoundTrip(
@@ -321,7 +328,7 @@ public class ParquetTester
                 singletonList(columnName),
                 singletonList(columnType),
                 parquetSchema,
-                false);
+                ParquetSchemaOptions.defaultOptions());
     }
 
     void assertRoundTrip(
@@ -331,7 +338,7 @@ public class ParquetTester
             List<String> columnNames,
             List<Type> columnTypes,
             Optional<MessageType> parquetSchema,
-            boolean singleLevelArray)
+            ParquetSchemaOptions schemaOptions)
             throws Exception
     {
         for (WriterVersion version : versions) {
@@ -350,7 +357,7 @@ public class ParquetTester
                                 getStandardStructObjectInspector(columnNames, objectInspectors),
                                 getIterators(writeValues),
                                 parquetSchema,
-                                singleLevelArray);
+                                schemaOptions.isSingleLevelArray());
                         assertFileContents(
                                 session,
                                 tempFile.getFile(),
@@ -844,5 +851,30 @@ public class ParquetTester
     private static long maxPrecision(int numBytes)
     {
         return Math.round(Math.floor(Math.log10(Math.pow(2, 8 * numBytes - 1) - 1)));
+    }
+
+    public static class ParquetSchemaOptions
+    {
+        private final boolean singleLevelArray;
+
+        private ParquetSchemaOptions(boolean singleLevelArray)
+        {
+            this.singleLevelArray = singleLevelArray;
+        }
+
+        public static ParquetSchemaOptions defaultOptions()
+        {
+            return new ParquetSchemaOptions(false);
+        }
+
+        public static ParquetSchemaOptions withSingleLevelArray()
+        {
+            return new ParquetSchemaOptions(true);
+        }
+
+        public boolean isSingleLevelArray()
+        {
+            return singleLevelArray;
+        }
     }
 }
