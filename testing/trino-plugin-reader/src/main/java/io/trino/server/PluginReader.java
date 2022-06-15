@@ -86,6 +86,9 @@ public class PluginReader
     @Option(names = {"-r", "--root-pom"}, description = "Trino root module pom.xml")
     private File rootPom = new File("pom.xml");
 
+    @Option(names = {"-a", "--allowed-non-plugins"}, split = ",", description = "Allowed non-plugin modules, before ignoring whole impacted modules list; usually dependents of plugins")
+    private List<String> allowedNonPlugins = List.of();
+
     public static void main(String... args)
     {
         int exitCode = new CommandLine(new PluginReader()).execute(args);
@@ -107,7 +110,9 @@ public class PluginReader
                 .collect(toMap(plugin -> plugin.getClass().getName(), identity()));
         Stream<Map.Entry<String, String>> modulesStream = requireNonNull(modulesToPlugins).entrySet().stream();
         if (impactedModules.isPresent()) {
-            List<String> nonPluginModules = impactedModules.get().stream().filter(module -> !modulesToPlugins.containsKey(module)).collect(Collectors.toList());
+            List<String> nonPluginModules = impactedModules.get().stream()
+                    .filter(module -> !modulesToPlugins.containsKey(module) && !allowedNonPlugins.contains(module))
+                    .collect(Collectors.toList());
             if (nonPluginModules.size() != 0) {
                 log.warn("Impacted modules list includes non-plugin modules, ignoring it: %s", nonPluginModules);
             }

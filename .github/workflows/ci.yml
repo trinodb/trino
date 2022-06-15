@@ -661,7 +661,7 @@ jobs:
           $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-server-rpm'
           # GIB doesn't run on master, so make sure the file always exist
           touch gib-impacted.log
-          testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar -i gib-impacted.log -p core/trino-server/target/trino-server-*-hardlinks/plugin > impacted-features.log
+          testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar -i gib-impacted.log -p core/trino-server/target/trino-server-*-hardlinks/plugin -a core/trino-server,core/trino-server-rpm > impacted-features.log
           echo "Impacted plugin features:"
           cat impacted-features.log
       - name: Product tests artifact
