@@ -364,7 +364,7 @@ public class ParquetTester
                 try (TempFile tempFile = new TempFile("test", "parquet")) {
                     OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
                     checkState(min.isPresent());
-                    writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodecName);
+                    writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodecName, schemaOptions);
                     assertFileContents(
                             session,
                             tempFile.getFile(),
@@ -717,11 +717,18 @@ public class ParquetTester
         return type.getObjectValue(SESSION, block, position);
     }
 
-    private static void writeParquetColumnTrino(File outputFile, List<Type> types, List<String> columnNames, Iterator<?>[] values, int size, CompressionCodecName compressionCodecName)
+    private static void writeParquetColumnTrino(
+            File outputFile,
+            List<Type> types,
+            List<String> columnNames,
+            Iterator<?>[] values,
+            int size,
+            CompressionCodecName compressionCodecName,
+            ParquetSchemaOptions schemaOptions)
             throws Exception
     {
         checkArgument(types.size() == columnNames.size() && types.size() == values.length);
-        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames, HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING);
+        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames, schemaOptions.useLegacyDecimalEncoding());
         ParquetWriter writer = new ParquetWriter(
                 new FileOutputStream(outputFile),
                 schemaConverter.getMessageType(),
@@ -845,25 +852,37 @@ public class ParquetTester
     public static class ParquetSchemaOptions
     {
         private final boolean singleLevelArray;
+        private final boolean useLegacyDecimalEncoding;
 
-        private ParquetSchemaOptions(boolean singleLevelArray)
+        private ParquetSchemaOptions(boolean singleLevelArray, boolean useLegacyDecimalEncoding)
         {
             this.singleLevelArray = singleLevelArray;
+            this.useLegacyDecimalEncoding = useLegacyDecimalEncoding;
         }
 
         public static ParquetSchemaOptions defaultOptions()
         {
-            return new ParquetSchemaOptions(false);
+            return new ParquetSchemaOptions(false, HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING);
         }
 
         public static ParquetSchemaOptions withSingleLevelArray()
         {
-            return new ParquetSchemaOptions(true);
+            return new ParquetSchemaOptions(true, HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING);
+        }
+
+        public static ParquetSchemaOptions withIntegerBackedDecimals()
+        {
+            return new ParquetSchemaOptions(false, false);
         }
 
         public boolean isSingleLevelArray()
         {
             return singleLevelArray;
+        }
+
+        public boolean useLegacyDecimalEncoding()
+        {
+            return useLegacyDecimalEncoding;
         }
     }
 }
