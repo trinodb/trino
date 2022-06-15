@@ -63,8 +63,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Iterables.transform;
+import static io.trino.plugin.hive.parquet.ParquetTester.TEST_COLUMN;
 import static io.trino.plugin.hive.parquet.ParquetTester.insertNullEvery;
 import static io.trino.plugin.hive.parquet.ParquetTester.ParquetSchemaOptions;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -884,8 +886,10 @@ public abstract class AbstractTestParquetReader
                     intValues.stream()
                             .map(value -> SqlDecimal.of(value, expectedPrecision, scale))
                             .collect(Collectors.toList()),
+                    getOnlyElement(TEST_COLUMN),
                     createDecimalType(precision, scale),
-                    Optional.of(parquetSchema));
+                    Optional.of(parquetSchema),
+                    ParquetSchemaOptions.withIntegerBackedDecimals());
 
             tester.testRoundTrip(
                     javaIntObjectInspector,
@@ -893,8 +897,10 @@ public abstract class AbstractTestParquetReader
                     intValues.stream()
                             .map(value -> SqlDecimal.of(value, MAX_PRECISION, scale))
                             .collect(Collectors.toList()),
+                    getOnlyElement(TEST_COLUMN),
                     createDecimalType(MAX_PRECISION, scale),
-                    Optional.of(parquetSchema));
+                    Optional.of(parquetSchema),
+                    ParquetSchemaOptions.withIntegerBackedDecimals());
         }
     }
 
@@ -922,8 +928,10 @@ public abstract class AbstractTestParquetReader
                     longValues.stream()
                             .map(value -> SqlDecimal.of(value, expectedPrecision, scale))
                             .collect(Collectors.toList()),
+                    getOnlyElement(TEST_COLUMN),
                     createDecimalType(precision, scale),
-                    Optional.of(parquetSchema));
+                    Optional.of(parquetSchema),
+                    ParquetSchemaOptions.withIntegerBackedDecimals());
 
             tester.testRoundTrip(
                     javaLongObjectInspector,
@@ -931,8 +939,10 @@ public abstract class AbstractTestParquetReader
                     longValues.stream()
                             .map(value -> SqlDecimal.of(value, MAX_PRECISION, scale))
                             .collect(Collectors.toList()),
+                    getOnlyElement(TEST_COLUMN),
                     createDecimalType(MAX_PRECISION, scale),
-                    Optional.of(parquetSchema));
+                    Optional.of(parquetSchema),
+                    ParquetSchemaOptions.withIntegerBackedDecimals());
         }
     }
 
