@@ -281,7 +281,6 @@ public class SourcePartitionedScheduler
         boolean anyNotBlocked = false;
 
         for (Entry<Lifespan, ScheduleGroup> entry : scheduleGroups.entrySet()) {
-            Lifespan lifespan = entry.getKey();
             ScheduleGroup scheduleGroup = entry.getValue();
             Set<Split> pendingSplits = scheduleGroup.pendingSplits;
 
@@ -291,7 +290,7 @@ public class SourcePartitionedScheduler
             else if (pendingSplits.isEmpty()) {
                 // try to get the next batch
                 if (scheduleGroup.nextSplitBatchFuture == null) {
-                    scheduleGroup.nextSplitBatchFuture = splitSource.getNextBatch(scheduleGroup.partitionHandle, lifespan, splitBatchSize - pendingSplits.size());
+                    scheduleGroup.nextSplitBatchFuture = splitSource.getNextBatch(scheduleGroup.partitionHandle, splitBatchSize - pendingSplits.size());
 
                     long start = System.nanoTime();
                     addSuccessCallback(scheduleGroup.nextSplitBatchFuture, () -> stageExecution.recordGetSplitTime(start));
@@ -311,8 +310,7 @@ public class SourcePartitionedScheduler
                             // Scheduling an empty split kicks off necessary driver instantiation to make this work.
                             pendingSplits.add(new Split(
                                     splitSource.getCatalogName(),
-                                    new EmptySplit(splitSource.getCatalogName()),
-                                    lifespan));
+                                    new EmptySplit(splitSource.getCatalogName())));
                         }
                         scheduleGroup.state = ScheduleGroupState.NO_MORE_SPLITS;
                     }
@@ -538,7 +536,6 @@ public class SourcePartitionedScheduler
             RemoteTask task = scheduledTasks.get(node);
             if (task != null) {
                 task.addSplits(splits);
-                noMoreSplits.build().forEach(task::noMoreSplits);
             }
             else {
                 scheduleTask(node, splits, noMoreSplits.build()).ifPresent(newTasks::add);

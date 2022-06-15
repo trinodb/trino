@@ -103,7 +103,7 @@ import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.DistinctAccumulatorFactory;
 import io.trino.operator.aggregation.OrderedAccumulatorFactory;
 import io.trino.operator.aggregation.partial.PartialAggregationController;
-import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
+import io.trino.operator.exchange.LocalExchange;
 import io.trino.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import io.trino.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
 import io.trino.operator.exchange.LocalMergeSourceOperator.LocalMergeSourceOperatorFactory;
@@ -2283,12 +2283,10 @@ public class LocalExecutionPlanner
                     joinCompiler,
                     blockTypeOperators);
 
+            indexLookupSourceFactory.setTaskContext(context.taskContext);
             JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<>(
                     false,
-                    lifespan -> {
-                        indexLookupSourceFactory.setTaskContext(context.taskContext);
-                        return indexLookupSourceFactory;
-                    },
+                    indexLookupSourceFactory,
                     indexLookupSourceFactory.getOutputTypes());
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
@@ -2503,7 +2501,7 @@ public class LocalExecutionPlanner
 
             JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                     false,
-                    lifespan -> new NestedLoopJoinPagesSupplier(),
+                    new NestedLoopJoinPagesSupplier(),
                     buildSource.getTypes());
             NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -2765,7 +2763,7 @@ public class LocalExecutionPlanner
             List<Type> buildTypes = buildSource.getTypes();
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<>(
                     buildOuter,
-                    lifespan -> new PartitionedLookupSourceFactory(
+                    new PartitionedLookupSourceFactory(
                             buildTypes,
                             buildOutputTypes,
                             buildChannels.stream()
@@ -3413,13 +3411,13 @@ public class LocalExecutionPlanner
 
             int operatorsCount = subContext.getDriverInstanceCount().orElse(1);
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
-            LocalExchangeFactory exchangeFactory = new LocalExchangeFactory(
+            LocalExchange localExchange = new LocalExchange(
                     nodePartitioningManager,
                     session,
-                    node.getPartitioningScheme().getPartitioning().getHandle(),
                     operatorsCount,
-                    types,
+                    node.getPartitioningScheme().getPartitioning().getHandle(),
                     ImmutableList.of(),
+                    types,
                     Optional.empty(),
                     maxLocalExchangeBufferSize,
                     blockTypeOperators);
@@ -3431,10 +3429,9 @@ public class LocalExecutionPlanner
                     false,
                     new PhysicalOperation(
                             new LocalExchangeSinkOperatorFactory(
-                                    exchangeFactory,
+                                    localExchange.createSinkFactory(),
                                     subContext.getNextOperatorId(),
                                     node.getId(),
-                                    exchangeFactory.newSinkFactoryId(),
                                     pagePreprocessor),
                             source),
                     subContext.getDriverInstanceCount());
@@ -3448,7 +3445,7 @@ public class LocalExecutionPlanner
             OperatorFactory operatorFactory = new LocalMergeSourceOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
-                    exchangeFactory,
+                    localExchange,
                     types,
                     orderingCompiler,
                     sortChannels,
@@ -3487,13 +3484,13 @@ public class LocalExecutionPlanner
                 driverFactoryParametersList.add(new DriverFactoryParameters(subContext, source));
             }
 
-            LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+            LocalExchange localExchange = new LocalExchange(
                     nodePartitioningManager,
                     session,
-                    node.getPartitioningScheme().getPartitioning().getHandle(),
                     driverInstanceCount,
-                    types,
+                    node.getPartitioningScheme().getPartitioning().getHandle(),
                     channels,
+                    types,
                     hashChannel,
                     maxLocalExchangeBufferSize,
                     blockTypeOperators);
@@ -3510,10 +3507,9 @@ public class LocalExecutionPlanner
                         false,
                         new PhysicalOperation(
                                 new LocalExchangeSinkOperatorFactory(
-                                        localExchangeFactory,
+                                        localExchange.createSinkFactory(),
                                         subContext.getNextOperatorId(),
                                         node.getId(),
-                                        localExchangeFactory.newSinkFactoryId(),
                                         pagePreprocessor),
                                 source),
                         subContext.getDriverInstanceCount());
@@ -3523,10 +3519,10 @@ public class LocalExecutionPlanner
             context.setInputDriver(false);
 
             // instance count must match the number of partitions in the exchange
-            verify(context.getDriverInstanceCount().getAsInt() == localExchangeFactory.getBufferCount(),
+            verify(context.getDriverInstanceCount().getAsInt() == localExchange.getBufferCount(),
                     "driver instance count must match the number of exchange partitions");
 
-            return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchangeFactory), makeLayout(node), context);
+            return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchange), makeLayout(node), context);
         }
 
         @Override

@@ -20,7 +20,6 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.execution.Lifespan;
 import io.trino.execution.TaskId;
 import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.MemoryTrackingContext;
@@ -77,7 +76,6 @@ public class DriverContext
     private final DriverYieldSignal yieldSignal;
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
-    private final Lifespan lifespan;
     private final long splitWeight;
 
     public DriverContext(
@@ -85,14 +83,12 @@ public class DriverContext
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             MemoryTrackingContext driverMemoryContext,
-            Lifespan lifespan,
             long splitWeight)
     {
         this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.driverMemoryContext = requireNonNull(driverMemoryContext, "driverMemoryContext is null");
-        this.lifespan = requireNonNull(lifespan, "lifespan is null");
         this.yieldSignal = new DriverYieldSignal();
         this.splitWeight = splitWeight;
         checkArgument(splitWeight >= 0, "splitWeight must be >= 0, found: %s", splitWeight);
@@ -398,7 +394,6 @@ public class DriverContext
         }
 
         return new DriverStats(
-                lifespan,
                 createdTime,
                 executionStartTime,
                 executionEndTime,
@@ -439,11 +434,6 @@ public class DriverContext
         return operatorContexts.stream()
                 .map(operatorContext -> operatorContext.accept(visitor, context))
                 .collect(toList());
-    }
-
-    public Lifespan getLifespan()
-    {
-        return lifespan;
     }
 
     public ScheduledExecutorService getYieldExecutor()

@@ -14,7 +14,6 @@
 package io.trino.operator.join;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.execution.Lifespan;
 import io.trino.operator.DriverContext;
 import io.trino.operator.TaskContext;
 import io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
@@ -69,12 +68,12 @@ public class TestNestedLoopBuildOperator
         List<Type> buildTypes = ImmutableList.of(BIGINT);
         JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                 false,
-                lifespan -> new NestedLoopJoinPagesSupplier(),
+                new NestedLoopJoinPagesSupplier(),
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
-        NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge(Lifespan.taskWide());
+        NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge();
 
         assertFalse(nestedLoopJoinBridge.getPagesFuture().isDone());
 
@@ -104,12 +103,12 @@ public class TestNestedLoopBuildOperator
         List<Type> buildTypes = ImmutableList.of();
         JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                 false,
-                lifespan -> new NestedLoopJoinPagesSupplier(),
+                new NestedLoopJoinPagesSupplier(),
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
-        NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge(Lifespan.taskWide());
+        NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge();
 
         assertFalse(nestedLoopJoinBridge.getPagesFuture().isDone());
 
@@ -138,12 +137,12 @@ public class TestNestedLoopBuildOperator
         List<Type> buildTypes = ImmutableList.of();
         JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                 false,
-                lifespan -> new NestedLoopJoinPagesSupplier(),
+                new NestedLoopJoinPagesSupplier(),
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
-        NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge(Lifespan.taskWide());
+        NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge();
 
         assertFalse(nestedLoopJoinBridge.getPagesFuture().isDone());
 

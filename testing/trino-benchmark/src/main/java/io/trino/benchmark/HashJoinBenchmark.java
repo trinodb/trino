@@ -15,7 +15,6 @@ package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.trino.execution.Lifespan;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
@@ -128,7 +127,7 @@ public class HashJoinBenchmark
             this.probeDriverFactory = new DriverFactory(1, true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty());
 
             Driver driver = buildDriverFactory.createDriver(driverContext);
-            Future<LookupSourceProvider> lookupSourceProvider = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide()).createLookupSourceProvider();
+            Future<LookupSourceProvider> lookupSourceProvider = lookupSourceFactoryManager.getJoinBridge().createLookupSourceProvider();
             while (!lookupSourceProvider.isDone()) {
                 driver.processForDuration(SPLIT_RUN_QUANTA);
             }

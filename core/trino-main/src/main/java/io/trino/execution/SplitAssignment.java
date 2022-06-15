@@ -28,25 +28,17 @@ public class SplitAssignment
 {
     private final PlanNodeId planNodeId;
     private final Set<ScheduledSplit> splits;
-    private final Set<Lifespan> noMoreSplitsForLifespan;
     private final boolean noMoreSplits;
 
     @JsonCreator
     public SplitAssignment(
             @JsonProperty("planNodeId") PlanNodeId planNodeId,
             @JsonProperty("splits") Set<ScheduledSplit> splits,
-            @JsonProperty("noMoreSplitsForLifespan") Set<Lifespan> noMoreSplitsForLifespan,
             @JsonProperty("noMoreSplits") boolean noMoreSplits)
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.splits = ImmutableSet.copyOf(requireNonNull(splits, "splits is null"));
-        this.noMoreSplitsForLifespan = ImmutableSet.copyOf(noMoreSplitsForLifespan);
         this.noMoreSplits = noMoreSplits;
-    }
-
-    public SplitAssignment(PlanNodeId planNodeId, Set<ScheduledSplit> splits, boolean noMoreSplits)
-    {
-        this(planNodeId, splits, ImmutableSet.of(), noMoreSplits);
     }
 
     @JsonProperty
@@ -59,12 +51,6 @@ public class SplitAssignment
     public Set<ScheduledSplit> getSplits()
     {
         return splits;
-    }
-
-    @JsonProperty
-    public Set<Lifespan> getNoMoreSplitsForLifespan()
-    {
-        return noMoreSplitsForLifespan;
     }
 
     @JsonProperty
@@ -86,15 +72,10 @@ public class SplitAssignment
                     .addAll(splits)
                     .addAll(assignment.getSplits())
                     .build();
-            Set<Lifespan> newNoMoreSplitsForDriverGroup = ImmutableSet.<Lifespan>builder()
-                    .addAll(noMoreSplitsForLifespan)
-                    .addAll(assignment.getNoMoreSplitsForLifespan())
-                    .build();
 
             return new SplitAssignment(
                     planNodeId,
                     newSplits,
-                    newNoMoreSplitsForDriverGroup,
                     assignment.isNoMoreSplits());
         }
         else {
@@ -108,7 +89,6 @@ public class SplitAssignment
         // the specified assignment is newer if it changes the no more
         // splits flag or if it contains new splits
         return (!noMoreSplits && assignment.isNoMoreSplits()) ||
-                (!noMoreSplitsForLifespan.containsAll(assignment.getNoMoreSplitsForLifespan())) ||
                 (!splits.containsAll(assignment.getSplits()));
     }
 

@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,7 +48,6 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -67,6 +65,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.SystemSessionProperties.getInitialSplitsPerNode;
 import static io.trino.SystemSessionProperties.getMaxDriversPerTask;
@@ -82,33 +81,6 @@ import static java.util.stream.Collectors.toList;
 
 public class SqlTaskExecution
 {
-    // For each driver in a task, it belong to a pipeline and a driver life cycle.
-    // Pipeline and driver life cycle are two perpendicular organizations of tasks.
-    //
-    // * All drivers in the same pipeline has the same shape.
-    //   (i.e. operators are constructed from the same set of operator factories)
-    // * All drivers in the same driver life cycle are responsible for processing a group of data.
-    //   (e.g. all rows that fall in bucket 42)
-    //
-    // Take a task with the following set of pipelines for example:
-    //
-    //   pipeline 0       pipeline 1       pipeline 2    pipeline 3    ... pipeline id
-    //     grouped          grouped          grouped      ungrouped    ... execution strategy
-    //
-    // PartitionedOutput
-    //        |
-    //    LookupJoin  ..................................  HashBuild
-    //        |                                               |
-    //    LookupJoin  ...  HashBuild                     ExchangeSrc
-    //        |               |
-    //    TableScan       LocalExSrc  ...  LocalExSink
-    //                                          |
-    //                                      TableScan
-    //
-    // In this case,
-    // * a driver could belong to pipeline 1 and driver life cycle 42.
-    // * another driver could belong to pipeline 3 and task-wide driver life cycle.
-
     private final TaskId taskId;
     private final TaskStateMachine taskStateMachine;
     private final TaskContext taskContext;
@@ -124,7 +96,6 @@ public class SqlTaskExecution
     private final List<WeakReference<Driver>> drivers = new CopyOnWriteArrayList<>();
 
     private final Map<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle;
-    private final List<DriverSplitRunnerFactory> driverRunnerFactoriesWithDriverGroupLifeCycle;
     private final List<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle;
 
     // guarded for update only
@@ -135,7 +106,9 @@ public class SqlTaskExecution
     private long maxAcknowledgedSplit = Long.MIN_VALUE;
 
     @GuardedBy("this")
-    private final SchedulingLifespanManager schedulingLifespanManager;
+    private final List<PlanNodeId> sourceStartOrder;
+    @GuardedBy("this")
+    private int schedulingPlanNodeOrdinal;
 
     @GuardedBy("this")
     private final Map<PlanNodeId, PendingSplitsForPlanNode> pendingSplitsByPlanNode;
@@ -191,7 +164,6 @@ public class SqlTaskExecution
             Set<PlanNodeId> partitionedSources = ImmutableSet.copyOf(localExecutionPlan.getPartitionedSourceOrder());
             ImmutableMap.Builder<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle = ImmutableMap.builder();
             ImmutableList.Builder<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle = ImmutableList.builder();
-            ImmutableList.Builder<DriverSplitRunnerFactory> driverRunnerFactoriesWithDriverGroupLifeCycle = ImmutableList.builder();
             for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
                 Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
                 if (sourceId.isPresent() && partitionedSources.contains(sourceId.get())) {
@@ -202,27 +174,18 @@ public class SqlTaskExecution
                 }
             }
             this.driverRunnerFactoriesWithSplitLifeCycle = driverRunnerFactoriesWithSplitLifeCycle.buildOrThrow();
-            this.driverRunnerFactoriesWithDriverGroupLifeCycle = driverRunnerFactoriesWithDriverGroupLifeCycle.build();
             this.driverRunnerFactoriesWithTaskLifeCycle = driverRunnerFactoriesWithTaskLifeCycle.build();
 
             this.pendingSplitsByPlanNode = this.driverRunnerFactoriesWithSplitLifeCycle.keySet().stream()
                     .collect(toImmutableMap(identity(), ignore -> new PendingSplitsForPlanNode()));
             this.status = new Status(
-                    taskContext,
                     localExecutionPlan.getDriverFactories().stream()
-                            .mapToInt(DriverFactory::getPipelineId)
-                            .toArray());
-            this.schedulingLifespanManager = new SchedulingLifespanManager(localExecutionPlan.getPartitionedSourceOrder(), this.status);
+                            .map(DriverFactory::getPipelineId)
+                            .collect(toImmutableSet()));
+            sourceStartOrder = localExecutionPlan.getPartitionedSourceOrder();
 
             checkArgument(this.driverRunnerFactoriesWithSplitLifeCycle.keySet().equals(partitionedSources),
                     "Fragment is partitioned, but not all partitioned drivers were found");
-
-            // Pre-register Lifespans for ungrouped partitioned drivers in case they end up get no splits.
-            for (Entry<PlanNodeId, DriverSplitRunnerFactory> entry : this.driverRunnerFactoriesWithSplitLifeCycle.entrySet()) {
-                PlanNodeId planNodeId = entry.getKey();
-                this.schedulingLifespanManager.addLifespanIfAbsent(Lifespan.taskWide());
-                this.pendingSplitsByPlanNode.get(planNodeId).getLifespan(Lifespan.taskWide());
-            }
 
             // don't register the task if it is already completed (most likely failed during planning above)
             if (!taskStateMachine.getState().isDone()) {
@@ -320,9 +283,6 @@ public class SqlTaskExecution
                         source.getSplits().stream()
                                 .filter(scheduledSplit -> scheduledSplit.getSequenceId() > currentMaxAcknowledgedSplit)
                                 .collect(Collectors.toSet()),
-                        // Like splits, noMoreSplitsForLifespan could be pruned so that only new items will be processed.
-                        // This is not happening here because correctness won't be compromised due to duplicate events for noMoreSplitsForLifespan.
-                        source.getNoMoreSplitsForLifespan(),
                         source.isNoMoreSplits()))
                 .collect(toList());
 
@@ -337,7 +297,7 @@ public class SqlTaskExecution
         }
 
         for (DriverSplitRunnerFactory driverSplitRunnerFactory :
-                Iterables.concat(driverRunnerFactoriesWithSplitLifeCycle.values(), driverRunnerFactoriesWithTaskLifeCycle, driverRunnerFactoriesWithDriverGroupLifeCycle)) {
+                Iterables.concat(driverRunnerFactoriesWithSplitLifeCycle.values(), driverRunnerFactoriesWithTaskLifeCycle)) {
             driverSplitRunnerFactory.closeDriverFactoryIfFullyCreated();
         }
 
@@ -351,7 +311,7 @@ public class SqlTaskExecution
     }
 
     @GuardedBy("this")
-    private void mergeIntoPendingSplits(PlanNodeId planNodeId, Set<ScheduledSplit> scheduledSplits, Set<Lifespan> noMoreSplitsForLifespan, boolean noMoreSplits)
+    private void mergeIntoPendingSplits(PlanNodeId planNodeId, Set<ScheduledSplit> scheduledSplits, boolean noMoreSplits)
     {
         checkHoldsLock();
 
@@ -360,13 +320,7 @@ public class SqlTaskExecution
 
         partitionedDriverFactory.splitsAdded(scheduledSplits.size(), SplitWeight.rawValueSum(scheduledSplits, scheduledSplit -> scheduledSplit.getSplit().getSplitWeight()));
         for (ScheduledSplit scheduledSplit : scheduledSplits) {
-            Lifespan lifespan = scheduledSplit.getSplit().getLifespan();
-            pendingSplitsForPlanNode.getLifespan(lifespan).addSplit(scheduledSplit);
-            schedulingLifespanManager.addLifespanIfAbsent(lifespan);
-        }
-        for (Lifespan lifespanWithNoMoreSplits : noMoreSplitsForLifespan) {
-            pendingSplitsForPlanNode.getLifespan(lifespanWithNoMoreSplits).noMoreSplits();
-            schedulingLifespanManager.addLifespanIfAbsent(lifespanWithNoMoreSplits);
+            pendingSplitsForPlanNode.addSplit(scheduledSplit);
         }
         if (noMoreSplits) {
             pendingSplitsForPlanNode.setNoMoreSplits();
@@ -375,96 +329,32 @@ public class SqlTaskExecution
 
     private synchronized void schedulePartitionedSource(SplitAssignment splitAssignmentUpdate)
     {
-        mergeIntoPendingSplits(splitAssignmentUpdate.getPlanNodeId(), splitAssignmentUpdate.getSplits(), splitAssignmentUpdate.getNoMoreSplitsForLifespan(), splitAssignmentUpdate.isNoMoreSplits());
+        mergeIntoPendingSplits(splitAssignmentUpdate.getPlanNodeId(), splitAssignmentUpdate.getSplits(), splitAssignmentUpdate.isNoMoreSplits());
 
-        while (true) {
-            // SchedulingLifespanManager tracks how far each Lifespan has been scheduled. Here is an example.
-            // Let's say there are 4 source pipelines/nodes: A, B, C, and D, in scheduling order.
-            // And we're processing 3 concurrent lifespans at a time. In this case, we could have
-            //
-            // * Lifespan 10:  A   B  [C]  D; i.e. Pipeline A and B has finished scheduling (but not necessarily finished running).
-            // * Lifespan 20: [A]  B   C   D
-            // * Lifespan 30:  A  [B]  C   D
-            //
-            // To recap, SchedulingLifespanManager records the next scheduling source node for each lifespan.
-            Iterator<SchedulingLifespan> activeLifespans = schedulingLifespanManager.getActiveLifespans();
+        while (schedulingPlanNodeOrdinal < sourceStartOrder.size()) {
+            PlanNodeId schedulingPlanNode = sourceStartOrder.get(schedulingPlanNodeOrdinal);
 
-            boolean madeProgress = false;
+            DriverSplitRunnerFactory partitionedDriverRunnerFactory = driverRunnerFactoriesWithSplitLifeCycle.get(schedulingPlanNode);
 
-            while (activeLifespans.hasNext()) {
-                SchedulingLifespan schedulingLifespan = activeLifespans.next();
-                Lifespan lifespan = schedulingLifespan.getLifespan();
+            PendingSplitsForPlanNode pendingSplits = pendingSplitsByPlanNode.get(schedulingPlanNode);
 
-                // Continue using the example from above. Let's say the splitAssignmentUpdate adds some new splits for source node B.
-                //
-                // For lifespan 30, it could start new drivers and assign a pending split to each.
-                // Pending splits could include both pre-existing pending splits, and the new ones from splitAssignmentUpdate.
-                // If there is enough driver slots to deplete pending splits, one of the below would happen.
-                // * If it is marked that all splits for node B in lifespan 30 has been received, SchedulingLifespanManager
-                //   will be updated so that lifespan 30 now processes source node C. It will immediately start processing them.
-                // * Otherwise, processing of lifespan 30 will be shelved for now.
-                //
-                // It is possible that the following loop would be a no-op for a particular lifespan.
-                // It is also possible that a single lifespan can proceed through multiple source nodes in one run.
-                //
-                // When different drivers in the task has different pipelineExecutionStrategy, it adds additional complexity.
-                // For example, when driver B is ungrouped and driver A, C, D is grouped, you could have something like this:
-                //     TaskWide   :     [B]
-                //     Lifespan 10:  A  [ ]  C   D
-                //     Lifespan 20: [A]      C   D
-                //     Lifespan 30:  A  [ ]  C   D
-                // In this example, Lifespan 30 cannot start executing drivers in pipeline C because pipeline B
-                // hasn't finished scheduling yet (albeit in a different lifespan).
-                // Similarly, it wouldn't make sense for TaskWide to start executing drivers in pipeline B until at least
-                // one lifespan has finished scheduling pipeline A.
-                // This is why getSchedulingPlanNode returns an Optional.
-                while (true) {
-                    Optional<PlanNodeId> optionalSchedulingPlanNode = schedulingLifespan.getSchedulingPlanNode();
-                    if (optionalSchedulingPlanNode.isEmpty()) {
-                        break;
-                    }
-                    PlanNodeId schedulingPlanNode = optionalSchedulingPlanNode.get();
-
-                    DriverSplitRunnerFactory partitionedDriverRunnerFactory = driverRunnerFactoriesWithSplitLifeCycle.get(schedulingPlanNode);
-
-                    PendingSplits pendingSplits = pendingSplitsByPlanNode.get(schedulingPlanNode).getLifespan(lifespan);
-
-                    // Enqueue driver runners with driver group lifecycle for this driver life cycle, if not already enqueued.
-                    if (!lifespan.isTaskWide() && !schedulingLifespan.getAndSetDriversForDriverGroupLifeCycleScheduled()) {
-                        scheduleDriversForDriverGroupLifeCycle(lifespan);
-                    }
-
-                    // Enqueue driver runners with split lifecycle for this plan node and driver life cycle combination.
-                    ImmutableList.Builder<DriverSplitRunner> runners = ImmutableList.builder();
-                    for (ScheduledSplit scheduledSplit : pendingSplits.removeAllSplits()) {
-                        // create a new driver for the split
-                        runners.add(partitionedDriverRunnerFactory.createDriverRunner(scheduledSplit, lifespan));
-                    }
-                    enqueueDriverSplitRunner(false, runners.build());
-
-                    // If all driver runners have been enqueued for this plan node and driver life cycle combination,
-                    // move on to the next plan node.
-                    if (pendingSplits.getState() != NO_MORE_SPLITS) {
-                        break;
-                    }
-                    partitionedDriverRunnerFactory.noMoreDriverRunner(ImmutableList.of(lifespan));
-                    pendingSplits.markAsCleanedUp();
-
-                    schedulingLifespan.nextPlanNode();
-                    madeProgress = true;
-                    if (schedulingLifespan.isDone()) {
-                        break;
-                    }
-                }
+            // Enqueue driver runners with split lifecycle for this plan node and driver life cycle combination.
+            ImmutableList.Builder<DriverSplitRunner> runners = ImmutableList.builder();
+            for (ScheduledSplit scheduledSplit : pendingSplits.removeAllSplits()) {
+                // create a new driver for the split
+                runners.add(partitionedDriverRunnerFactory.createDriverRunner(scheduledSplit));
             }
+            enqueueDriverSplitRunner(false, runners.build());
 
-            if (!madeProgress) {
+            // If all driver runners have been enqueued for this plan node and driver life cycle combination,
+            // move on to the next plan node.
+            if (pendingSplits.getState() != NO_MORE_SPLITS) {
                 break;
             }
-        }
+            partitionedDriverRunnerFactory.noMoreDriverRunner();
+            pendingSplits.markAsCleanedUp();
 
-        if (splitAssignmentUpdate.isNoMoreSplits()) {
-            schedulingLifespanManager.noMoreSplits(splitAssignmentUpdate.getPlanNodeId());
+            schedulingPlanNodeOrdinal++;
         }
     }
 
@@ -497,34 +387,13 @@ public class SqlTaskExecution
         List<DriverSplitRunner> runners = new ArrayList<>();
         for (DriverSplitRunnerFactory driverRunnerFactory : driverRunnerFactoriesWithTaskLifeCycle) {
             for (int i = 0; i < driverRunnerFactory.getDriverInstances().orElse(1); i++) {
-                runners.add(driverRunnerFactory.createDriverRunner(null, Lifespan.taskWide()));
+                runners.add(driverRunnerFactory.createDriverRunner(null));
             }
         }
         enqueueDriverSplitRunner(true, runners);
         for (DriverSplitRunnerFactory driverRunnerFactory : driverRunnerFactoriesWithTaskLifeCycle) {
-            driverRunnerFactory.noMoreDriverRunner(ImmutableList.of(Lifespan.taskWide()));
+            driverRunnerFactory.noMoreDriverRunner();
             verify(driverRunnerFactory.isNoMoreDriverRunner());
-        }
-    }
-
-    private void scheduleDriversForDriverGroupLifeCycle(Lifespan lifespan)
-    {
-        // This method is called when a split that belongs to a previously unseen driver group is scheduled.
-        // It schedules drivers for all the pipelines that have driver group life cycle.
-        if (lifespan.isTaskWide()) {
-            checkArgument(driverRunnerFactoriesWithDriverGroupLifeCycle.isEmpty(), "Instantiating pipeline of driver group lifecycle at task level is not allowed");
-            return;
-        }
-
-        List<DriverSplitRunner> runners = new ArrayList<>();
-        for (DriverSplitRunnerFactory driverSplitRunnerFactory : driverRunnerFactoriesWithDriverGroupLifeCycle) {
-            for (int i = 0; i < driverSplitRunnerFactory.getDriverInstances().orElse(1); i++) {
-                runners.add(driverSplitRunnerFactory.createDriverRunner(null, lifespan));
-            }
-        }
-        enqueueDriverSplitRunner(true, runners);
-        for (DriverSplitRunnerFactory driverRunnerFactory : driverRunnerFactoriesWithDriverGroupLifeCycle) {
-            driverRunnerFactory.noMoreDriverRunner(ImmutableList.of(lifespan));
         }
     }
 
@@ -540,7 +409,7 @@ public class SqlTaskExecution
             DriverSplitRunner splitRunner = runners.get(i);
 
             // record new driver
-            status.incrementRemainingDriver(splitRunner.getLifespan());
+            status.incrementRemainingDriver();
 
             Futures.addCallback(finishedFuture, new FutureCallback<Object>()
             {
@@ -549,7 +418,7 @@ public class SqlTaskExecution
                 {
                     try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
                         // record driver is finished
-                        status.decrementRemainingDriver(splitRunner.getLifespan());
+                        status.decrementRemainingDriver();
 
                         checkTaskCompletion();
 
@@ -564,7 +433,7 @@ public class SqlTaskExecution
                         taskStateMachine.failed(cause);
 
                         // record driver is finished
-                        status.decrementRemainingDriver(splitRunner.getLifespan());
+                        status.decrementRemainingDriver();
 
                         // fire failed event with cause
                         splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
@@ -669,17 +538,13 @@ public class SqlTaskExecution
         }
     }
 
-    // Splits for a particular plan node (all driver groups)
+    // Splits for a particular plan node
     @NotThreadSafe
     private static class PendingSplitsForPlanNode
     {
-        private final Map<Lifespan, PendingSplits> splitsByLifespan = new HashMap<>();
+        private Set<ScheduledSplit> splits = new HashSet<>();
+        private SplitsState state = ADDING_SPLITS;
         private boolean noMoreSplits;
-
-        public PendingSplits getLifespan(Lifespan lifespan)
-        {
-            return splitsByLifespan.computeIfAbsent(lifespan, ignored -> new PendingSplits());
-        }
 
         public void setNoMoreSplits()
         {
@@ -687,18 +552,10 @@ public class SqlTaskExecution
                 return;
             }
             noMoreSplits = true;
-            for (PendingSplits splitsForLifespan : splitsByLifespan.values()) {
-                splitsForLifespan.noMoreSplits();
+            if (state == ADDING_SPLITS) {
+                state = NO_MORE_SPLITS;
             }
         }
-    }
-
-    // Splits for a particular plan node and driver group combination
-    @NotThreadSafe
-    private static class PendingSplits
-    {
-        private Set<ScheduledSplit> splits = new HashSet<>();
-        private SplitsState state = ADDING_SPLITS;
 
         public SplitsState getState()
         {
@@ -719,13 +576,6 @@ public class SqlTaskExecution
             return result;
         }
 
-        public void noMoreSplits()
-        {
-            if (state == ADDING_SPLITS) {
-                state = NO_MORE_SPLITS;
-            }
-        }
-
         public void markAsCleanedUp()
         {
             checkState(splits.isEmpty());
@@ -744,152 +594,6 @@ public class SqlTaskExecution
         FINISHED,
     }
 
-    private static class SchedulingLifespanManager
-    {
-        // SchedulingLifespanManager only contains partitioned drivers.
-        // Note that different drivers in a task may have different pipelineExecutionStrategy.
-
-        private final List<PlanNodeId> sourceStartOrder;
-        private final Status status;
-
-        private final Map<Lifespan, SchedulingLifespan> lifespans = new HashMap<>();
-        // driver groups whose scheduling is done (all splits for all plan nodes)
-        private final Set<Lifespan> completedLifespans = new HashSet<>();
-
-        private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
-
-        private int maxScheduledPlanNodeOrdinal;
-
-        public SchedulingLifespanManager(List<PlanNodeId> sourceStartOrder, Status status)
-        {
-            this.sourceStartOrder = ImmutableList.copyOf(sourceStartOrder);
-            this.status = requireNonNull(status, "status is null");
-        }
-
-        public int getMaxScheduledPlanNodeOrdinal()
-        {
-            return maxScheduledPlanNodeOrdinal;
-        }
-
-        public void updateMaxScheduledPlanNodeOrdinalIfNecessary(int scheduledPlanNodeOrdinal)
-        {
-            if (maxScheduledPlanNodeOrdinal < scheduledPlanNodeOrdinal) {
-                maxScheduledPlanNodeOrdinal = scheduledPlanNodeOrdinal;
-            }
-        }
-
-        public void noMoreSplits(PlanNodeId planNodeId)
-        {
-            if (noMoreSplits.contains(planNodeId)) {
-                return;
-            }
-            noMoreSplits.add(planNodeId);
-            if (noMoreSplits.size() < sourceStartOrder.size()) {
-                return;
-            }
-            checkState(noMoreSplits.size() == sourceStartOrder.size());
-            checkState(noMoreSplits.containsAll(sourceStartOrder));
-            status.setNoMoreLifespans();
-        }
-
-        public void addLifespanIfAbsent(Lifespan lifespan)
-        {
-            if (completedLifespans.contains(lifespan) || lifespans.containsKey(lifespan)) {
-                return;
-            }
-            checkState(!status.isNoMoreLifespans());
-            checkState(!sourceStartOrder.isEmpty());
-            lifespans.put(lifespan, new SchedulingLifespan(lifespan, this));
-        }
-
-        public Iterator<SchedulingLifespan> getActiveLifespans()
-        {
-            // This function returns an iterator that iterates through active driver groups.
-            // Before it advances to the next item, it checks whether the previous returned driver group is done scheduling.
-            // If so, the completed SchedulingLifespan is removed so that it will not be returned again.
-            Iterator<SchedulingLifespan> lifespansIterator = lifespans.values().iterator();
-            return new AbstractIterator<>()
-            {
-                SchedulingLifespan lastSchedulingLifespan;
-
-                @Override
-                protected SchedulingLifespan computeNext()
-                {
-                    if (lastSchedulingLifespan != null) {
-                        if (lastSchedulingLifespan.isDone()) {
-                            completedLifespans.add(lastSchedulingLifespan.getLifespan());
-                            lifespansIterator.remove();
-                        }
-                    }
-                    if (!lifespansIterator.hasNext()) {
-                        return endOfData();
-                    }
-                    lastSchedulingLifespan = lifespansIterator.next();
-                    return lastSchedulingLifespan;
-                }
-            };
-        }
-    }
-
-    private static class SchedulingLifespan
-    {
-        private final Lifespan lifespan;
-        private final SchedulingLifespanManager manager;
-        private int schedulingPlanNodeOrdinal;
-        private boolean unpartitionedDriversScheduled;
-
-        public SchedulingLifespan(Lifespan lifespan, SchedulingLifespanManager manager)
-        {
-            this.lifespan = requireNonNull(lifespan, "lifespan is null");
-            this.manager = requireNonNull(manager, "manager is null");
-        }
-
-        public Lifespan getLifespan()
-        {
-            return lifespan;
-        }
-
-        public Optional<PlanNodeId> getSchedulingPlanNode()
-        {
-            checkState(!isDone());
-            while (!isDone()) {
-                // This lifespan is incompatible with the plan node. As a result, this method should either
-                // return empty to indicate that scheduling for this lifespan is blocked, or skip the current
-                // plan node and went on to the next one. Which one of the two happens is dependent on whether
-                // the current plan node has finished scheduling in any other lifespan.
-                // If so, the lifespan can advance to the next plan node.
-                // If not, it should not advance because doing so would violate scheduling order.
-                if (manager.getMaxScheduledPlanNodeOrdinal() == schedulingPlanNodeOrdinal) {
-                    return Optional.empty();
-                }
-                verify(manager.getMaxScheduledPlanNodeOrdinal() > schedulingPlanNodeOrdinal);
-                nextPlanNode();
-            }
-            return Optional.empty();
-        }
-
-        public void nextPlanNode()
-        {
-            checkState(!isDone());
-            schedulingPlanNodeOrdinal++;
-            manager.updateMaxScheduledPlanNodeOrdinalIfNecessary(schedulingPlanNodeOrdinal);
-        }
-
-        public boolean isDone()
-        {
-            return schedulingPlanNodeOrdinal >= manager.sourceStartOrder.size();
-        }
-
-        public boolean getAndSetDriversForDriverGroupLifeCycleScheduled()
-        {
-            if (unpartitionedDriversScheduled) {
-                return true;
-            }
-            unpartitionedDriversScheduled = true;
-            return false;
-        }
-    }
-
     private class DriverSplitRunnerFactory
     {
         private final DriverFactory driverFactory;
@@ -904,14 +608,14 @@ public class SqlTaskExecution
 
         // TODO: split this method into two: createPartitionedDriverRunner and createUnpartitionedDriverRunner.
         // The former will take two arguments, and the latter will take one. This will simplify the signature quite a bit.
-        public DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit, Lifespan lifespan)
+        public DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit)
         {
-            status.incrementPendingCreation(pipelineContext.getPipelineId(), lifespan);
+            status.incrementPendingCreation(pipelineContext.getPipelineId());
             // create driver context immediately so the driver existence is recorded in the stats
             // the number of drivers is used to balance work across nodes
             long splitWeight = partitionedSplit == null ? 0 : partitionedSplit.getSplit().getSplitWeight().getRawValue();
-            DriverContext driverContext = pipelineContext.addDriverContext(lifespan, splitWeight);
-            return new DriverSplitRunner(this, driverContext, partitionedSplit, lifespan);
+            DriverContext driverContext = pipelineContext.addDriverContext(splitWeight);
+            return new DriverSplitRunner(this, driverContext, partitionedSplit);
         }
 
         public Driver createDriver(DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
@@ -936,17 +640,15 @@ public class SqlTaskExecution
                 }
             }
 
-            status.decrementPendingCreation(pipelineContext.getPipelineId(), driverContext.getLifespan());
+            status.decrementPendingCreation(pipelineContext.getPipelineId());
             closeDriverFactoryIfFullyCreated();
 
             return driver;
         }
 
-        public void noMoreDriverRunner(Iterable<Lifespan> lifespans)
+        public void noMoreDriverRunner()
         {
-            for (Lifespan lifespan : lifespans) {
-                status.setNoMoreDriverRunner(pipelineContext.getPipelineId(), lifespan);
-            }
+            status.setNoMoreDriverRunner(pipelineContext.getPipelineId());
             closeDriverFactoryIfFullyCreated();
         }
 
@@ -959,9 +661,6 @@ public class SqlTaskExecution
         {
             if (closed) {
                 return;
-            }
-            for (Lifespan lifespan : status.getAndAcknowledgeLifespansWithNoMoreDrivers(pipelineContext.getPipelineId())) {
-                driverFactory.noMoreDrivers(lifespan);
             }
             if (!isNoMoreDriverRunner() || status.getPendingCreation(pipelineContext.getPipelineId()) != 0) {
                 return;
@@ -986,7 +685,6 @@ public class SqlTaskExecution
     {
         private final DriverSplitRunnerFactory driverSplitRunnerFactory;
         private final DriverContext driverContext;
-        private final Lifespan lifespan;
 
         @GuardedBy("this")
         private boolean closed;
@@ -997,12 +695,11 @@ public class SqlTaskExecution
         @GuardedBy("this")
         private Driver driver;
 
-        private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit, Lifespan lifespan)
+        private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
         {
             this.driverSplitRunnerFactory = requireNonNull(driverSplitRunnerFactory, "driverSplitRunnerFactory is null");
             this.driverContext = requireNonNull(driverContext, "driverContext is null");
             this.partitionedSplit = partitionedSplit;
-            this.lifespan = requireNonNull(lifespan, "lifespan is null");
         }
 
         public synchronized DriverContext getDriverContext()
@@ -1011,11 +708,6 @@ public class SqlTaskExecution
                 return null;
             }
             return driver.getDriverContext();
-        }
-
-        public Lifespan getLifespan()
-        {
-            return lifespan;
         }
 
         @Override
@@ -1099,115 +791,64 @@ public class SqlTaskExecution
         // pending creation: number of created DriverSplitRunners that haven't created underlying Driver.
         // remaining driver: number of created Drivers that haven't yet finished.
 
-        private final TaskContext taskContext;
-
         @GuardedBy("this")
         private final int pipelineWithTaskLifeCycleCount;
-        @GuardedBy("this")
-        private final int pipelineWithDriverGroupLifeCycleCount;
 
         // For these 3 perX fields, they are populated lazily. If enumeration operations on the
         // map can lead to side effects, no new entries can be created after such enumeration has
         // happened. Otherwise, the order of entry creation and the enumeration operation will
         // lead to different outcome.
         @GuardedBy("this")
-        private final Map<Integer, Map<Lifespan, PerPipelineAndLifespanStatus>> perPipelineAndLifespan;
-        @GuardedBy("this")
         private final Map<Integer, PerPipelineStatus> perPipeline;
         @GuardedBy("this")
-        private final Map<Lifespan, PerLifespanStatus> perLifespan = new HashMap<>();
+        int pipelinesWithNoMoreDriverRunners;
 
         @GuardedBy("this")
         private int overallRemainingDriver;
 
-        @GuardedBy("this")
-        private boolean noMoreLifespans;
-
-        public Status(TaskContext taskContext, int[] pipelines)
+        public Status(Set<Integer> pipelineIds)
         {
-            this.taskContext = requireNonNull(taskContext, "taskContext is null");
             int pipelineWithTaskLifeCycleCount = 0;
-            int pipelineWithDriverGroupLifeCycleCount = 0;
-            ImmutableMap.Builder<Integer, Map<Lifespan, PerPipelineAndLifespanStatus>> perPipelineAndLifespan = ImmutableMap.builder();
             ImmutableMap.Builder<Integer, PerPipelineStatus> perPipeline = ImmutableMap.builder();
-            for (int pipelineId : pipelines) {
-                perPipelineAndLifespan.put(pipelineId, new HashMap<>());
+            for (int pipelineId : pipelineIds) {
                 perPipeline.put(pipelineId, new PerPipelineStatus());
                 pipelineWithTaskLifeCycleCount++;
             }
             this.pipelineWithTaskLifeCycleCount = pipelineWithTaskLifeCycleCount;
-            this.pipelineWithDriverGroupLifeCycleCount = pipelineWithDriverGroupLifeCycleCount;
-            this.perPipelineAndLifespan = perPipelineAndLifespan.buildOrThrow();
             this.perPipeline = perPipeline.buildOrThrow();
         }
 
-        public synchronized void setNoMoreLifespans()
+        public synchronized void setNoMoreDriverRunner(int pipelineId)
         {
-            if (noMoreLifespans) {
-                return;
-            }
-            noMoreLifespans = true;
+            per(pipelineId).noMoreDriverRunners = true;
+            pipelinesWithNoMoreDriverRunners++;
         }
 
-        public synchronized void setNoMoreDriverRunner(int pipelineId, Lifespan lifespan)
+        public synchronized void incrementPendingCreation(int pipelineId)
         {
-            if (per(pipelineId, lifespan).noMoreDriverRunner) {
-                return;
-            }
-            per(pipelineId, lifespan).noMoreDriverRunner = true;
-            if (per(pipelineId, lifespan).pendingCreation == 0) {
-                per(pipelineId).unacknowledgedLifespansWithNoMoreDrivers.add(lifespan);
-            }
-            per(pipelineId).lifespansWithNoMoreDriverRunners++;
-            per(lifespan).pipelinesWithNoMoreDriverRunners++;
-            checkLifespanCompletion(lifespan);
-        }
-
-        public synchronized void incrementPendingCreation(int pipelineId, Lifespan lifespan)
-        {
-            checkState(!per(pipelineId, lifespan).noMoreDriverRunner, "Cannot increment pendingCreation for Pipeline %s Lifespan %s. NoMoreSplits is set.", pipelineId, lifespan);
-            per(pipelineId, lifespan).pendingCreation++;
             per(pipelineId).pendingCreation++;
         }
 
-        public synchronized void decrementPendingCreation(int pipelineId, Lifespan lifespan)
+        public synchronized void decrementPendingCreation(int pipelineId)
         {
-            checkState(per(pipelineId, lifespan).pendingCreation > 0, "Cannot decrement pendingCreation for Pipeline %s Lifespan %s. Value is 0.", pipelineId, lifespan);
-            per(pipelineId, lifespan).pendingCreation--;
-            if (per(pipelineId, lifespan).pendingCreation == 0 && per(pipelineId, lifespan).noMoreDriverRunner) {
-                per(pipelineId).unacknowledgedLifespansWithNoMoreDrivers.add(lifespan);
-            }
             per(pipelineId).pendingCreation--;
         }
 
-        public synchronized void incrementRemainingDriver(Lifespan lifespan)
+        public synchronized void incrementRemainingDriver()
         {
-            checkState(!isNoMoreDriverRunners(lifespan), "Cannot increment remainingDriver for Lifespan %s. NoMoreSplits is set.", lifespan);
-            per(lifespan).remainingDriver++;
+            checkState(!(pipelinesWithNoMoreDriverRunners == pipelineWithTaskLifeCycleCount), "Cannot increment remainingDriver. NoMoreSplits is set.");
             overallRemainingDriver++;
         }
 
-        public synchronized void decrementRemainingDriver(Lifespan lifespan)
+        public synchronized void decrementRemainingDriver()
         {
-            checkState(per(lifespan).remainingDriver > 0, "Cannot decrement remainingDriver for Lifespan %s. Value is 0.", lifespan);
-            per(lifespan).remainingDriver--;
+            checkState(overallRemainingDriver > 0, "Cannot decrement remainingDriver. Value is 0.");
             overallRemainingDriver--;
-            checkLifespanCompletion(lifespan);
-        }
-
-        public synchronized boolean isNoMoreLifespans()
-        {
-            return noMoreLifespans;
         }
 
         public synchronized int getPendingCreation(int pipelineId)
         {
             return per(pipelineId).pendingCreation;
-        }
-
-        public synchronized int getRemainingDriver(Lifespan lifespan)
-        {
-            return per(lifespan).remainingDriver;
         }
 
         public synchronized int getRemainingDriver()
@@ -1217,51 +858,7 @@ public class SqlTaskExecution
 
         public synchronized boolean isNoMoreDriverRunners(int pipelineId)
         {
-            return per(pipelineId).lifespansWithNoMoreDriverRunners == 1;
-        }
-
-        public synchronized boolean isNoMoreDriverRunners(Lifespan lifespan)
-        {
-            if (!lifespan.isTaskWide()) {
-                return per(lifespan).pipelinesWithNoMoreDriverRunners == pipelineWithDriverGroupLifeCycleCount;
-            }
-            else {
-                return per(lifespan).pipelinesWithNoMoreDriverRunners == pipelineWithTaskLifeCycleCount;
-            }
-        }
-
-        /**
-         * Return driver groups who recently became known to not need any new drivers.
-         * Once it is determined that a driver group will not need any new driver groups,
-         * the driver group will be returned in the next invocation of this method.
-         * Once a driver group is returned, it is considered acknowledged, and will not be returned again.
-         * In other words, each driver group will be returned by this method only once.
-         */
-        public synchronized List<Lifespan> getAndAcknowledgeLifespansWithNoMoreDrivers(int pipelineId)
-        {
-            List<Lifespan> result = ImmutableList.copyOf(per(pipelineId).unacknowledgedLifespansWithNoMoreDrivers);
-            per(pipelineId).unacknowledgedLifespansWithNoMoreDrivers.clear();
-            return result;
-        }
-
-        private void checkLifespanCompletion(Lifespan lifespan)
-        {
-            if (lifespan.isTaskWide()) {
-                return; // not a driver group
-            }
-            if (!isNoMoreDriverRunners(lifespan)) {
-                return;
-            }
-            if (getRemainingDriver(lifespan) != 0) {
-                return;
-            }
-            taskContext.addCompletedDriverGroup(lifespan);
-        }
-
-        @GuardedBy("this")
-        private PerPipelineAndLifespanStatus per(int pipelineId, Lifespan lifespan)
-        {
-            return perPipelineAndLifespan.get(pipelineId).computeIfAbsent(lifespan, ignored -> new PerPipelineAndLifespanStatus());
+            return per(pipelineId).noMoreDriverRunners;
         }
 
         @GuardedBy("this")
@@ -1269,40 +866,11 @@ public class SqlTaskExecution
         {
             return perPipeline.get(pipelineId);
         }
-
-        @GuardedBy("this")
-        private PerLifespanStatus per(Lifespan lifespan)
-        {
-            if (perLifespan.containsKey(lifespan)) {
-                return perLifespan.get(lifespan);
-            }
-            PerLifespanStatus result = new PerLifespanStatus();
-            perLifespan.put(lifespan, result);
-            return result;
-        }
     }
 
     private static class PerPipelineStatus
     {
-
         int pendingCreation;
-        int lifespansWithNoMoreDriverRunners;
-        final List<Lifespan> unacknowledgedLifespansWithNoMoreDrivers = new ArrayList<>();
-
-        public PerPipelineStatus()
-        {
-        }
-    }
-
-    private static class PerLifespanStatus
-    {
-        int remainingDriver;
-        int pipelinesWithNoMoreDriverRunners;
-    }
-
-    private static class PerPipelineAndLifespanStatus
-    {
-        int pendingCreation;
-        boolean noMoreDriverRunner;
+        boolean noMoreDriverRunners;
     }
 }

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import io.trino.Session;
-import io.trino.execution.Lifespan;
 import io.trino.execution.QueryStats;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.Split;
@@ -107,7 +106,7 @@ public class TestKuduIntegrationDynamicFilter
                 .getSplits(session, tableHandle.get(), new IncompleteDynamicFilter(), alwaysTrue());
         List<Split> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
-            splits.addAll(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000).get().getSplits());
+            splits.addAll(splitSource.getNextBatch(NOT_PARTITIONED, 1000).get().getSplits());
         }
         splitSource.close();
         assertFalse(splits.isEmpty());

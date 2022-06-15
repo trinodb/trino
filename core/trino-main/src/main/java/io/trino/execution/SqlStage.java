@@ -237,7 +237,6 @@ public final class SqlStage
                 estimatedMemory,
                 summarizeTaskInfo);
 
-        noMoreSplitsForLifespan.forEach(task::noMoreSplits);
         noMoreSplits.forEach(task::noMoreSplits);
 
         tasks.put(taskId, task);

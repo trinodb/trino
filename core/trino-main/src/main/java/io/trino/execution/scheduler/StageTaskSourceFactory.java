@@ -36,7 +36,6 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.ForQueryExecution;
-import io.trino.execution.Lifespan;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TableExecuteContext;
 import io.trino.execution.TableExecuteContextManager;
@@ -794,7 +793,7 @@ public class StageTaskSourceFactory
             }
 
             checkState(currentSplitBatchFuture.isDone(), "getMoreTasks called again before the previous batch of splits was ready");
-            currentSplitBatchFuture = splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), splitBatchSize);
+            currentSplitBatchFuture = splitSource.getNextBatch(NOT_PARTITIONED, splitBatchSize);
 
             long start = System.nanoTime();
             addSuccessCallback(currentSplitBatchFuture, () -> getSplitTimeRecorder.accept(start));
@@ -1041,7 +1040,7 @@ public class StageTaskSourceFactory
                 return;
             }
             checkState(currentSplitBatch.isDone(), "next batch of splits requested before previous batch is done");
-            currentSplitBatch = splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), splitBatchSize);
+            currentSplitBatch = splitSource.getNextBatch(NOT_PARTITIONED, splitBatchSize);
 
             long start = System.nanoTime();
             addCallback(
