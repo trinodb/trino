@@ -50,6 +50,7 @@ import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
@@ -98,9 +99,11 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPER
 import static io.trino.plugin.iceberg.IcebergTableProperties.getOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getOrcBloomFilterFpp;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
+import static io.trino.plugin.iceberg.SortFields.parseSortFields;
 import static io.trino.plugin.iceberg.TrinoTypes.getNextValue;
 import static io.trino.plugin.iceberg.TrinoTypes.getPreviousValue;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
@@ -148,7 +151,13 @@ import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
 public final class IcebergUtil
 {
-    private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
+    private static final Pattern SIMPLE_NAME = Pattern.compile("\\s*?[a-z][a-z0-9]*\\s*?");
+    private static final String UNQUOTED_IDENTIFIER = "\\s*?[a-zA-Z_][a-zA-Z0-9_]*\\s*?";
+    private static final Pattern UNQUOTED_IDENTIFIER_PATTERN = Pattern.compile(UNQUOTED_IDENTIFIER);
+    private static final String QUOTED_IDENTIFIER = "\"(?:\"\"|[^\"A-Z])*\"";
+    public static final String IDENTIFIER = "(" + UNQUOTED_IDENTIFIER + "|" + QUOTED_IDENTIFIER + ")";
+    public static final String FUNCTION_ARGUMENT_NAME = "\\s*?\\(" + IDENTIFIER + "\\)\\s*?";
+    public static final String FUNCTION_ARGUMENT_NAME_AND_INT = "\\s*?\\(" + IDENTIFIER + ",\\s*?(\\d+)\\s*?\\)";
 
     private IcebergUtil() {}
 
@@ -565,6 +574,7 @@ public final class IcebergUtil
         SchemaTableName schemaTableName = tableMetadata.getTable();
         Schema schema = schemaFromMetadata(tableMetadata.getColumns());
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+        SortOrder sortOrder = buildSortFields(schema, getSortOrder(tableMetadata.getProperties()));
         String targetPath = getTableLocation(tableMetadata.getProperties())
                 .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
 
@@ -586,7 +596,7 @@ public final class IcebergUtil
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
 
-        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, targetPath, propertiesBuilder.buildOrThrow());
+        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, targetPath, propertiesBuilder.buildOrThrow());
     }
 
     public static long getSnapshotIdAsOfTime(Table table, long epochMillis)
@@ -610,6 +620,22 @@ public final class IcebergUtil
         }
     }
 
+    public static String fromIdentifier(String identifier)
+    {
+        if (identifier.startsWith("\"") && identifier.endsWith("\"")) {
+            return identifier.substring(1, identifier.length() - 1).replace("\"\"", "\"");
+        }
+        return identifier.toLowerCase(Locale.ENGLISH);
+    }
+
+    public static String toIdentifier(String column)
+    {
+        if (UNQUOTED_IDENTIFIER_PATTERN.matcher(column).matches()) {
+            return column;
+        }
+        return "\"" + column.replace("\"", "\"\"") + "\"";
+    }
+
     private static void checkFormatForProperty(FileFormat actualStorageFormat, FileFormat expectedStorageFormat, String propertyName)
     {
         if (actualStorageFormat != expectedStorageFormat) {
@@ -624,6 +650,16 @@ public final class IcebergUtil
                 .collect(toImmutableSet());
         if (!allColumns.containsAll(orcBloomFilterColumns)) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Orc bloom filter columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(orcBloomFilterColumns), allColumns)));
+        }
+    }
+
+    private static SortOrder buildSortFields(Schema schema, List<String> fields)
+    {
+        try {
+            return parseSortFields(schema, fields);
+        }
+        catch (RuntimeException re) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Unable to parse sorting value", re);
         }
     }
 }

@@ -1036,6 +1036,219 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testCreateSortedWithPartitionTable()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_sorted_with_partition_table (" +
+                "  a_boolean boolean, " +
+                "  an_integer integer, " +
+                "  a_bigint bigint, " +
+                "  a_real real, " +
+                "  a_double double, " +
+                "  a_short_decimal decimal(5,2), " +
+                "  a_long_decimal decimal(38,20), " +
+                "  a_varchar varchar, " +
+                "  \"a quoted, field\" varchar, " +
+                "  a_varbinary varbinary, " +
+                "  a_date date, " +
+                "  a_time time(6), " +
+                "  a_timestamp timestamp(6), " +
+                "  a_timestamptz timestamp(6) with time zone, " +
+                "  a_uuid uuid, " +
+                "  a_row row(id integer , vc varchar), " +
+                "  an_array array(varchar), " +
+                "  a_map map(integer, varchar) " +
+                ") " +
+                "WITH (" +
+                "partitioning = ARRAY[" +
+                "  'a_boolean', " +
+                "  'an_integer', " +
+                "  'a_bigint', " +
+                "  'a_real', " +
+                "  'a_double', " +
+                "  'a_short_decimal', " +
+                "  'a_long_decimal', " +
+                "  'a_varchar', " +
+                "  'a_varbinary', " +
+                "  'a_date', " +
+                "  'a_time', " +
+                "  'a_timestamp', " +
+                "  'a_timestamptz', " +
+                "  'a_uuid' " +
+                // Note: partitioning on non-primitive columns is not allowed in Iceberg
+                "  ], " +
+                "sorted_by = ARRAY[" +
+                "  'a_boolean', " +
+                "  'an_integer', " +
+                "  'bucket(  an_integer  ,  10)', " +
+                "  'a_bigint', " +
+                "  'a_real', " +
+                "  'a_double', " +
+                "  'a_short_decimal', " +
+                "  'a_long_decimal', " +
+                "  'a_varchar', " +
+                "  '\"a quoted, field\"', " +
+                "  'truncate(\"a quoted, field\", 5)', " +
+                "  'truncate(a_varchar , 5)', " +
+                "  'truncate(a_varchar, 5)', " +
+                "  'a_varbinary', " +
+                "  'a_date', " +
+                "  '  year( a_date ) ', " +
+                "  'month( a_date)', " +
+                "  'day(a_date)', " +
+                "  'hour(  a_date)', " +
+                "  'a_time', " +
+                "  'a_timestamp', " +
+                "  'a_timestamptz', " +
+                "  'a_uuid' " +
+                "  ]" +
+                ")");
+
+        assertQueryReturnsEmptyResult("SELECT * FROM test_sorted_with_partition_table");
+
+        dropTable("test_sorted_with_partition_table");
+    }
+
+    @Test
+    public void testCreateSortedTable()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_sorted_table (" +
+                "  a_boolean boolean, " +
+                "  an_integer integer, " +
+                "  a_bigint bigint, " +
+                "  a_real real, " +
+                "  a_double double, " +
+                "  a_short_decimal decimal(5,2), " +
+                "  a_long_decimal decimal(38,20), " +
+                "  a_varchar varchar, " +
+                "  a_varbinary varbinary, " +
+                "  a_date date, " +
+                "  a_time time(6), " +
+                "  a_timestamp timestamp(6), " +
+                "  a_timestamptz timestamp(6) with time zone, " +
+                "  a_uuid uuid, " +
+                "  a_row row(id integer , vc varchar), " +
+                "  an_array array(varchar), " +
+                "  a_map map(integer, varchar) " +
+                ") " +
+                "WITH (" +
+                "sorted_by = ARRAY[" +
+                "  'a_boolean', " +
+                "  'an_integer', " +
+                "  'bucket(an_integer, 10)', " +
+                "  'a_bigint', " +
+                "  'a_real', " +
+                "  'a_double', " +
+                "  'a_short_decimal', " +
+                "  'a_long_decimal', " +
+                "  'a_varchar', " +
+                "  'truncate(a_varchar, 5)', " +
+                "  'a_varbinary', " +
+                "  'a_date', " +
+                "  'year(a_date)', " +
+                "  '  month(a_date   )  ', " +
+                "  'day(a_date)', " +
+                "  'hour(a_date)', " +
+                "  'a_time', " +
+                "  'a_timestamp', " +
+                "  'a_timestamptz', " +
+                "  'a_uuid' " +
+                "  ]" +
+                ")");
+
+        assertQueryReturnsEmptyResult("SELECT * FROM test_sorted_table");
+
+        dropTable("test_sorted_table");
+    }
+
+    @Test
+    public void testCreateBlankSortedTable()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_blank_sorted_table (" +
+                "  a_boolean boolean, " +
+                "  an_integer integer, " +
+                "  a_bigint bigint, " +
+                "  a_real real, " +
+                "  a_double double, " +
+                "  a_short_decimal decimal(5,2), " +
+                "  a_long_decimal decimal(38,20), " +
+                "  a_varchar varchar, " +
+                "  a_varbinary varbinary, " +
+                "  a_date date, " +
+                "  a_time time(6), " +
+                "  a_timestamp timestamp(6), " +
+                "  a_timestamptz timestamp(6) with time zone, " +
+                "  a_uuid uuid, " +
+                "  a_row row(id integer , vc varchar), " +
+                "  an_array array(varchar), " +
+                "  a_map map(integer, varchar) " +
+                ") " +
+                "WITH (" +
+                "partitioning = ARRAY[" +
+                "  'a_boolean', " +
+                "  'an_integer', " +
+                "  'a_bigint', " +
+                "  'a_real', " +
+                "  'a_double', " +
+                "  'a_short_decimal', " +
+                "  'a_long_decimal', " +
+                "  'a_varchar', " +
+                "  'a_varbinary', " +
+                "  'a_date', " +
+                "  'a_time', " +
+                "  'a_timestamp', " +
+                "  'a_timestamptz', " +
+                "  'a_uuid' " +
+                // Note: partitioning on non-primitive columns is not allowed in Iceberg
+                "  ], " +
+                "sorted_by = ARRAY[]" +
+                ")");
+
+        assertQueryReturnsEmptyResult("SELECT * FROM test_blank_sorted_table");
+
+        dropTable("test_blank_sorted_table");
+    }
+
+    @DataProvider(name = "sortedTableWithQuotedIdentifierCasing")
+    public static Object[][] sortedTableWithQuotedIdentifierCasing()
+    {
+        return new Object[][] {
+                {"x", "x", true},
+                {"X", "x", true},
+                {"\"x\"", "x", true},
+                {"\"X\"", "x", true},
+                {"x", "\"x\"", true},
+                {"X", "\"x\"", true},
+                {"\"x\"", "\"x\"", true},
+                {"\"X\"", "\"x\"", true},
+                {"x", "X", true},
+                {"X", "X", true},
+                {"\"x\"", "X", true},
+                {"\"X\"", "X", true},
+                {"x", "\"X\"", false},
+                {"X", "\"X\"", false},
+                {"\"x\"", "\"X\"", false},
+                {"\"X\"", "\"X\"", false},
+        };
+    }
+
+    @Test(dataProvider = "sortedTableWithQuotedIdentifierCasing")
+    public void testCreateSortedTableWithQuotedIdentifierCasing(String columnName, String sortField, boolean success)
+    {
+        String tableName = "sorting_" + randomTableSuffix();
+        @Language("SQL") String sql = format("CREATE TABLE %s (%s bigint) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField);
+        if (success) {
+            assertThat(query(sql)).matches("VALUES (true)");
+            dropTable(tableName);
+        }
+        else {
+            assertQueryFails(sql, "Unable to parse sorting value");
+        }
+    }
+
+    @Test
     public void testTableComments()
     {
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();

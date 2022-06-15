@@ -22,9 +22,12 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.VarcharType;
+import org.apache.iceberg.NullOrder;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.types.Types;
 import org.testng.annotations.Test;
 
@@ -80,6 +83,7 @@ public abstract class BaseTrinoCatalogTest
                     schemaTableName,
                     new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                     PartitionSpec.unpartitioned(),
+                    SortOrder.unsorted(),
                     tmpDirectory.toAbsolutePath().toString(),
                     ImmutableMap.of())
                     .commitTransaction();
@@ -92,6 +96,77 @@ public abstract class BaseTrinoCatalogTest
             assertEquals(icebergTable.schema().columns().get(0).name(), "col1");
             assertEquals(icebergTable.schema().columns().get(0).type(), Types.LongType.get());
             assertEquals(icebergTable.location(), tmpDirectory.toAbsolutePath().toString());
+            assertEquals(icebergTable.sortOrder().isUnsorted(), true);
+            assertEquals(icebergTable.properties(), ImmutableMap.of());
+
+            catalog.dropTable(SESSION, schemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).doesNotContain(schemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.empty())).doesNotContain(schemaTableName);
+        }
+        finally {
+            try {
+                catalog.dropNamespace(SESSION, namespace);
+            }
+            catch (Exception e) {
+                LOG.warn("Failed to clean up namespace: %s", namespace);
+            }
+        }
+    }
+
+    @Test
+    public void testCreateWithSortTable()
+            throws IOException
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        Path tmpDirectory = Files.createTempDirectory("iceberg_catalog_test_create_sort_table_");
+        tmpDirectory.toFile().deleteOnExit();
+
+        String namespace = "test_create_sort_table_" + randomTableSuffix();
+        String table = "tableName";
+        SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
+        try {
+            catalog.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            Schema tableSchema = new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get()),
+                    Types.NestedField.of(2, true, "col2", Types.StringType.get()),
+                    Types.NestedField.of(3, true, "col3", Types.DateType.get()),
+                    Types.NestedField.of(4, true, "col4", Types.StringType.get()));
+
+            SortOrder sortOrder = SortOrder.builderFor(tableSchema)
+                    .asc("col1")
+                    .desc("col2", NullOrder.NULLS_FIRST)
+                    .desc("col3")
+                    .desc(Expressions.year("col3"), NullOrder.NULLS_LAST)
+                    .desc(Expressions.month("col3"), NullOrder.NULLS_FIRST)
+                    .asc(Expressions.day("col3"), NullOrder.NULLS_FIRST)
+                    .asc(Expressions.hour("col3"), NullOrder.NULLS_FIRST)
+                    .desc(Expressions.bucket("col2", 10), NullOrder.NULLS_FIRST)
+                    .desc(Expressions.truncate("col4", 5), NullOrder.NULLS_FIRST).build();
+            catalog.newCreateTableTransaction(
+                            SESSION,
+                            schemaTableName,
+                            tableSchema,
+                            PartitionSpec.unpartitioned(),
+                            sortOrder,
+                            tmpDirectory.toAbsolutePath().toString(),
+                            ImmutableMap.of())
+                    .commitTransaction();
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(schemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.empty())).contains(schemaTableName);
+
+            Table icebergTable = catalog.loadTable(SESSION, schemaTableName);
+            assertEquals(icebergTable.name(), quotedTableName(schemaTableName));
+            assertEquals(icebergTable.schema().columns().size(), 4);
+            assertEquals(icebergTable.schema().columns().get(0).name(), "col1");
+            assertEquals(icebergTable.schema().columns().get(0).type(), Types.LongType.get());
+            assertEquals(icebergTable.schema().columns().get(1).name(), "col2");
+            assertEquals(icebergTable.schema().columns().get(1).type(), Types.StringType.get());
+            assertEquals(icebergTable.location(), tmpDirectory.toAbsolutePath().toString());
+            assertEquals(icebergTable.schema().columns().get(2).name(), "col3");
+            assertEquals(icebergTable.schema().columns().get(2).type(), Types.DateType.get());
+            assertEquals(icebergTable.schema().columns().get(3).name(), "col4");
+            assertEquals(icebergTable.schema().columns().get(3).type(), Types.StringType.get());
+            assertEquals(icebergTable.location(), tmpDirectory.toAbsolutePath().toString());
+            assertEquals(icebergTable.sortOrder(), sortOrder);
             assertEquals(icebergTable.properties(), ImmutableMap.of());
 
             catalog.dropTable(SESSION, schemaTableName);
@@ -129,6 +204,7 @@ public abstract class BaseTrinoCatalogTest
                     sourceSchemaTableName,
                     new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                     PartitionSpec.unpartitioned(),
+                    SortOrder.unsorted(),
                     tmpDirectory.toAbsolutePath().toString(),
                     ImmutableMap.of())
                     .commitTransaction();
