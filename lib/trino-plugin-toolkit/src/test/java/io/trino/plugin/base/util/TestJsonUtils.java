@@ -14,6 +14,7 @@
 package io.trino.plugin.base.util;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonParseException;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -22,6 +23,7 @@ import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.plugin.base.util.TestJsonUtils.TestEnum.OPTION_A;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestJsonUtils
 {
@@ -43,5 +45,18 @@ public class TestJsonUtils
     {
         TestObject parsed = parseJson("{\"testEnum\": \"option_a\"}".getBytes(US_ASCII), TestObject.class);
         assertThat(parsed.testEnum).isEqualTo(OPTION_A);
+    }
+
+    @Test
+    public void testTrailingContent()
+            throws IOException
+    {
+        assertThatThrownBy(() -> parseJson("{} {}}".getBytes(US_ASCII), TestObject.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Found characters after the expected end of input");
+
+        assertThatThrownBy(() -> parseJson("{} not even a JSON here".getBytes(US_ASCII), TestObject.class))
+                .isInstanceOf(JsonParseException.class)
+                .hasMessageStartingWith("Unrecognized token 'not': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')");
     }
 }
