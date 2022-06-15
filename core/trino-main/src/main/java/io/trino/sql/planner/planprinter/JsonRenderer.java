@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.json.JsonCodec;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
-import io.trino.sql.planner.plan.PlanFragmentId;
 
 import java.util.List;
 import java.util.Map;
@@ -56,10 +55,7 @@ public class JsonRenderer
                 node.getOutputs(),
                 node.getDetails(),
                 node.getEstimates(plan.getTypes()),
-                children,
-                node.getRemoteSources().stream()
-                        .map(PlanFragmentId::toString)
-                        .collect(toImmutableList()));
+                children);
     }
 
     public static class JsonRenderedNode
@@ -71,7 +67,6 @@ public class JsonRenderer
         private final String details;
         private final List<PlanNodeStatsAndCostSummary> estimates;
         private final List<JsonRenderedNode> children;
-        private final List<String> remoteSources;
 
         public JsonRenderedNode(
                 String id,
@@ -80,8 +75,7 @@ public class JsonRenderer
                 List<TypedSymbol> outputs,
                 String details,
                 List<PlanNodeStatsAndCostSummary> estimates,
-                List<JsonRenderedNode> children,
-                List<String> remoteSources)
+                List<JsonRenderedNode> children)
         {
             this.id = requireNonNull(id, "id is null");
             this.name = requireNonNull(name, "name is null");
@@ -90,7 +84,6 @@ public class JsonRenderer
             this.details = requireNonNull(details, "details is null");
             this.estimates = requireNonNull(estimates, "estimates is null");
             this.children = requireNonNull(children, "children is null");
-            this.remoteSources = requireNonNull(remoteSources, "remoteSources is null");
         }
 
         @JsonProperty
@@ -135,12 +128,6 @@ public class JsonRenderer
             return children;
         }
 
-        @JsonProperty
-        public List<String> getRemoteSources()
-        {
-            return remoteSources;
-        }
-
         @Override
         public boolean equals(Object o)
         {
@@ -157,14 +144,13 @@ public class JsonRenderer
                     && outputs.equals(that.outputs)
                     && details.equals(that.details)
                     && estimates.equals(that.estimates)
-                    && children.equals(that.children)
-                    && remoteSources.equals(that.remoteSources);
+                    && children.equals(that.children);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(id, name, descriptor, outputs, details, estimates, children, remoteSources);
+            return Objects.hash(id, name, descriptor, outputs, details, estimates, children);
         }
     }
 }

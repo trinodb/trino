@@ -24,6 +24,7 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.BeforeClass;
@@ -34,10 +35,12 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
@@ -83,8 +86,7 @@ public class TestJsonRepresentation
                         ImmutableList.of(),
                         ImmutableList.of(valuesRepresentation(
                                 "0",
-                                ImmutableList.of(typedSymbol("x", "bigint"), typedSymbol("y", "bigint"), typedSymbol("z", "bigint")))),
-                        ImmutableList.of()));
+                                ImmutableList.of(typedSymbol("x", "bigint"), typedSymbol("y", "bigint"), typedSymbol("z", "bigint"))))));
     }
 
     @Test
@@ -111,7 +113,28 @@ public class TestJsonRepresentation
                         ImmutableList.of(),
                         ImmutableList.of(
                                 valuesRepresentation("0", ImmutableList.of(typedSymbol("a", "bigint"), typedSymbol("b", "bigint"))),
-                                valuesRepresentation("1", ImmutableList.of(typedSymbol("c", "bigint"), typedSymbol("d", "bigint")))),
+                                valuesRepresentation("1", ImmutableList.of(typedSymbol("c", "bigint"), typedSymbol("d", "bigint"))))));
+    }
+
+    @Test
+    public void testSourceFragmentIdsInRemoteSource()
+    {
+        // This test works as a validation to check if descriptor key "sourceFragmentIds" is present
+        // because it is being used to create LivePlan in the Trino's UI.
+        assertJsonRepresentation(
+                pb -> pb.remoteSource(
+                        ImmutableList.of(new PlanFragmentId("1"), new PlanFragmentId("2")),
+                        ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", BIGINT)),
+                        Optional.empty(),
+                        REPARTITION,
+                        NONE),
+                new JsonRenderedNode(
+                        "0",
+                        "RemoteSource",
+                        ImmutableMap.of("sourceFragmentIds", "[1, 2]"),
+                        ImmutableList.of(typedSymbol("a", "bigint"), typedSymbol("b", "bigint")),
+                        "",
+                        ImmutableList.of(),
                         ImmutableList.of()));
     }
 
@@ -123,7 +146,6 @@ public class TestJsonRepresentation
                 ImmutableMap.of(),
                 outputs,
                 "",
-                ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableList.of());
     }
