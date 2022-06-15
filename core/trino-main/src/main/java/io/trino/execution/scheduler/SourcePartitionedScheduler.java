@@ -24,7 +24,6 @@ import io.trino.execution.Lifespan;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TableExecuteContext;
 import io.trino.execution.TableExecuteContextManager;
-import io.trino.execution.scheduler.FixedSourcePartitionedScheduler.BucketedSplitPlacementPolicy;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.server.DynamicFilterService;
@@ -359,10 +358,6 @@ public class SourcePartitionedScheduler
             Multimap<InternalNode, Lifespan> noMoreSplitsNotification = ImmutableMultimap.of();
             if (pendingSplits.isEmpty() && scheduleGroup.state == ScheduleGroupState.NO_MORE_SPLITS) {
                 scheduleGroup.state = ScheduleGroupState.DONE;
-                if (!lifespan.isTaskWide()) {
-                    InternalNode node = ((BucketedSplitPlacementPolicy) splitPlacementPolicy).getNodeForBucket(lifespan.getId());
-                    noMoreSplitsNotification = ImmutableMultimap.of(node, lifespan);
-                }
             }
 
             // assign the splits with successful placements
