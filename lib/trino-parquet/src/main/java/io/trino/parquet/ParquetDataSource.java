@@ -30,9 +30,11 @@ public interface ParquetDataSource
 
     long getEstimatedSize();
 
-    Slice readTail(int length);
+    Slice readTail(int length)
+            throws IOException;
 
-    Slice readFully(long position, int length);
+    Slice readFully(long position, int length)
+            throws IOException;
 
     <K> ListMultimap<K, ChunkReader> planRead(ListMultimap<K, DiskRange> diskRanges);
 

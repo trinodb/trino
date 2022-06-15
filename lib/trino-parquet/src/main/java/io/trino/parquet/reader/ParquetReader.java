@@ -405,6 +405,7 @@ public class ParquetReader
     }
 
     private List<Slice> allocateBlock(int fieldId)
+            throws IOException
     {
         Collection<ChunkReader> readers = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
         List<Slice> slices = Lists.newArrayListWithExpectedSize(readers.size());
