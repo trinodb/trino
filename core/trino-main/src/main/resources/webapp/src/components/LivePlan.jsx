@@ -75,7 +75,6 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
             descriptor: node['descriptor'],
             details: node['details'],
             sources: node.children.map(node => node.id),
-            remoteSources: node.remoteSources,
         });
 
         node.children.forEach(function (child) {
@@ -115,7 +114,6 @@ type PlanNodeProps = {
     descriptor: Map<string, string>,
     details: string,
     sources: string[],
-    remoteSources: string[],
 }
 type PlanNodeState = {}
 
@@ -246,23 +244,27 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
                 graph.setEdge("node-" + source, nodeId, {class: "plan-edge", arrowheadClass: "plan-arrowhead"});
             });
 
-            if (node.remoteSources.length > 0) {
-                graph.setNode(nodeId, {label: '', shape: "circle"});
+            var sourceFragmentIds = node.descriptor['sourceFragmentIds'];
+            if (sourceFragmentIds) {
+                var remoteSources = sourceFragmentIds.replace('[', '').replace(']', '').split(', ');
+                if (remoteSources.length > 0) {
+                    graph.setNode(nodeId, {label: '', shape: "circle"});
 
-                node.remoteSources.forEach(sourceId => {
-                    const source = allStages.get(sourceId);
-                    if (source) {
-                        const sourceStats = source.stageStats;
-                        graph.setEdge("stage-" + sourceId + "-root", nodeId, {
+                    remoteSources.forEach(sourceId => {
+                        const source = allStages.get(sourceId);
+                        if (source) {
+                            const sourceStats = source.stageStats;
+                            graph.setEdge("stage-" + sourceId + "-root", nodeId, {
                                 class: "plan-edge",
                                 style: "stroke-width: 4px",
                                 arrowheadClass: "plan-arrowhead",
                                 label: parseAndFormatDataSize(sourceStats.outputDataSize) + " / " + formatRows(sourceStats.outputPositions),
                                 labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
                                 labelType: "html",
-                        });
-                    }
-                });
+                            });
+                        }
+                    });
+                }
             }
         });
     }
