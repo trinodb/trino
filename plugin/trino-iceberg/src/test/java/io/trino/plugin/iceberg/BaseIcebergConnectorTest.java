@@ -395,11 +395,14 @@ public abstract class BaseIcebergConnectorTest
         String instant2La = "TIMESTAMP '2021-10-30 17:30:00.006000 America/Los_Angeles'";
         String instant3Utc = "TIMESTAMP '2021-10-31 00:30:00.007000 UTC'";
         String instant3La = "TIMESTAMP '2021-10-30 17:30:00.007000 America/Los_Angeles'";
+        // regression test value for https://github.com/trinodb/trino/issues/12852
+        String instant4Utc = "TIMESTAMP '1969-12-01 05:06:07.234567 UTC'";
 
         assertUpdate(format("INSERT INTO %s VALUES %s", tableName, instant1Utc), 1);
         assertUpdate(format("INSERT INTO %s VALUES %s", tableName, instant2La /* non-UTC for this one */), 1);
         assertUpdate(format("INSERT INTO %s VALUES %s", tableName, instant3Utc), 1);
-        assertQuery(format("SELECT COUNT(*) from %s", tableName), "SELECT 3");
+        assertUpdate(format("INSERT INTO %s VALUES %s", tableName, instant4Utc), 1);
+        assertQuery(format("SELECT COUNT(*) from %s", tableName), "SELECT 4");
 
         // =
         assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant1Utc)))
@@ -414,22 +417,24 @@ public abstract class BaseIcebergConnectorTest
                 .matches("VALUES " + instant3Utc);
         assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant3La)))
                 .matches("VALUES " + instant3Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz = %s", tableName, instant4Utc)))
+                .matches("VALUES " + instant4Utc);
 
         // <
         assertThat(query(format("SELECT * from %s WHERE _timestamptz < %s", tableName, instant2Utc)))
-                .matches("VALUES " + instant1Utc);
+                .matches(format("VALUES %s, %s", instant1Utc, instant4Utc));
         assertThat(query(format("SELECT * from %s WHERE _timestamptz < %s", tableName, instant2La)))
-                .matches("VALUES " + instant1Utc);
+                .matches(format("VALUES %s, %s", instant1Utc, instant4Utc));
         assertThat(query(format("SELECT * from %s WHERE _timestamptz < %s", tableName, instant3Utc)))
-                .matches(format("VALUES %s, %s", instant1Utc, instant2Utc));
+                .matches(format("VALUES %s, %s, %s", instant1Utc, instant2Utc, instant4Utc));
         assertThat(query(format("SELECT * from %s WHERE _timestamptz < %s", tableName, instant3La)))
-                .matches(format("VALUES %s, %s", instant1Utc, instant2Utc));
+                .matches(format("VALUES %s, %s, %s", instant1Utc, instant2Utc, instant4Utc));
 
         // <=
         assertThat(query(format("SELECT * from %s WHERE _timestamptz <= %s", tableName, instant2Utc)))
-                .matches(format("VALUES %s, %s", instant1Utc, instant2Utc));
+                .matches(format("VALUES %s, %s, %s", instant1Utc, instant2Utc, instant4Utc));
         assertThat(query(format("SELECT * from %s WHERE _timestamptz <= %s", tableName, instant2La)))
-                .matches(format("VALUES %s, %s", instant1Utc, instant2Utc));
+                .matches(format("VALUES %s, %s, %s", instant1Utc, instant2Utc, instant4Utc));
 
         // >
         assertThat(query(format("SELECT * from %s WHERE _timestamptz > %s", tableName, instant2Utc)))
@@ -461,23 +466,27 @@ public abstract class BaseIcebergConnectorTest
 
         // !=
         assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant1Utc)))
-                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+                .matches(format("VALUES %s, %s, %s", instant2Utc, instant3Utc, instant4Utc));
         assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant1La)))
-                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+                .matches(format("VALUES %s, %s, %s", instant2Utc, instant3Utc, instant4Utc));
         assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant2Utc)))
-                .matches(format("VALUES %s, %s", instant1Utc, instant3Utc));
+                .matches(format("VALUES %s, %s, %s", instant1Utc, instant3Utc, instant4Utc));
         assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant2La)))
-                .matches(format("VALUES %s, %s", instant1Utc, instant3Utc));
+                .matches(format("VALUES %s, %s, %s", instant1Utc, instant3Utc, instant4Utc));
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz != %s", tableName, instant4Utc)))
+                .matches(format("VALUES %s, %s, %s", instant1Utc, instant2Utc, instant3Utc));
 
         // IS DISTINCT FROM
         assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant1Utc)))
-                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+                .matches(format("VALUES %s, %s, %s", instant2Utc, instant3Utc, instant4Utc));
         assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant1La)))
-                .matches(format("VALUES %s, %s", instant2Utc, instant3Utc));
+                .matches(format("VALUES %s, %s, %s", instant2Utc, instant3Utc, instant4Utc));
         assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant2Utc)))
-                .matches(format("VALUES %s, %s", instant1Utc, instant3Utc));
+                .matches(format("VALUES %s, %s, %s", instant1Utc, instant3Utc, instant4Utc));
         assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant2La)))
-                .matches(format("VALUES %s, %s", instant1Utc, instant3Utc));
+                .matches(format("VALUES %s, %s, %s", instant1Utc, instant3Utc, instant4Utc));
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS DISTINCT FROM %s", tableName, instant4Utc)))
+                .matches(format("VALUES %s, %s, %s", instant1Utc, instant2Utc, instant3Utc));
 
         // IS NOT DISTINCT FROM
         assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant1Utc)))
@@ -492,16 +501,23 @@ public abstract class BaseIcebergConnectorTest
                 .matches("VALUES " + instant3Utc);
         assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant3La)))
                 .matches("VALUES " + instant3Utc);
+        assertThat(query(format("SELECT * from %s WHERE _timestamptz IS NOT DISTINCT FROM %s", tableName, instant4Utc)))
+                .matches("VALUES " + instant4Utc);
 
         if (partitioned) {
             assertThat(query(format("SELECT record_count, file_count, partition._timestamptz FROM \"%s$partitions\"", tableName)))
-                    .matches(format("VALUES (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s)", instant1Utc, instant2Utc, instant3Utc));
+                    .matches(format(
+                            "VALUES (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s)",
+                            instant1Utc,
+                            instant2Utc,
+                            instant3Utc,
+                            instant4Utc));
         }
         else {
             assertThat(query(format("SELECT record_count, file_count, data._timestamptz FROM \"%s$partitions\"", tableName)))
                     .matches(format(
-                            "VALUES (BIGINT '3', BIGINT '3', CAST(ROW(%s, %s, 0, NULL) AS row(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint, nan_count bigint)))",
-                            instant1Utc,
+                            "VALUES (BIGINT '4', BIGINT '4', CAST(ROW(%s, %s, 0, NULL) AS row(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint, nan_count bigint)))",
+                            format == ORC ? "TIMESTAMP '1969-12-01 05:06:07.234000 UTC'" : instant4Utc,
                             format == ORC ? "TIMESTAMP '2021-10-31 00:30:00.007999 UTC'" : instant3Utc));
         }
 
@@ -509,8 +525,8 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR " + tableName))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "('_timestamptz', NULL, NULL, 0e0, NULL, '2021-10-31 00:30:00.005 UTC', '2021-10-31 00:30:00.007 UTC'), " +
-                        "(NULL, NULL, NULL, NULL, 3e0, NULL, NULL)");
+                        "('_timestamptz', NULL, NULL, 0e0, NULL, '1969-12-01 05:06:07.234 UTC', '2021-10-31 00:30:00.007 UTC'), " +
+                        "(NULL, NULL, NULL, NULL, 4e0, NULL, NULL)");
 
         if (partitioned) {
             // show stats with predicate
