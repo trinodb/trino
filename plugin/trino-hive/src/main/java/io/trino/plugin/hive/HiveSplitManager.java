@@ -82,7 +82,6 @@ import static io.trino.plugin.hive.util.HiveCoercionPolicy.canCoerce;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
-import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -180,7 +179,6 @@ public class HiveSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
-            SplitSchedulingStrategy splitSchedulingStrategy,
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
@@ -221,9 +219,6 @@ public class HiveSplitManager
 
         // validate bucket bucketed execution
         Optional<HiveBucketHandle> bucketHandle = hiveTable.getBucketHandle();
-        if ((splitSchedulingStrategy == GROUPED_SCHEDULING) && bucketHandle.isEmpty()) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "SchedulingPolicy is bucketed, but BucketHandle is not present");
-        }
 
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
@@ -262,39 +257,18 @@ public class HiveSplitManager
                         .map(validTxnWriteIdList -> validTxnWriteIdList.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())),
                 hiveTable.getMaxScannedFileSize());
 
-        HiveSplitSource splitSource;
-        switch (splitSchedulingStrategy) {
-            case UNGROUPED_SCHEDULING:
-                splitSource = HiveSplitSource.allAtOnce(
-                        session,
-                        table.getDatabaseName(),
-                        table.getTableName(),
-                        maxInitialSplits,
-                        maxOutstandingSplits,
-                        maxOutstandingSplitsSize,
-                        maxSplitsPerSecond,
-                        hiveSplitLoader,
-                        executor,
-                        highMemorySplitSourceCounter,
-                        hiveTable.isRecordScannedFiles());
-                break;
-            case GROUPED_SCHEDULING:
-                splitSource = HiveSplitSource.bucketed(
-                        session,
-                        table.getDatabaseName(),
-                        table.getTableName(),
-                        maxInitialSplits,
-                        maxOutstandingSplits,
-                        maxOutstandingSplitsSize,
-                        maxSplitsPerSecond,
-                        hiveSplitLoader,
-                        executor,
-                        highMemorySplitSourceCounter,
-                        hiveTable.isRecordScannedFiles());
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingStrategy);
-        }
+        HiveSplitSource splitSource = HiveSplitSource.allAtOnce(
+                session,
+                table.getDatabaseName(),
+                table.getTableName(),
+                maxInitialSplits,
+                maxOutstandingSplits,
+                maxOutstandingSplitsSize,
+                maxSplitsPerSecond,
+                hiveSplitLoader,
+                executor,
+                highMemorySplitSourceCounter,
+                hiveTable.isRecordScannedFiles());
         hiveSplitLoader.start(splitSource);
 
         return splitSource;

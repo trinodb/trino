@@ -970,7 +970,6 @@ public class LocalQueryRunner
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     table,
-                    UNGROUPED_SCHEDULING,
                     EMPTY,
                     alwaysTrue());
 

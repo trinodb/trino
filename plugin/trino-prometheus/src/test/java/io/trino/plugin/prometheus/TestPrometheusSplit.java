@@ -126,7 +126,6 @@ public class TestPrometheusSplit
                 null,
                 null,
                 new PrometheusTableHandle("default", table.getName()),
-                null,
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
         PrometheusSplit split = (PrometheusSplit) splits.getNextBatch(NOT_PARTITIONED, 1).getNow(null).getSplits().get(0);
@@ -153,7 +152,6 @@ public class TestPrometheusSplit
                 null,
                 null,
                 new PrometheusTableHandle("default", table.getName()),
-                null,
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
         PrometheusSplit split = (PrometheusSplit) splits.getNextBatch(NOT_PARTITIONED, 1).getNow(null).getSplits().get(0);
@@ -180,7 +178,6 @@ public class TestPrometheusSplit
                 null,
                 null,
                 new PrometheusTableHandle("default", table.getName()),
-                null,
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
         List<ConnectorSplit> splits = splitsMaybe.getNextBatch(NOT_PARTITIONED, NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits();
@@ -206,7 +203,6 @@ public class TestPrometheusSplit
                 null,
                 null,
                 new PrometheusTableHandle("default", table.getName()),
-                null,
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
         PrometheusSplit split1 = (PrometheusSplit) splits.getNextBatch(NOT_PARTITIONED, 1).getNow(null).getSplits().get(0);

@@ -74,7 +74,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.ExpressionUtils.filterConjuncts;
@@ -178,7 +177,6 @@ public class SplitSourceFactory
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     node.getTable(),
-                    UNGROUPED_SCHEDULING,
                     dynamicFilter,
                     constraint);
 

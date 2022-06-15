@@ -50,37 +50,29 @@ public class KuduSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy,
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
         long timeoutMillis = getDynamicFilteringWaitTimeout(session).toMillis();
         if (timeoutMillis == 0 || !dynamicFilter.isAwaitable()) {
-            return getSplitSource(table, splitSchedulingStrategy, dynamicFilter);
+            return getSplitSource(table, dynamicFilter);
         }
         CompletableFuture<?> dynamicFilterFuture = whenCompleted(dynamicFilter)
                 .completeOnTimeout(null, timeoutMillis, MILLISECONDS);
         CompletableFuture<ConnectorSplitSource> splitSourceFuture = dynamicFilterFuture.thenApply(
-                ignored -> getSplitSource(table, splitSchedulingStrategy, dynamicFilter));
+                ignored -> getSplitSource(table, dynamicFilter));
         return new KuduDynamicFilteringSplitSource(dynamicFilterFuture, splitSourceFuture);
     }
 
     private ConnectorSplitSource getSplitSource(
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy,
             DynamicFilter dynamicFilter)
     {
         KuduTableHandle handle = (KuduTableHandle) table;
 
         List<KuduSplit> splits = clientSession.buildKuduSplits(handle, dynamicFilter);
 
-        switch (splitSchedulingStrategy) {
-            case UNGROUPED_SCHEDULING:
-                return new FixedSplitSource(splits);
-            case GROUPED_SCHEDULING:
-                return new KuduBucketedSplitSource(splits);
-        }
-        throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingStrategy);
+        return new FixedSplitSource(splits);
     }
 
     private static CompletableFuture<?> whenCompleted(DynamicFilter dynamicFilter)
