@@ -66,6 +66,7 @@ import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Iterables.transform;
 import static io.trino.plugin.hive.parquet.ParquetTester.insertNullEvery;
+import static io.trino.plugin.hive.parquet.ParquetTester.ParquetSchemaOptions;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -217,9 +218,14 @@ public abstract class AbstractTestParquetReader
         Iterable<List<List<?>>> values = createTestArrays(structs);
         List<String> structFieldNames = asList("a", "b", "c");
         Type structType = RowType.from(asList(field("a", BIGINT), field("b", BOOLEAN), field("c", VARCHAR)));
-        tester.testSingleLevelArrayRoundTrip(
+        tester.testRoundTrip(
                 getStandardListObjectInspector(getStandardStructObjectInspector(structFieldNames, asList(javaLongObjectInspector, javaBooleanObjectInspector, javaStringObjectInspector))),
-                values, values, "self", new ArrayType(structType), Optional.of(customSchemaArrayOfStructs));
+                values,
+                values,
+                "self",
+                new ArrayType(structType),
+                Optional.of(customSchemaArrayOfStructs),
+                ParquetSchemaOptions.withSingleLevelArray());
     }
 
     @Test
@@ -631,7 +637,7 @@ public abstract class AbstractTestParquetReader
         List<Type> types = ImmutableList.of(struct1Type, struct2Type, struct3Type, struct4Type, mapType(INTEGER, DOUBLE), new ArrayType(BOOLEAN), mapType(VARCHAR, VARCHAR));
 
         Iterable<?>[] values = new Iterable<?>[] {structs1, structs2, structs3, structs4, mapsIntDouble, arraysBoolean, mapsStringString};
-        tester.assertRoundTrip(objectInspectors, values, values, structFieldNames, types, Optional.empty(), false);
+        tester.assertRoundTrip(objectInspectors, values, values, structFieldNames, types, Optional.empty(), ParquetSchemaOptions.defaultOptions());
     }
 
     @Test
@@ -1323,7 +1329,7 @@ public abstract class AbstractTestParquetReader
         ObjectInspector eInspector = getStandardStructObjectInspector(singletonList("f"), singletonList(fInspector));
         tester.testRoundTrip(asList(aInspector, eInspector),
                 new Iterable<?>[] {aValues, eValues}, new Iterable<?>[] {aValues, eValues},
-                asList("a", "e"), asList(aType, eType), Optional.of(parquetSchema), false);
+                asList("a", "e"), asList(aType, eType), Optional.of(parquetSchema), ParquetSchemaOptions.defaultOptions());
     }
 
     @Test
@@ -1336,7 +1342,14 @@ public abstract class AbstractTestParquetReader
                 "  }" +
                 "} ");
         Iterable<List<Integer>> nonNullArrayElements = createTestArrays(intsBetween(0, 31_234));
-        tester.testSingleLevelArrayRoundTrip(getStandardListObjectInspector(javaIntObjectInspector), nonNullArrayElements, nonNullArrayElements, "my_list", new ArrayType(INTEGER), Optional.of(parquetMrAvroSchema));
+        tester.testRoundTrip(
+                getStandardListObjectInspector(javaIntObjectInspector),
+                nonNullArrayElements,
+                nonNullArrayElements,
+                "my_list",
+                new ArrayType(INTEGER),
+                Optional.of(parquetMrAvroSchema),
+                ParquetSchemaOptions.withSingleLevelArray());
     }
 
     @Test
