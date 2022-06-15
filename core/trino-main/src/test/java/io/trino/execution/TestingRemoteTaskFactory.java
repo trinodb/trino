@@ -168,7 +168,6 @@ public class TestingRemoteTaskFactory
                     state,
                     location,
                     nodeId,
-                    ImmutableSet.of(),
                     failures,
                     0,
                     0,

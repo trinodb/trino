@@ -15,7 +15,6 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.Multimap;
 import io.trino.execution.ExecutionFailureInfo;
-import io.trino.execution.Lifespan;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.StageId;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -28,8 +27,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -51,8 +48,6 @@ public interface StageExecution
 
     void addStateChangeListener(StateChangeListener<State> stateChangeListener);
 
-    void addCompletedDriverGroupsChangedListener(Consumer<Set<Lifespan>> newlyCompletedDriverGroupConsumer);
-
     TaskLifecycleListener getTaskLifecycleListener();
 
     void schedulingComplete();
@@ -68,8 +63,7 @@ public interface StageExecution
     Optional<RemoteTask> scheduleTask(
             InternalNode node,
             int partition,
-            Multimap<PlanNodeId, Split> initialSplits,
-            Multimap<PlanNodeId, Lifespan> noMoreSplitsForLifespan);
+            Multimap<PlanNodeId, Split> initialSplits);
 
     void failTask(TaskId taskId, Throwable failureCause);
 

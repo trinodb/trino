@@ -25,7 +25,6 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.DynamicFiltersCollector;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
-import io.trino.execution.Lifespan;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStateMachine;
@@ -44,7 +43,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -53,7 +51,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -86,8 +83,6 @@ public class TaskContext
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
-
-    private final Set<Lifespan> completedDriverGroups = newConcurrentHashSet();
 
     private final List<PipelineContext> pipelineContexts = new CopyOnWriteArrayList<>();
 
@@ -259,22 +254,6 @@ public class TaskContext
     public DataSize getRevocableMemoryReservation()
     {
         return DataSize.ofBytes(taskMemoryContext.getRevocableMemory());
-    }
-
-    /**
-     * Returns the completed driver groups (excluding taskWide).
-     * A driver group is considered complete if all drivers associated with it
-     * has completed, and no new drivers associated with it will be created.
-     */
-    public Set<Lifespan> getCompletedDriverGroups()
-    {
-        return completedDriverGroups;
-    }
-
-    public void addCompletedDriverGroup(Lifespan driverGroup)
-    {
-        checkArgument(!driverGroup.isTaskWide(), "driverGroup is task-wide, not a driver group.");
-        completedDriverGroups.add(driverGroup);
     }
 
     public List<PipelineContext> getPipelineContexts()
