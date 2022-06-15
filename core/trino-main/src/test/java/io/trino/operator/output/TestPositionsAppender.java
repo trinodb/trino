@@ -61,6 +61,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -215,6 +216,21 @@ public class TestPositionsAppender
         assertEquals(positionsAppender.build().getPositionCount(), 0);
     }
 
+    // testcase for jit bug described https://github.com/trinodb/trino/issues/12821
+    @Test(priority = Integer.MIN_VALUE)
+    public void testSliceRle()
+    {
+        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(VARCHAR, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+
+        // first append some not empty value to avoid RleAwarePositionsAppender for the empty value
+        positionsAppender.appendRle(new RunLengthEncodedBlock(singleValueBlock("some value"), 1));
+        // append empty value multiple times to trigger jit compilation
+        Block emptyStringBlock = singleValueBlock("");
+        for (int i = 0; i < 1000; i++) {
+            positionsAppender.appendRle(new RunLengthEncodedBlock(emptyStringBlock, 2000));
+        }
+    }
+
     @DataProvider(name = "nullRleTypes")
     public static Object[][] nullRleTypes()
     {
@@ -252,6 +268,13 @@ public class TestPositionsAppender
                         {new ArrayType(BIGINT)},
                         {createTimestampType(9)}
                 };
+    }
+
+    private static Block singleValueBlock(String value)
+    {
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1);
+        VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(value));
+        return blockBuilder.build();
     }
 
     private IntArrayList allPositions(int count)

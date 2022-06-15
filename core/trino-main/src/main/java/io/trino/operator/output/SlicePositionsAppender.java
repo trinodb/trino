@@ -196,12 +196,18 @@ public class SlicePositionsAppender
     {
         int length = block.getSliceLength(position);
         int newByteCount = count * length;
-        ensureBytesCapacity(currentOffset + newByteCount);
+        if (length == 0) {
+            // empty Slice, there is no need to copy anything
+            Arrays.fill(offsets, positionCount + 1, positionCount + count + 1, startOffset);
+        }
+        else {
+            ensureBytesCapacity(currentOffset + newByteCount);
 
-        Slice slice = block.getSlice(position, 0, length);
-        for (int i = 0; i < count; i++) {
-            slice.getBytes(0, bytes, startOffset + (i * length), length);
-            offsets[positionCount + i + 1] = startOffset + ((i + 1) * length);
+            Slice slice = block.getSlice(position, 0, length);
+            for (int i = 0; i < count; i++) {
+                slice.getBytes(0, bytes, startOffset + (i * length), length);
+                offsets[positionCount + i + 1] = startOffset + ((i + 1) * length);
+            }
         }
 
         positionCount += count;
