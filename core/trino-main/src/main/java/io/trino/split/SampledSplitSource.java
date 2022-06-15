@@ -16,7 +16,6 @@ package io.trino.split;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.connector.CatalogName;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 
 import javax.annotation.Nullable;
 
@@ -48,9 +47,9 @@ public class SampledSplitSource
     }
 
     @Override
-    public ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+    public ListenableFuture<SplitBatch> getNextBatch(int maxSize)
     {
-        ListenableFuture<SplitBatch> batch = splitSource.getNextBatch(partitionHandle, maxSize);
+        ListenableFuture<SplitBatch> batch = splitSource.getNextBatch(maxSize);
         return Futures.transform(batch, splitBatch -> new SplitBatch(
                 splitBatch.getSplits().stream()
                         .filter(input -> ThreadLocalRandom.current().nextDouble() < sampleRatio)

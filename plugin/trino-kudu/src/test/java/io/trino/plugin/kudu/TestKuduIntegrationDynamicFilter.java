@@ -52,7 +52,6 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static org.testng.Assert.assertEquals;
@@ -106,7 +105,7 @@ public class TestKuduIntegrationDynamicFilter
                 .getSplits(session, tableHandle.get(), new IncompleteDynamicFilter(), alwaysTrue());
         List<Split> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
-            splits.addAll(splitSource.getNextBatch(NOT_PARTITIONED, 1000).get().getSplits());
+            splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
         }
         splitSource.close();
         assertFalse(splits.isEmpty());

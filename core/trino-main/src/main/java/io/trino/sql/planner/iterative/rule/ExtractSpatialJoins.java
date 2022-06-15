@@ -82,7 +82,6 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -470,7 +469,7 @@ public class ExtractSpatialJoins
         Optional<KdbTree> kdbTree = Optional.empty();
         try (SplitSource splitSource = splitManager.getSplits(session, tableHandle, EMPTY, alwaysTrue())) {
             while (!Thread.currentThread().isInterrupted()) {
-                SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000));
+                SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(1000));
                 List<Split> splits = splitBatch.getSplits();
 
                 for (Split split : splits) {

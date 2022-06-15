@@ -290,7 +290,7 @@ public class SourcePartitionedScheduler
             else if (pendingSplits.isEmpty()) {
                 // try to get the next batch
                 if (scheduleGroup.nextSplitBatchFuture == null) {
-                    scheduleGroup.nextSplitBatchFuture = splitSource.getNextBatch(scheduleGroup.partitionHandle, splitBatchSize - pendingSplits.size());
+                    scheduleGroup.nextSplitBatchFuture = splitSource.getNextBatch(splitBatchSize - pendingSplits.size());
 
                     long start = System.nanoTime();
                     addSuccessCallback(scheduleGroup.nextSplitBatchFuture, () -> stageExecution.recordGetSplitTime(start));
