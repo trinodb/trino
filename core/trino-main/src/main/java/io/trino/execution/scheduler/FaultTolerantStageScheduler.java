@@ -572,7 +572,7 @@ public class FaultTolerantStageScheduler
     {
         ImmutableListMultimap.Builder<PlanNodeId, Split> result = ImmutableListMultimap.builder();
         for (PlanNodeId planNodeId : exchangeSourceHandles.keySet()) {
-            result.put(planNodeId, new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.copyOf(exchangeSourceHandles.get(planNodeId)))), Lifespan.taskWide()));
+            result.put(planNodeId, new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.copyOf(exchangeSourceHandles.get(planNodeId))))));
         }
         return result.build();
     }

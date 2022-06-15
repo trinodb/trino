@@ -18,7 +18,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
-import io.trino.execution.Lifespan;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
@@ -142,35 +141,34 @@ public final class JoinTestUtils
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
         List<Integer> hashChannels = buildPages.getHashChannels().orElseThrow();
-        LocalExchange.LocalExchangeFactory localExchangeFactory = new LocalExchange.LocalExchangeFactory(
+        LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 taskContext.getSession(),
-                FIXED_HASH_DISTRIBUTION,
                 partitionCount,
-                buildPages.getTypes(),
+                FIXED_HASH_DISTRIBUTION,
                 hashChannels,
+                buildPages.getTypes(),
                 buildPages.getHashChannel(),
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
                 TYPE_OPERATOR_FACTORY);
-        LocalExchange.LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
-        localExchangeFactory.noMoreSinkFactories();
 
         // collect input data into the partitioned exchange
         DriverContext collectDriverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         ValuesOperator.ValuesOperatorFactory valuesOperatorFactory = new ValuesOperator.ValuesOperatorFactory(0, new PlanNodeId("values"), buildPages.build());
-        LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory sinkOperatorFactory = new LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory(localExchangeFactory, 1, new PlanNodeId("sink"), localExchangeSinkFactoryId, Function.identity());
+        LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory sinkOperatorFactory = new LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory(localExchange.createSinkFactory(), 1, new PlanNodeId("sink"), Function.identity());
         Driver sourceDriver = Driver.createDriver(collectDriverContext,
                 valuesOperatorFactory.createOperator(collectDriverContext),
                 sinkOperatorFactory.createOperator(collectDriverContext));
         valuesOperatorFactory.noMoreOperators();
         sinkOperatorFactory.noMoreOperators();
+        sinkOperatorFactory.localPlannerComplete();
 
         while (!sourceDriver.isFinished()) {
             sourceDriver.processUntilBlocked();
         }
 
         // build side operator factories
-        LocalExchangeSourceOperatorFactory sourceOperatorFactory = new LocalExchangeSourceOperatorFactory(0, new PlanNodeId("source"), localExchangeFactory);
+        LocalExchangeSourceOperatorFactory sourceOperatorFactory = new LocalExchangeSourceOperatorFactory(0, new PlanNodeId("source"), localExchange);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = JoinBridgeManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
                 buildPages.getTypes(),
                 rangeList(buildPages.getTypes().size()).stream()
@@ -206,7 +204,7 @@ public final class JoinTestUtils
     {
         requireNonNull(buildSideSetup, "buildSideSetup is null");
 
-        LookupSourceFactory lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager().getJoinBridge(Lifespan.taskWide());
+        LookupSourceFactory lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager().getJoinBridge();
         Future<LookupSourceProvider> lookupSourceProvider = lookupSourceFactory.createLookupSourceProvider();
         List<Driver> buildDrivers = buildSideSetup.getBuildDrivers();
 

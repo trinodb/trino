@@ -17,13 +17,11 @@ package io.trino.operator.join;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.execution.Lifespan;
 import io.trino.operator.ReferenceCount;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -38,26 +36,26 @@ public class JoinBridgeManager<T extends JoinBridge>
     {
         return new JoinBridgeManager<>(
                 false,
-                ignored -> factory,
+                factory,
                 factory.getOutputTypes());
     }
 
     private final List<Type> buildOutputTypes;
     private final boolean buildOuter;
-    private final Function<Lifespan, T> joinBridgeProvider;
+    private final T joinBridge;
+
+    private final AtomicBoolean initialized = new AtomicBoolean();
+    private JoinLifecycle joinLifecycle;
 
     private final FreezeOnReadCounter probeFactoryCount = new FreezeOnReadCounter();
 
-    private final AtomicBoolean initialized = new AtomicBoolean();
-    private InternalJoinBridgeDataManager<T> internalJoinBridgeDataManager;
-
     public JoinBridgeManager(
             boolean buildOuter,
-            Function<Lifespan, T> lookupSourceFactoryProvider,
+            T joinBridge,
             List<Type> buildOutputTypes)
     {
         this.buildOuter = buildOuter;
-        this.joinBridgeProvider = requireNonNull(lookupSourceFactoryProvider, "lookupSourceFactoryProvider is null");
+        this.joinBridge = requireNonNull(joinBridge, "joinBridge is null");
         this.buildOutputTypes = requireNonNull(buildOutputTypes, "buildOutputTypes is null");
     }
 
@@ -69,7 +67,7 @@ public class JoinBridgeManager<T extends JoinBridge>
                     return;
                 }
                 int finalProbeFactoryCount = probeFactoryCount.get();
-                internalJoinBridgeDataManager = internalJoinBridgeDataManager(joinBridgeProvider, finalProbeFactoryCount, buildOuter ? 1 : 0);
+                joinLifecycle = new JoinLifecycle(joinBridge, finalProbeFactoryCount, buildOuter ? 1 : 0);
                 initialized.set(true);
             }
         }
@@ -85,172 +83,52 @@ public class JoinBridgeManager<T extends JoinBridge>
         probeFactoryCount.increment();
     }
 
-    public T getJoinBridge(Lifespan lifespan)
+    public T getJoinBridge()
     {
         initializeIfNecessary();
-        return internalJoinBridgeDataManager.getJoinBridge(lifespan);
+        return joinBridge;
     }
 
-    /**
-     * Invoked when a probe operator factory indicates that it will not
-     * create any more operators, for any lifespan.
-     * <p>
-     * It is expected that this method will only be invoked after
-     * {@link #probeOperatorFactoryClosed(Lifespan)} has been invoked
-     * for every known lifespan.
-     */
-    public void probeOperatorFactoryClosedForAllLifespans()
+    public void probeOperatorFactoryClosed()
     {
         initializeIfNecessary();
-        internalJoinBridgeDataManager.probeOperatorFactoryClosedForAllLifespans();
+        joinLifecycle.releaseForProbe();
     }
 
-    public void probeOperatorFactoryClosed(Lifespan lifespan)
+    public void probeOperatorCreated()
     {
         initializeIfNecessary();
-        internalJoinBridgeDataManager.probeOperatorFactoryClosed(lifespan);
+        joinLifecycle.retainForProbe();
     }
 
-    public void probeOperatorCreated(Lifespan lifespan)
+    public void probeOperatorClosed()
     {
         initializeIfNecessary();
-        internalJoinBridgeDataManager.probeOperatorCreated(lifespan);
+        joinLifecycle.releaseForProbe();
     }
 
-    public void probeOperatorClosed(Lifespan lifespan)
+    public void outerOperatorFactoryClosed()
     {
         initializeIfNecessary();
-        internalJoinBridgeDataManager.probeOperatorClosed(lifespan);
+        joinLifecycle.releaseForOuter();
     }
 
-    public void outerOperatorFactoryClosed(Lifespan lifespan)
+    public void outerOperatorCreated()
     {
         initializeIfNecessary();
-        internalJoinBridgeDataManager.outerOperatorFactoryClosed(lifespan);
+        joinLifecycle.retainForOuter();
     }
 
-    public void outerOperatorCreated(Lifespan lifespan)
+    public void outerOperatorClosed()
     {
         initializeIfNecessary();
-        internalJoinBridgeDataManager.outerOperatorCreated(lifespan);
+        joinLifecycle.releaseForOuter();
     }
 
-    public void outerOperatorClosed(Lifespan lifespan)
+    public ListenableFuture<OuterPositionIterator> getOuterPositionsFuture()
     {
         initializeIfNecessary();
-        internalJoinBridgeDataManager.outerOperatorClosed(lifespan);
-    }
-
-    public ListenableFuture<OuterPositionIterator> getOuterPositionsFuture(Lifespan lifespan)
-    {
-        initializeIfNecessary();
-        return internalJoinBridgeDataManager.getOuterPositionsFuture(lifespan);
-    }
-
-    private static <T extends JoinBridge> InternalJoinBridgeDataManager<T> internalJoinBridgeDataManager(
-            Function<Lifespan, T> joinBridgeProvider,
-            int probeFactoryCount,
-            int outerFactoryCount)
-    {
-        checkArgument(outerFactoryCount == 0 || outerFactoryCount == 1, "outerFactoryCount should only be 0 or 1 because it is expected that outer factory never gets duplicated.");
-        return new TaskWideInternalJoinBridgeDataManager<>(joinBridgeProvider, probeFactoryCount, outerFactoryCount);
-    }
-
-    private interface InternalJoinBridgeDataManager<T extends JoinBridge>
-    {
-        T getJoinBridge(Lifespan lifespan);
-
-        ListenableFuture<OuterPositionIterator> getOuterPositionsFuture(Lifespan lifespan);
-
-        void probeOperatorFactoryClosedForAllLifespans();
-
-        void probeOperatorFactoryClosed(Lifespan lifespan);
-
-        void probeOperatorCreated(Lifespan lifespan);
-
-        void probeOperatorClosed(Lifespan lifespan);
-
-        void outerOperatorFactoryClosed(Lifespan lifespan);
-
-        void outerOperatorCreated(Lifespan lifespan);
-
-        void outerOperatorClosed(Lifespan lifespan);
-    }
-
-    // 1 probe, 1 lookup source
-    private static class TaskWideInternalJoinBridgeDataManager<T extends JoinBridge>
-            implements InternalJoinBridgeDataManager<T>
-    {
-        private final T joinBridge;
-        private final JoinLifecycle joinLifecycle;
-
-        public TaskWideInternalJoinBridgeDataManager(Function<Lifespan, T> lookupSourceFactoryProvider, int probeFactoryCount, int outerFactoryCount)
-        {
-            joinBridge = lookupSourceFactoryProvider.apply(Lifespan.taskWide());
-            joinLifecycle = new JoinLifecycle(joinBridge, probeFactoryCount, outerFactoryCount);
-        }
-
-        @Override
-        public T getJoinBridge(Lifespan lifespan)
-        {
-            checkArgument(Lifespan.taskWide().equals(lifespan));
-            return joinBridge;
-        }
-
-        @Override
-        public ListenableFuture<OuterPositionIterator> getOuterPositionsFuture(Lifespan lifespan)
-        {
-            checkArgument(Lifespan.taskWide().equals(lifespan));
-            return transform(joinLifecycle.whenBuildAndProbeFinishes(), ignored -> joinBridge.getOuterPositionIterator(), directExecutor());
-        }
-
-        @Override
-        public void probeOperatorFactoryClosedForAllLifespans()
-        {
-            // do nothing
-        }
-
-        @Override
-        public void probeOperatorFactoryClosed(Lifespan lifespan)
-        {
-            checkArgument(Lifespan.taskWide().equals(lifespan));
-            joinLifecycle.releaseForProbe();
-        }
-
-        @Override
-        public void probeOperatorCreated(Lifespan lifespan)
-        {
-            checkArgument(Lifespan.taskWide().equals(lifespan));
-            joinLifecycle.retainForProbe();
-        }
-
-        @Override
-        public void probeOperatorClosed(Lifespan lifespan)
-        {
-            checkArgument(Lifespan.taskWide().equals(lifespan));
-            joinLifecycle.releaseForProbe();
-        }
-
-        @Override
-        public void outerOperatorFactoryClosed(Lifespan lifespan)
-        {
-            checkArgument(Lifespan.taskWide().equals(lifespan));
-            joinLifecycle.releaseForOuter();
-        }
-
-        @Override
-        public void outerOperatorCreated(Lifespan lifespan)
-        {
-            checkArgument(Lifespan.taskWide().equals(lifespan));
-            joinLifecycle.retainForOuter();
-        }
-
-        @Override
-        public void outerOperatorClosed(Lifespan lifespan)
-        {
-            checkArgument(Lifespan.taskWide().equals(lifespan));
-            joinLifecycle.releaseForOuter();
-        }
+        return transform(joinLifecycle.whenBuildAndProbeFinishes(), ignored -> joinBridge.getOuterPositionIterator(), directExecutor());
     }
 
     private static class JoinLifecycle

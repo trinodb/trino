@@ -36,7 +36,6 @@ import io.trino.Session;
 import io.trino.execution.DynamicFiltersCollector;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.FutureStateChange;
-import io.trino.execution.Lifespan;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.PartitionedSplitsInfo;
 import io.trino.execution.RemoteTask;
@@ -142,8 +141,6 @@ public final class HttpRemoteTask
     private volatile int pendingSourceSplitCount;
     @GuardedBy("this")
     private volatile long pendingSourceSplitsWeight;
-    @GuardedBy("this")
-    private final SetMultimap<PlanNodeId, Lifespan> pendingNoMoreSplitsForLifespan = HashMultimap.create();
     @GuardedBy("this")
     // The keys of this map represent all plan nodes that have "no more splits".
     // The boolean value of each entry represents whether the "no more splits" notification is pending delivery to workers.
@@ -417,14 +414,6 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public synchronized void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan)
-    {
-        if (pendingNoMoreSplitsForLifespan.put(sourceId, lifespan)) {
-            triggerUpdate();
-        }
-    }
-
-    @Override
     public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
         if (getTaskStatus().getState().isDone()) {
@@ -560,9 +549,6 @@ public final class HttpRemoteTask
             if (assignment.isNoMoreSplits()) {
                 noMoreSplits.put(planNodeId, false);
             }
-            for (Lifespan lifespan : assignment.getNoMoreSplitsForLifespan()) {
-                pendingNoMoreSplitsForLifespan.remove(planNodeId, lifespan);
-            }
             if (isPartitionedSource) {
                 pendingSourceSplitCount -= removed;
                 pendingSourceSplitsWeight -= removedWeight;
@@ -670,11 +656,10 @@ public final class HttpRemoteTask
         Set<ScheduledSplit> splits = pendingSplits.get(planNodeId);
         boolean pendingNoMoreSplits = Boolean.TRUE.equals(this.noMoreSplits.get(planNodeId));
         boolean noMoreSplits = this.noMoreSplits.containsKey(planNodeId);
-        Set<Lifespan> noMoreSplitsForLifespan = pendingNoMoreSplitsForLifespan.get(planNodeId);
 
         SplitAssignment assignment = null;
-        if (!splits.isEmpty() || !noMoreSplitsForLifespan.isEmpty() || pendingNoMoreSplits) {
-            assignment = new SplitAssignment(planNodeId, splits, noMoreSplitsForLifespan, noMoreSplits);
+        if (!splits.isEmpty() || pendingNoMoreSplits) {
+            assignment = new SplitAssignment(planNodeId, splits, noMoreSplits);
         }
         return assignment;
     }

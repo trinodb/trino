@@ -20,7 +20,6 @@ import io.airlift.stats.CpuTimer;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.execution.Lifespan;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStateMachine;
@@ -222,7 +221,7 @@ public abstract class AbstractOperatorBenchmark
 
     private static List<Split> getNextBatch(SplitSource splitSource)
     {
-        return getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000)).getSplits();
+        return getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000)).getSplits();
     }
 
     protected final OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> types)

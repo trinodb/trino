@@ -18,7 +18,6 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
-import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
 import io.trino.spi.Page;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -33,14 +32,14 @@ public class LocalExchangeSourceOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final LocalExchangeFactory localExchangeFactory;
+        private final LocalExchange localExchange;
         private boolean closed;
 
-        public LocalExchangeSourceOperatorFactory(int operatorId, PlanNodeId planNodeId, LocalExchangeFactory localExchangeFactory)
+        public LocalExchangeSourceOperatorFactory(int operatorId, PlanNodeId planNodeId, LocalExchange localExchange)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.localExchangeFactory = requireNonNull(localExchangeFactory, "localExchangeFactory is null");
+            this.localExchange = requireNonNull(localExchange, "localExchange is null");
         }
 
         @Override
@@ -48,10 +47,8 @@ public class LocalExchangeSourceOperator
         {
             checkState(!closed, "Factory is already closed");
 
-            LocalExchange inMemoryExchange = localExchangeFactory.getLocalExchange(driverContext.getLifespan());
-
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LocalExchangeSourceOperator.class.getSimpleName());
-            return new LocalExchangeSourceOperator(operatorContext, inMemoryExchange.getNextSource());
+            return new LocalExchangeSourceOperator(operatorContext, localExchange.getNextSource());
         }
 
         @Override
@@ -64,11 +61,6 @@ public class LocalExchangeSourceOperator
         public OperatorFactory duplicate()
         {
             throw new UnsupportedOperationException("Source operator factories cannot be duplicated");
-        }
-
-        public LocalExchangeFactory getLocalExchangeFactory()
-        {
-            return localExchangeFactory;
         }
     }
 
