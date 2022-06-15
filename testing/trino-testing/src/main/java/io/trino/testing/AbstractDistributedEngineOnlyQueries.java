@@ -220,6 +220,18 @@ public abstract class AbstractDistributedEngineOnlyQueries
     }
 
     @Test
+    public void testExplainAnalyzeWithShow()
+    {
+        String query = "SHOW FUNCTIONS";
+
+        String explainOutput = (String) computeActual("EXPLAIN ANALYZE VERBOSE " + query).getOnlyValue();
+        assertThat(explainOutput).doesNotContain("...");
+
+        String explainOutput2 = (String) computeActual("EXPLAIN ANALYZE  " + query).getOnlyValue();
+        assertThat(explainOutput2).contains("...");
+    }
+
+    @Test
     public void testInsertWithCoercion()
     {
         String tableName = "test_insert_with_coercion_" + randomTableSuffix();
