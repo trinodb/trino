@@ -32,7 +32,6 @@ import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
@@ -189,7 +188,6 @@ public class TestDeltaLakeSplitManager
                 new HiveTransactionHandle(false),
                 testingConnectorSessionWithConfig(deltaLakeConfig),
                 tableHandle,
-                ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING,
                 DynamicFilter.EMPTY,
                 Constraint.alwaysTrue());
         ImmutableList.Builder<DeltaLakeSplit> splits = ImmutableList.builder();

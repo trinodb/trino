@@ -20,7 +20,6 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
-import io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
@@ -45,7 +44,6 @@ public class SplitManager
     public SplitSource getSplits(
             Session session,
             TableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy,
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
@@ -61,7 +59,6 @@ public class SplitManager
                 table.getTransaction(),
                 connectorSession,
                 table.getConnectorHandle(),
-                splitSchedulingStrategy,
                 dynamicFilter,
                 constraint);
 

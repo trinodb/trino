@@ -251,7 +251,6 @@ public class MockConnector
                     ConnectorTransactionHandle transaction,
                     ConnectorSession session,
                     ConnectorTableHandle table,
-                    SplitSchedulingStrategy splitSchedulingStrategy,
                     DynamicFilter dynamicFilter,
                     Constraint constraint)
             {

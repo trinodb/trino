@@ -120,7 +120,6 @@ public class TestPrometheusIntegration
                 null,
                 null,
                 new PrometheusTableHandle("default", table.getName()),
-                null,
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
         int numSplits = splits.getNextBatch(NOT_PARTITIONED, NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits().size();
