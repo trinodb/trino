@@ -1041,7 +1041,6 @@ public class SqlQueryScheduler
                 Optional<RemoteTask> remoteTask = stageExecution.scheduleTask(
                         coordinator,
                         0,
-                        ImmutableMultimap.of(),
                         ImmutableMultimap.of());
                 stageExecution.schedulingComplete();
                 remoteTask.ifPresent(task -> coordinatorTaskManager.addSourceTaskFailureListener(task.getTaskId(), failureReporter));

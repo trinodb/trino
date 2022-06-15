@@ -134,7 +134,6 @@ public class TestSqlStage
                             Optional.empty(),
                             createInitialEmptyOutputBuffers(ARBITRARY),
                             ImmutableMultimap.of(),
-                            ImmutableMultimap.of(),
                             ImmutableSet.of(),
                             Optional.empty());
                     latch.countDown();

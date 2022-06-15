@@ -30,7 +30,6 @@ import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.execution.ExecutionFailureInfo;
-import io.trino.execution.Lifespan;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.SqlStage;
 import io.trino.execution.StageId;
@@ -68,7 +67,6 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -76,7 +74,6 @@ import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableListMultimap.flatteningToImmutableListMultimap;
-import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -410,8 +407,6 @@ public class FaultTolerantStageScheduler
                 sinkBucketToPartitionMap,
                 outputBuffers,
                 taskSplits,
-                allSourcePlanNodeIds.stream()
-                        .collect(toImmutableListMultimap(Function.identity(), planNodeId -> Lifespan.taskWide())),
                 allSourcePlanNodeIds,
                 Optional.of(memoryRequirements.getRequiredMemory())).orElseThrow(() -> new VerifyException("stage execution is expected to be active"));
 

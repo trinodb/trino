@@ -213,7 +213,6 @@ public final class SqlStage
             Optional<int[]> bucketToPartition,
             OutputBuffers outputBuffers,
             Multimap<PlanNodeId, Split> splits,
-            Multimap<PlanNodeId, Lifespan> noMoreSplitsForLifespan,
             Set<PlanNodeId> noMoreSplits,
             Optional<DataSize> estimatedMemory)
     {
