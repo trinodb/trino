@@ -671,7 +671,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
-        assertThatThrownBy(() -> ungroupedLocalExchangeFactory.getLocalExchange(Lifespan.driverGroup(3)))
+        assertThatThrownBy(() -> ungroupedLocalExchangeFactory.getLocalExchange(Lifespan.taskWide()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("LocalExchangeFactory is declared as UNGROUPED_EXECUTION. Driver-group exchange cannot be created.");
 

@@ -217,13 +217,10 @@ public class NodePartitioningManager
         return split -> {
             int bucket;
             if (split.getConnectorSplit() instanceof EmptySplit) {
-                bucket = split.getLifespan().isTaskWide() ? 0 : split.getLifespan().getId();
+                bucket = 0;
             }
             else {
                 bucket = splitBucketFunction.applyAsInt(split.getConnectorSplit());
-            }
-            if (!split.getLifespan().isTaskWide()) {
-                checkArgument(split.getLifespan().getId() == bucket);
             }
             return bucket;
         };

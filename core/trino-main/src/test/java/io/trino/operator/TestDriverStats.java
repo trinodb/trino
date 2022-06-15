@@ -30,7 +30,7 @@ import static org.testng.Assert.assertEquals;
 public class TestDriverStats
 {
     public static final DriverStats EXPECTED = new DriverStats(
-            Lifespan.driverGroup(21),
+            Lifespan.taskWide(),
 
             new DateTime(1),
             new DateTime(2),
@@ -86,7 +86,7 @@ public class TestDriverStats
 
     public static void assertExpectedDriverStats(DriverStats actual)
     {
-        assertEquals(actual.getLifespan(), Lifespan.driverGroup(21));
+        assertEquals(actual.getLifespan(), Lifespan.taskWide());
 
         assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
         assertEquals(actual.getStartTime(), new DateTime(2, UTC));
