@@ -93,7 +93,6 @@ import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTa
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantPreserveInputPartitionsInWriteStage;
 import static io.trino.connector.CatalogName.isInternalSystemConnector;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
@@ -793,7 +792,7 @@ public class StageTaskSourceFactory
             }
 
             checkState(currentSplitBatchFuture.isDone(), "getMoreTasks called again before the previous batch of splits was ready");
-            currentSplitBatchFuture = splitSource.getNextBatch(NOT_PARTITIONED, splitBatchSize);
+            currentSplitBatchFuture = splitSource.getNextBatch(splitBatchSize);
 
             long start = System.nanoTime();
             addSuccessCallback(currentSplitBatchFuture, () -> getSplitTimeRecorder.accept(start));
@@ -1040,7 +1039,7 @@ public class StageTaskSourceFactory
                 return;
             }
             checkState(currentSplitBatch.isDone(), "next batch of splits requested before previous batch is done");
-            currentSplitBatch = splitSource.getNextBatch(NOT_PARTITIONED, splitBatchSize);
+            currentSplitBatch = splitSource.getNextBatch(splitBatchSize);
 
             long start = System.nanoTime();
             addCallback(
