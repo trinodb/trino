@@ -273,3 +273,38 @@ SQL support
 The connector provides :ref:`globally available <sql-globally-available>` and
 :ref:`read operation <sql-read-operations>` statements to access data and
 metadata in Redis.
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+.. _redis-pushdown:
+
+Pushdown
+^^^^^^^^
+
+.. _redis-predicate-pushdown:
+
+Predicate pushdown support
+""""""""""""""""""""""""""
+
+The connector supports pushdown of keys, only Redis key of string type supports
+pushdown, the zset type does not support. Currently, key pushdown is not supported
+when multiple key fields are defined in the table definition file.
+
+The connector supports pushdown of equality predicates, such as ``IN`` or ``=``.
+Range predicates, such as ``>``, ``<``, or ``BETWEEN``, and inequality predicates,
+such as ``!=`` are not pushed down.
+
+In the following example, the predicate of the first query is not pushed down
+since ``>`` is a range predicate. The other queries are pushed down.
+
+.. code-block:: sql
+
+    -- Not pushed down
+    SELECT * FROM nation WHERE redis_key > 'CANADA';
+    -- Pushed down
+    SELECT * FROM nation WHERE redis_key = 'CANADA';
+    SELECT * FROM nation WHERE redis_key IN ('CANADA', 'POLAND');
