@@ -52,6 +52,7 @@ public class SnowflakeClientModule
         snowflakeConfig.getDatabase().ifPresent(database -> properties.setProperty("db", database));
         snowflakeConfig.getRole().ifPresent(role -> properties.setProperty("role", role));
         snowflakeConfig.getWarehouse().ifPresent(warehouse -> properties.setProperty("warehouse", warehouse));
+        properties.setProperty("JDBC_TREAT_DECIMAL_AS_INT", "false");
         return properties;
     }
 
