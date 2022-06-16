@@ -208,7 +208,7 @@ public class SnowflakeClient
             return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
         }
         if (type == TINYINT) {
-            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
+            return WriteMapping.longMapping("number(3)", tinyintWriteFunction());
         }
         if (type == SMALLINT) {
             return WriteMapping.longMapping("smallint", smallintWriteFunction());
