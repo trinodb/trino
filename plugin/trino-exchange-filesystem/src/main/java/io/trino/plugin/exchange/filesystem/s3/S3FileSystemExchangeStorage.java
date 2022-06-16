@@ -264,7 +264,7 @@ public class S3FileSystemExchangeStorage
         // GCS is not compatible with S3's multi-object delete API https://cloud.google.com/storage/docs/migrating#methods-comparison
         Storage storage = gcsClient.orElseThrow(() -> new IllegalStateException("gcsClient is expected to be initialized"));
         ListeningExecutorService deleteExecutor = gcsDeleteExecutor.orElseThrow(() -> new IllegalStateException("gcsDeleteExecutor is expected to be initialized"));
-        return stats.getDeleteRecursively().record(asVoid(deleteExecutor.submit(() -> {
+        return stats.getDeleteRecursively().record(translateFailures(deleteExecutor.submit(() -> {
             StorageBatch batch = storage.batch();
             for (URI dir : directories) {
                 Page<Blob> blobs = storage.list(getBucketName(dir), Storage.BlobListOption.prefix(keyFromUri(dir)));
