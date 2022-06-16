@@ -15,6 +15,7 @@ package io.trino.server.security.oauth2;
 
 import com.google.inject.Binder;
 import com.google.inject.Inject;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.nimbusds.jose.KeyLengthException;
@@ -23,7 +24,9 @@ import io.trino.client.NodeVersion;
 
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.Duration;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class JweTokenSerializerModule
@@ -33,6 +36,8 @@ public class JweTokenSerializerModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(RefreshTokensConfig.class);
+        RefreshTokensConfig config = buildConfigObject(RefreshTokensConfig.class);
+        newOptionalBinder(binder, Key.get(Duration.class, ForRefreshTokens.class)).setBinding().toInstance(Duration.ofMillis(config.getTokenExpiration().toMillis()));
     }
 
     @Provides
