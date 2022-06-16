@@ -211,7 +211,7 @@ public class SnowflakeClient
             return WriteMapping.longMapping("number(3)", tinyintWriteFunction());
         }
         if (type == SMALLINT) {
-            return WriteMapping.longMapping("smallint", smallintWriteFunction());
+            return WriteMapping.longMapping("number(5)", smallintWriteFunction());
         }
         if (type == INTEGER) {
             return WriteMapping.longMapping("integer", integerWriteFunction());
