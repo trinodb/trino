@@ -248,7 +248,7 @@ public final class HttpRemoteTask
             long pendingSourceSplitsWeight = 0;
             for (PlanNodeId planNodeId : planFragment.getPartitionedSources()) {
                 Collection<Split> tableScanSplits = initialSplits.get(planNodeId);
-                if (tableScanSplits != null && !tableScanSplits.isEmpty()) {
+                if (!tableScanSplits.isEmpty()) {
                     pendingSourceSplitCount += tableScanSplits.size();
                     pendingSourceSplitsWeight = addExact(pendingSourceSplitsWeight, SplitWeight.rawValueSum(tableScanSplits, Split::getSplitWeight));
                 }
