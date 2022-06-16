@@ -28,7 +28,7 @@ connection properties as appropriate for your setup:
     snowflake.warehouse=warehouse
 
 
-Multiple Snowflake Databases or Accounts
+Multiple Snowflake databases or accounts
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Snowflake connector can only access a single database within
