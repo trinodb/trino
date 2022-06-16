@@ -27,8 +27,9 @@ import redis.clients.jedis.Jedis;
 import java.util.Map;
 import java.util.UUID;
 
-import static io.trino.plugin.redis.util.RedisTestUtils.createEmptyTableDescription;
+import static io.trino.plugin.redis.util.RedisTestUtils.createTableDescription;
 import static io.trino.plugin.redis.util.RedisTestUtils.installRedisPlugin;
+import static io.trino.plugin.redis.util.RedisTestUtils.loadSimpleTableDescription;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 @Test(singleThreaded = true)
@@ -41,22 +42,31 @@ public abstract class AbstractTestMinimalFunctionality
 
     protected RedisServer redisServer;
     protected String tableName;
+    protected String stringValueTableName;
+    protected String hashValueTableName;
     protected StandaloneQueryRunner queryRunner;
 
     protected abstract Map<String, String> connectorProperties();
 
     @BeforeClass
     public void startRedis()
+            throws Exception
     {
         redisServer = new RedisServer();
 
-        this.tableName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
-
         this.queryRunner = new StandaloneQueryRunner(SESSION);
+
+        this.tableName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
+        RedisTableDescription stringValueTableDescription = loadSimpleTableDescription(queryRunner, "string");
+        RedisTableDescription hashValueTableDescription = loadSimpleTableDescription(queryRunner, "hash");
+        this.stringValueTableName = stringValueTableDescription.getTableName();
+        this.hashValueTableName = hashValueTableDescription.getTableName();
 
         installRedisPlugin(redisServer, queryRunner,
                 ImmutableMap.<SchemaTableName, RedisTableDescription>builder()
-                        .put(createEmptyTableDescription(new SchemaTableName("default", tableName)))
+                        .put(createTableDescription(new RedisTableDescription(tableName, "default", null, null)))
+                        .put(createTableDescription(stringValueTableDescription))
+                        .put(createTableDescription(hashValueTableDescription))
                         .buildOrThrow(),
                 connectorProperties());
 
@@ -82,6 +92,8 @@ public abstract class AbstractTestMinimalFunctionality
             Object value = ImmutableMap.of("id", Long.toString(i), "value", UUID.randomUUID().toString());
             try (Jedis jedis = redisServer.getJedisPool().getResource()) {
                 jedis.set(tableName + ":" + i, jsonEncoder.toString(value));
+                jedis.set(stringValueTableName + ":" + i, jsonEncoder.toString(value));
+                jedis.hmset(hashValueTableName + ":" + i, (Map<String, String>) value);
             }
         }
     }
