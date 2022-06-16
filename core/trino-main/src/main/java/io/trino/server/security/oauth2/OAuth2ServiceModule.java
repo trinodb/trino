@@ -15,11 +15,14 @@ package io.trino.server.security.oauth2;
 
 import com.google.inject.Binder;
 import com.google.inject.Inject;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.server.ui.OAuth2WebUiInstalled;
+
+import java.time.Duration;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
@@ -69,6 +72,7 @@ public class OAuth2ServiceModule
     private void disableRefreshTokens(Binder binder)
     {
         binder.bind(TokenPairSerializer.class).toInstance(ACCESS_TOKEN_ONLY_SERIALIZER);
+        newOptionalBinder(binder, Key.get(Duration.class, ForRefreshTokens.class));
     }
 
     @Singleton
