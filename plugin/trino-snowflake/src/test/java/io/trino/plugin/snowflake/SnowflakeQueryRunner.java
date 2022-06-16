@@ -23,7 +23,6 @@ import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -51,11 +50,12 @@ public final class SnowflakeQueryRunner
             queryRunner.createCatalog("tpch", "tpch");
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            Properties serverProperties = server.getProperties();
-            connectorProperties.putIfAbsent("connection-url", server.TEST_URL);
-            connectorProperties.putIfAbsent("connection-user", serverProperties.getProperty("user"));
-            connectorProperties.putIfAbsent("connection-password", serverProperties.getProperty("password"));
-            connectorProperties.putIfAbsent("snowflake.database", serverProperties.getProperty("db"));
+            connectorProperties.putIfAbsent("connection-url", TestingSnowflakeServer.TEST_URL);
+            connectorProperties.putIfAbsent("connection-user", TestingSnowflakeServer.TEST_USER);
+            connectorProperties.putIfAbsent("connection-password", TestingSnowflakeServer.TEST_PASSWORD);
+            connectorProperties.putIfAbsent("snowflake.database", TestingSnowflakeServer.TEST_DATABASE);
+            connectorProperties.putIfAbsent("snowflake.role", TestingSnowflakeServer.TEST_ROLE);
+            connectorProperties.putIfAbsent("snowflake.warehouse", TestingSnowflakeServer.TEST_WAREHOUSE);
 
             queryRunner.installPlugin(new SnowflakePlugin());
             queryRunner.createCatalog("snowflake", "snowflake", connectorProperties);
