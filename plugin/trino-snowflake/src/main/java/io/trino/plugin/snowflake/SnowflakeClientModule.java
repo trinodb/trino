@@ -48,11 +48,11 @@ public class SnowflakeClientModule
     private static Properties getConnectionProperties(SnowflakeConfig snowflakeConfig)
     {
         requireNonNull(snowflakeConfig, "snowflakeConfig is null");
-        Properties connectionProperties = new Properties();
-        snowflakeConfig.getDatabase().ifPresent(database -> connectionProperties.setProperty("db", database));
-        snowflakeConfig.getRole().ifPresent(role -> connectionProperties.setProperty("role", role));
-        snowflakeConfig.getWarehouse().ifPresent(warehouse -> connectionProperties.setProperty("warehouse", warehouse));
-        return connectionProperties;
+        Properties properties = new Properties();
+        snowflakeConfig.getDatabase().ifPresent(database -> properties.setProperty("db", database));
+        snowflakeConfig.getRole().ifPresent(role -> properties.setProperty("role", role));
+        snowflakeConfig.getWarehouse().ifPresent(warehouse -> properties.setProperty("warehouse", warehouse));
+        return properties;
     }
 
     @Override

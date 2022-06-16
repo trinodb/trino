@@ -49,7 +49,6 @@ import io.trino.spi.type.VarcharType;
 import javax.inject.Inject;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -189,18 +188,6 @@ public class SnowflakeClient
         return Optional.empty();
     }
 
-    private static LongWriteFunction dateWriteFunctionUsingString()
-    {
-        return new LongWriteFunction() {
-            @Override
-            public void set(PreparedStatement statement, int index, long value)
-                    throws SQLException
-            {
-                statement.setString(index, DATE_FORMATTER.format(LocalDate.ofEpochDay(value)));
-            }
-        };
-    }
-
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
@@ -214,17 +201,17 @@ public class SnowflakeClient
             return WriteMapping.longMapping("number(5)", smallintWriteFunction());
         }
         if (type == INTEGER) {
-            return WriteMapping.longMapping("integer", integerWriteFunction());
+            return WriteMapping.longMapping("number(10)", integerWriteFunction());
         }
         if (type == BIGINT) {
-            return WriteMapping.longMapping("bigint", bigintWriteFunction());
+            return WriteMapping.longMapping("number(19)", bigintWriteFunction());
         }
 
         if (type == REAL) {
             return WriteMapping.longMapping("real", realWriteFunction());
         }
         if (type == DOUBLE) {
-            return WriteMapping.doubleMapping("double", doubleWriteFunction());
+            return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
@@ -266,6 +253,11 @@ public class SnowflakeClient
         return (statement, index, value) -> statement.setString(index, padSpaces(value.toStringUtf8(), charType));
     }
 
+    private static LongWriteFunction dateWriteFunctionUsingString()
+    {
+        return (statement, index, value) -> statement.setString(index, DATE_FORMATTER.format(LocalDate.ofEpochDay(value)));
+    }
+
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
@@ -277,7 +269,7 @@ public class SnowflakeClient
         return Optional.of(
             new JdbcTypeHandle(
                 Types.NUMERIC,
-                Optional.of("decimal"),
+                Optional.of("NUMBER"),
                 Optional.of(decimalType.getPrecision()),
                 Optional.of(decimalType.getScale()),
                 Optional.empty(),
