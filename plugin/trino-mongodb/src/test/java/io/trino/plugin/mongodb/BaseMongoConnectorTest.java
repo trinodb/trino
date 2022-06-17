@@ -37,6 +37,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -570,7 +571,7 @@ public abstract class BaseMongoConnectorTest
     }
 
     @Override
-    public void testAddColumnConcurrently()
+    public void testAddColumnConcurrently(int timeout, TimeUnit timeUnit)
     {
         // TODO: Enable after supporting multi-document transaction https://www.mongodb.com/docs/manual/core/transactions/
         throw new SkipException("TODO");

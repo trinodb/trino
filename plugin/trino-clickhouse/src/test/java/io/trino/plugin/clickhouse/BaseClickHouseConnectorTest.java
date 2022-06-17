@@ -32,6 +32,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROPERTY;
@@ -120,7 +121,7 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
-    public void testAddColumnConcurrently()
+    public void testAddColumnConcurrently(int timeout, TimeUnit timeUnit)
     {
         // TODO: Default storage engine doesn't support adding new columns
         throw new SkipException("TODO: test not implemented yet");
