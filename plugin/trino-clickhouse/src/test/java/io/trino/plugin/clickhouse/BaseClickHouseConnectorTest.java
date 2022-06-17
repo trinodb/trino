@@ -675,6 +675,25 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
+    public void testCreateTableWithLongTableName()
+    {
+        // Override because ClickHouse connector can create a table which can't be dropped
+        String baseTableName = "test_create_" + randomTableSuffix();
+        String validTableName = baseTableName + "z".repeat(maxTableNameLength().orElseThrow() - baseTableName.length());
+
+        assertUpdate("CREATE TABLE " + validTableName + " (a bigint)");
+        assertTrue(getQueryRunner().tableExists(getSession(), validTableName));
+        assertThatThrownBy(() -> assertUpdate("DROP TABLE " + validTableName))
+                .hasMessageMatching("(?s).*(Bad path syntax|File name too long).*");
+
+        String invalidTableName = baseTableName + "z".repeat(maxTableNameLength().orElseThrow() - baseTableName.length() + 1);
+        assertThatThrownBy(() -> query("CREATE TABLE " + invalidTableName + " (a bigint)"))
+                .hasMessageMatching("(?s).*(Cannot open file|File name too long).*");
+        // ClickHouse lefts a table even if the above statement failed
+        assertTrue(getQueryRunner().tableExists(getSession(), validTableName));
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return clickhouseServer::execute;

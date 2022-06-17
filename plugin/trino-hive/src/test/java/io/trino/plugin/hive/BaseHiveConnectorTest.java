@@ -81,6 +81,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.function.BiConsumer;
@@ -8324,6 +8325,19 @@ public abstract class BaseHiveConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Hive connector does not support column default values");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        // This value depends on metastore type
+        return OptionalInt.of(255);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Failed to create directory");
     }
 
     private Session withTimestampPrecision(Session session, HiveTimestampPrecision precision)
