@@ -12,8 +12,8 @@ used to join data between different systems like Redis and Hive.
 Each Redis key/value pair is presented as a single row in Trino. Rows can be
 broken down into cells by using table definition files.
 
-Only Redis string and hash value types are supported; sets and zsets cannot be
-queried from Trino.
+Currently, only Redis key of string and zset types are supported, only Redis value of
+string and hash types are supported.
 
 Requirements
 ------------
