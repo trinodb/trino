@@ -15,12 +15,14 @@ package io.trino.tests.product.deltalake;
 
 import org.testng.annotations.Test;
 
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnDelta;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -46,6 +48,29 @@ public class TestDeltaLakeAlterTableCompatibility
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testAddColumnUnsupportedWriterVersion()
+    {
+        String tableName = "test_dl_add_column_unsupported_writer_" + randomTableSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery(format("" +
+                        "CREATE TABLE default.%s (col int) " +
+                        "USING DELTA LOCATION 's3://%s/%s'" +
+                        "TBLPROPERTIES ('delta.minWriterVersion'='3')",
+                tableName,
+                bucketName,
+                tableDirectory));
+
+        try {
+            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col int"))
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 3 which is not supported");
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 }
