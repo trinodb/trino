@@ -18,14 +18,13 @@ import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.avro.DataWriter;
 import org.apache.iceberg.io.FileAppender;
-import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.OutputFile;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -53,8 +52,7 @@ public class IcebergAvroFileWriter
     private final Callable<Void> rollbackAction;
 
     public IcebergAvroFileWriter(
-            FileIO fileIo,
-            Path path,
+            OutputFile file,
             Callable<Void> rollbackAction,
             Schema icebergSchema,
             List<Type> types,
@@ -65,7 +63,7 @@ public class IcebergAvroFileWriter
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
 
         try {
-            avroWriter = Avro.write(fileIo.newOutputFile(path.toString()))
+            avroWriter = Avro.write(file)
                     .schema(icebergSchema)
                     .createWriterFunc(DataWriter::create)
                     .named(AVRO_TABLE_NAME)
@@ -73,7 +71,7 @@ public class IcebergAvroFileWriter
                     .build();
         }
         catch (IOException e) {
-            throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Avro file: " + path, e);
+            throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Avro file: " + file.location(), e);
         }
     }
 

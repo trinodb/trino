@@ -14,7 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.iceberg.io.FileIterator;
+import io.trino.plugin.iceberg.io.TrinoFileSystem;
+import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.io.TrinoInputFile;
+import io.trino.plugin.iceberg.io.TrinoOutputFile;
+import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
@@ -23,6 +28,7 @@ import org.apache.iceberg.io.SeekableInputStream;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,17 +36,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_EXISTS;
-import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_GET_LENGTH;
-import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_NEW_STREAM;
-import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE;
-import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
-import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_LOCATION;
-import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_TO_INPUT_FILE;
+import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.INPUT_FILE_EXISTS;
+import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
+import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
+import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE;
+import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
+import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_LOCATION;
+import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_TO_INPUT_FILE;
 import static java.util.Objects.requireNonNull;
 
-public class TrackingFileIoProvider
-        implements FileIoProvider
+public class TrackingFileSystemFactory
+        implements TrinoFileSystemFactory
 {
     public enum OperationType
     {
@@ -54,11 +60,11 @@ public class TrackingFileIoProvider
     }
 
     private final AtomicInteger fileId = new AtomicInteger();
-    private final FileIoProvider delegate;
+    private final TrinoFileSystemFactory delegate;
 
     private final Map<OperationContext, Integer> operationCounts = new ConcurrentHashMap<>();
 
-    public TrackingFileIoProvider(FileIoProvider delegate)
+    public TrackingFileSystemFactory(TrinoFileSystemFactory delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
@@ -80,16 +86,72 @@ public class TrackingFileIoProvider
     }
 
     @Override
-    public FileIO createFileIo(HdfsContext hdfsContext, String queryId)
+    public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new TrackingFileIo(
-                delegate.createFileIo(hdfsContext, queryId),
-                this::increment);
+        return new TrackingFileSystem(delegate.create(identity), this::increment);
     }
 
     private interface Tracker
     {
         void track(String path, int fileId, OperationType operationType);
+    }
+
+    private class TrackingFileSystem
+            implements TrinoFileSystem
+    {
+        private final TrinoFileSystem delegate;
+        private final Tracker tracker;
+
+        private TrackingFileSystem(TrinoFileSystem delegate, Tracker tracker)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.tracker = requireNonNull(tracker, "tracker is null");
+        }
+
+        @Override
+        public TrinoInputFile newInputFile(String path)
+        {
+            return delegate.newInputFile(path);
+        }
+
+        @Override
+        public TrinoInputFile newInputFile(String path, long length)
+        {
+            return delegate.newInputFile(path, length);
+        }
+
+        @Override
+        public TrinoOutputFile newOutputFile(String path)
+        {
+            return delegate.newOutputFile(path);
+        }
+
+        @Override
+        public void deleteFile(String path)
+                throws IOException
+        {
+            delegate.deleteFile(path);
+        }
+
+        @Override
+        public void deleteDirectory(String path)
+                throws IOException
+        {
+            delegate.deleteDirectory(path);
+        }
+
+        @Override
+        public FileIterator listFiles(String path)
+                throws IOException
+        {
+            return delegate.listFiles(path);
+        }
+
+        @Override
+        public FileIO toFileIo()
+        {
+            return new TrackingFileIo(delegate.toFileIo(), tracker);
+        }
     }
 
     private class TrackingFileIo

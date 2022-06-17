@@ -11,54 +11,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.io.hdfs;
 
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.spi.TrinoException;
+import io.trino.plugin.iceberg.io.TrinoOutputFile;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.iceberg.io.FileIO;
-import org.apache.iceberg.io.InputFile;
-import org.apache.iceberg.io.OutputFile;
 
 import java.io.IOException;
+import java.io.OutputStream;
 
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
+import static io.trino.plugin.iceberg.io.hdfs.HadoopPaths.hadoopPath;
 import static java.util.Objects.requireNonNull;
 
-public class HdfsFileIo
-        implements FileIO
+class HdfsOutputFile
+        implements TrinoOutputFile
 {
+    private final String path;
     private final HdfsEnvironment environment;
     private final HdfsContext context;
 
-    public HdfsFileIo(HdfsEnvironment environment, HdfsContext context)
+    public HdfsOutputFile(String path, HdfsEnvironment environment, HdfsContext context)
     {
+        this.path = requireNonNull(path, "path is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.context = requireNonNull(context, "context is null");
     }
 
     @Override
-    public InputFile newInputFile(String path)
+    public OutputStream create()
+            throws IOException
     {
-        return new HdfsInputFile(new Path(path), environment, context);
+        Path file = hadoopPath(path);
+        FileSystem fileSystem = environment.getFileSystem(context, file);
+        return environment.doAs(context.getIdentity(), () -> fileSystem.create(file, false));
     }
 
     @Override
-    public OutputFile newOutputFile(String path)
+    public String location()
     {
-        return new HdfsOutputFile(new Path(path), environment, context);
-    }
-
-    @Override
-    public void deleteFile(String pathString)
-    {
-        Path path = new Path(pathString);
-        try {
-            environment.doAs(context.getIdentity(), () -> environment.getFileSystem(context, path).delete(path, false));
-        }
-        catch (IOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete file: " + path, e);
-        }
+        return path;
     }
 }

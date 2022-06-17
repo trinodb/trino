@@ -14,8 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.PageIndexerFactory;
@@ -45,27 +44,24 @@ import static java.util.Objects.requireNonNull;
 public class IcebergPageSinkProvider
         implements ConnectorPageSinkProvider
 {
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final PageIndexerFactory pageIndexerFactory;
-    private final FileIoProvider fileIoProvider;
     private final int maxOpenPartitions;
 
     @Inject
     public IcebergPageSinkProvider(
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             JsonCodec<CommitTaskData> jsonCodec,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
-            FileIoProvider fileIoProvider,
             IcebergConfig config)
     {
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
-        this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
         requireNonNull(config, "config is null");
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
     }
@@ -84,7 +80,6 @@ public class IcebergPageSinkProvider
 
     private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle)
     {
-        HdfsContext hdfsContext = new HdfsContext(session);
         Schema schema = SchemaParser.fromJson(tableHandle.getSchemaAsJson());
         String partitionSpecJson = tableHandle.getPartitionsSpecsAsJson().get(tableHandle.getPartitionSpecId());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, partitionSpecJson);
@@ -95,9 +90,7 @@ public class IcebergPageSinkProvider
                 locationProvider,
                 fileWriterFactory,
                 pageIndexerFactory,
-                hdfsEnvironment,
-                hdfsContext,
-                fileIoProvider,
+                fileSystemFactory.create(session),
                 tableHandle.getInputColumns(),
                 jsonCodec,
                 session,
@@ -112,7 +105,6 @@ public class IcebergPageSinkProvider
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
         switch (executeHandle.getProcedureId()) {
             case OPTIMIZE:
-                HdfsContext hdfsContext = new HdfsContext(session);
                 IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.getProcedureHandle();
                 Schema schema = SchemaParser.fromJson(optimizeHandle.getSchemaAsJson());
                 PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, optimizeHandle.getPartitionSpecAsJson());
@@ -124,9 +116,7 @@ public class IcebergPageSinkProvider
                         locationProvider,
                         fileWriterFactory,
                         pageIndexerFactory,
-                        hdfsEnvironment,
-                        hdfsContext,
-                        fileIoProvider,
+                        fileSystemFactory.create(session),
                         optimizeHandle.getTableColumns(),
                         jsonCodec,
                         session,
@@ -153,8 +143,7 @@ public class IcebergPageSinkProvider
         return new IcebergMergeSink(
                 locationProvider,
                 fileWriterFactory,
-                hdfsEnvironment,
-                fileIoProvider,
+                fileSystemFactory.create(session),
                 jsonCodec,
                 session,
                 tableHandle.getFileFormat(),

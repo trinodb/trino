@@ -13,18 +13,13 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
+import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.io.hdfs.HdfsFileSystemFactory;
 import io.trino.spi.type.TestingTypeManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -35,6 +30,7 @@ import java.nio.file.Files;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,17 +39,12 @@ public class TestTrinoHiveCatalogTest
         extends BaseTrinoCatalogTest
 {
     private final HiveMetastore metastore;
-    private final HdfsEnvironment hdfsEnvironment;
     private final java.nio.file.Path tempDir;
     private final File metastoreDir;
 
     public TestTrinoHiveCatalogTest()
             throws IOException
     {
-        HdfsConfig config = new HdfsConfig();
-        HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
-        hdfsEnvironment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
-
         tempDir = Files.createTempDirectory("test_trino_hive_catalog");
         metastoreDir = tempDir.resolve("iceberg_data").toFile();
         metastore = createTestingFileHiveMetastore(metastoreDir);
@@ -69,12 +60,13 @@ public class TestTrinoHiveCatalogTest
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
         return new TrinoHiveCatalog(
                 new CatalogName("catalog"),
                 memoizeMetastore(metastore, 1000),
-                hdfsEnvironment,
+                fileSystemFactory,
                 new TestingTypeManager(),
-                new FileMetastoreTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment)),
+                new FileMetastoreTableOperationsProvider(fileSystemFactory),
                 "trino-version",
                 useUniqueTableLocations,
                 false,

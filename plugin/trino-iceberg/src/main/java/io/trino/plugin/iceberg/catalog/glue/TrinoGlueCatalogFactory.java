@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg.catalog.glue;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
@@ -24,6 +23,7 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.Flatten;
@@ -40,7 +40,7 @@ public class TrinoGlueCatalogFactory
         implements TrinoCatalogFactory
 {
     private final CatalogName catalogName;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
@@ -52,7 +52,7 @@ public class TrinoGlueCatalogFactory
     @Inject
     public TrinoGlueCatalogFactory(
             CatalogName catalogName,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             NodeVersion nodeVersion,
@@ -62,7 +62,7 @@ public class TrinoGlueCatalogFactory
             GlueMetastoreStats stats)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
@@ -87,7 +87,7 @@ public class TrinoGlueCatalogFactory
     {
         return new TrinoGlueCatalog(
                 catalogName,
-                hdfsEnvironment,
+                fileSystemFactory,
                 typeManager,
                 tableOperationsProvider,
                 trinoVersion,
