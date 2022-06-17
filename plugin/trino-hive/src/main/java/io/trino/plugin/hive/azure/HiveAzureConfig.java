@@ -16,6 +16,7 @@ package io.trino.plugin.hive.azure;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.LegacyConfig;
 
 import java.util.Optional;
 
@@ -39,7 +40,8 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
-    @Config("hive.azure.wasb-storage-account")
+    @LegacyConfig("hive.azure.wasb-storage-account")
+    @Config("azure.wasb-storage-account")
     public HiveAzureConfig setWasbStorageAccount(String wasbStorageAccount)
     {
         this.wasbStorageAccount = wasbStorageAccount;
@@ -52,7 +54,8 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
-    @Config("hive.azure.wasb-access-key")
+    @LegacyConfig("hive.azure.wasb-access-key")
+    @Config("azure.wasb-access-key")
     public HiveAzureConfig setWasbAccessKey(String wasbAccessKey)
     {
         this.wasbAccessKey = wasbAccessKey;
@@ -65,7 +68,8 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
-    @Config("hive.azure.abfs-storage-account")
+    @LegacyConfig("hive.azure.abfs-storage-account")
+    @Config("azure.abfs-storage-account")
     public HiveAzureConfig setAbfsStorageAccount(String abfsStorageAccount)
     {
         this.abfsStorageAccount = abfsStorageAccount;
@@ -78,7 +82,8 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
-    @Config("hive.azure.abfs-access-key")
+    @LegacyConfig("hive.azure.abfs-access-key")
+    @Config("azure.abfs-access-key")
     public HiveAzureConfig setAbfsAccessKey(String abfsAccessKey)
     {
         this.abfsAccessKey = abfsAccessKey;
@@ -86,7 +91,8 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
-    @Config("hive.azure.adl-client-id")
+    @LegacyConfig("hive.azure.adl-client-id")
+    @Config("azure.adl-client-id")
     public HiveAzureConfig setAdlClientId(String adlClientId)
     {
         this.adlClientId = adlClientId;
@@ -99,7 +105,8 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
-    @Config("hive.azure.adl-credential")
+    @LegacyConfig("hive.azure.adl-credential")
+    @Config("azure.adl-credential")
     public HiveAzureConfig setAdlCredential(String adlCredential)
     {
         this.adlCredential = adlCredential;
@@ -117,14 +124,16 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
-    @Config("hive.azure.adl-refresh-url")
+    @LegacyConfig("hive.azure.adl-refresh-url")
+    @Config("azure.adl-refresh-url")
     public HiveAzureConfig setAdlRefreshUrl(String adlRefreshUrl)
     {
         this.adlRefreshUrl = adlRefreshUrl;
         return this;
     }
 
-    @Config("hive.azure.adl-proxy-host")
+    @LegacyConfig("hive.azure.adl-proxy-host")
+    @Config("azure.adl-proxy-host")
     public HiveAzureConfig setAdlProxyHost(HostAndPort adlProxyHost)
     {
         this.adlProxyHost = adlProxyHost;
@@ -137,7 +146,8 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
-    @Config("hive.azure.abfs.oauth.endpoint")
+    @LegacyConfig("hive.azure.abfs.oauth.endpoint")
+    @Config("azure.abfs.oauth.endpoint")
     public HiveAzureConfig setAbfsOAuthClientEndpoint(String endpoint)
     {
         abfsOAuthClientEndpoint = endpoint;
@@ -150,7 +160,8 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
-    @Config("hive.azure.abfs.oauth.client-id")
+    @LegacyConfig("hive.azure.abfs.oauth.client-id")
+    @Config("azure.abfs.oauth.client-id")
     public HiveAzureConfig setAbfsOAuthClientId(String id)
     {
         abfsOAuthClientId = id;
@@ -163,7 +174,8 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
-    @Config("hive.azure.abfs.oauth.secret")
+    @LegacyConfig("hive.azure.abfs.oauth.secret")
+    @Config("azure.abfs.oauth.secret")
     public HiveAzureConfig setAbfsOAuthClientSecret(String secret)
     {
         abfsOAuthClientSecret = secret;
