@@ -959,6 +959,8 @@ public class DeltaLakeMetadata
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata newColumnMetadata)
     {
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
+        checkSupportedWriterVersion(session, handle.getSchemaTableName());
+
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
 
         try {
