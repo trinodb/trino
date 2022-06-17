@@ -28,9 +28,12 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.spi.ptf.ConnectorTableFunction;
 
 import java.util.Properties;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
@@ -64,5 +67,6 @@ public class SnowflakeClientModule
         configBinder(binder).bindConfig(SnowflakeConfig.class);
         configBinder(binder).bindConfig(DecimalConfig.class);
         binder.install(new DecimalModule());
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 }

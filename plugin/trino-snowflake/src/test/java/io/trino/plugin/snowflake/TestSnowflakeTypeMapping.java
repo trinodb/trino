@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.snowflake.SnowflakeQueryRunner.createSnowflakeQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;

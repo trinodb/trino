@@ -131,14 +131,14 @@ public class TestSnowflakeConnectorTest
         // Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
         MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
+                .row("orderkey", "decimal(38,0)", "", "")
+                .row("custkey", "decimal(38,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
                 .row("totalprice", "double", "", "")
                 .row("orderdate", "date", "", "")
                 .row("orderpriority", "varchar(15)", "", "")
                 .row("clerk", "varchar(15)", "", "")
-                .row("shippriority", "bigint", "", "")
+                .row("shippriority", "decimal(38,0)", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
         assertEquals(actual, expectedParametrizedVarchar);
@@ -159,14 +159,14 @@ public class TestSnowflakeConnectorTest
     {
         // Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
         MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
+                .row("orderkey", "decimal(38,0)", "", "")
+                .row("custkey", "decimal(38,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
                 .row("totalprice", "double", "", "")
                 .row("orderdate", "date", "", "")
                 .row("orderpriority", "varchar(15)", "", "")
                 .row("clerk", "varchar(15)", "", "")
-                .row("shippriority", "bigint", "", "")
+                .row("shippriority", "decimal(38,0)", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
@@ -180,14 +180,14 @@ public class TestSnowflakeConnectorTest
         // Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo("CREATE TABLE snowflake.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
+                        "   orderkey decimal(38, 0),\n" +
+                        "   custkey decimal(38, 0),\n" +
                         "   orderstatus varchar(1),\n" +
                         "   totalprice double,\n" +
                         "   orderdate date,\n" +
                         "   orderpriority varchar(15),\n" +
                         "   clerk varchar(15),\n" +
-                        "   shippriority bigint,\n" +
+                        "   shippriority decimal(38, 0),\n" +
                         "   comment varchar(79)\n" +
                         ")\n" +
                         "COMMENT ''");
@@ -303,70 +303,6 @@ public class TestSnowflakeConnectorTest
 
     @Test
     @Override
-    public void testNativeQueryCreateStatement()
-    {
-        // Override and skip it because snowflake not support this feature
-        assertThatThrownBy(super::testNativeQueryCreateStatement).isInstanceOf(AssertionError.class);
-    }
-
-    @Test
-    @Override
-    public void testNativeQueryIncorrectSyntax()
-    {
-        // Override and skip it because snowflake not support this feature
-        assertThatThrownBy(super::testNativeQueryIncorrectSyntax).isInstanceOf(AssertionError.class);
-    }
-
-    @Test
-    @Override
-    public void testNativeQueryInsertStatementTableDoesNotExist()
-    {
-        // Override and skip it because snowflake not support this feature
-        assertThatThrownBy(super::testNativeQueryInsertStatementTableDoesNotExist).isInstanceOf(AssertionError.class);
-    }
-
-    @Test
-    @Override
-    public void testNativeQueryInsertStatementTableExists()
-    {
-        // Override and skip it because snowflake not support this feature
-        assertThatThrownBy(super::testNativeQueryInsertStatementTableExists).isInstanceOf(AssertionError.class);
-    }
-
-    @Test
-    @Override
-    public void testNativeQuerySelectFromNation()
-    {
-        // Override and skip it because snowflake not support this feature
-        assertThatThrownBy(super::testNativeQuerySelectFromNation).isInstanceOf(AssertionError.class);
-    }
-
-    @Test
-    @Override
-    public void testNativeQuerySelectFromTestTable()
-    {
-        // Override and skip it because snowflake not support this feature
-        assertThatThrownBy(super::testNativeQuerySelectFromTestTable).isInstanceOf(AssertionError.class);
-    }
-
-    @Test
-    @Override
-    public void testNativeQuerySelectUnsupportedType()
-    {
-        // Override and skip it because snowflake not support this feature
-        assertThatThrownBy(super::testNativeQuerySelectUnsupportedType).isInstanceOf(AssertionError.class);
-    }
-
-    @Test
-    @Override
-    public void testNativeQuerySimple()
-    {
-        // Override and skip it because snowflake not support this feature
-        assertThatThrownBy(super::testNativeQuerySimple).isInstanceOf(AssertionError.class);
-    }
-
-    @Test
-    @Override
     public void testCreateTableAsSelect()
     {
         // Override and skip it because snowflake not support this feature
@@ -379,5 +315,53 @@ public class TestSnowflakeConnectorTest
     {
         // Override and skip it because snowflake not support this feature
         assertThatThrownBy(super::testCreateTable).isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    @Override
+    public void testInformationSchemaFiltering()
+    {
+        // Override and skip it because snowflake not support this feature
+        assertThatThrownBy(super::testInformationSchemaFiltering).isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    @Override
+    public void testReadMetadataWithRelationsConcurrentModifications()
+    {
+        // Override and skip it because snowflake not support this feature
+        assertThatThrownBy(super::testReadMetadataWithRelationsConcurrentModifications).isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    @Override
+    public void testAggregationWithUnsupportedResultType()
+    {
+        // Override and skip it because snowflake not support this feature
+        assertThatThrownBy(super::testAggregationWithUnsupportedResultType).isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    @Override
+    public void testNativeQueryCreateStatement()
+    {
+        // Override and skip it because snowflake not support this feature
+        assertThatThrownBy(super::testNativeQueryCreateStatement).isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    @Override
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        // Override and skip it because snowflake not support this feature
+        assertThatThrownBy(super::testNativeQueryInsertStatementTableExists).isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    @Override
+    public void testNativeQuerySelectUnsupportedType()
+    {
+        // Override and skip it because snowflake not support this feature
+        assertThatThrownBy(super::testNativeQueryInsertStatementTableExists).isInstanceOf(AssertionError.class);
     }
 }
