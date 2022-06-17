@@ -555,6 +555,8 @@ public abstract class BaseJdbcClient
             String remoteTargetTableName = identifierMapping.toRemoteTableName(identity, connection, remoteSchema, targetTableName);
             String catalog = connection.getCatalog();
 
+            verifyTableName(connection.getMetaData(), remoteTargetTableName);
+
             List<ColumnMetadata> columns = tableMetadata.getColumns();
             ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(columns.size());
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builderWithExpectedSize(columns.size());
@@ -693,6 +695,7 @@ public abstract class BaseJdbcClient
         try (Connection connection = connectionFactory.openConnection(session)) {
             String newSchemaName = newTable.getSchemaName();
             String newTableName = newTable.getTableName();
+            verifyTableName(connection.getMetaData(), newTableName);
             ConnectorIdentity identity = session.getIdentity();
             String newRemoteSchemaName = identifierMapping.toRemoteSchemaName(identity, connection, newSchemaName);
             String newRemoteTableName = identifierMapping.toRemoteTableName(identity, connection, newRemoteSchemaName, newTableName);
@@ -1073,6 +1076,12 @@ public abstract class BaseJdbcClient
     {
         String sql = "TRUNCATE TABLE " + quoted(handle.asPlainTable().getRemoteTableName());
         execute(session, sql);
+    }
+
+    protected void verifyTableName(DatabaseMetaData databaseMetadata, String tableName)
+            throws SQLException
+    {
+        // expect remote databases throw an exception for unsupported table names
     }
 
     protected String quoted(@Nullable String catalog, @Nullable String schema, String table)

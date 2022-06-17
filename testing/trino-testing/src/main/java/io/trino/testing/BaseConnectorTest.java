@@ -1981,6 +1981,47 @@ public abstract class BaseConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableNameLike));
     }
 
+    // TODO https://github.com/trinodb/trino/issues/13073 Add RENAME TABLE test with long table name
+    @Test
+    public void testCreateTableWithLongTableName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        String baseTableName = "test_create_" + randomTableSuffix();
+
+        int maxLength = maxTableNameLength()
+                // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
+                .orElse(65536 + 5);
+
+        String validTableName = baseTableName + "z".repeat(maxLength - baseTableName.length());
+        assertUpdate("CREATE TABLE " + validTableName + " (a bigint)");
+        assertTrue(getQueryRunner().tableExists(getSession(), validTableName));
+        assertUpdate("DROP TABLE " + validTableName);
+
+        if (maxTableNameLength().isEmpty()) {
+            return;
+        }
+
+        String invalidTableName = validTableName + "z";
+        try {
+            assertUpdate("CREATE TABLE " + invalidTableName + " (a bigint)");
+        }
+        catch (Throwable e) {
+            verifyTableNameLengthFailurePermissible(e);
+        }
+        assertFalse(getQueryRunner().tableExists(getSession(), validTableName));
+    }
+
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.empty();
+    }
+
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        throw new AssertionError("Unexpected table name length failure", e);
+    }
+
     @Test
     public void testCreateTableWithTableComment()
     {
