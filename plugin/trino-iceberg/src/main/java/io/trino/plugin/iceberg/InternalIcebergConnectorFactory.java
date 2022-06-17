@@ -37,6 +37,8 @@ import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.s3.HiveS3Module;
 import io.trino.plugin.iceberg.catalog.IcebergCatalogModule;
+import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.io.hdfs.HdfsFileSystemFactory;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -73,7 +75,7 @@ public final class InternalIcebergConnectorFactory
             ConnectorContext context,
             Module module,
             Optional<HiveMetastore> metastore,
-            Optional<FileIoProvider> fileIoProvider)
+            Optional<TrinoFileSystemFactory> fileSystemFactory)
     {
         ClassLoader classLoader = InternalIcebergConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -91,15 +93,15 @@ public final class InternalIcebergConnectorFactory
                     new HiveAzureModule(),
                     new HdfsAuthenticationModule(),
                     new MBeanServerModule(),
-                    fileIoProvider
-                            .<Module>map(provider -> binder -> binder.bind(FileIoProvider.class).toInstance(provider))
-                            .orElse(binder -> binder.bind(FileIoProvider.class).to(HdfsFileIoProvider.class).in(SINGLETON)),
                     binder -> {
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+                        fileSystemFactory.ifPresentOrElse(
+                                factory -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory),
+                                () -> binder.bind(TrinoFileSystemFactory.class).to(HdfsFileSystemFactory.class).in(SINGLETON));
                     },
                     module);
 

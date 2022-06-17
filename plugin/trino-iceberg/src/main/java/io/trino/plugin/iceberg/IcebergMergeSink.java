@@ -17,9 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.iceberg.delete.IcebergPositionDeletePageSink;
+import io.trino.plugin.iceberg.io.TrinoFileSystem;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.ColumnarRow;
@@ -58,8 +57,7 @@ public class IcebergMergeSink
 {
     private final LocationProvider locationProvider;
     private final IcebergFileWriterFactory fileWriterFactory;
-    private final HdfsEnvironment hdfsEnvironment;
-    private final FileIoProvider fileIoProvider;
+    private final TrinoFileSystem fileSystem;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final ConnectorSession session;
     private final IcebergFileFormat fileFormat;
@@ -73,8 +71,7 @@ public class IcebergMergeSink
     public IcebergMergeSink(
             LocationProvider locationProvider,
             IcebergFileWriterFactory fileWriterFactory,
-            HdfsEnvironment hdfsEnvironment,
-            FileIoProvider fileIoProvider,
+            TrinoFileSystem fileSystem,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
             IcebergFileFormat fileFormat,
@@ -86,8 +83,7 @@ public class IcebergMergeSink
     {
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
+        this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
@@ -163,9 +159,7 @@ public class IcebergMergeSink
                 partitionData,
                 locationProvider,
                 fileWriterFactory,
-                hdfsEnvironment,
-                new HdfsContext(session),
-                fileIoProvider,
+                fileSystem,
                 jsonCodec,
                 session,
                 fileFormat,

@@ -11,12 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.io;
 
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import org.apache.iceberg.io.FileIO;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 
-public interface FileIoProvider
+public interface TrinoFileSystemFactory
 {
-    FileIO createFileIo(HdfsContext hdfsContext, String queryId);
+    TrinoFileSystem create(ConnectorIdentity identity);
+
+    default TrinoFileSystem create(ConnectorSession session)
+    {
+        return create(session.getIdentity());
+    }
 }

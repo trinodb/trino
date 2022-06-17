@@ -35,12 +35,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -111,7 +111,7 @@ public class TrinoGlueCatalog
 {
     private static final Logger LOG = Logger.get(TrinoGlueCatalog.class);
 
-    private final HdfsEnvironment hdfsEnvironment;
+    private TrinoFileSystemFactory fileSystemFactory;
     private final Optional<String> defaultSchemaLocation;
     private final AWSGlueAsync glueClient;
     private final GlueMetastoreStats stats;
@@ -120,7 +120,7 @@ public class TrinoGlueCatalog
 
     public TrinoGlueCatalog(
             CatalogName catalogName,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             String trinoVersion,
@@ -130,7 +130,7 @@ public class TrinoGlueCatalog
             boolean useUniqueTableLocation)
     {
         super(catalogName, typeManager, tableOperationsProvider, trinoVersion, useUniqueTableLocation);
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.defaultSchemaLocation = requireNonNull(defaultSchemaLocation, "defaultSchemaLocation is null");
@@ -311,7 +311,7 @@ public class TrinoGlueCatalog
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         dropTableData(table.io(), table.operations().current());
-        deleteTableDirectory(session, schemaTableName, hdfsEnvironment, new Path(table.location()));
+        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
     }
 
     @Override

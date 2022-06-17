@@ -18,8 +18,9 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.trino.Session;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.iceberg.TrackingFileIoProvider.OperationContext;
-import io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType;
+import io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationContext;
+import io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType;
+import io.trino.plugin.iceberg.io.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -39,11 +40,11 @@ import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.METADATA_JSON;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.SNAPSHOT;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.fromFilePath;
-import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_GET_LENGTH;
-import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_NEW_STREAM;
-import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE;
-import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
-import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_LOCATION;
+import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
+import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
+import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE;
+import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
+import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_LOCATION;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -53,7 +54,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true) // e.g. trackingFileIoProvider is shared mutable state
+@Test(singleThreaded = true) // e.g. trackingFileSystemFactory is shared mutable state
 public class TestIcebergMetadataFileOperations
         extends AbstractTestQueryFramework
 {
@@ -62,7 +63,7 @@ public class TestIcebergMetadataFileOperations
             .setSchema("test_schema")
             .build();
 
-    private TrackingFileIoProvider trackingFileIoProvider;
+    private TrackingFileSystemFactory trackingFileSystemFactory;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
@@ -82,8 +83,8 @@ public class TestIcebergMetadataFileOperations
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
         HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
 
-        trackingFileIoProvider = new TrackingFileIoProvider(new HdfsFileIoProvider(HDFS_ENVIRONMENT));
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.of(trackingFileIoProvider), EMPTY_MODULE));
+        trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.of(trackingFileSystemFactory), EMPTY_MODULE));
         queryRunner.createCatalog("iceberg", "iceberg");
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -342,12 +343,12 @@ public class TestIcebergMetadataFileOperations
 
     private void resetCounts()
     {
-        trackingFileIoProvider.reset();
+        trackingFileSystemFactory.reset();
     }
 
     private Multiset<FileOperation> getOperations()
     {
-        return trackingFileIoProvider.getOperationCounts()
+        return trackingFileSystemFactory.getOperationCounts()
                 .entrySet().stream()
                 .flatMap(entry -> nCopies(entry.getValue(), new FileOperation(entry.getKey())).stream())
                 .collect(toCollection(HashMultiset::create));

@@ -33,6 +33,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.iceberg.io.hdfs.HdfsFileSystemFactory;
 import io.trino.spi.Page;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.BlockBuilder;
@@ -188,14 +189,13 @@ public class TestIcebergNodeLocalDynamicSplitPruning
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         IcebergPageSourceProvider provider = new IcebergPageSourceProvider(
-                HDFS_ENVIRONMENT,
+                new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
                 stats,
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,
                 TESTING_TYPE_MANAGER,
-                new HdfsFileIoProvider(HDFS_ENVIRONMENT),
                 new JsonCodecFactory().jsonCodec(CommitTaskData.class),
-                new IcebergFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("trino_test"), stats, ORC_WRITER_CONFIG),
+                new IcebergFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("trino_test"), stats, ORC_WRITER_CONFIG),
                 new GroupByHashPageIndexerFactory(new JoinCompiler(TESTING_TYPE_MANAGER.getTypeOperators()), new BlockTypeOperators()),
                 icebergConfig);
 

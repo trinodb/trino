@@ -25,7 +25,7 @@ import org.apache.iceberg.avro.AvroIterable;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.avro.DataReader;
 import org.apache.iceberg.io.CloseableIterator;
-import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.types.Types;
 
@@ -61,8 +61,7 @@ public class IcebergAvroPageSource
     private long readTimeNanos;
 
     public IcebergAvroPageSource(
-            FileIO fileIo,
-            String path,
+            InputFile file,
             long start,
             long length,
             Schema fileSchema,
@@ -72,9 +71,6 @@ public class IcebergAvroPageSource
             List<Boolean> rowIndexLocations,
             AggregatedMemoryContext memoryUsage)
     {
-        requireNonNull(fileIo, "fileIo is null");
-        requireNonNull(path, "path is null");
-        requireNonNull(fileSchema, "fileSchema is null");
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.rowIndexLocations = ImmutableList.copyOf(requireNonNull(rowIndexLocations, "rowIndexLocations is null"));
@@ -85,7 +81,7 @@ public class IcebergAvroPageSource
 
         // The column orders in the generated schema might be different from the original order
         Schema readSchema = fileSchema.select(columnNames);
-        Avro.ReadBuilder builder = Avro.read(fileIo.newInputFile(path))
+        Avro.ReadBuilder builder = Avro.read(file)
                 .project(readSchema)
                 .createReaderFunc(DataReader::create)
                 .split(start, length);

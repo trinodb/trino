@@ -47,6 +47,6 @@ public class TestIcebergAvroConnectorTest
     @Override
     public void testIncorrectIcebergFileSizes()
     {
-        throw new SkipException("TODO: Enable after supporting 'use_file_size_from_metadata' session property");
+        throw new SkipException("Avro does not do tail reads");
     }
 }

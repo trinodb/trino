@@ -16,19 +16,14 @@ package io.trino.plugin.iceberg.catalog.glue;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.BaseTrinoCatalogTest;
-import io.trino.plugin.iceberg.HdfsFileIoProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.io.hdfs.HdfsFileSystemFactory;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
@@ -41,6 +36,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.testng.Assert.assertEquals;
@@ -53,18 +49,16 @@ public class TestTrinoGlueCatalogTest
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(new HiveHdfsConfiguration(
-                new HdfsConfigurationInitializer(
-                        new HdfsConfig(),
-                        ImmutableSet.of()),
-                ImmutableSet.of()),
-                new HdfsConfig(),
-                new NoHdfsAuthentication());
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
         return new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
-                hdfsEnvironment,
+                fileSystemFactory,
                 new TestingTypeManager(),
-                new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueMetastoreStats(), new GlueHiveMetastoreConfig(), DefaultAWSCredentialsProviderChain.getInstance()),
+                new GlueIcebergTableOperationsProvider(
+                        fileSystemFactory,
+                        new GlueMetastoreStats(),
+                        new GlueHiveMetastoreConfig(),
+                        DefaultAWSCredentialsProviderChain.getInstance()),
                 "test",
                 AWSGlueAsyncClientBuilder.defaultClient(),
                 new GlueMetastoreStats(),
@@ -79,18 +73,16 @@ public class TestTrinoGlueCatalogTest
         Path tmpDirectory = Files.createTempDirectory("test_glue_catalog_default_location_");
         tmpDirectory.toFile().deleteOnExit();
 
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(new HiveHdfsConfiguration(
-                new HdfsConfigurationInitializer(
-                        new HdfsConfig(),
-                        ImmutableSet.of()),
-                ImmutableSet.of()),
-                new HdfsConfig(),
-                new NoHdfsAuthentication());
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
-                hdfsEnvironment,
+                fileSystemFactory,
                 new TestingTypeManager(),
-                new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueMetastoreStats(), new GlueHiveMetastoreConfig(), DefaultAWSCredentialsProviderChain.getInstance()),
+                new GlueIcebergTableOperationsProvider(
+                        fileSystemFactory,
+                        new GlueMetastoreStats(),
+                        new GlueHiveMetastoreConfig(),
+                        DefaultAWSCredentialsProviderChain.getInstance()),
                 "test",
                 AWSGlueAsyncClientBuilder.defaultClient(),
                 new GlueMetastoreStats(),
