@@ -3486,10 +3486,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery(session, "SELECT * FROM test_iceberg_file_size", "VALUES (123), (456), (758)");
 
         // Using Iceberg provided file size fails the query
-        assertQueryFails("SELECT * FROM test_iceberg_file_size",
-                format == ORC
-                        ? format(".*Error opening Iceberg split.*\\QIncorrect file size (%s) for file (end of stream not reached)\\E.*", alteredValue)
-                        : format("Error reading tail from .* with length %d", alteredValue));
+        assertQueryFails("SELECT * FROM test_iceberg_file_size", ".*Error opening Iceberg split.*\\QIncorrect file size (%d) for file (end of stream not reached)\\E.*".formatted(alteredValue));
 
         dropTable("test_iceberg_file_size");
     }
@@ -4892,17 +4889,13 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testCleaningUpWithTableWithSpecifiedLocationWithSlashAtTheEnd()
-            throws IOException
-    {
-        testCleaningUpWithTableWithSpecifiedLocation("/");
-    }
-
-    @Test
-    public void testCleaningUpWithTableWithSpecifiedLocationWithoutSlashAtTheEnd()
+    public void testCleaningUpWithTableWithSpecifiedLocation()
             throws IOException
     {
         testCleaningUpWithTableWithSpecifiedLocation("");
+        testCleaningUpWithTableWithSpecifiedLocation("/");
+        testCleaningUpWithTableWithSpecifiedLocation("//");
+        testCleaningUpWithTableWithSpecifiedLocation("///");
     }
 
     private void testCleaningUpWithTableWithSpecifiedLocation(String suffix)

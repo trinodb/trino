@@ -11,30 +11,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.io.hdfs;
 
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import org.apache.iceberg.io.FileIO;
+import io.trino.plugin.iceberg.io.TrinoFileSystem;
+import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
+import io.trino.spi.security.ConnectorIdentity;
 
 import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 
-public class HdfsFileIoProvider
-        implements FileIoProvider
+public class HdfsFileSystemFactory
+        implements TrinoFileSystemFactory
 {
-    private final HdfsEnvironment hdfsEnvironment;
+    private final HdfsEnvironment environment;
 
     @Inject
-    public HdfsFileIoProvider(HdfsEnvironment hdfsEnvironment)
+    public HdfsFileSystemFactory(HdfsEnvironment environment)
     {
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.environment = requireNonNull(environment, "environment is null");
     }
 
     @Override
-    public FileIO createFileIo(HdfsContext hdfsContext, String queryId)
+    public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new HdfsFileIo(hdfsEnvironment, hdfsContext);
+        return new HdfsFileSystem(environment, new HdfsContext(identity));
     }
 }

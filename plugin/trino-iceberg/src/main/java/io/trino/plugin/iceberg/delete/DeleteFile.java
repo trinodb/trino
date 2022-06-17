@@ -89,7 +89,7 @@ public final class DeleteFile
     }
 
     @JsonProperty
-    public CharSequence path()
+    public String path()
     {
         return path;
     }

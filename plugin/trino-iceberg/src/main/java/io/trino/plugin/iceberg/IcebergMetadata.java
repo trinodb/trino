@@ -26,12 +26,14 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveApplyProjectionUtil;
 import io.trino.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveWrittenPartitions;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.io.FileEntry;
+import io.trino.plugin.iceberg.io.FileIterator;
+import io.trino.plugin.iceberg.io.TrinoFileSystem;
+import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.procedure.IcebergExpireSnapshotsHandle;
 import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
 import io.trino.plugin.iceberg.procedure.IcebergRemoveOrphanFilesHandle;
@@ -85,10 +87,6 @@ import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
@@ -126,7 +124,6 @@ import org.apache.iceberg.types.Types.StructType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URI;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -148,10 +145,12 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.union;
@@ -246,7 +245,7 @@ public class IcebergMetadata
     private final TypeOperators typeOperators;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalog catalog;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     private final Map<String, Long> snapshotIds = new ConcurrentHashMap<>();
 
@@ -257,13 +256,13 @@ public class IcebergMetadata
             TypeOperators typeOperators,
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalog catalog,
-            HdfsEnvironment hdfsEnvironment)
+            TrinoFileSystemFactory fileSystemFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
     @Override
@@ -664,11 +663,9 @@ public class IcebergMetadata
         verify(transaction == null, "transaction already set");
         transaction = newCreateTableTransaction(catalog, tableMetadata, session);
         String location = transaction.table().location();
-        HdfsContext hdfsContext = new HdfsContext(session);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            Path path = new Path(location);
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, path);
-            if (fileSystem.exists(path) && fileSystem.listFiles(path, true).hasNext()) {
+            if (fileSystem.listFiles(location).hasNext()) {
                 throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
                         "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
                         "to use unique table locations for every table.", location));
@@ -807,23 +804,20 @@ public class IcebergMetadata
                 .collect(toImmutableList())));
     }
 
-    private void cleanExtraOutputFiles(HdfsContext hdfsContext, String queryId, String location, Set<String> filesToKeep)
+    private static void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, String location, Set<String> filesToKeep)
     {
+        checkArgument(!queryId.contains("-"), "query ID should not contain hyphens: %s", queryId);
+
         Deque<String> filesToDelete = new ArrayDeque<>();
         try {
             log.debug("Deleting failed attempt files from %s for query %s", location, queryId);
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, new Path(location));
-            if (!fileSystem.exists(new Path(location))) {
-                // directory may not exist if no files were actually written
-                return;
-            }
 
-            // files within given partition are written flat into location; we need to list recursively
-            RemoteIterator<LocatedFileStatus> iterator = fileSystem.listFiles(new Path(location), false);
+            FileIterator iterator = fileSystem.listFiles(location);
             while (iterator.hasNext()) {
-                Path file = iterator.next().getPath();
-                if (isFileCreatedByQuery(file.getName(), queryId) && !filesToKeep.contains(location + "/" + file.getName())) {
-                    filesToDelete.add(file.getName());
+                FileEntry entry = iterator.next();
+                String name = getLast(Splitter.on('/').splitToList(entry.path()));
+                if (name.startsWith(queryId + "-") && !filesToKeep.contains(location + "/" + name)) {
+                    filesToDelete.add(name);
                 }
             }
 
@@ -837,7 +831,7 @@ public class IcebergMetadata
             while (filesToDeleteIterator.hasNext()) {
                 String fileName = filesToDeleteIterator.next();
                 log.debug("Deleting failed attempt file %s/%s for query %s", location, fileName, queryId);
-                fileSystem.delete(new Path(location, fileName), false);
+                fileSystem.deleteFile(location + "/" + fileName);
                 deletedFilesBuilder.add(fileName);
                 filesToDeleteIterator.remove();
             }
@@ -851,12 +845,6 @@ public class IcebergMetadata
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR,
                     format("Could not clean up extraneous output files; remaining files: %s", filesToDelete), e);
         }
-    }
-
-    private static boolean isFileCreatedByQuery(String fileName, String queryId)
-    {
-        verify(!queryId.contains("-"), "queryId(%s) should not contain hyphens", queryId);
-        return fileName.startsWith(queryId + "-");
     }
 
     private static Set<String> getOutputFilesLocations(Set<String> writtenFiles)
@@ -1201,13 +1189,12 @@ public class IcebergMetadata
         Set<String> validDataFilePaths = stream(table.snapshots())
                 .map(Snapshot::snapshotId)
                 .flatMap(snapshotId -> stream(table.newScan().useSnapshot(snapshotId).planFiles()))
-                // compare only paths not to delete too many files, see https://github.com/apache/iceberg/pull/2890
-                .map(fileScanTask -> URI.create(fileScanTask.file().path().toString()).getPath())
+                .map(fileScanTask -> fileName(fileScanTask.file().path().toString()))
                 .collect(toImmutableSet());
         Set<String> validDeleteFilePaths = stream(table.snapshots())
                 .map(Snapshot::snapshotId)
                 .flatMap(snapshotId -> stream(table.newScan().useSnapshot(snapshotId).planFiles()))
-                .flatMap(fileScanTask -> fileScanTask.deletes().stream().map(deleteFile -> URI.create(deleteFile.path().toString()).getPath()))
+                .flatMap(fileScanTask -> fileScanTask.deletes().stream().map(file -> fileName(file.path().toString())))
                 .collect(Collectors.toUnmodifiableSet());
         scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, union(validDataFilePaths, validDeleteFilePaths), "/data");
     }
@@ -1224,33 +1211,35 @@ public class IcebergMetadata
                 Stream.of(versionHintLocation(table)))
                 .collect(toImmutableList());
         Set<String> validMetadataFiles = concat(manifests.stream(), manifestLists.stream(), otherMetadataFiles.stream())
-                .map(path -> URI.create(path).getPath())
+                .map(IcebergMetadata::fileName)
                 .collect(toImmutableSet());
-        scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, validMetadataFiles, "/metadata");
+        scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, validMetadataFiles, "metadata");
     }
 
     private void scanAndDeleteInvalidFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp, Set<String> validFiles, String subfolder)
     {
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), new Path(table.location()));
-            RemoteIterator<LocatedFileStatus> allFiles = fileSystem.listFiles(new Path(table.location() + subfolder), true);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            FileIterator allFiles = fileSystem.listFiles(table.location() + "/" + subfolder);
             while (allFiles.hasNext()) {
-                LocatedFileStatus file = allFiles.next();
-                if (file.isFile()) {
-                    String normalizedPath = file.getPath().toUri().getPath();
-                    if (file.getModificationTime() < expireTimestamp && !validFiles.contains(normalizedPath)) {
-                        log.debug("Deleting %s file while removing orphan files %s", file.getPath().toString(), schemaTableName.getTableName());
-                        fileSystem.delete(file.getPath(), false);
-                    }
-                    else {
-                        log.debug("%s file retained while removing orphan files %s", file.getPath().toString(), schemaTableName.getTableName());
-                    }
+                FileEntry entry = allFiles.next();
+                if (entry.lastModified() < expireTimestamp && !validFiles.contains(fileName(entry.path()))) {
+                    log.debug("Deleting %s file while removing orphan files %s", entry.path(), schemaTableName.getTableName());
+                    fileSystem.deleteFile(entry.path());
+                }
+                else {
+                    log.debug("%s file retained while removing orphan files %s", entry.path(), schemaTableName.getTableName());
                 }
             }
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed accessing data for table: " + schemaTableName, e);
         }
+    }
+
+    private static String fileName(String path)
+    {
+        return path.substring(path.lastIndexOf('/') + 1);
     }
 
     @Override
@@ -2047,10 +2036,10 @@ public class IcebergMetadata
 
     private void cleanExtraOutputFiles(ConnectorSession session, Set<String> writtenFiles)
     {
-        HdfsContext hdfsContext = new HdfsContext(session);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         Set<String> locations = getOutputFilesLocations(writtenFiles);
         for (String location : locations) {
-            cleanExtraOutputFiles(hdfsContext, session.getQueryId(), location, writtenFiles);
+            cleanExtraOutputFiles(fileSystem, session.getQueryId(), location, writtenFiles);
         }
     }
 

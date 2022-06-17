@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.catalog.hms;
 
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -22,6 +21,7 @@ import io.trino.plugin.iceberg.IcebergSecurityConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.plugin.iceberg.io.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
@@ -38,7 +38,7 @@ public class TrinoHiveCatalogFactory
 {
     private final CatalogName catalogName;
     private final HiveMetastoreFactory metastoreFactory;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
@@ -51,7 +51,7 @@ public class TrinoHiveCatalogFactory
             IcebergConfig config,
             CatalogName catalogName,
             HiveMetastoreFactory metastoreFactory,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             NodeVersion nodeVersion,
@@ -59,7 +59,7 @@ public class TrinoHiveCatalogFactory
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationProvider is null");
         this.trinoVersion = requireNonNull(nodeVersion, "trinoVersion is null").toString();
@@ -76,7 +76,7 @@ public class TrinoHiveCatalogFactory
         return new TrinoHiveCatalog(
                 catalogName,
                 memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), 1000),
-                hdfsEnvironment,
+                fileSystemFactory,
                 typeManager,
                 tableOperationsProvider,
                 trinoVersion,
