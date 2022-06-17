@@ -25,12 +25,12 @@ import static java.util.Objects.requireNonNull;
 
 public class TestingSnowflakeServer
 {
-    public static final String TEST_URL = requireNonNull(System.getProperty("snowflake.test.server.url"), "snowflake.test.server.url is not set");
-    public static final String TEST_USER = requireNonNull(System.getProperty("snowflake.test.server.user"), "snowflake.test.server.user is not set");
-    public static final String TEST_PASSWORD = requireNonNull(System.getProperty("snowflake.test.server.password"), "snowflake.test.server.password is not set");
-    public static final String TEST_DATABASE = requireNonNull(System.getProperty("snowflake.test.server.database"), "snowflake.test.server.database is not set");
-    public static final String TEST_WAREHOUSE = requireNonNull(System.getProperty("snowflake.test.server.warehouse"), "snowflake.test.server.warehouse is not set");
-    public static final String TEST_ROLE = requireNonNull(System.getProperty("snowflake.test.server.role"), "snowflake.test.server.role is not set");
+    public static final String TEST_URL = requireNonNull(System.getProperty("snowflake-url"), "snowflake-url is not set");
+    public static final String TEST_USER = requireNonNull(System.getProperty("snowflake-user"), "snowflake-user is not set");
+    public static final String TEST_PASSWORD = requireNonNull(System.getProperty("snowflake-password"), "snowflake-password is not set");
+    public static final String TEST_DATABASE = requireNonNull(System.getProperty("snowflake-database"), "snowflake-database is not set");
+    public static final String TEST_WAREHOUSE = requireNonNull(System.getProperty("snowflake-warehouse"), "snowflake-warehouse is not set");
+    public static final String TEST_ROLE = requireNonNull(System.getProperty("snowflake-role"), "snowflake-role is not set");
     public static final String TEST_SCHEMA = "tpch";
 
     public TestingSnowflakeServer()
