@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -548,6 +549,18 @@ public abstract class BaseSqlServerConnectorTest
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return format("Cannot insert the value NULL into column '%s'.*", columnName);
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(128);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("The identifier that starts with '.*' is too long. Maximum length is 128.");
     }
 
     private String getLongInClause(int start, int length)

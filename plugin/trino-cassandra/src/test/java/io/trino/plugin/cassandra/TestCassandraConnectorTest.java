@@ -39,6 +39,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.datastax.oss.driver.api.core.data.ByteUtils.toHexString;
 import static com.google.common.io.BaseEncoding.base16;
@@ -1319,6 +1320,18 @@ public class TestCassandraConnectorTest
     {
         assertThatThrownBy(super::testRowLevelDelete)
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(48);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Table names shouldn't be more than 48 characters long");
     }
 
     private void assertSelect(String tableName, boolean createdByTrino)

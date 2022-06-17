@@ -34,6 +34,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -661,6 +662,21 @@ public class TestPhoenixConnectorTest
     {
         assertThat(e)
                 .hasMessageContaining("Concurrent modification to table");
+    }
+
+    @Override
+    public void testCreateTableWithLongTableName()
+    {
+        // TODO: Find the maximum table name length in Phoenix and enable this test.
+        // Table name length with 65536 chars throws "startRow's length must be less than or equal to 32767 to meet the criteria for a row key."
+        // 32767 chars still causes the same error and shorter names (e.g. 10000) causes timeout.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(32767);
     }
 
     @Override

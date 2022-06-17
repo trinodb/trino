@@ -33,6 +33,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
@@ -906,5 +907,17 @@ public abstract class BaseRaptorConnectorTest
                         "(?s).*SQLIntegrityConstraintViolationException.*" +
                                 "|.*Unique index or primary key violation.*" +
                                 "|.*Deadlock found when trying to get lock; try restarting transaction.*");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(255);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessage("Failed to perform metadata operation");
     }
 }
