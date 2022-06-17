@@ -28,7 +28,7 @@ public final class MinioContainer
 {
     public static final String MINIO_ACCESS_KEY = "minio-access-key";
     public static final String MINIO_SECRET_KEY = "minio-secret-key";
-    private static final int MINIO_PORT = 9080;
+    public static final int MINIO_PORT = 9080;
 
     private final DockerContainer minio;
 

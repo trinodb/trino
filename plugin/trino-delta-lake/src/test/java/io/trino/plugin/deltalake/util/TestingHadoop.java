@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.util;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Resources;
 import io.airlift.log.Logger;
 import io.trino.testing.containers.wait.strategy.SelectedPortWaitStrategy;
 import net.jodah.failsafe.Failsafe;
@@ -28,6 +29,11 @@ import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -38,6 +44,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
@@ -267,5 +274,20 @@ public class TestingHadoop
         {
             return new TestingHadoop(image, ports, resourcesToMount, filesToMount, extraHosts, network, retryLimit);
         }
+    }
+
+    public static Path renderHadoopCoreSiteTemplate(String templatePath, Map<String, String> replacements)
+            throws IOException
+    {
+        String coreSiteXmlContent = Resources.toString(Resources.getResource(templatePath), UTF_8);
+        for (Map.Entry<String, String> replacement : replacements.entrySet()) {
+            coreSiteXmlContent = coreSiteXmlContent.replace(replacement.getKey(), replacement.getValue());
+        }
+
+        FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
+        Path hadoopCoreSiteXmlTempFile = Files.createTempFile("core-site", ".xml", posixFilePermissions);
+        hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
+        Files.write(hadoopCoreSiteXmlTempFile, coreSiteXmlContent.getBytes(UTF_8));
+        return hadoopCoreSiteXmlTempFile;
     }
 }

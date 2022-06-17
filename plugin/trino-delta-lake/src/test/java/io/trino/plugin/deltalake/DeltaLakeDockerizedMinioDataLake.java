@@ -16,7 +16,15 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Optional;
+
+import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_ACCESS_KEY;
+import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_PORT;
+import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_SECRET_KEY;
+import static io.trino.plugin.deltalake.util.TestingHadoop.renderHadoopCoreSiteTemplate;
+import static java.lang.String.format;
 
 public final class DeltaLakeDockerizedMinioDataLake
 {
@@ -25,18 +33,25 @@ public final class DeltaLakeDockerizedMinioDataLake
     }
 
     public static DockerizedMinioDataLake createDockerizedMinioDataLakeForDeltaLake(String bucketName)
+            throws IOException
     {
         return createDockerizedMinioDataLakeForDeltaLake(bucketName, Optional.empty());
     }
 
     public static DockerizedMinioDataLake createDockerizedMinioDataLakeForDeltaLake(String bucketName, Optional<String> hadoopBaseImage)
+            throws IOException
     {
+        Path hadoopCoreSiteXmlTempFile = renderHadoopCoreSiteTemplate(
+                "io/trino/plugin/deltalake/core-site.xml",
+                ImmutableMap.of(
+                        "%S3_ENDPOINT%", format("http://minio:%s", MINIO_PORT),
+                        "%S3_ACCESS_KEY%", MINIO_ACCESS_KEY,
+                        "%S3_SECRET_KEY%", MINIO_SECRET_KEY));
+
         return new DockerizedMinioDataLake(
                 bucketName,
                 hadoopBaseImage,
-                ImmutableMap.of(
-                        "io/trino/plugin/deltalake/core-site.xml", "/etc/hadoop/conf/core-site.xml",
-                        "io/trino/plugin/deltalake/hdp3.1-core-site.xml.abfs-template", "/etc/hadoop/conf/core-site.xml.abfs-template"),
-                ImmutableMap.of());
+                ImmutableMap.of("io/trino/plugin/deltalake/hdp3.1-core-site.xml.abfs-template", "/etc/hadoop/conf/core-site.xml.abfs-template"),
+                ImmutableMap.of(hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString(), "/etc/hadoop/conf/core-site.xml"));
     }
 }

@@ -20,7 +20,6 @@ import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteSource;
-import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
 import io.trino.plugin.deltalake.util.DockerizedDataLake;
 import io.trino.testing.QueryRunner;
@@ -29,11 +28,7 @@ import org.testng.annotations.Parameters;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.FileAttribute;
-import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -45,8 +40,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createAbfsDeltaLakeQueryRunner;
+import static io.trino.plugin.deltalake.util.TestingHadoop.renderHadoopCoreSiteTemplate;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,14 +75,11 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     protected DockerizedDataLake createDockerizedDataLake()
             throws Exception
     {
-        String abfsSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("io/trino/plugin/deltalake/hdp3.1-core-site.xml.abfs-template"), UTF_8)
-                .replace("%ABFS_ACCESS_KEY%", accessKey)
-                .replace("%ABFS_ACCOUNT%", account);
-
-        FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
-        Path hadoopCoreSiteXmlTempFile = Files.createTempFile("core-site", ".xml", posixFilePermissions);
-        hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
-        Files.write(hadoopCoreSiteXmlTempFile, abfsSpecificCoreSiteXmlContent.getBytes(UTF_8));
+        Path hadoopCoreSiteXmlTempFile = renderHadoopCoreSiteTemplate(
+                "io/trino/plugin/deltalake/hdp3.1-core-site.xml.abfs-template",
+                ImmutableMap.of(
+                        "%ABFS_ACCESS_KEY%", accessKey,
+                        "%ABFS_ACCOUNT%", account));
 
         return new DockerizedDataLake(
                 getHadoopBaseImage(),

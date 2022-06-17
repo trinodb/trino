@@ -18,9 +18,15 @@ import io.trino.plugin.deltalake.util.DockerizedDataLake;
 import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
 import io.trino.testing.QueryRunner;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_ACCESS_KEY;
+import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_PORT;
+import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_SECRET_KEY;
+import static io.trino.plugin.deltalake.util.TestingHadoop.renderHadoopCoreSiteTemplate;
 import static java.lang.String.format;
 
 public abstract class BaseDeltaLakeAwsConnectorSmokeTest
@@ -30,12 +36,20 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
 
     @Override
     protected DockerizedDataLake createDockerizedDataLake()
+            throws IOException
     {
+        Path hadoopCoreSiteXmlTempFile = renderHadoopCoreSiteTemplate(
+                "io/trino/plugin/deltalake/core-site.xml",
+                ImmutableMap.of(
+                        "%S3_ENDPOINT%", format("http://minio:%s", MINIO_PORT),
+                        "%S3_ACCESS_KEY%", MINIO_ACCESS_KEY,
+                        "%S3_SECRET_KEY%", MINIO_SECRET_KEY));
+
         dockerizedMinioDataLake = new DockerizedMinioDataLake(
                 bucketName,
                 getHadoopBaseImage(),
-                ImmutableMap.of("io/trino/plugin/deltalake/core-site.xml", "/etc/hadoop/conf/core-site.xml"),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                ImmutableMap.of(hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString(), "/etc/hadoop/conf/core-site.xml"));
         return dockerizedMinioDataLake;
     }
 
