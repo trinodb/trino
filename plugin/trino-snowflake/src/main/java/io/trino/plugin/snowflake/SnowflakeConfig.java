@@ -29,7 +29,7 @@ public class SnowflakeConfig
         return database;
     }
 
-    @Config("snowflake.database")
+    @Config("snowflake-database")
     @ConfigDescription("Name of Snowflake database to use")
     public SnowflakeConfig setDatabase(String database)
     {
@@ -42,7 +42,7 @@ public class SnowflakeConfig
         return role;
     }
 
-    @Config("snowflake.role")
+    @Config("snowflake-role")
     @ConfigDescription("Name of Snowflake role to use")
     public SnowflakeConfig setRole(String role)
     {
@@ -55,7 +55,7 @@ public class SnowflakeConfig
         return this.warehouse;
     }
 
-    @Config("snowflake.warehouse")
+    @Config("snowflake-warehouse")
     @ConfigDescription("Name of Snowflake warehouse to use")
     public SnowflakeConfig setWarehouse(String warehouse)
     {
