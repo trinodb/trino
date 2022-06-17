@@ -191,7 +191,7 @@ public class TestHivePlugin
         assertThatThrownBy(() -> connectorFactory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
-                        .put("hive.gcs.use-access-token", "true")
+                        .put("google.gcs.use-access-token", "true")
                         .put("hive.cache.enabled", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.cache.location", tempDirectory.toString())

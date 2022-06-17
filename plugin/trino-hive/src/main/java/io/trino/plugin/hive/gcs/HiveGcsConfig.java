@@ -15,6 +15,7 @@ package io.trino.plugin.hive.gcs;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 
 public class HiveGcsConfig
@@ -28,7 +29,8 @@ public class HiveGcsConfig
         return jsonKeyFilePath;
     }
 
-    @Config("hive.gcs.json-key-file-path")
+    @LegacyConfig("hive.gcs.json-key-file-path")
+    @Config("google.gcs.json-key-file-path")
     @ConfigDescription("JSON key file used to access Google Cloud Storage")
     public HiveGcsConfig setJsonKeyFilePath(String jsonKeyFilePath)
     {
@@ -41,7 +43,8 @@ public class HiveGcsConfig
         return useGcsAccessToken;
     }
 
-    @Config("hive.gcs.use-access-token")
+    @LegacyConfig("hive.gcs.use-access-token")
+    @Config("aws.gcs.use-access-token")
     @ConfigDescription("Use client-provided OAuth token to access Google Cloud Storage")
     public HiveGcsConfig setUseGcsAccessToken(boolean useGcsAccessToken)
     {
