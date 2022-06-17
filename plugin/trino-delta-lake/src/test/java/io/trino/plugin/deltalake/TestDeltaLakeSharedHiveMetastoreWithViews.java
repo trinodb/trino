@@ -58,10 +58,10 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
 
         queryRunner.installPlugin(new TestingHivePlugin());
         Map<String, String> s3Properties = ImmutableMap.<String, String>builder()
-                .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
-                .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                .put("hive.s3.endpoint", dockerizedMinioDataLake.getMinioAddress())
-                .put("hive.s3.path-style-access", "true")
+                .put("aws.s3.aws-access-key", MINIO_ACCESS_KEY)
+                .put("aws.s3.aws-secret-key", MINIO_SECRET_KEY)
+                .put("aws.s3.endpoint", dockerizedMinioDataLake.getMinioAddress())
+                .put("aws.s3.path-style-access", "true")
                 .buildOrThrow();
         queryRunner.createCatalog(
                 "hive",

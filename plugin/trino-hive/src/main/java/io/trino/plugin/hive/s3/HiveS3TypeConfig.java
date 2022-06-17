@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.s3;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.NotNull;
 
@@ -27,7 +28,8 @@ public class HiveS3TypeConfig
         return s3FileSystemType;
     }
 
-    @Config("hive.s3-file-system-type")
+    @LegacyConfig("hive.s3-file-system-type")
+    @Config("aws.s3-file-system-type")
     public HiveS3TypeConfig setS3FileSystemType(S3FileSystemType s3FileSystemType)
     {
         this.s3FileSystemType = s3FileSystemType;

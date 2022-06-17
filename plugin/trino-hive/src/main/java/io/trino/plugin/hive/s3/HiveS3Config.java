@@ -19,6 +19,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -87,7 +88,8 @@ public class HiveS3Config
         return s3AwsAccessKey;
     }
 
-    @Config("hive.s3.aws-access-key")
+    @LegacyConfig("hive.s3.aws-access-key")
+    @Config("aws.s3.aws-access-key")
     public HiveS3Config setS3AwsAccessKey(String s3AwsAccessKey)
     {
         this.s3AwsAccessKey = s3AwsAccessKey;
@@ -99,7 +101,8 @@ public class HiveS3Config
         return s3AwsSecretKey;
     }
 
-    @Config("hive.s3.aws-secret-key")
+    @LegacyConfig("hive.s3.aws-secret-key")
+    @Config("aws.s3.aws-secret-key")
     @ConfigSecuritySensitive
     public HiveS3Config setS3AwsSecretKey(String s3AwsSecretKey)
     {
@@ -112,7 +115,8 @@ public class HiveS3Config
         return s3Endpoint;
     }
 
-    @Config("hive.s3.endpoint")
+    @LegacyConfig("hive.s3.endpoint")
+    @Config("aws.s3.endpoint")
     public HiveS3Config setS3Endpoint(String s3Endpoint)
     {
         this.s3Endpoint = s3Endpoint;
@@ -125,7 +129,8 @@ public class HiveS3Config
         return s3StorageClass;
     }
 
-    @Config("hive.s3.storage-class")
+    @LegacyConfig("hive.s3.storage-class")
+    @Config("aws.s3.storage-class")
     @ConfigDescription("AWS S3 storage class to use when writing the data")
     public HiveS3Config setS3StorageClass(TrinoS3StorageClass s3StorageClass)
     {
@@ -138,7 +143,8 @@ public class HiveS3Config
         return s3SignerType;
     }
 
-    @Config("hive.s3.signer-type")
+    @LegacyConfig("hive.s3.signer-type")
+    @Config("aws.s3.signer-type")
     public HiveS3Config setS3SignerType(TrinoS3SignerType s3SignerType)
     {
         this.s3SignerType = s3SignerType;
@@ -150,7 +156,8 @@ public class HiveS3Config
         return s3SignerClass;
     }
 
-    @Config("hive.s3.signer-class")
+    @LegacyConfig("hive.s3.signer-class")
+    @Config("aws.s3.signer-class")
     public HiveS3Config setS3SignerClass(String s3SignerClass)
     {
         this.s3SignerClass = s3SignerClass;
@@ -162,7 +169,8 @@ public class HiveS3Config
         return s3PathStyleAccess;
     }
 
-    @Config("hive.s3.path-style-access")
+    @LegacyConfig("hive.s3.path-style-access")
+    @Config("aws.s3.path-style-access")
     @ConfigDescription("Use path-style access for all request to S3")
     public HiveS3Config setS3PathStyleAccess(boolean s3PathStyleAccess)
     {
@@ -175,7 +183,8 @@ public class HiveS3Config
         return s3IamRole;
     }
 
-    @Config("hive.s3.iam-role")
+    @LegacyConfig("hive.s3.iam-role")
+    @Config("aws.s3.iam-role")
     @ConfigDescription("ARN of an IAM role to assume when connecting to S3")
     public HiveS3Config setS3IamRole(String s3IamRole)
     {
@@ -188,7 +197,8 @@ public class HiveS3Config
         return s3ExternalId;
     }
 
-    @Config("hive.s3.external-id")
+    @LegacyConfig("hive.s3.external-id")
+    @Config("aws.s3.external-id")
     @ConfigDescription("External ID for the IAM role trust policy when connecting to S3")
     public HiveS3Config setS3ExternalId(String s3ExternalId)
     {
@@ -201,7 +211,8 @@ public class HiveS3Config
         return s3SslEnabled;
     }
 
-    @Config("hive.s3.ssl.enabled")
+    @LegacyConfig("hive.s3.ssl.enabled")
+    @Config("aws.s3.ssl.enabled")
     public HiveS3Config setS3SslEnabled(boolean s3SslEnabled)
     {
         this.s3SslEnabled = s3SslEnabled;
@@ -213,7 +224,8 @@ public class HiveS3Config
         return s3EncryptionMaterialsProvider;
     }
 
-    @Config("hive.s3.encryption-materials-provider")
+    @LegacyConfig("hive.s3.encryption-materials-provider")
+    @Config("aws.s3.encryption-materials-provider")
     @ConfigDescription("Use a custom encryption materials provider for S3 data encryption")
     public HiveS3Config setS3EncryptionMaterialsProvider(String s3EncryptionMaterialsProvider)
     {
@@ -226,7 +238,8 @@ public class HiveS3Config
         return s3KmsKeyId;
     }
 
-    @Config("hive.s3.kms-key-id")
+    @LegacyConfig("hive.s3.kms-key-id")
+    @Config("aws.s3.kms-key-id")
     @ConfigDescription("Use an AWS KMS key for S3 data encryption")
     public HiveS3Config setS3KmsKeyId(String s3KmsKeyId)
     {
@@ -239,7 +252,8 @@ public class HiveS3Config
         return s3SseKmsKeyId;
     }
 
-    @Config("hive.s3.sse.kms-key-id")
+    @LegacyConfig("hive.s3.sse.kms-key-id")
+    @Config("aws.s3.sse.kms-key-id")
     @ConfigDescription("KMS Key ID to use for S3 server-side encryption with KMS-managed key")
     public HiveS3Config setS3SseKmsKeyId(String s3SseKmsKeyId)
     {
@@ -252,7 +266,8 @@ public class HiveS3Config
         return s3SseEnabled;
     }
 
-    @Config("hive.s3.sse.enabled")
+    @LegacyConfig("hive.s3.sse.enabled")
+    @Config("aws.s3.sse.enabled")
     @ConfigDescription("Enable S3 server side encryption")
     public HiveS3Config setS3SseEnabled(boolean s3SseEnabled)
     {
@@ -266,7 +281,8 @@ public class HiveS3Config
         return s3SseType;
     }
 
-    @Config("hive.s3.sse.type")
+    @LegacyConfig("hive.s3.sse.type")
+    @Config("aws.s3.sse.type")
     @ConfigDescription("Key management type for S3 server-side encryption (S3 or KMS)")
     public HiveS3Config setS3SseType(TrinoS3SseType s3SseType)
     {
@@ -280,7 +296,8 @@ public class HiveS3Config
         return s3MaxClientRetries;
     }
 
-    @Config("hive.s3.max-client-retries")
+    @LegacyConfig("hive.s3.max-client-retries")
+    @Config("aws.s3.max-client-retries")
     public HiveS3Config setS3MaxClientRetries(int s3MaxClientRetries)
     {
         this.s3MaxClientRetries = s3MaxClientRetries;
@@ -293,7 +310,8 @@ public class HiveS3Config
         return s3MaxErrorRetries;
     }
 
-    @Config("hive.s3.max-error-retries")
+    @LegacyConfig("hive.s3.max-error-retries")
+    @Config("aws.s3.max-error-retries")
     public HiveS3Config setS3MaxErrorRetries(int s3MaxErrorRetries)
     {
         this.s3MaxErrorRetries = s3MaxErrorRetries;
@@ -307,7 +325,8 @@ public class HiveS3Config
         return s3MaxBackoffTime;
     }
 
-    @Config("hive.s3.max-backoff-time")
+    @LegacyConfig("hive.s3.max-backoff-time")
+    @Config("aws.s3.max-backoff-time")
     public HiveS3Config setS3MaxBackoffTime(Duration s3MaxBackoffTime)
     {
         this.s3MaxBackoffTime = s3MaxBackoffTime;
@@ -321,7 +340,8 @@ public class HiveS3Config
         return s3MaxRetryTime;
     }
 
-    @Config("hive.s3.max-retry-time")
+    @LegacyConfig("hive.s3.max-retry-time")
+    @Config("aws.s3.max-retry-time")
     public HiveS3Config setS3MaxRetryTime(Duration s3MaxRetryTime)
     {
         this.s3MaxRetryTime = s3MaxRetryTime;
@@ -335,7 +355,8 @@ public class HiveS3Config
         return s3ConnectTimeout;
     }
 
-    @Config("hive.s3.connect-timeout")
+    @LegacyConfig("hive.s3.connect-timeout")
+    @Config("aws.s3.connect-timeout")
     public HiveS3Config setS3ConnectTimeout(Duration s3ConnectTimeout)
     {
         this.s3ConnectTimeout = s3ConnectTimeout;
@@ -349,7 +370,8 @@ public class HiveS3Config
         return s3SocketTimeout;
     }
 
-    @Config("hive.s3.socket-timeout")
+    @LegacyConfig("hive.s3.socket-timeout")
+    @Config("aws.s3.socket-timeout")
     public HiveS3Config setS3SocketTimeout(Duration s3SocketTimeout)
     {
         this.s3SocketTimeout = s3SocketTimeout;
@@ -362,7 +384,8 @@ public class HiveS3Config
         return s3MaxConnections;
     }
 
-    @Config("hive.s3.max-connections")
+    @LegacyConfig("hive.s3.max-connections")
+    @Config("aws.s3.max-connections")
     public HiveS3Config setS3MaxConnections(int s3MaxConnections)
     {
         this.s3MaxConnections = s3MaxConnections;
@@ -376,7 +399,8 @@ public class HiveS3Config
         return s3StagingDirectory;
     }
 
-    @Config("hive.s3.staging-directory")
+    @LegacyConfig("hive.s3.staging-directory")
+    @Config("aws.s3.staging-directory")
     @ConfigDescription("Temporary directory for staging files before uploading to S3")
     public HiveS3Config setS3StagingDirectory(File s3StagingDirectory)
     {
@@ -391,7 +415,8 @@ public class HiveS3Config
         return s3MultipartMinFileSize;
     }
 
-    @Config("hive.s3.multipart.min-file-size")
+    @LegacyConfig("hive.s3.multipart.min-file-size")
+    @Config("aws.s3.multipart.min-file-size")
     @ConfigDescription("Minimum file size for an S3 multipart upload")
     public HiveS3Config setS3MultipartMinFileSize(DataSize size)
     {
@@ -406,7 +431,8 @@ public class HiveS3Config
         return s3MultipartMinPartSize;
     }
 
-    @Config("hive.s3.multipart.min-part-size")
+    @LegacyConfig("hive.s3.multipart.min-part-size")
+    @Config("aws.s3.multipart.min-part-size")
     @ConfigDescription("Minimum part size for an S3 multipart upload")
     public HiveS3Config setS3MultipartMinPartSize(DataSize size)
     {
@@ -419,7 +445,8 @@ public class HiveS3Config
         return pinS3ClientToCurrentRegion;
     }
 
-    @Config("hive.s3.pin-client-to-current-region")
+    @LegacyConfig("hive.s3.pin-client-to-current-region")
+    @Config("aws.s3.pin-client-to-current-region")
     @ConfigDescription("Should the S3 client be pinned to the current EC2 region")
     public HiveS3Config setPinS3ClientToCurrentRegion(boolean pinS3ClientToCurrentRegion)
     {
@@ -433,7 +460,8 @@ public class HiveS3Config
         return s3UserAgentPrefix;
     }
 
-    @Config("hive.s3.user-agent-prefix")
+    @LegacyConfig("hive.s3.user-agent-prefix")
+    @Config("aws.s3.user-agent-prefix")
     @ConfigDescription("The user agent prefix to use for S3 calls")
     public HiveS3Config setS3UserAgentPrefix(String s3UserAgentPrefix)
     {
@@ -447,7 +475,8 @@ public class HiveS3Config
         return s3AclType;
     }
 
-    @Config("hive.s3.upload-acl-type")
+    @LegacyConfig("hive.s3.upload-acl-type")
+    @Config("aws.s3.upload-acl-type")
     @ConfigDescription("Canned ACL type for S3 uploads")
     public HiveS3Config setS3AclType(TrinoS3AclType s3AclType)
     {
@@ -460,7 +489,8 @@ public class HiveS3Config
         return skipGlacierObjects;
     }
 
-    @Config("hive.s3.skip-glacier-objects")
+    @LegacyConfig("hive.s3.skip-glacier-objects")
+    @Config("aws.s3.skip-glacier-objects")
     public HiveS3Config setSkipGlacierObjects(boolean skipGlacierObjects)
     {
         this.skipGlacierObjects = skipGlacierObjects;
@@ -472,7 +502,8 @@ public class HiveS3Config
         return requesterPaysEnabled;
     }
 
-    @Config("hive.s3.requester-pays.enabled")
+    @LegacyConfig("hive.s3.requester-pays.enabled")
+    @Config("aws.s3.requester-pays.enabled")
     public HiveS3Config setRequesterPaysEnabled(boolean requesterPaysEnabled)
     {
         this.requesterPaysEnabled = requesterPaysEnabled;
@@ -484,7 +515,8 @@ public class HiveS3Config
         return s3StreamingUploadEnabled;
     }
 
-    @Config("hive.s3.streaming.enabled")
+    @LegacyConfig("hive.s3.streaming.enabled")
+    @Config("aws.s3.streaming.enabled")
     public HiveS3Config setS3StreamingUploadEnabled(boolean s3StreamingUploadEnabled)
     {
         this.s3StreamingUploadEnabled = s3StreamingUploadEnabled;
@@ -499,7 +531,8 @@ public class HiveS3Config
         return s3StreamingPartSize;
     }
 
-    @Config("hive.s3.streaming.part-size")
+    @LegacyConfig("hive.s3.streaming.part-size")
+    @Config("aws.s3.streaming.part-size")
     @ConfigDescription("Part size for S3 streaming upload")
     public HiveS3Config setS3StreamingPartSize(DataSize s3StreamingPartSize)
     {
@@ -512,7 +545,8 @@ public class HiveS3Config
         return s3proxyHost;
     }
 
-    @Config("hive.s3.proxy.host")
+    @LegacyConfig("hive.s3.proxy.host")
+    @Config("aws.s3.proxy.host")
     public HiveS3Config setS3ProxyHost(String s3proxyHost)
     {
         this.s3proxyHost = s3proxyHost;
@@ -524,7 +558,8 @@ public class HiveS3Config
         return s3proxyPort;
     }
 
-    @Config("hive.s3.proxy.port")
+    @LegacyConfig("hive.s3.proxy.port")
+    @Config("aws.s3.proxy.port")
     public HiveS3Config setS3ProxyPort(int s3proxyPort)
     {
         this.s3proxyPort = s3proxyPort;
@@ -536,7 +571,8 @@ public class HiveS3Config
         return s3ProxyProtocol;
     }
 
-    @Config("hive.s3.proxy.protocol")
+    @LegacyConfig("hive.s3.proxy.protocol")
+    @Config("aws.s3.proxy.protocol")
     public HiveS3Config setS3ProxyProtocol(String s3ProxyProtocol)
     {
         this.s3ProxyProtocol = TrinoS3Protocol.valueOf(
@@ -550,7 +586,8 @@ public class HiveS3Config
         return s3nonProxyHosts;
     }
 
-    @Config("hive.s3.proxy.non-proxy-hosts")
+    @LegacyConfig("hive.s3.proxy.non-proxy-hosts")
+    @Config("aws.s3.proxy.non-proxy-hosts")
     public HiveS3Config setS3NonProxyHosts(List<String> s3nonProxyHosts)
     {
         this.s3nonProxyHosts = ImmutableList.copyOf(s3nonProxyHosts);
@@ -562,7 +599,8 @@ public class HiveS3Config
         return s3proxyUsername;
     }
 
-    @Config("hive.s3.proxy.username")
+    @LegacyConfig("hive.s3.proxy.username")
+    @Config("aws.s3.proxy.username")
     public HiveS3Config setS3ProxyUsername(String s3proxyUsername)
     {
         this.s3proxyUsername = s3proxyUsername;
@@ -574,7 +612,8 @@ public class HiveS3Config
         return s3proxyPassword;
     }
 
-    @Config("hive.s3.proxy.password")
+    @LegacyConfig("hive.s3.proxy.password")
+    @Config("aws.s3.proxy.password")
     public HiveS3Config setS3ProxyPassword(String s3proxyPassword)
     {
         this.s3proxyPassword = s3proxyPassword;
@@ -586,7 +625,8 @@ public class HiveS3Config
         return s3preemptiveBasicProxyAuth;
     }
 
-    @Config("hive.s3.proxy.preemptive-basic-auth")
+    @LegacyConfig("hive.s3.proxy.preemptive-basic-auth")
+    @Config("aws.s3.proxy.preemptive-basic-auth")
     public HiveS3Config setS3PreemptiveBasicProxyAuth(boolean s3preemptiveBasicProxyAuth)
     {
         this.s3preemptiveBasicProxyAuth = s3preemptiveBasicProxyAuth;
@@ -598,7 +638,8 @@ public class HiveS3Config
         return s3StsEndpoint;
     }
 
-    @Config("hive.s3.sts.endpoint")
+    @LegacyConfig("hive.s3.sts.endpoint")
+    @Config("aws.s3.sts.endpoint")
     public HiveS3Config setS3StsEndpoint(String s3StsEndpoint)
     {
         this.s3StsEndpoint = s3StsEndpoint;
@@ -610,7 +651,8 @@ public class HiveS3Config
         return s3StsRegion;
     }
 
-    @Config("hive.s3.sts.region")
+    @LegacyConfig("hive.s3.sts.region")
+    @Config("aws.s3.sts.region")
     public HiveS3Config setS3StsRegion(String s3StsRegion)
     {
         this.s3StsRegion = s3StsRegion;

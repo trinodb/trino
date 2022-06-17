@@ -102,7 +102,7 @@ public abstract class BaseTestHiveOnDataLake
                                 .put("hive.metastore-cache-ttl", "1d")
                                 .put("hive.metastore-refresh-interval", "1d")
                                 // This is required to reduce memory pressure to test writing large files
-                                .put("hive.s3.streaming.part-size", HIVE_S3_STREAMING_PART_SIZE.toString())
+                                .put("aws.s3.streaming.part-size", HIVE_S3_STREAMING_PART_SIZE.toString())
                                 .buildOrThrow())
                 // Increased timeout due to occasional slower responses in such setup
                 .setMetastoreTimeout(new Duration(20, TimeUnit.SECONDS))

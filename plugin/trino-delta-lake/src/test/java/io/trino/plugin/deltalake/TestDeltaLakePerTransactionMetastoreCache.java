@@ -144,10 +144,10 @@ public class TestDeltaLakePerTransactionMetastoreCache
 
         ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
         deltaLakeProperties.put("hive.metastore.uri", dockerizedMinioDataLake.getTestingHadoop().getMetastoreAddress());
-        deltaLakeProperties.put("hive.s3.aws-access-key", MINIO_ACCESS_KEY);
-        deltaLakeProperties.put("hive.s3.aws-secret-key", MINIO_SECRET_KEY);
-        deltaLakeProperties.put("hive.s3.endpoint", dockerizedMinioDataLake.getMinioAddress());
-        deltaLakeProperties.put("hive.s3.path-style-access", "true");
+        deltaLakeProperties.put("aws.s3.aws-access-key", MINIO_ACCESS_KEY);
+        deltaLakeProperties.put("aws.s3.aws-secret-key", MINIO_SECRET_KEY);
+        deltaLakeProperties.put("aws.s3.endpoint", dockerizedMinioDataLake.getMinioAddress());
+        deltaLakeProperties.put("aws.s3.path-style-access", "true");
         deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
         if (!enablePerTransactionHiveMetastoreCaching) {
             // almost disable the cache; 0 is not allowed as config property value

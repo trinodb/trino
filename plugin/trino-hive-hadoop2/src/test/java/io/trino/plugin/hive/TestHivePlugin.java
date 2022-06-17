@@ -174,7 +174,7 @@ public class TestHivePlugin
         assertThatThrownBy(() -> connectorFactory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
-                        .put("hive.s3.security-mapping.config-file", mappingConfig.toString())
+                        .put("aws.s3.security-mapping.config-file", mappingConfig.toString())
                         .put("hive.cache.enabled", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.cache.location", tempDirectory.toString())

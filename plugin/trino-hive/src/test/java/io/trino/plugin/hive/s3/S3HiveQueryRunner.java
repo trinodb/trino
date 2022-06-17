@@ -146,10 +146,10 @@ public final class S3HiveQueryRunner
             String lowerCaseS3Endpoint = s3Endpoint.toLowerCase(Locale.ENGLISH);
             checkArgument(lowerCaseS3Endpoint.startsWith("http://") || lowerCaseS3Endpoint.startsWith("https://"), "Expected http URI for S3 endpoint; got %s", s3Endpoint);
 
-            addHiveProperty("hive.s3.endpoint", s3Endpoint);
-            addHiveProperty("hive.s3.aws-access-key", s3AccessKey);
-            addHiveProperty("hive.s3.aws-secret-key", s3SecretKey);
-            addHiveProperty("hive.s3.path-style-access", "true");
+            addHiveProperty("aws.s3.endpoint", s3Endpoint);
+            addHiveProperty("aws.s3.aws-access-key", s3AccessKey);
+            addHiveProperty("aws.s3.aws-secret-key", s3SecretKey);
+            addHiveProperty("aws.s3.path-style-access", "true");
             setMetastore(distributedQueryRunner -> new BridgingHiveMetastore(
                             new ThriftHiveMetastore(
                                     new TestingMetastoreLocator(

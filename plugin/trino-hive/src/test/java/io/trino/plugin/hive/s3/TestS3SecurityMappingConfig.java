@@ -48,12 +48,12 @@ public class TestS3SecurityMappingConfig
         Path securityMappingConfigFile = Files.createTempFile(null, null);
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.s3.security-mapping.config-file", securityMappingConfigFile.toString())
-                .put("hive.s3.security-mapping.json-pointer", "/data")
-                .put("hive.s3.security-mapping.iam-role-credential-name", "iam-role-credential-name")
-                .put("hive.s3.security-mapping.kms-key-id-credential-name", "kms-key-id-credential-name")
-                .put("hive.s3.security-mapping.refresh-period", "1s")
-                .put("hive.s3.security-mapping.colon-replacement", "#")
+                .put("aws.s3.security-mapping.config-file", securityMappingConfigFile.toString())
+                .put("aws.s3.security-mapping.json-pointer", "/data")
+                .put("aws.s3.security-mapping.iam-role-credential-name", "iam-role-credential-name")
+                .put("aws.s3.security-mapping.kms-key-id-credential-name", "kms-key-id-credential-name")
+                .put("aws.s3.security-mapping.refresh-period", "1s")
+                .put("aws.s3.security-mapping.colon-replacement", "#")
                 .buildOrThrow();
 
         S3SecurityMappingConfig expected = new S3SecurityMappingConfig()
@@ -71,12 +71,12 @@ public class TestS3SecurityMappingConfig
     public void testExplicitPropertyMappingsWithUrl()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.s3.security-mapping.config-file", "http://test:1234/example")
-                .put("hive.s3.security-mapping.json-pointer", "/data")
-                .put("hive.s3.security-mapping.iam-role-credential-name", "iam-role-credential-name")
-                .put("hive.s3.security-mapping.kms-key-id-credential-name", "kms-key-id-credential-name")
-                .put("hive.s3.security-mapping.refresh-period", "1s")
-                .put("hive.s3.security-mapping.colon-replacement", "#")
+                .put("aws.s3.security-mapping.config-file", "http://test:1234/example")
+                .put("aws.s3.security-mapping.json-pointer", "/data")
+                .put("aws.s3.security-mapping.iam-role-credential-name", "iam-role-credential-name")
+                .put("aws.s3.security-mapping.kms-key-id-credential-name", "kms-key-id-credential-name")
+                .put("aws.s3.security-mapping.refresh-period", "1s")
+                .put("aws.s3.security-mapping.colon-replacement", "#")
                 .buildOrThrow();
 
         S3SecurityMappingConfig expected = new S3SecurityMappingConfig()

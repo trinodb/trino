@@ -15,6 +15,7 @@ package io.trino.plugin.hive.s3;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 
 import javax.validation.constraints.NotNull;
@@ -35,7 +36,8 @@ public class S3SecurityMappingConfig
         return Optional.ofNullable(configFilePath);
     }
 
-    @Config("hive.s3.security-mapping.config-file")
+    @LegacyConfig("hive.s3.security-mapping.config-file")
+    @Config("aws.s3.security-mapping.config-file")
     @ConfigDescription("JSON configuration file containing security mappings")
     public S3SecurityMappingConfig setConfigFilePath(String configFilePath)
     {
@@ -49,7 +51,8 @@ public class S3SecurityMappingConfig
         return jsonPointer;
     }
 
-    @Config("hive.s3.security-mapping.json-pointer")
+    @LegacyConfig("hive.s3.security-mapping.json-pointer")
+    @Config("aws.s3.security-mapping.json-pointer")
     @ConfigDescription("JSON pointer (RFC 6901) to mappings inside JSON config")
     public S3SecurityMappingConfig setJsonPointer(String jsonPointer)
     {
@@ -62,7 +65,8 @@ public class S3SecurityMappingConfig
         return Optional.ofNullable(roleCredentialName);
     }
 
-    @Config("hive.s3.security-mapping.iam-role-credential-name")
+    @LegacyConfig("hive.s3.security-mapping.iam-role-credential-name")
+    @Config("aws.s3.security-mapping.iam-role-credential-name")
     @ConfigDescription("Name of the extra credential used to provide IAM role")
     public S3SecurityMappingConfig setRoleCredentialName(String roleCredentialName)
     {
@@ -75,7 +79,8 @@ public class S3SecurityMappingConfig
         return Optional.ofNullable(kmsKeyIdCredentialName);
     }
 
-    @Config("hive.s3.security-mapping.kms-key-id-credential-name")
+    @LegacyConfig("hive.s3.security-mapping.kms-key-id-credential-name")
+    @Config("aws.s3.security-mapping.kms-key-id-credential-name")
     @ConfigDescription("Name of the extra credential used to provide KMS Key ID")
     public S3SecurityMappingConfig setKmsKeyIdCredentialName(String kmsKeyIdCredentialName)
     {
@@ -88,7 +93,8 @@ public class S3SecurityMappingConfig
         return Optional.ofNullable(refreshPeriod);
     }
 
-    @Config("hive.s3.security-mapping.refresh-period")
+    @LegacyConfig("hive.s3.security-mapping.refresh-period")
+    @Config("aws.s3.security-mapping.refresh-period")
     @ConfigDescription("How often to refresh the security mapping configuration")
     public S3SecurityMappingConfig setRefreshPeriod(Duration refreshPeriod)
     {
@@ -101,7 +107,8 @@ public class S3SecurityMappingConfig
         return Optional.ofNullable(colonReplacement);
     }
 
-    @Config("hive.s3.security-mapping.colon-replacement")
+    @LegacyConfig("hive.s3.security-mapping.colon-replacement")
+    @Config("aws.s3.security-mapping.colon-replacement")
     @ConfigDescription("Value used in place of colon for IAM role name in extra credentials")
     public S3SecurityMappingConfig setColonReplacement(String colonReplacement)
     {

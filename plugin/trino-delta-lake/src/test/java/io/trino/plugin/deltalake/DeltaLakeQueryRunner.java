@@ -110,10 +110,10 @@ public final class DeltaLakeQueryRunner
                 coordinatorProperties,
                 extraProperties,
                 ImmutableMap.<String, String>builder()
-                        .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
-                        .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                        .put("hive.s3.endpoint", minioAddress)
-                        .put("hive.s3.path-style-access", "true")
+                        .put("aws.s3.aws-access-key", MINIO_ACCESS_KEY)
+                        .put("aws.s3.aws-secret-key", MINIO_SECRET_KEY)
+                        .put("aws.s3.endpoint", minioAddress)
+                        .put("aws.s3.path-style-access", "true")
                         .putAll(connectorProperties)
                         .buildOrThrow(),
                 testingHadoop,
@@ -169,7 +169,7 @@ public final class DeltaLakeQueryRunner
         queryRunner.installPlugin(new TestingDeltaLakePlugin());
         Map<String, String> deltaLakeProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", testingHadoop.getMetastoreAddress())
-                .put("hive.s3.streaming.part-size", "5MB") //must be at least 5MB according to annotations on io.trino.plugin.hive.s3.HiveS3Config.getS3StreamingPartSize
+                .put("aws.s3.streaming.part-size", "5MB") //must be at least 5MB according to annotations on io.trino.plugin.hive.s3.HiveS3Config.getS3StreamingPartSize
                 .putAll(connectorProperties)
                 .buildOrThrow();
 

@@ -35,7 +35,7 @@ public class TestHiveS3TypeConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.s3-file-system-type", "EMRFS")
+                .put("aws.s3-file-system-type", "EMRFS")
                 .buildOrThrow();
 
         HiveS3TypeConfig expected = new HiveS3TypeConfig()
