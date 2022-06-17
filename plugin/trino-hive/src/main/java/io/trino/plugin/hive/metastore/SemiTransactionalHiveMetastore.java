@@ -1489,7 +1489,7 @@ public class SemiTransactionalHiveMetastore
             // At this point, all file system operations, whether asynchronously issued or not, have completed successfully.
             // We are moving on to metastore operations now.
 
-            committer.executeAddTableOperations();
+            committer.executeAddTableOperations(transaction);
             committer.executeAlterTableOperations();
             committer.executeAlterPartitionOperations();
             committer.executeAddPartitionOperations(transaction);
@@ -1717,14 +1717,7 @@ public class SemiTransactionalHiveMetastore
                 }
                 // if targetLocation is not set in table we assume table directory is created by HMS
             }
-            addTableOperations.add(new CreateTableOperation(table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting()));
-            if (!isPrestoView(table)) {
-                updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                        table.getSchemaTableName(),
-                        Optional.empty(),
-                        tableAndMore.getStatisticsUpdate(),
-                        false));
-            }
+            addTableOperations.add(new CreateTableOperation(table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting(), tableAndMore.getStatisticsUpdate()));
         }
 
         private void prepareInsertExistingTable(HdfsContext context, String queryId, TableAndMore tableAndMore)
@@ -2128,10 +2121,10 @@ public class SemiTransactionalHiveMetastore
             fileRenameCancelled.set(true);
         }
 
-        private void executeAddTableOperations()
+        private void executeAddTableOperations(AcidTransaction transaction)
         {
             for (CreateTableOperation addTableOperation : addTableOperations) {
-                addTableOperation.run(delegate);
+                addTableOperation.run(delegate, transaction);
             }
         }
 
@@ -3232,14 +3225,16 @@ public class SemiTransactionalHiveMetastore
         private final PrincipalPrivileges privileges;
         private boolean tableCreated;
         private final boolean ignoreExisting;
+        private final PartitionStatistics statistics;
         private final String queryId;
 
-        public CreateTableOperation(Table newTable, PrincipalPrivileges privileges, boolean ignoreExisting)
+        public CreateTableOperation(Table newTable, PrincipalPrivileges privileges, boolean ignoreExisting, PartitionStatistics statistics)
         {
             requireNonNull(newTable, "newTable is null");
             this.newTable = newTable;
             this.privileges = requireNonNull(privileges, "privileges is null");
             this.ignoreExisting = ignoreExisting;
+            this.statistics = requireNonNull(statistics, "statistics is null");
             this.queryId = getPrestoQueryId(newTable).orElseThrow(() -> new IllegalArgumentException("Query id is not present"));
         }
 
@@ -3248,10 +3243,12 @@ public class SemiTransactionalHiveMetastore
             return format("add table %s.%s", newTable.getDatabaseName(), newTable.getTableName());
         }
 
-        public void run(HiveMetastoreClosure metastore)
+        public void run(HiveMetastoreClosure metastore, AcidTransaction transaction)
         {
+            boolean created = false;
             try {
                 metastore.createTable(newTable, privileges);
+                created = true;
             }
             catch (RuntimeException e) {
                 boolean done = false;
@@ -3263,6 +3260,7 @@ public class SemiTransactionalHiveMetastore
                         if (existingTableQueryId.isPresent() && existingTableQueryId.get().equals(queryId)) {
                             // ignore table if it was already created by the same query during retries
                             done = true;
+                            created = true;
                         }
                         else {
                             // If the table definition in the metastore is different than what this tx wants to create
@@ -3290,6 +3288,10 @@ public class SemiTransactionalHiveMetastore
                 }
             }
             tableCreated = true;
+
+            if (created && !isPrestoView(newTable)) {
+                metastore.updateTableStatistics(newTable.getDatabaseName(), newTable.getTableName(), transaction, ignored -> statistics);
+            }
         }
 
         private static boolean hasTheSameSchema(Table newTable, Table existingTable)
