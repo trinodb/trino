@@ -13,21 +13,20 @@
  */
 package io.trino.tests.product.deltalake;
 
+import com.amazonaws.services.glue.AWSGlueAsync;
+import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
+import com.amazonaws.services.glue.model.GetTableRequest;
+import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.metastore.thrift.NoHiveMetastoreAuthentication;
-import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient;
-import io.trino.plugin.hive.metastore.thrift.Transport;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.testng.annotations.Test;
 
-import java.net.URI;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -36,53 +35,41 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
-public class TestDatabricksCompatibilityCleanUp
+public class TestDatabricksWithGlueMetastoreCleanUp
         extends ProductTest
 {
-    private static final Logger log = Logger.get(TestDatabricksCompatibilityCleanUp.class);
-    private static final long SCHEMA_CLEANUP_THRESHOLD_SECONDS = (currentTimeMillis() / 1000) - DAYS.toSeconds(7);
+    private static final Logger log = Logger.get(TestDatabricksWithGlueMetastoreCleanUp.class);
+    private static final Instant SCHEMA_CLEANUP_THRESHOLD = Instant.now().minus(7, ChronoUnit.DAYS);
     private static final long MAX_JOB_TIME_MILLIS = MINUTES.toMillis(5);
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     public void testCleanUpOldTablesUsingDelta()
-            throws Exception
     {
-        String hiveMetastoreUri = requireNonNull(System.getenv("HIVE_METASTORE_URI"), "Environment HIVE_METASTORE_URI was not set");
-        URI metastoreUri = URI.create(hiveMetastoreUri);
+        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.standard().build();
         long startTime = currentTimeMillis();
         List<String> schemas = onTrino().executeQuery("SELECT DISTINCT(table_schema) FROM information_schema.tables")
                 .rows().stream()
                 .map(row -> (String) row.get(0))
                 .filter(schema -> schema.toLowerCase(Locale.ROOT).startsWith("test") || schema.equals("default"))
                 .collect(toUnmodifiableList());
-        try (ThriftHiveMetastoreClient thriftHiveMetastoreClient = new ThriftHiveMetastoreClient(
-                Transport.create(HostAndPort.fromParts(metastoreUri.getHost(), metastoreUri.getPort()),
-                        Optional.empty(),
-                        Optional.empty(),
-                        100000,
-                        new NoHiveMetastoreAuthentication(),
-                        Optional.empty()),
-                metastoreUri.getHost())) {
-            // this is needed to make deletion of some views possible
-            onTrino().executeQuery("SET SESSION hive.hive_views_legacy_translation = true");
-            schemas.forEach(schema -> cleanSchema(schema, startTime, thriftHiveMetastoreClient));
-        }
+
+        // this is needed to make deletion of some views possible
+        onTrino().executeQuery("SET SESSION hive.hive_views_legacy_translation = true");
+        schemas.forEach(schema -> cleanSchema(schema, startTime, glueClient));
     }
 
-    private void cleanSchema(String schema, long startTime, ThriftHiveMetastoreClient thriftHiveMetastoreClient)
+    private void cleanSchema(String schema, long startTime, AWSGlueAsync glueClient)
     {
         Set<String> allTableNames = findAllTestTablesInSchema(schema);
         int droppedTablesCount = 0;
         for (String tableName : allTableNames) {
             try {
-                Table table = thriftHiveMetastoreClient.getTable(schema, tableName);
-                int createTime = table.getCreateTime();
-                if (createTime <= SCHEMA_CLEANUP_THRESHOLD_SECONDS) {
+                Table table = glueClient.getTable(new GetTableRequest().withDatabaseName(schema).withName(tableName)).getTable();
+                Instant createTime = table.getCreateTime().toInstant();
+                if (createTime.isBefore(SCHEMA_CLEANUP_THRESHOLD)) {
                     if (table.getTableType() != null && table.getTableType().contains("VIEW")) {
                         onTrino().executeQuery(format("DROP VIEW IF EXISTS %s.%s", schema, tableName));
                         log.info("Dropped view %s.%s", schema, tableName);
