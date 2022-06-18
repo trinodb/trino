@@ -68,34 +68,34 @@ public final class TypeUtils
     {
         if (value == null) {
             blockBuilder.appendNull();
+            return;
         }
-        else {
-            Class<?> javaType = type.getJavaType();
-            if (javaType == boolean.class) {
-                type.writeBoolean(blockBuilder, (boolean) value);
+
+        Class<?> javaType = type.getJavaType();
+        if (javaType == boolean.class) {
+            type.writeBoolean(blockBuilder, (boolean) value);
+        }
+        else if (javaType == double.class) {
+            type.writeDouble(blockBuilder, (double) value);
+        }
+        else if (javaType == long.class) {
+            type.writeLong(blockBuilder, (long) value);
+        }
+        else if (javaType == Slice.class) {
+            Slice slice;
+            if (value instanceof byte[]) {
+                slice = Slices.wrappedBuffer((byte[]) value);
             }
-            else if (javaType == double.class) {
-                type.writeDouble(blockBuilder, (double) value);
-            }
-            else if (javaType == long.class) {
-                type.writeLong(blockBuilder, (long) value);
-            }
-            else if (javaType == Slice.class) {
-                Slice slice;
-                if (value instanceof byte[]) {
-                    slice = Slices.wrappedBuffer((byte[]) value);
-                }
-                else if (value instanceof String) {
-                    slice = Slices.utf8Slice((String) value);
-                }
-                else {
-                    slice = (Slice) value;
-                }
-                type.writeSlice(blockBuilder, slice, 0, slice.length());
+            else if (value instanceof String) {
+                slice = Slices.utf8Slice((String) value);
             }
             else {
-                type.writeObject(blockBuilder, value);
+                slice = (Slice) value;
             }
+            type.writeSlice(blockBuilder, slice, 0, slice.length());
+        }
+        else {
+            type.writeObject(blockBuilder, value);
         }
     }
 
