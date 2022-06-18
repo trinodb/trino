@@ -71,6 +71,7 @@ public class TestSpiBackwardCompatibility
             .put("386", "Method: public default java.util.stream.Stream<io.trino.spi.connector.TableColumnsMetadata> io.trino.spi.connector.ConnectorMetadata.streamTableColumns(io.trino.spi.connector.ConnectorSession,io.trino.spi.connector.SchemaTablePrefix)")
             .put("386", "Method: public default boolean io.trino.spi.connector.ConnectorMetadata.isSupportedVersionType(io.trino.spi.connector.ConnectorSession,io.trino.spi.connector.SchemaTableName,io.trino.spi.connector.PointerType,io.trino.spi.type.Type)")
             .put("386", "Method: public static io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification.builder(java.lang.String)")
+            .put("387", "Constructor: public io.trino.spi.eventlistener.QueryContext(java.lang.String,java.util.Optional<java.lang.String>,java.util.Set<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Set<java.lang.String>,java.util.Set<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<io.trino.spi.resourcegroups.ResourceGroupId>,java.util.Map<java.lang.String, java.lang.String>,io.trino.spi.session.ResourceEstimates,java.lang.String,java.lang.String,java.lang.String,java.util.Optional<io.trino.spi.resourcegroups.QueryType>)")
             .build();
 
     @Test
