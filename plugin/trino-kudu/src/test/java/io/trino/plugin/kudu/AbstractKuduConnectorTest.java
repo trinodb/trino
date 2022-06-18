@@ -35,6 +35,8 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractKuduConnectorTest
@@ -272,8 +274,73 @@ public abstract class AbstractKuduConnectorTest
     @Override
     public void testCreateTable()
     {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
+        // TODO Remove this overriding test once kudu connector can create tables with default partitions
+        String tableName = "test_create_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (" +
+                "id INT WITH (primary_key=true)," +
+                "a bigint, b double, c varchar(50))" +
+                "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertTableColumnNames(tableName, "id", "a", "b", "c");
+        assertNull(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+
+        assertQueryFails("CREATE TABLE " + tableName + " (" +
+                        "id INT WITH (primary_key=true)," +
+                        "a bad_type, b double, c varchar(50))" +
+                        "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)",
+                ".* Unknown type 'bad_type' for column 'a'");
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+
+        tableName = "test_create_if_not_exists_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (" +
+                "id INT WITH (primary_key=true)," +
+                "a bigint, b varchar(50), c double)" +
+                "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertTableColumnNames(tableName, "id", "a", "b", "c");
+
+        assertUpdate(
+                "CREATE TABLE IF NOT EXISTS " + tableName + " (" +
+                    "id INT WITH (primary_key=true)," +
+                    "d bigint, e varchar(50))" +
+                    "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertTableColumnNames(tableName, "id", "a", "b", "c");
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+
+        // Test CREATE TABLE LIKE
+        tableName = "test_create_origin_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (" +
+                "id INT WITH (primary_key=true)," +
+                "a bigint, b double, c varchar(50))" +
+                "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertTableColumnNames(tableName, "id", "a", "b", "c");
+
+        // TODO: remove assertThatThrownBy and uncomment the commented lines
+        //  and replace finalTableName with tableName
+        //  after (https://github.com/trinodb/trino/issues/12469) is fixed
+        String tableNameLike = "test_create_like_" + randomTableSuffix();
+        final String finalTableName = tableName;
+        assertThatThrownBy(() -> assertUpdate(
+                "CREATE TABLE " + tableNameLike + " (LIKE " + finalTableName + ", " +
+                    "d bigint, e varchar(50))" +
+                    "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)"))
+                .hasMessageContaining("This connector does not support creating tables with column comment");
+        //assertTrue(getQueryRunner().tableExists(getSession(), tableNameLike));
+        //assertTableColumnNames(tableNameLike, "a", "b", "c", "d", "e");
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+
+        //assertUpdate("DROP TABLE " + tableNameLike);
+        //assertFalse(getQueryRunner().tableExists(getSession(), tableNameLike));
     }
 
     @Override
@@ -295,9 +362,17 @@ public abstract class AbstractKuduConnectorTest
     @Override
     public void testDropTable()
     {
-        assertThatThrownBy(super::testDropTable)
-                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
-        throw new SkipException("TODO Enable the test once Kudu connector can create tables with default partitions");
+        // TODO Remove this overriding test once kudu connector can create tables with default partitions
+        String tableName = "test_drop_table_" + randomTableSuffix();
+        assertUpdate(
+                "CREATE TABLE " + tableName + "(" +
+                    "id INT WITH (primary_key=true)," +
+                    "col bigint)" +
+                    "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Override
