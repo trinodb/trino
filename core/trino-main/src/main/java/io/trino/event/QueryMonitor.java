@@ -40,6 +40,7 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.operator.OperatorStats;
+import io.trino.operator.RetryPolicy;
 import io.trino.operator.TableFinishInfo;
 import io.trino.operator.TaskStats;
 import io.trino.server.BasicQueryInfo;
@@ -140,7 +141,11 @@ public class QueryMonitor
         eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
                         queryInfo.getQueryStats().getCreateTime().toDate().toInstant(),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
+                        createQueryContext(
+                                queryInfo.getSession(),
+                                queryInfo.getResourceGroupId(),
+                                queryInfo.getQueryType(),
+                                queryInfo.getRetryPolicy()),
                         new QueryMetadata(
                                 queryInfo.getQueryId().toString(),
                                 queryInfo.getSession().getTransactionId().map(TransactionId::toString),
@@ -208,7 +213,11 @@ public class QueryMonitor
                         ImmutableList.of(),
                         ImmutableList.of(),
                         Optional.empty()),
-                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
+                createQueryContext(
+                        queryInfo.getSession(),
+                        queryInfo.getResourceGroupId(),
+                        queryInfo.getQueryType(),
+                        queryInfo.getRetryPolicy()),
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
                 createQueryFailureInfo(failure, Optional.empty()),
                 ImmutableList.of(),
@@ -226,7 +235,11 @@ public class QueryMonitor
                 new QueryCompletedEvent(
                         createQueryMetadata(queryInfo),
                         createQueryStatistics(queryInfo),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
+                        createQueryContext(
+                                queryInfo.getSession(),
+                                queryInfo.getResourceGroupId(),
+                                queryInfo.getQueryType(),
+                                queryInfo.getRetryPolicy()),
                         getQueryIOMetadata(queryInfo),
                         createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getOutputStage()),
                         queryInfo.getWarnings(),
@@ -305,7 +318,7 @@ public class QueryMonitor
                 serializedPlanNodeStatsAndCosts);
     }
 
-    private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup, Optional<QueryType> queryType)
+    private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup, Optional<QueryType> queryType, RetryPolicy retryPolicy)
     {
         return new QueryContext(
                 session.getUser(),
@@ -326,7 +339,8 @@ public class QueryMonitor
                 serverAddress,
                 serverVersion,
                 environment,
-                queryType);
+                queryType,
+                retryPolicy.toString());
     }
 
     private Optional<String> createTextQueryPlan(QueryInfo queryInfo)
