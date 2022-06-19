@@ -107,15 +107,21 @@ is used.
       * ``ZSTD``
       * ``GZIP``
     - ``ZSTD``
+  * - ``iceberg.use-file-size-from-metadata``
+    - Read file sizes from metadata instead of file system.
+    - ``true``
   * - ``iceberg.max-partitions-per-writer``
     - Maximum number of partitions handled per writer.
     - 100
   * - ``iceberg.target-max-file-size``
-    - Target maximum size of written files; the actual size may be larger
+    - Target maximum size of written files; the actual size may be larger.
     - ``1GB``
   * - ``iceberg.unique-table-location``
-    - Use randomized, unique table locations
+    - Use randomized, unique table locations.
     - ``false``
+  * - ``iceberg.dynamic-filtering.wait-timeout``
+    - Maximum duration to wait for completion of dynamic filters during split generation.
+    - ``0s``
   * - ``iceberg.delete-schema-locations-fallback``
     - Whether schema locations should be deleted when Trino can't determine whether they contain external files.
     - ``false``
@@ -131,6 +137,12 @@ is used.
       means that :doc:`/optimizer/cost-based-optimizations` can
       not make smart decisions about the query plan.
     - ``true``
+  * - ``iceberg.projection-pushdown-enabled``
+    - Enable :doc:`projection pushdown </optimizer/pushdown>`
+    - ``true``
+  * - ``iceberg.hive-catalog-name``
+    - Catalog to redirect to when a Hive table is referenced.
+    -
 
 ORC format configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^
