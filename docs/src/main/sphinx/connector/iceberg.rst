@@ -109,6 +109,9 @@ is used.
     - ``ZSTD``
   * - ``iceberg.use-file-size-from-metadata``
     - Read file sizes from metadata instead of file system.
+      This property should only be set as a workaround for
+      `this issue <https://github.com/apache/iceberg/issues/1980>`_.
+      The problem was fixed in Iceberg version 0.11.0.
     - ``true``
   * - ``iceberg.max-partitions-per-writer``
     - Maximum number of partitions handled per writer.

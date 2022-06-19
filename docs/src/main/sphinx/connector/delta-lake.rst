@@ -95,6 +95,16 @@ values. Typical usage does not require you to configure them.
         to be specified in :ref:`prop-type-data-size` values such as ``64MB``.
         Default is calculated to 10% of the maximum memory allocated to the JVM.
       -
+    * - ``delta.compression-codec``
+      - The compression codec to be used when writing new data files.
+        Possible values are
+
+        * ``NONE``
+        * ``SNAPPY``
+        * ``LZ4``
+        * ``ZSTD``
+        * ``GZIP``
+      - ``SNAPPY``
     * - ``delta.max-partitions-per-writer``
       - Maximum number of partitions per writer.
       - 100
@@ -118,6 +128,9 @@ values. Typical usage does not require you to configure them.
       - Name of the catalog to which ``SELECT`` queries are redirected when a
         Hive table is detected.
       -
+    * - ``delta.checkpoint-row-statistics-writing.enabled``
+      - Enable writing row statistics to checkpoint files.
+      - ``true``
     * - ``delta.dynamic-filtering.wait-timeout``
       - Duration to wait for completion of :doc:`dynamic filtering
         </admin/dynamic-filtering>` during split generation.
@@ -609,7 +622,7 @@ All parameters are required, and must be presented in the following order:
 * Table name
 * Retention period
 
-The ``delta.vacuum.min_retention`` config property provides a safety
+The ``delta.vacuum.min-retention`` config property provides a safety
 measure to ensure that files are retained as expected.  The minimum value for
 this property is ``0s``. There is a minimum retention session property as well,
 ``vacuum_min_retention``.
