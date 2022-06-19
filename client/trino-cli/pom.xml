@@ -83,6 +83,12 @@
 
         <dependency>
             <groupId>org.jline</groupId>
+            <artifactId>jline-builtins</artifactId>
+            <version>${dep.jline.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jline</groupId>
             <artifactId>jline-console</artifactId>
             <version>${dep.jline.version}</version>
         </dependency>

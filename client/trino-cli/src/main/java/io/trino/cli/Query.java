@@ -169,7 +169,7 @@ public class Query
                 return false;
             }
             else {
-                renderResults(out, outputFormat, usePager, results.getColumns());
+                renderResults(terminal, out, outputFormat, usePager, results.getColumns());
             }
         }
 
@@ -241,10 +241,10 @@ public class Query
         }
     }
 
-    private void renderResults(PrintStream out, OutputFormat outputFormat, boolean interactive, List<Column> columns)
+    private void renderResults(Terminal terminal, PrintStream out, OutputFormat outputFormat, boolean interactive, List<Column> columns)
     {
         try {
-            doRenderResults(out, outputFormat, interactive, columns);
+            doRenderResults(terminal, out, outputFormat, interactive, columns);
         }
         catch (QueryAbortedException e) {
             System.out.println("(query aborted by user)");
@@ -255,21 +255,21 @@ public class Query
         }
     }
 
-    private void doRenderResults(PrintStream out, OutputFormat format, boolean interactive, List<Column> columns)
+    private void doRenderResults(Terminal terminal, PrintStream out, OutputFormat format, boolean interactive, List<Column> columns)
             throws IOException
     {
         if (interactive) {
-            pageOutput(format, columns);
+            pageOutput(terminal, format, columns);
         }
         else {
             sendOutput(out, format, columns);
         }
     }
 
-    private void pageOutput(OutputFormat format, List<Column> columns)
+    private void pageOutput(Terminal terminal, OutputFormat format, List<Column> columns)
             throws IOException
     {
-        try (Pager pager = Pager.create();
+        try (Pager pager = Pager.create(terminal);
                 ThreadInterruptor clientThread = new ThreadInterruptor();
                 Writer writer = createWriter(pager);
                 OutputHandler handler = createOutputHandler(format, writer, columns)) {

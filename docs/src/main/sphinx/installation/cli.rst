@@ -385,6 +385,9 @@ can be overridden by setting the environment variable ``TRINO_PAGER`` to the
 name of a different program such as ``more`` or `pspg <https://github.com/okbob/pspg>`_,
 or it can be set to an empty value to completely disable pagination.
 
+If the ``less`` program is unavailable, a built-in pager can be used by setting
+the ``TRINO_PAGER_BUILTIN`` to ``true``.
+
 History
 -------
 
