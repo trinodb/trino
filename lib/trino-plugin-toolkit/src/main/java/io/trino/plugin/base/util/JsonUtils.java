@@ -19,7 +19,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
 import io.airlift.json.ObjectMapperProvider;
 
 import java.io.IOException;
@@ -31,6 +30,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Files.isReadable;
+import static java.util.Objects.requireNonNull;
 
 public final class JsonUtils
 {
@@ -53,18 +53,34 @@ public final class JsonUtils
             byte[] json = Files.readAllBytes(path);
             return parseJson(json, javaType);
         }
-        catch (IOException e) {
+        catch (IOException | RuntimeException e) {
             throw new IllegalArgumentException(format("Invalid JSON file '%s' for '%s'", path, javaType), e);
         }
     }
 
-    public static JsonNode parseJson(String json)
+    public static <T> T parseJson(String json, Class<T> javaType)
     {
-        try {
-            return OBJECT_MAPPER.readTree(json);
+        return parseJson(OBJECT_MAPPER, ObjectMapper::createParser, json, javaType);
+    }
+
+    public static <T> T parseJson(byte[] jsonBytes, Class<T> javaType)
+    {
+        return parseJson(OBJECT_MAPPER, ObjectMapper::createParser, jsonBytes, javaType);
+    }
+
+    private static <I, T> T parseJson(ObjectMapper mapper, ParserConstructor<I> parserConstructor, I input, Class<T> javaType)
+    {
+        requireNonNull(mapper, "mapper is null");
+        requireNonNull(parserConstructor, "parserConstructor is null");
+        requireNonNull(input, "input is null");
+        requireNonNull(javaType, "javaType is null");
+        try (JsonParser parser = parserConstructor.createParser(mapper, input)) {
+            T value = mapper.readValue(parser, javaType);
+            checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
+            return value;
         }
         catch (IOException e) {
-            throw new UncheckedIOException("Could not parse JSON node from given byte array", e);
+            throw new UncheckedIOException("Could not parse JSON", e);
         }
     }
 
@@ -74,18 +90,13 @@ public final class JsonUtils
             return OBJECT_MAPPER.treeToValue(treeNode, javaType);
         }
         catch (JsonProcessingException e) {
-            throw new UncheckedIOException("Failed to parse JSON tree node", e);
+            throw new UncheckedIOException("Failed to convert JSON tree node", e);
         }
     }
 
-    @VisibleForTesting
-    static <T> T parseJson(byte[] jsonBytes, Class<T> javaType)
-            throws IOException
+    private interface ParserConstructor<I>
     {
-        try (JsonParser parser = OBJECT_MAPPER.createParser(jsonBytes)) {
-            T value = OBJECT_MAPPER.readValue(parser, javaType);
-            checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
-            return value;
-        }
+        JsonParser createParser(ObjectMapper mapper, I input)
+                throws IOException;
     }
 }

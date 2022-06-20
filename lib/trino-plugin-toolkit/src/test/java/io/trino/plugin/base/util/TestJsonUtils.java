@@ -14,10 +14,11 @@
 package io.trino.plugin.base.util;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.plugin.base.util.TestJsonUtils.TestEnum.OPTION_A;
@@ -51,12 +52,22 @@ public class TestJsonUtils
     public void testTrailingContent()
             throws IOException
     {
+        // parseJson(String)
+        assertThatThrownBy(() -> parseJson("{} {}}", JsonNode.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Found characters after the expected end of input");
+        assertThatThrownBy(() -> parseJson("{} not even a JSON here", JsonNode.class))
+                .isInstanceOf(UncheckedIOException.class)
+                .hasMessage("Could not parse JSON")
+                .hasStackTraceContaining("Unrecognized token 'not': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')");
+
+        // parseJson(byte[], Class)
         assertThatThrownBy(() -> parseJson("{} {}}".getBytes(US_ASCII), TestObject.class))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Found characters after the expected end of input");
-
         assertThatThrownBy(() -> parseJson("{} not even a JSON here".getBytes(US_ASCII), TestObject.class))
-                .isInstanceOf(JsonParseException.class)
-                .hasMessageStartingWith("Unrecognized token 'not': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')");
+                .isInstanceOf(UncheckedIOException.class)
+                .hasMessage("Could not parse JSON")
+                .hasStackTraceContaining("Unrecognized token 'not': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')");
     }
 }
