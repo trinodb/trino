@@ -24,7 +24,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
@@ -365,7 +364,7 @@ public abstract class AbstractKuduConnectorTest
     }
 
     @Override
-    public void testAddColumnConcurrently(int timeout, TimeUnit timeUnit)
+    public void testAddColumnConcurrently()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
         throw new SkipException("TODO");

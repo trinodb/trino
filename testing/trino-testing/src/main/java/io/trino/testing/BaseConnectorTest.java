@@ -52,7 +52,6 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -65,7 +64,6 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
@@ -2994,8 +2992,8 @@ public abstract class BaseConnectorTest
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
-    @Test(timeOut = 60_000, invocationCount = 4, dataProvider = "testAddColumnConcurrentlyConfig")
-    public void testAddColumnConcurrently(int timeout, TimeUnit timeUnit)
+    @Test(timeOut = 120_000, invocationCount = 4)
+    public void testAddColumnConcurrently()
             throws Exception
     {
         if (!hasBehavior(SUPPORTS_ADD_COLUMN)) {
@@ -3011,7 +3009,7 @@ public abstract class BaseConnectorTest
 
             List<Future<Optional<String>>> futures = IntStream.range(0, threads)
                     .mapToObj(threadNumber -> executor.submit(() -> {
-                        barrier.await(timeout, timeUnit);
+                        barrier.await(1, MINUTES);
                         try {
                             String columnName = "col" + threadNumber;
                             log.info("Adding %s", columnName);
@@ -3037,7 +3035,7 @@ public abstract class BaseConnectorTest
                     .collect(toImmutableList());
 
             List<String> addedColumns = futures.stream()
-                    .map(future -> tryGetFutureValue(future, timeout, timeUnit).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .map(future -> tryGetFutureValue(future, 1, MINUTES).orElseThrow(() -> new RuntimeException("Wait timed out")))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .collect(toImmutableList());
@@ -3051,7 +3049,7 @@ public abstract class BaseConnectorTest
         }
         finally {
             executor.shutdownNow();
-            executor.awaitTermination(timeout, timeUnit);
+            executor.awaitTermination(30, SECONDS);
         }
     }
 

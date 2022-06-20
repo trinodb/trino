@@ -26,7 +26,6 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
@@ -259,7 +258,7 @@ public class TestJdbcConnectorTest
     }
 
     @Override
-    public void testAddColumnConcurrently(int timeout, TimeUnit timeUnit)
+    public void testAddColumnConcurrently()
     {
         // TODO: Difficult to determine whether the exception is concurrent issue or not from the error message
         throw new SkipException("TODO: Enable this test after finding the failure cause");
