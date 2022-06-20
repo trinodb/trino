@@ -47,7 +47,6 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
     public void extendEnvironment(Environment.Builder builder)
     {
         String databricksTestJdbcUrl = databricksTestJdbcUrl();
-        String databricksTestJdbcDriverClass = requireNonNull(System.getenv("DATABRICKS_JDBC_DRIVER_CLASS"), "Environment DATABRICKS_JDBC_DRIVER_CLASS was not set");
         String databricksTestLogin = requireNonNull(System.getenv("DATABRICKS_LOGIN"), "Environment DATABRICKS_LOGIN was not set");
         String databricksTestToken = requireNonNull(System.getenv("DATABRICKS_TOKEN"), "Environment DATABRICKS_TOKEN was not set");
         String awsRegion = requireNonNull(System.getenv("AWS_REGION"), "Environment AWS_REGION was not set");
@@ -68,7 +67,6 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
         builder.configureContainer(TESTS, container -> exportAWSCredentials(container)
                 .withEnv("S3_BUCKET", s3Bucket)
                 .withEnv("AWS_REGION", awsRegion)
-                .withEnv("DATABRICKS_JDBC_DRIVER_CLASS", databricksTestJdbcDriverClass)
                 .withEnv("DATABRICKS_JDBC_URL", databricksTestJdbcUrl)
                 .withEnv("DATABRICKS_LOGIN", databricksTestLogin)
                 .withEnv("DATABRICKS_TOKEN", databricksTestToken));
@@ -78,12 +76,12 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
 
     private DockerContainer exportAWSCredentials(DockerContainer container)
     {
-        container = exportAWSCredential(container, "AWS_ACCESS_KEY_ID", true);
-        container = exportAWSCredential(container, "AWS_SECRET_ACCESS_KEY", true);
-        return exportAWSCredential(container, "AWS_SESSION_TOKEN", false);
+        container = exportAWSCredential(container, "DATABRICKS_AWS_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID", true);
+        container = exportAWSCredential(container, "DATABRICKS_AWS_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY", true);
+        return exportAWSCredential(container, "DATABRICKS_AWS_SESSION_TOKEN", "AWS_SESSION_TOKEN", false);
     }
 
-    private DockerContainer exportAWSCredential(DockerContainer container, String credentialEnvVariable, boolean required)
+    private DockerContainer exportAWSCredential(DockerContainer container, String credentialEnvVariable, String containerEnvVariable, boolean required)
     {
         String credentialValue = System.getenv(credentialEnvVariable);
         if (credentialValue == null) {
@@ -92,6 +90,6 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
             }
             return container;
         }
-        return container.withEnv(credentialEnvVariable, credentialValue);
+        return container.withEnv(containerEnvVariable, credentialValue);
     }
 }

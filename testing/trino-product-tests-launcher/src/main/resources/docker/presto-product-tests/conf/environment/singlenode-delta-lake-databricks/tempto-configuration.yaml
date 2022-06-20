@@ -2,7 +2,7 @@ databases:
   presto:
     jdbc_user: root
   delta:
-    jdbc_driver_class: ${DATABRICKS_JDBC_DRIVER_CLASS}
+    jdbc_driver_class: com.databricks.client.jdbc.Driver
     schema: default
     prepare_statement:
       - USE ${databases.delta.schema}

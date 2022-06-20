@@ -25,7 +25,7 @@ import java.util.List;
 
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
-public class SuiteDeltaLake
+public class SuiteDeltaLakeOss
         extends Suite
 {
     @Override
@@ -39,15 +39,6 @@ public class SuiteDeltaLake
                 testOnEnvironment(EnvSinglenodeDeltaLakeKerberizedHdfs.class)
                         .withGroups("configured_features", "delta-lake-hdfs")
                         .build(),
-                //TODO enable the product tests against Databricks testing environment
-//                testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks73.class)
-//                        .withGroups("configured_features", "delta-lake-databricks")
-//                        .withExcludedGroups("delta-lake-exclude-73")
-//                        .build(),
-//
-//                testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks91.class)
-//                        .withGroups("configured_features", "delta-lake-databricks")
-//                        .build(),
 
                 testOnEnvironment(EnvSinglenodeDeltaLakeOss.class)
                         // TODO: make the list of tests run here as close to those run on SinglenodeDeltaLakeDatabricks
