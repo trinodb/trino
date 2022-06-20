@@ -60,12 +60,22 @@ public final class JsonUtils
 
     public static <T> T parseJson(String json, Class<T> javaType)
     {
-        return parseJson(OBJECT_MAPPER, ObjectMapper::createParser, json, javaType);
+        return parseJson(OBJECT_MAPPER, json, javaType);
+    }
+
+    public static <T> T parseJson(ObjectMapper mapper, String json, Class<T> javaType)
+    {
+        return parseJson(mapper, ObjectMapper::createParser, json, javaType);
     }
 
     public static <T> T parseJson(byte[] jsonBytes, Class<T> javaType)
     {
-        return parseJson(OBJECT_MAPPER, ObjectMapper::createParser, jsonBytes, javaType);
+        return parseJson(OBJECT_MAPPER, jsonBytes, javaType);
+    }
+
+    public static <T> T parseJson(ObjectMapper mapper, byte[] jsonBytes, Class<T> javaType)
+    {
+        return parseJson(mapper, ObjectMapper::createParser, jsonBytes, javaType);
     }
 
     private static <I, T> T parseJson(ObjectMapper mapper, ParserConstructor<I> parserConstructor, I input, Class<T> javaType)
