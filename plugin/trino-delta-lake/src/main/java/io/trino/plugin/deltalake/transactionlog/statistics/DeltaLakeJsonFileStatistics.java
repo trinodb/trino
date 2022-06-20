@@ -37,6 +37,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.toCanonicalNameKeyedMap;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.JSON_STATISTICS_TIMESTAMP_FORMATTER;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA;
@@ -62,7 +63,7 @@ public class DeltaLakeJsonFileStatistics
     public static DeltaLakeJsonFileStatistics create(String jsonStatistics)
             throws JsonProcessingException
     {
-        return OBJECT_MAPPER.readValue(jsonStatistics, DeltaLakeJsonFileStatistics.class);
+        return parseJson(OBJECT_MAPPER, jsonStatistics, DeltaLakeJsonFileStatistics.class);
     }
 
     @JsonCreator
