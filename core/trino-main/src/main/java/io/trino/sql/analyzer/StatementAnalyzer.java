@@ -144,6 +144,8 @@ import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FrameBound;
@@ -1677,9 +1679,25 @@ class StatementAnalyzer
                 if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "'descriptor' function is not allowed as a table function argument");
                 }
+                // inline parameters
+                Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
+                {
+                    @Override
+                    public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                    {
+                        if (analysis.isDescribe()) {
+                            // We cannot handle DESCRIBE when a table function argument involves a parameter.
+                            // In DESCRIBE, the parameter values are not known. We cannot pass a dummy value for a parameter.
+                            // The value of a table function argument can affect the returned relation type. The returned
+                            // relation type can affect the assumed types for other parameters in the query.
+                            throw semanticException(NOT_SUPPORTED, node, "DESCRIBE is not supported if a table function uses parameters");
+                        }
+                        return analysis.getParameters().get(NodeRef.of(node));
+                    }
+                }, expression);
                 Type expectedArgumentType = ((ScalarArgumentSpecification) argumentSpecification).getType();
                 // currently, only constant arguments are supported
-                Object constantValue = ExpressionInterpreter.evaluateConstantExpression(expression, expectedArgumentType, plannerContext, session, accessControl, analysis.getParameters());
+                Object constantValue = ExpressionInterpreter.evaluateConstantExpression(inlined, expectedArgumentType, plannerContext, session, accessControl, analysis.getParameters());
                 return ScalarArgument.builder()
                         .type(expectedArgumentType)
                         .value(constantValue)
