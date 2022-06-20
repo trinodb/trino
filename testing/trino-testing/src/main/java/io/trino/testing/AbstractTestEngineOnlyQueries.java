@@ -6530,6 +6530,15 @@ public abstract class AbstractTestEngineOnlyQueries
                 .matches("VALUES (CAST('[\"AFRICA\",0]' AS varchar(100))), ('[\"AMERICA\",1]'), ('[\"ASIA\",2]'), ('[\"EUROPE\",3]'), ('[\"MIDDLE EAST\",4]')");
     }
 
+    @Test
+    public void testUuidOrdering()
+    {
+        assertQueryOrdered("" +
+                "SELECT CAST(v AS uuid) u " +
+                "FROM (VALUES '406caec7-68b9-4778-81b2-a12ece70c8b1', 'f79c3e09-677c-4bbd-a479-3f349cb785e7') t(v) " +
+                "ORDER BY u");
+    }
+
     private static ZonedDateTime zonedDateTime(String value)
     {
         return ZONED_DATE_TIME_FORMAT.parse(value, ZonedDateTime::from);
