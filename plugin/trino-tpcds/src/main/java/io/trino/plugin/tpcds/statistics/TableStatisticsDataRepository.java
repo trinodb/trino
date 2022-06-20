@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
 
+import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -83,7 +84,7 @@ public class TableStatisticsDataRepository
             return Optional.empty();
         }
         try {
-            return Optional.of(objectMapper.readValue(resource, TableStatisticsData.class));
+            return Optional.of(parseJson(objectMapper, resource, TableStatisticsData.class));
         }
         catch (Exception e) {
             throw new RuntimeException(format("Failed to parse stats from resource [%s]", resourcePath), e);
