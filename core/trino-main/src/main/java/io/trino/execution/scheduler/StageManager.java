@@ -27,6 +27,7 @@ import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TableInfo;
 import io.trino.execution.TaskId;
+import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableProperties;
 import io.trino.metadata.TableSchema;
@@ -142,7 +143,11 @@ class StageManager
     {
         TableSchema tableSchema = metadata.getTableSchema(session, node.getTable());
         TableProperties tableProperties = metadata.getTableProperties(session, node.getTable());
-        return new TableInfo(tableSchema.getQualifiedName(), tableProperties.getPredicate());
+        Optional<String> connectorName = metadata.listCatalogs(session).stream()
+                .filter(catalogInfo -> catalogInfo.getCatalogName().equals(tableSchema.getCatalogName()))
+                .map(CatalogInfo::getConnectorName)
+                .findFirst();
+        return new TableInfo(connectorName, tableSchema.getQualifiedName(), tableProperties.getPredicate());
     }
 
     private static StageId getStageId(QueryId queryId, PlanFragmentId fragmentId)
