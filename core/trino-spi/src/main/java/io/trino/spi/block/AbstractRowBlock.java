@@ -98,12 +98,10 @@ public abstract class AbstractRowBlock
             for (int i = 0; i < length; i++) {
                 newOffsets[i] = fieldBlockPositionCount;
                 int position = positions[offset + i];
-                if (isNull(position)) {
-                    newRowIsNull[i] = true;
-                }
-                else {
-                    fieldBlockPositions[fieldBlockPositionCount++] = getFieldBlockOffset(position);
-                }
+                boolean positionIsNull = isNull(position);
+                newRowIsNull[i] = positionIsNull;
+                fieldBlockPositions[fieldBlockPositionCount] = getFieldBlockOffset(position);
+                fieldBlockPositionCount += positionIsNull ? 0 : 1;
             }
             // Record last offset position
             newOffsets[length] = fieldBlockPositionCount;
