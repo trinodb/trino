@@ -64,6 +64,12 @@
         <dependency>
             <groupId>io.trino.hive</groupId>
             <artifactId>hive-apache</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.luben</groupId>
+                    <artifactId>zstd-jni</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -84,6 +90,12 @@
         <dependency>
             <groupId>io.trino.tempto</groupId>
             <artifactId>tempto-kafka</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.luben</groupId>
+                    <artifactId>zstd-jni</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
