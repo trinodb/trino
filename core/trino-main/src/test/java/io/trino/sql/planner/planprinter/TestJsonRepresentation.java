@@ -57,6 +57,7 @@ public class TestJsonRepresentation
 {
     private static final JsonCodec<JsonRenderedNode> JSON_RENDERED_NODE_CODEC = jsonCodec(JsonRenderedNode.class);
     private static final TableInfo TABLE_INFO = new TableInfo(
+            Optional.of("tpch"),
             new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, "orders"),
             TupleDomain.all());
 
