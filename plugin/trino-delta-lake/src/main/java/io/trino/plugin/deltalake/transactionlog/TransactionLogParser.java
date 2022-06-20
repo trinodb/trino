@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
+import io.trino.plugin.base.util.JsonUtils;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.spi.TrinoException;
@@ -35,7 +36,7 @@ import org.apache.hadoop.fs.Path;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -136,7 +137,7 @@ public final class TransactionLogParser
         if (json.endsWith("x")) {
             json = json.substring(0, json.length() - 1);
         }
-        return OBJECT_MAPPER.readValue(json, DeltaLakeTransactionLogEntry.class);
+        return JsonUtils.parseJson(OBJECT_MAPPER, json, DeltaLakeTransactionLogEntry.class);
     }
 
     private static Object parseDecimal(DecimalType type, String valueString)
@@ -230,18 +231,18 @@ public final class TransactionLogParser
     }
 
     private static Optional<LastCheckpoint> tryReadLastCheckpoint(FileSystem fileSystem, Path tableLocation)
-            throws IOException
+            throws JsonParseException, JsonMappingException
     {
         Path transactionLogDirectory = getTransactionLogDir(tableLocation);
         try (FSDataInputStream lastCheckpointInput = fileSystem.open(new Path(transactionLogDirectory, LAST_CHECKPOINT_FILENAME))) {
             // Note: there apparently is 8K buffering applied and _last_checkpoint should be much smaller.
-            return Optional.of(OBJECT_MAPPER.readValue((InputStream) lastCheckpointInput, LastCheckpoint.class));
+            return Optional.of(JsonUtils.parseJson(OBJECT_MAPPER, lastCheckpointInput, LastCheckpoint.class));
         }
         catch (JsonParseException | JsonMappingException e) {
             // The _last_checkpoint file is malformed, it's probably in the middle of a rewrite (file rewrites on Azure are NOT atomic)
             throw e;
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             // _last_checkpoint file was not found, we need to find latest checkpoint manually
             // ideally, we'd detect the condition by catching FileNotFoundException, but some file system implementations
             // will throw different exceptions if the checkpoint is not found
