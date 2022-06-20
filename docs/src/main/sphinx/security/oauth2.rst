@@ -114,6 +114,47 @@ The following configuration properties are available:
    * - ``http-server.authentication.oauth2.groups-field``
      - The field of the access token used for Trino groups. The corresponding claim value must be an array.
 
+Refresh tokens
+^^^^^^^^^^^^^^
+
+In order to start using refresh tokens flows, the following property must be
+enabled in the coordinator configuration.
+
+.. code-block:: properties
+
+    http-server.authentication.oauth2.refresh-tokens=true
+
+Additional scopes for offline access might be required, depending on
+IdP configuration.
+
+.. code-block:: properties
+
+    http-server.authentication.oauth2.scopes=openid,offline_access [or offline]
+
+The following configuration properties are available:
+
+.. list-table:: OAuth2 configuration properties for refresh flow
+   :widths: 40 60
+   :header-rows: 1
+
+   * - Property
+     - Description
+   * - ``http-server.authentication.oauth2.refresh-tokens.issued-token.timeout``
+     - Expiration time for issued token. Value must be less than or equal to
+       the duration of the refresh token expiration issued by the IdP.
+       Defaults to ``1h``.
+   * - ``http-server.authentication.oauth2.refresh-tokens.issued-token.issuer``
+     - Issuer representing the coordinator instance, that is referenced in the
+       issued token, defaults to ``Trino_coordinator``. The current
+       Trino version is appended to the value. This is mainly used for
+       debugging purposes.
+   * - ``http-server.authentication.oauth2.refresh-tokens.issued-token.audience``
+     - Audience representing this coordinator instance, that is used in the
+       issued token. Defaults to ``Trino_coordinator``.
+   * - ``http-server.authentication.oauth2.refresh-tokens.secret-key``
+     - Base64-encoded secret key used to encrypt the generated token.
+       By default it's generated during startup.
+
 
 Troubleshooting
 ---------------
