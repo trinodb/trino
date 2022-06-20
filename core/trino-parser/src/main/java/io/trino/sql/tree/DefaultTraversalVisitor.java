@@ -977,4 +977,14 @@ public abstract class DefaultTraversalVisitor<C>
 
         return null;
     }
+
+    @Override
+    protected Void visitTableFunctionInvocation(TableFunctionInvocation node, C context)
+    {
+        for (TableFunctionArgument argument : node.getArguments()) {
+            process(argument.getValue(), context);
+        }
+
+        return null;
+    }
 }

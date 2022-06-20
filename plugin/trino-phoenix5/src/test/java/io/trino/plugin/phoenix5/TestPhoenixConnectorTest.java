@@ -573,6 +573,18 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
+    public void testNativeQueryParameters()
+    {
+        // not implemented
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query_simple", "SELECT * FROM TABLE(system.query(query => ?))")
+                .addPreparedStatement("my_query", "SELECT * FROM TABLE(system.query(query => format('SELECT %s FROM %s', ?, ?)))")
+                .build();
+        assertQueryFails(session, "EXECUTE my_query_simple USING 'SELECT 1 a'", "line 1:21: Table function system.query not registered");
+        assertQueryFails(session, "EXECUTE my_query USING 'a', '(SELECT 2 a) t'", "line 1:21: Table function system.query not registered");
+    }
+
+    @Override
     public void testNativeQuerySelectFromNation()
     {
         // not implemented
