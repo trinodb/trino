@@ -581,15 +581,10 @@ public abstract class BaseIcebergConnectorTest
         assertQuery(format("SELECT * FROM %s WHERE x = UUID 'f79c3e09-677c-4bbd-a479-3f349cb785e7'", tableName), "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890");
         assertQuery(
                 format("SELECT * FROM %s WHERE x >= UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'", tableName),
-                (format == ORC && partitioned || format == PARQUET)
-                        // TODO (https://github.com/trinodb/trino/issues/12834): reading Parquet, or partitioned ORC, with UUID filter yields incorrect results
-                        ? "VALUES (CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID), 12345)"
-                        : "VALUES (CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890), (CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID), 12345)");
+                "VALUES (CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890), (CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID), 12345)");
         assertQuery(
                 format("SELECT * FROM %s WHERE x >= UUID 'f79c3e09-677c-4bbd-a479-3f349cb785e7'", tableName),
-                partitioned
-                        ? "VALUES (CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890), (CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID), 12345)"
-                        : "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890");
+                "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890");
         assertQuery(format("SELECT * FROM %s WHERE x IS NULL", tableName), "SELECT NULL, 7531");
         assertQuery(format("SELECT x FROM %s WHERE y = 12345", tableName), "SELECT CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)");
         assertQuery(format("SELECT x FROM %s WHERE y = 67890", tableName), "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID)");
@@ -597,15 +592,7 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate(format("INSERT INTO %s VALUES (UUID '206caec7-68b9-4778-81b2-a12ece70c8b1', 313), (UUID '906caec7-68b9-4778-81b2-a12ece70c8b1', 314)", tableName), 2);
         assertThat(query("SELECT y FROM " + tableName + " WHERE x >= UUID '206caec7-68b9-4778-81b2-a12ece70c8b1'"))
-                .matches(
-                        (partitioned)
-                                // TODO (https://github.com/trinodb/trino/issues/12834): reading Parquet with UUID filter yields incorrect results
-                                ? "VALUES BIGINT '12345', 313"
-                                : ((format == PARQUET)
-                                // TODO (https://github.com/trinodb/trino/issues/12834): reading Parquet with UUID filter yields incorrect results
-                                ? "VALUES BIGINT '12345'"
-                                // this one is correct
-                                : "VALUES BIGINT '12345', 67890, 313, 314"));
+                .matches("VALUES BIGINT '12345', 67890, 313, 314");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -2133,28 +2120,12 @@ public abstract class BaseIcebergConnectorTest
                 .isNotFullyPushedDown(FilterNode.class); // this could be subsumed
 
         // Bucketing transform doesn't allow comparison filter elimination
-        if (format == PARQUET && type.equals("UUID")) {
-            // TODO (https://github.com/trinodb/trino/issues/12834): reading Parquet with UUID filter yields incorrect results
-            assertThatThrownBy(() -> assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + value)).isNotFullyPushedDown(FilterNode.class))
-                    .isInstanceOf(AssertionError.class)
-                    .hasMessageMatching("(?s)\\[Rows for query .*to contain exactly in any order:.*but could not find the following elements:.*");
-        }
-        else {
-            assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + value))
-                    .isNotFullyPushedDown(FilterNode.class);
-        }
+        assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + value))
+                .isNotFullyPushedDown(FilterNode.class);
         assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + greaterValueInSameBucket))
                 .isNotFullyPushedDown(FilterNode.class);
-        if (format == PARQUET && type.equals("UUID")) {
-            // TODO (https://github.com/trinodb/trino/issues/12834): reading Parquet with UUID filter yields incorrect results
-            assertThatThrownBy(() -> assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + valueInOtherBucket)).isNotFullyPushedDown(FilterNode.class))
-                    .isInstanceOf(AssertionError.class)
-                    .hasMessageMatching("(?s)\\[Rows for query .*to contain exactly in any order:.*but could not find the following elements:.*");
-        }
-        else {
-            assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + valueInOtherBucket))
-                    .isNotFullyPushedDown(FilterNode.class);
-        }
+        assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + valueInOtherBucket))
+                .isNotFullyPushedDown(FilterNode.class);
 
         dropTable(tableName);
     }
