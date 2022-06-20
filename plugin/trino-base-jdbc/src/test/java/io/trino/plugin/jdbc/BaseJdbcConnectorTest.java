@@ -1592,6 +1592,17 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
+    public void testNativeQueryParameters()
+    {
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query_simple", "SELECT * FROM TABLE(system.query(query => ?))")
+                .addPreparedStatement("my_query", "SELECT * FROM TABLE(system.query(query => format('SELECT %s FROM %s', ?, ?)))")
+                .build();
+        assertQuery(session, "EXECUTE my_query_simple USING 'SELECT 1 a'", "VALUES 1");
+        assertQuery(session, "EXECUTE my_query USING 'a', '(SELECT 2 a) t'", "VALUES 2");
+    }
+
+    @Test
     public void testNativeQuerySelectFromNation()
     {
         assertQuery(

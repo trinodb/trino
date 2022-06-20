@@ -15,6 +15,7 @@ package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.testing.MaterializedResult;
@@ -580,6 +581,18 @@ public abstract class BaseClickHouseConnectorTest
     {
         // table function disabled for ClickHouse, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
         assertQueryFails("SELECT * FROM TABLE(system.query(query => 'SELECT 1'))", "line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQueryParameters()
+    {
+        // table function disabled for ClickHouse, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query_simple", "SELECT * FROM TABLE(system.query(query => ?))")
+                .addPreparedStatement("my_query", "SELECT * FROM TABLE(system.query(query => format('SELECT %s FROM %s', ?, ?)))")
+                .build();
+        assertQueryFails(session, "EXECUTE my_query_simple USING 'SELECT 1 a'", "line 1:21: Table function system.query not registered");
+        assertQueryFails(session, "EXECUTE my_query USING 'a', '(SELECT 2 a) t'", "line 1:21: Table function system.query not registered");
     }
 
     @Override
