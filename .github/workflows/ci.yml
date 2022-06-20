@@ -528,6 +528,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       have_azure_secrets: ${{ steps.check-secrets.outputs.have_azure_secrets }}
+      have_databricks_secrets: ${{ steps.check-databricks-secrets.outputs.have_databricks_secrets }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -553,6 +554,17 @@ jobs:
             echo "::set-output name=have_azure_secrets::false"
           fi
         id: check-secrets
+      - name: Check Delta Databricks secrets
+        id: check-databricks-secrets
+        run: |
+          if [[ "${{ secrets.DATABRICKS_TOKEN }}" != "" ]]; \
+          then
+            echo "Secrets to run Delta Databricks product tests were configured in the repo"
+            echo "::set-output name=have_databricks_secrets::true"
+          else
+            echo "Secrets to run Delta Databricks product tests were not configured in the repo"
+            echo "::set-output name=have_databricks_secrets::false"
+          fi
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -598,6 +610,7 @@ jobs:
           # suite-4 does not exist
           - suite-5
           - suite-azure
+          - suite-delta-lake-databricks
         jdk:
           - 11
         exclude:
@@ -622,6 +635,14 @@ jobs:
           - suite: suite-azure
             ignore exclusion if: >-
               ${{ needs.build-pt.outputs.have_azure_secrets == 'true' }}
+
+          - suite: suite-delta-lake-databricks
+            config: cdh5
+          - suite: suite-delta-lake-databricks
+            config: hdp3
+          - suite: suite-delta-lake-databricks
+            ignore exclusion if: >-
+              ${{ needs.build-pt.outputs.have_databricks_secrets == 'true' }}
 
         ignore exclusion if:
           # Do not use this property outside of the matrix configuration.
@@ -681,7 +702,7 @@ jobs:
             jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
-            suite: suite-delta-lake
+            suite: suite-delta-lake-oss
             jdk: 11
     # PT Launcher's timeout defaults to 2h, add some margin
     timeout-minutes: 130
@@ -720,6 +741,14 @@ jobs:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
           ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
+          S3_BUCKET: trino-ci-test
+          AWS_REGION: us-east-2
+          DATABRICKS_AWS_ACCESS_KEY_ID: ${{ secrets.DATABRICKS_AWS_ACCESS_KEY_ID }}
+          DATABRICKS_AWS_SECRET_ACCESS_KEY: ${{ secrets.DATABRICKS_AWS_SECRET_ACCESS_KEY }}
+          DATABRICKS_73_JDBC_URL: ${{ secrets.DATABRICKS_73_JDBC_URL }}
+          DATABRICKS_91_JDBC_URL: ${{ secrets.DATABRICKS_91_JDBC_URL }}
+          DATABRICKS_LOGIN: token
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
         run: |
           testing/bin/ptl suite run \
             --suite ${{ matrix.suite }} \
