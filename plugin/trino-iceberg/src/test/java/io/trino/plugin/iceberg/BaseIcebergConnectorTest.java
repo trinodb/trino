@@ -1305,7 +1305,6 @@ public abstract class BaseIcebergConnectorTest
                 "(DATE '2015-05-15', 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
                 "(DATE '2020-02-21', 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
         String expectedTimestampStats = "'1969-12-25 15:13:12.876543', '2020-02-21 16:12:12.654321'";
-
         if (format == ORC) {
             expected = "VALUES " +
                     "(NULL, 1, NULL, NULL, 101, 101), " +
@@ -1482,7 +1481,6 @@ public abstract class BaseIcebergConnectorTest
                 "(544, 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
                 "(601, 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
         String expectedTimestampStats = "'1969-11-15 15:13:12.876543', '2020-02-21 16:12:12.654321'";
-
         if (format == ORC) {
             expected = "VALUES " +
                     "(NULL, 1, NULL, NULL, 101, 101), " +
@@ -1649,9 +1647,7 @@ public abstract class BaseIcebergConnectorTest
                 "(0, 4, TIMESTAMP '1970-01-18 12:03:08.456789', TIMESTAMP '1970-12-31 12:55:00.456789', 5, 8), " +
                 "(45, 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-09-15 14:21:02.345678', 9, 10), " +
                 "(50, 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-08-21 16:12:12.654321', 11, 12)";
-
         String expectedTimestampStats = "'1968-03-15 15:13:12.876543', '2020-08-21 16:12:12.654321'";
-
         if (format == ORC) {
             expected = "VALUES " +
                     "(NULL, 1, NULL, NULL, 101, 101), " +
