@@ -13,6 +13,7 @@
  */
 package io.trino.client;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JavaType;
@@ -22,9 +23,11 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Type;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class JsonCodec<T>
@@ -67,12 +70,26 @@ public class JsonCodec<T>
     public T fromJson(String json)
             throws JsonProcessingException
     {
-        return mapper.readerFor(javaType).readValue(json);
+        try (JsonParser parser = mapper.createParser(json)) {
+            T value = mapper.readerFor(javaType).readValue(parser);
+            checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
+            return value;
+        }
+        catch (JsonProcessingException e) {
+            throw e;
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public T fromJson(InputStream inputStream)
             throws IOException, JsonProcessingException
     {
-        return mapper.readerFor(javaType).readValue(inputStream);
+        try (JsonParser parser = mapper.createParser(inputStream)) {
+            T value = mapper.readerFor(javaType).readValue(parser);
+            checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
+            return value;
+        }
     }
 }
