@@ -159,6 +159,7 @@ public class AwsCredentialsProviderConfig
         return region;
     }
 
+    @LegacyConfig("region-name")
     @Config("region")
     @ConfigDescription("AWS Region of the role to assume when authenticating")
     public AwsCredentialsProviderConfig setRegion(String region)
