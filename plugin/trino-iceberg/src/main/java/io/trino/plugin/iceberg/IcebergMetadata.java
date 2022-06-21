@@ -2100,7 +2100,7 @@ public class IcebergMetadata
                 .put(TRINO_QUERY_ID_NAME, session.getQueryId())
                 .put(TRINO_USER, session.getUser());
 
-        trinoVersion.map(version -> snapshotSummary.put(TRINO_VERSION, version));
+        trinoVersion.ifPresent(version -> snapshotSummary.put(TRINO_VERSION, version));
 
         return snapshotSummary.buildOrThrow();
     }
