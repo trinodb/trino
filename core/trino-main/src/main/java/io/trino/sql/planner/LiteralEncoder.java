@@ -51,6 +51,8 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TimestampLiteral;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -99,7 +101,7 @@ public final class LiteralEncoder
         return expressions.build();
     }
 
-    public Expression toExpression(Session session, Object object, Type type)
+    public Expression toExpression(Session session, @Nullable Object object, Type type)
     {
         requireNonNull(type, "type is null");
 
