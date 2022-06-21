@@ -157,6 +157,7 @@ import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
+import static io.trino.plugin.iceberg.ConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_UPDATE_ROW_ID_COLUMN_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_UPDATE_ROW_ID_COLUMN_NAME;
@@ -1719,43 +1720,54 @@ public class IcebergMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
-        TupleDomain<ColumnHandle> predicate = constraint.getSummary();
+        ConstraintExtractor.ExtractionResult extractionResult = extractTupleDomain(constraint);
+        TupleDomain<IcebergColumnHandle> predicate = extractionResult.getTupleDomain();
         if (predicate.isAll()) {
             return Optional.empty();
         }
 
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        TupleDomain<IcebergColumnHandle> newEnforcedConstraint;
+        TupleDomain<IcebergColumnHandle> newUnenforcedConstraint;
+        TupleDomain<IcebergColumnHandle> remainingConstraint;
+        if (predicate.isNone()) {
+            // Engine does not pass none Constraint.summary. It can become none when combined with the expression and connector's domain knowledge.
+            newEnforcedConstraint = TupleDomain.none();
+            newUnenforcedConstraint = TupleDomain.all();
+            remainingConstraint = TupleDomain.all();
+        }
+        else {
+            Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
-        Map<IcebergColumnHandle, Domain> unsupported = new LinkedHashMap<>();
-        Map<IcebergColumnHandle, Domain> newEnforced = new LinkedHashMap<>();
-        Map<IcebergColumnHandle, Domain> newUnenforced = new LinkedHashMap<>();
-        Map<ColumnHandle, Domain> domains = predicate.getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
-        domains.forEach((column, domain) -> {
-            IcebergColumnHandle columnHandle = (IcebergColumnHandle) column;
-            // Iceberg metadata columns can not be used to filter a table scan in Iceberg library
-            // TODO (https://github.com/trinodb/trino/issues/8759) structural types cannot be used to filter a table scan in Iceberg library.
-            if (isMetadataColumnId(columnHandle.getId()) || isStructuralType(columnHandle.getType()) ||
-                    // Iceberg orders UUID values differently than Trino (perhaps due to https://bugs.openjdk.org/browse/JDK-7025832), so allow only IS NULL / IS NOT NULL checks
-                    (columnHandle.getType() == UUID && !(domain.isOnlyNull() || domain.getValues().isAll()))) {
-                unsupported.put(columnHandle, domain);
-            }
-            else if (canEnforceColumnConstraintInAllSpecs(typeOperators, icebergTable, columnHandle, domain)) {
-                newEnforced.put(columnHandle, domain);
-            }
-            else {
-                newUnenforced.put(columnHandle, domain);
-            }
-        });
+            Map<IcebergColumnHandle, Domain> unsupported = new LinkedHashMap<>();
+            Map<IcebergColumnHandle, Domain> newEnforced = new LinkedHashMap<>();
+            Map<IcebergColumnHandle, Domain> newUnenforced = new LinkedHashMap<>();
+            Map<IcebergColumnHandle, Domain> domains = predicate.getDomains().orElseThrow(() -> new VerifyException("No domains"));
+            domains.forEach((columnHandle, domain) -> {
+                // Iceberg metadata columns can not be used to filter a table scan in Iceberg library
+                // TODO (https://github.com/trinodb/trino/issues/8759) structural types cannot be used to filter a table scan in Iceberg library.
+                if (isMetadataColumnId(columnHandle.getId()) || isStructuralType(columnHandle.getType()) ||
+                        // Iceberg orders UUID values differently than Trino (perhaps due to https://bugs.openjdk.org/browse/JDK-7025832), so allow only IS NULL / IS NOT NULL checks
+                        (columnHandle.getType() == UUID && !(domain.isOnlyNull() || domain.getValues().isAll()))) {
+                    unsupported.put(columnHandle, domain);
+                }
+                else if (canEnforceColumnConstraintInAllSpecs(typeOperators, icebergTable, columnHandle, domain)) {
+                    newEnforced.put(columnHandle, domain);
+                }
+                else {
+                    newUnenforced.put(columnHandle, domain);
+                }
+            });
 
-        TupleDomain<IcebergColumnHandle> newEnforcedConstraint = TupleDomain.withColumnDomains(newEnforced).intersect(table.getEnforcedPredicate());
-        TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = TupleDomain.withColumnDomains(newUnenforced).intersect(table.getUnenforcedPredicate());
+            newEnforcedConstraint = TupleDomain.withColumnDomains(newEnforced).intersect(table.getEnforcedPredicate());
+            newUnenforcedConstraint = TupleDomain.withColumnDomains(newUnenforced).intersect(table.getUnenforcedPredicate());
+            remainingConstraint = TupleDomain.withColumnDomains(newUnenforced).intersect(TupleDomain.withColumnDomains(unsupported));
+        }
 
         if (newEnforcedConstraint.equals(table.getEnforcedPredicate())
                 && newUnenforcedConstraint.equals(table.getUnenforcedPredicate())) {
             return Optional.empty();
         }
 
-        TupleDomain<IcebergColumnHandle> remainingConstraint = TupleDomain.withColumnDomains(newUnenforced).intersect(TupleDomain.withColumnDomains(unsupported));
         return Optional.of(new ConstraintApplicationResult<>(
                 new IcebergTableHandle(
                         table.getSchemaName(),
@@ -1776,6 +1788,7 @@ public class IcebergMetadata
                         table.isRecordScannedFiles(),
                         table.getMaxScannedFileSize()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
+                extractionResult.getRemainingExpression(),
                 false));
     }
 
