@@ -47,18 +47,18 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
     public void extendEnvironment(Environment.Builder builder)
     {
         String databricksTestJdbcUrl = databricksTestJdbcUrl();
-        String databricksTestJdbcDriverClass = requireNonNull(System.getenv("DATABRICKS_TEST_JDBC_DRIVER_CLASS"), "Environment DATABRICKS_TEST_JDBC_DRIVER_CLASS was not set");
-        String databricksTestLogin = requireNonNull(System.getenv("DATABRICKS_TEST_LOGIN"), "Environment DATABRICKS_TEST_LOGIN was not set");
-        String databricksTestToken = requireNonNull(System.getenv("DATABRICKS_TEST_TOKEN"), "Environment DATABRICKS_TEST_TOKEN was not set");
+        String databricksTestJdbcDriverClass = requireNonNull(System.getenv("DATABRICKS_JDBC_DRIVER_CLASS"), "Environment DATABRICKS_JDBC_DRIVER_CLASS was not set");
+        String databricksTestLogin = requireNonNull(System.getenv("DATABRICKS_LOGIN"), "Environment DATABRICKS_LOGIN was not set");
+        String databricksTestToken = requireNonNull(System.getenv("DATABRICKS_TOKEN"), "Environment DATABRICKS_TOKEN was not set");
         String hiveMetastoreUri = requireNonNull(System.getenv("HIVE_METASTORE_URI"), "Environment HIVE_METASTORE_URI was not set");
         String s3Bucket = requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set");
         DockerFiles.ResourceProvider configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-delta-lake-databricks");
 
         builder.configureContainer(COORDINATOR, dockerContainer -> exportAWSCredentials(dockerContainer)
                 .withEnv("HIVE_METASTORE_URI", hiveMetastoreUri)
-                .withEnv("DATABRICKS_TEST_JDBC_URL", databricksTestJdbcUrl)
-                .withEnv("DATABRICKS_TEST_LOGIN", databricksTestLogin)
-                .withEnv("DATABRICKS_TEST_TOKEN", databricksTestToken));
+                .withEnv("DATABRICKS_JDBC_URL", databricksTestJdbcUrl)
+                .withEnv("DATABRICKS_LOGIN", databricksTestLogin)
+                .withEnv("DATABRICKS_TOKEN", databricksTestToken));
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector(
                 "delta-lake",
@@ -67,10 +67,10 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
 
         builder.configureContainer(TESTS, container -> exportAWSCredentials(container)
                 .withEnv("S3_BUCKET", s3Bucket)
-                .withEnv("DATABRICKS_TEST_JDBC_DRIVER_CLASS", databricksTestJdbcDriverClass)
-                .withEnv("DATABRICKS_TEST_JDBC_URL", databricksTestJdbcUrl)
-                .withEnv("DATABRICKS_TEST_LOGIN", databricksTestLogin)
-                .withEnv("DATABRICKS_TEST_TOKEN", databricksTestToken)
+                .withEnv("DATABRICKS_JDBC_DRIVER_CLASS", databricksTestJdbcDriverClass)
+                .withEnv("DATABRICKS_JDBC_URL", databricksTestJdbcUrl)
+                .withEnv("DATABRICKS_LOGIN", databricksTestLogin)
+                .withEnv("DATABRICKS_TOKEN", databricksTestToken)
                 .withEnv("HIVE_METASTORE_URI", hiveMetastoreUri));
 
         configureTempto(builder, configDir);
