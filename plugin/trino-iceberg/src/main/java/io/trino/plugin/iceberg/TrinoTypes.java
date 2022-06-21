@@ -63,7 +63,7 @@ public final class TrinoTypes
         }
 
         if (type instanceof TimestampType) {
-            // Iceberg supports only timestamp(6)
+            // Iceberg supports timestamp only with microsecond precision
             checkArgument(((TimestampType) type).getPrecision() == 6, "Unexpected type: %s", type);
             // TODO update the code here when type implements getRange
             verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
@@ -71,7 +71,7 @@ public final class TrinoTypes
         }
 
         if (type instanceof TimestampWithTimeZoneType) {
-            // Iceberg supports only timestamp(6)
+            // Iceberg supports timestamp with time zone only with microsecond precision
             checkArgument(((TimestampWithTimeZoneType) type).getPrecision() == 6, "Unexpected type: %s", type);
             verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
             LongTimestampWithTimeZone timestampTzValue = (LongTimestampWithTimeZone) value;
@@ -119,7 +119,7 @@ public final class TrinoTypes
         }
 
         if (type instanceof TimestampType) {
-            // Iceberg supports only timestamp(6)
+            // Iceberg supports timestamp only with microsecond precision
             checkArgument(((TimestampType) type).getPrecision() == 6, "Unexpected type: %s", type);
             // TODO update the code here when type implements getRange
             verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
@@ -127,7 +127,7 @@ public final class TrinoTypes
         }
 
         if (type instanceof TimestampWithTimeZoneType) {
-            // Iceberg supports only timestamp(6)
+            // Iceberg supports timestamp with time zone only with microsecond precision
             checkArgument(((TimestampWithTimeZoneType) type).getPrecision() == 6, "Unexpected type: %s", type);
             verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
             LongTimestampWithTimeZone timestampTzValue = (LongTimestampWithTimeZone) value;
