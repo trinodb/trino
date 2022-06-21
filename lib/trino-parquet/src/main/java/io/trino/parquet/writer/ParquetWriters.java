@@ -204,14 +204,12 @@ final class ParquetWriters
         }
         if (TIMESTAMP_MILLIS.equals(type)) {
             verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MILLIS);
-            // TODO when writing with Hive connector, isAdjustedToUTC is being set to true, which might be incorrect
-            //   verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MILLIS));
+            verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MILLIS));
             return new TimestampMillisValueWriter(valuesWriter, type, parquetType);
         }
         if (TIMESTAMP_MICROS.equals(type)) {
             verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MICROS);
-            // TODO when writing with Hive connector, isAdjustedToUTC is being set to true, which might be incorrect
-            //   verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MICROS));
+            verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MICROS));
             return new BigintValueWriter(valuesWriter, type, parquetType);
         }
         if (TIMESTAMP_NANOS.equals(type)) {
