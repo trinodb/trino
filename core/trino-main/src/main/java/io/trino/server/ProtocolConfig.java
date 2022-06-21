@@ -16,7 +16,6 @@ package io.trino.server;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
-import javax.annotation.Nonnull;
 import javax.validation.constraints.Pattern;
 
 import java.util.Optional;
@@ -42,7 +41,6 @@ public class ProtocolConfig
         return this;
     }
 
-    @Nonnull
     public int getPreparedStatementCompressionThreshold()
     {
         return preparedStatementCompressionThreshold;
@@ -56,7 +54,6 @@ public class ProtocolConfig
         return this;
     }
 
-    @Nonnull
     public int getPreparedStatementCompressionMinimalGain()
     {
         return preparedStatementCompressionMinimalGain;

@@ -13,13 +13,13 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.connector.CatalogName;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -35,18 +35,18 @@ public class CatalogManager
     {
         requireNonNull(catalog, "catalog is null");
 
-        checkState(catalogs.put(catalog.getCatalogName(), catalog) == null, "Catalog '%s' is already registered", catalog.getCatalogName());
+        checkState(catalogs.put(catalog.getCatalogName().getCatalogName(), catalog) == null, "Catalog '%s' is already registered", catalog.getCatalogName());
     }
 
     public Optional<CatalogName> removeCatalog(String catalogName)
     {
         return Optional.ofNullable(catalogs.remove(catalogName))
-                .map(Catalog::getConnectorCatalogName);
+                .map(Catalog::getCatalogName);
     }
 
-    public List<Catalog> getCatalogs()
+    public Set<String> getCatalogNames()
     {
-        return ImmutableList.copyOf(catalogs.values());
+        return ImmutableSet.copyOf(catalogs.keySet());
     }
 
     public Optional<Catalog> getCatalog(String catalogName)

@@ -151,7 +151,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
         deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
         if (!enablePerTransactionHiveMetastoreCaching) {
             // almost disable the cache; 0 is not allowed as config property value
-            deltaLakeProperties.put("hive.per-transaction-metastore-cache-maximum-size", "1");
+            deltaLakeProperties.put("delta.per-transaction-metastore-cache-maximum-size", "1");
         }
 
         queryRunner.createCatalog(DELTA_CATALOG, "delta-lake", deltaLakeProperties.buildOrThrow());

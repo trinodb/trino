@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.ptf.ConnectorTableFunction;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Provider;
@@ -84,6 +85,8 @@ public class JdbcModule
 
         newSetBinder(binder, Procedure.class).addBinding().toProvider(FlushJdbcMetadataCacheProcedure.class).in(Scopes.SINGLETON);
         newSetBinder(binder, Procedure.class).addBinding().toProvider(PassThroughProcedure.class).in(Scopes.SINGLETON);
+
+        newSetBinder(binder, ConnectorTableFunction.class);
 
         binder.bind(ConnectionFactory.class)
                 .annotatedWith(ForLazyConnectionFactory.class)

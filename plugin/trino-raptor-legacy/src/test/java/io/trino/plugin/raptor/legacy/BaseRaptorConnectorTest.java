@@ -135,7 +135,10 @@ public abstract class BaseRaptorConnectorTest
                 || typeName.equals("real")
                 || typeName.startsWith("decimal(")
                 || typeName.equals("time")
+                || typeName.equals("time(6)")
+                || typeName.equals("timestamp(6)")
                 || typeName.equals("timestamp(3) with time zone")
+                || typeName.equals("timestamp(6) with time zone")
                 || typeName.startsWith("char(")) {
             //TODO this should either work or fail cleanly
             return Optional.empty();
@@ -170,6 +173,15 @@ public abstract class BaseRaptorConnectorTest
         assertQuery("SELECT c[1] FROM map_test", "SELECT 'hi'");
         assertQuery("SELECT c[3] FROM map_test", "SELECT NULL");
         assertUpdate("DROP TABLE map_test");
+    }
+
+    @Test
+    @Override
+    public void testCreateViewSchemaNotFound()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/11110) Raptor connector can create new views in a schema where it doesn't exist
+        assertThatThrownBy(super::testCreateViewSchemaNotFound)
+                .hasMessageContaining("Expected query to fail: CREATE VIEW test_schema_");
     }
 
     @Test

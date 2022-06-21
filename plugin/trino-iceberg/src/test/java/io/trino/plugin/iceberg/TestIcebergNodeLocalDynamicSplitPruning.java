@@ -35,6 +35,7 @@ import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.Page;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -161,7 +162,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 ImmutableList.of(),
                 PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
                 PartitionData.toJson(new PartitionData(new Object[] {})),
-                ImmutableList.of());
+                ImmutableList.of(),
+                SplitWeight.standard());
 
         TableHandle tableHandle = new TableHandle(
                 new CatalogName(ICEBERG_CATALOG_NAME),
@@ -180,7 +182,9 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         outputFile.getParentFile().getAbsolutePath(),
                         ImmutableMap.of(),
                         RetryMode.NO_RETRIES,
-                        ImmutableList.of()),
+                        ImmutableList.of(),
+                        false,
+                        Optional.empty()),
                 transaction);
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();

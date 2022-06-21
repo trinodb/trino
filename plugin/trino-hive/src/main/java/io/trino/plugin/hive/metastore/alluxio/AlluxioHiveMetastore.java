@@ -29,10 +29,10 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -71,11 +71,11 @@ public class AlluxioHiveMetastore
 {
     private final TableMasterClient client;
 
-    public AlluxioHiveMetastore(TableMasterClient client, MetastoreConfig metastoreConfig)
+    public AlluxioHiveMetastore(TableMasterClient client, HiveMetastoreConfig hiveMetastoreConfig)
     {
         this.client = requireNonNull(client, "client is null");
-        requireNonNull(metastoreConfig, "metastoreConfig is null");
-        checkArgument(!metastoreConfig.isHideDeltaLakeTables(), "Hiding Delta Lake tables is not supported"); // TODO
+        requireNonNull(hiveMetastoreConfig, "hiveMetastoreConfig is null");
+        checkArgument(!hiveMetastoreConfig.isHideDeltaLakeTables(), "Hiding Delta Lake tables is not supported"); // TODO
     }
 
     @Override

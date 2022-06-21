@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.metastore.glue;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.Files;
@@ -239,7 +240,7 @@ public class TestDeltaLakeGlueMetastore
 
     private Set<SchemaTableName> listTableColumns(DeltaLakeMetadata metadata, SchemaTablePrefix tablePrefix)
     {
-        List<TableColumnsMetadata> allTableColumns = metadata.streamTableColumns(session, tablePrefix).collect(toImmutableList());
+        List<TableColumnsMetadata> allTableColumns = ImmutableList.copyOf(metadata.streamTableColumns(session, tablePrefix));
 
         Set<SchemaTableName> redirectedTables = allTableColumns.stream()
                 .filter(tableColumns -> tableColumns.getColumns().isEmpty())

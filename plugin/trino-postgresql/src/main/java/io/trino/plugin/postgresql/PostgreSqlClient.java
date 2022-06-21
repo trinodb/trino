@@ -82,7 +82,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -855,7 +854,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
     {
         if (!statisticsEnabled) {
             return TableStatistics.empty();

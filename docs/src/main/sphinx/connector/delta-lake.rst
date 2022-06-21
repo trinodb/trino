@@ -126,6 +126,20 @@ values. Typical usage does not require you to configure them.
       - Enables :ref:`Table statistics <delta-lake-table-statistics>` for
         performance improvements.
       - ``true``
+    * - ``delta.per-transaction-metastore-cache-maximum-size``
+      - Maximum number of metastore data objects per transaction in
+        the Hive metastore cache.
+      - ``1000``
+    * - ``delta.delete-schema-locations-fallback``
+      - Whether schema locations should be deleted when Trino can't
+        determine whether they contain external files.
+      - ``false``
+    * - ``delta.parquet.time-zone``
+      - Time zone for Parquet read and write.
+      - JVM default
+    * - ``delta.target-max-file-size``
+      - Target maximum size of written files; the actual size may be larger.
+      - ``1GB``
 
 The following table describes performance tuning catalog properties for the
 connector.
@@ -180,6 +194,10 @@ connector.
         can also use the corresponding catalog session property
         ``<catalog-name>.max_split_size``.
       - ``64MB``
+    * - ``delta.minimum-assigned-split-weight``
+      - A decimal value in the range (0, 1] used as a minimum for weights assigned to each split. A low value may improve performance
+        on tables with small files. A higher value may improve performance for queries with highly skewed aggregations or joins.
+      - 0.05
 
 The following table describes :ref:`catalog session properties
 <session-properties-definition>` supported by the Delta Lake connector to
@@ -487,7 +505,7 @@ Table statistics
 ^^^^^^^^^^^^^^^^
 
 You can use :doc:`/sql/analyze` statements in Trino to populate the table
-statistics in Delta Lake. Number of distinct values (NDV)
+statistics in Delta Lake. Data size and number of distinct values (NDV)
 statistics are supported, while Minimum value, maximum value, and null value
 count statistics are not supported. The :doc:`cost-based optimizer
 </optimizer/cost-based-optimizations>` then uses these statistics to improve

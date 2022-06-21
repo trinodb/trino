@@ -134,10 +134,13 @@ public class Int128PositionsAppender
     @Override
     public Block build()
     {
-        if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+        Block result;
+        if (hasNonNullValue) {
+            result = new Int128ArrayBlock(positionCount, hasNullValue ? Optional.of(valueIsNull) : Optional.empty(), values);
         }
-        Int128ArrayBlock result = new Int128ArrayBlock(positionCount, hasNullValue ? Optional.of(valueIsNull) : Optional.empty(), values);
+        else {
+            result = new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+        }
         reset();
         return result;
     }

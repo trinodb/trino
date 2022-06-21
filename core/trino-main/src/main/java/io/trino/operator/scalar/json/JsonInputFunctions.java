@@ -43,6 +43,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  * Otherwise, the parse error is suppressed, and a marker value JSON_ERROR
  * is returned, so that the enclosing function can handle the error accordingly
  * to its error handling strategy (e.g. return a default value).
+ * <p>
+ * A duplicate key in a JSON object does not cause error.
+ * The resulting object has one entry with that key, chosen arbitrarily.
+ * This behavior fulfills the 'WITHOUT UNIQUE KEYS' option. (SQL standard p. 692)
  */
 public final class JsonInputFunctions
 {

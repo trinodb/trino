@@ -333,6 +333,7 @@ public class FileSystemExchangeSink
             return INSTANCE_SIZE + estimatedSizeOf(writers, ExchangeStorageWriter::getRetainedSize);
         }
 
+        @GuardedBy("this")
         private void setupWriterForNextPart()
         {
             currentWriter = exchangeStorage.createExchangeStorageWriter(
@@ -340,6 +341,7 @@ public class FileSystemExchangeSink
             writers.add(currentWriter);
         }
 
+        @GuardedBy("this")
         private void writeInternal(Slice slice)
         {
             int position = 0;
@@ -359,6 +361,7 @@ public class FileSystemExchangeSink
             }
         }
 
+        @GuardedBy("this")
         private void flushIfNeeded(boolean finished)
         {
             SliceOutput buffer = currentBuffer;
@@ -410,9 +413,7 @@ public class FileSystemExchangeSink
                 }
                 return blockedFuture;
             }
-            else {
-                return NOT_BLOCKED;
-            }
+            return NOT_BLOCKED;
         }
 
         public synchronized SliceOutput take()
@@ -456,9 +457,7 @@ public class FileSystemExchangeSink
             if (closed) {
                 return INSTANCE_SIZE;
             }
-            else {
-                return INSTANCE_SIZE + numBuffers * bufferRetainedSize;
-            }
+            return INSTANCE_SIZE + numBuffers * bufferRetainedSize;
         }
 
         public void close()

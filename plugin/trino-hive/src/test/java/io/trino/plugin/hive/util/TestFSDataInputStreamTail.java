@@ -17,7 +17,6 @@ package io.trino.plugin.hive.util;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
@@ -34,6 +33,7 @@ import java.nio.file.Files;
 import java.util.Arrays;
 
 import static io.airlift.testing.Closeables.closeAll;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
@@ -52,7 +52,7 @@ public class TestFSDataInputStreamTail
             throws Exception
     {
         fs = new RawLocalFileSystem();
-        fs.initialize(fs.getUri(), new Configuration(false));
+        fs.initialize(fs.getUri(), newEmptyConfiguration());
         tempRoot = Files.createTempDirectory("test_fsdatainputstream_tail").toFile();
         tempFile = new Path(Files.createTempFile(tempRoot.toPath(), "tempfile", "txt").toUri());
     }

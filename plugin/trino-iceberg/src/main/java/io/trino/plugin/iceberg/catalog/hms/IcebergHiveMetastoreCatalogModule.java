@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.metastore.DecoratedHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
@@ -27,6 +28,8 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 public class IcebergHiveMetastoreCatalogModule
         extends AbstractConfigurationAwareModule
 {
+    public static final boolean HIDE_DELTA_LAKE_TABLES_IN_ICEBERG = false;
+
     @Override
     protected void setup(Binder binder)
     {
@@ -35,6 +38,7 @@ public class IcebergHiveMetastoreCatalogModule
         binder.bind(TrinoCatalogFactory.class).to(TrinoHiveCatalogFactory.class).in(Scopes.SINGLETON);
         binder.bind(MetastoreValidator.class).asEagerSingleton();
         binder.bind(Key.get(boolean.class, TranslateHiveViews.class)).toInstance(false);
+        binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(HIDE_DELTA_LAKE_TABLES_IN_ICEBERG);
         install(new DecoratedHiveMetastoreModule());
     }
 }

@@ -100,6 +100,12 @@ public class RenameTableTask
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }
+        if (metadata.isMaterializedView(session, target)) {
+            throw semanticException(GENERIC_USER_ERROR, statement, "Target table '%s' does not exist, but a materialized view with that name exists.", target);
+        }
+        if (metadata.isView(session, target)) {
+            throw semanticException(GENERIC_USER_ERROR, statement, "Target table '%s' does not exist, but a view with that name exists.", target);
+        }
         if (metadata.getTableHandle(session, target).isPresent()) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
         }

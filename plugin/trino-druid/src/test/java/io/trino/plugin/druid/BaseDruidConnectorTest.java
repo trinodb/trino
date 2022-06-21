@@ -39,6 +39,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
 
 public abstract class BaseDruidConnectorTest
         extends BaseJdbcConnectorTest
@@ -299,5 +300,27 @@ public abstract class BaseDruidConnectorTest
         assertThatThrownBy(super::testCharTrailingSpace)
                 .hasMessageContaining("Error while executing SQL \"CREATE TABLE druid.char_trailing_space");
         throw new SkipException("Implement test for Druid");
+    }
+
+    @Override
+    public void testNativeQuerySelectFromTestTable()
+    {
+        throw new SkipException("cannot create test table for Druid");
+    }
+
+    @Override
+    public void testNativeQueryCreateStatement()
+    {
+        // override because Druid fails to prepare statement, while other connectors succeed in preparing statement and then fail because of no metadata available
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .hasMessageContaining("Failed to get table handle for prepared query");
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        throw new SkipException("cannot create test table for Druid");
     }
 }

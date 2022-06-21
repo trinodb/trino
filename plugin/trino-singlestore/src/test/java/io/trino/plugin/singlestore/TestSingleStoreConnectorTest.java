@@ -138,7 +138,8 @@ public class TestSingleStoreConnectorTest
             return Optional.empty();
         }
 
-        if (typeName.equals("timestamp(3) with time zone")) {
+        if (typeName.equals("timestamp(3) with time zone") ||
+                typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
@@ -300,6 +301,33 @@ public class TestSingleStoreConnectorTest
         // TODO (https://github.com/trinodb/trino/issues/10320) SingleStore stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
         assertThatThrownBy(super::testInsertNegativeDate)
                 .hasStackTraceContaining("TrinoException: Driver returned null LocalDate for a non-null value");
+    }
+
+    @Override
+    public void testNativeQueryCreateStatement()
+    {
+        // SingleStore returns a ResultSet metadata with no columns for CREATE TABLE statement.
+        // This is unusual, because other connectors don't produce a ResultSet metadata for CREATE TABLE at all.
+        // The query fails because there are no columns, but even if columns were not required, the query would fail
+        // to execute in SingleStore because the connector wraps it in additional syntax, which causes syntax error.
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .hasMessageContaining("descriptor has no fields");
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        // SingleStore returns a ResultSet metadata with no columns for INSERT statement.
+        // This is unusual, because other connectors don't produce a ResultSet metadata for INSERT at all.
+        // The query fails because there are no columns, but even if columns were not required, the query would fail
+        // to execute in SingleStore because the connector wraps it in additional syntax, which causes syntax error.
+        try (TestTable testTable = simpleTable()) {
+            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .hasMessageContaining("descriptor has no fields");
+            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
+        }
     }
 
     /**

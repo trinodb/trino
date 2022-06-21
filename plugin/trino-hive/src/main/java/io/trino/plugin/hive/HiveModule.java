@@ -22,7 +22,9 @@ import com.google.inject.multibindings.Multibinder;
 import io.airlift.event.client.EventClient;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.fs.TrinoFileSystemCache;
+import io.trino.plugin.hive.fs.TrinoFileSystemCacheStats;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
@@ -61,7 +63,7 @@ public class HiveModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(HiveConfig.class);
-        configBinder(binder).bindConfig(MetastoreConfig.class);
+        configBinder(binder).bindConfig(HiveMetastoreConfig.class);
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
@@ -100,6 +102,10 @@ public class HiveModule
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
+
+        binder.bind(TrinoFileSystemCacheStats.class).toInstance(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats());
+        newExporter(binder).export(TrinoFileSystemCacheStats.class)
+                .as(generator -> generator.generatedNameOf(TrinoFileSystemCache.class));
 
         Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = newSetBinder(binder, HivePageSourceFactory.class);
         pageSourceFactoryBinder.addBinding().to(OrcPageSourceFactory.class).in(Scopes.SINGLETON);

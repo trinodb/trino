@@ -310,6 +310,7 @@ jobs:
           $MAVEN test ${MAVEN_TEST} -pl '
             !:trino-main,
             !:trino-tests,
+            !:trino-faulttolerant-tests,
             !:trino-raptor-legacy,
             !:trino-accumulo,
             !:trino-cassandra,
@@ -329,7 +330,7 @@ jobs:
             !:trino-kudu,
             !:trino-druid,
             !:trino-iceberg,
-            !:trino-phoenix,!:trino-phoenix5,
+            !:trino-phoenix5,
             !:trino-jdbc,!:trino-base-jdbc,!:trino-thrift,!:trino-memory,
             !:trino-docs,!:trino-server,!:trino-server-rpm,
             !:trino-test-jdbc-compatibility-old-server,
@@ -383,16 +384,17 @@ jobs:
           include:
             - { modules: core/trino-main }
             - { modules: testing/trino-tests }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-1 }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-2 }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
             - { modules: plugin/trino-raptor-legacy }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-cassandra }
             - { modules: plugin/trino-clickhouse }
             - { modules: plugin/trino-delta-lake }
-            - { modules: plugin/trino-delta-lake, profile: test-failure-recovery }
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: test-parquet }
-            - { modules: plugin/trino-hive, profile: test-failure-recovery }
-            - { modules: plugin/trino-hive, profile: test-fault-tolerant-execution }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-elasticsearch, profile: test-stats }
             - { modules: plugin/trino-mongodb }
@@ -408,8 +410,7 @@ jobs:
             - { modules: plugin/trino-kudu }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-iceberg }
-            - { modules: plugin/trino-iceberg, profile: test-failure-recovery }
-            - { modules: [ plugin/trino-phoenix, plugin/trino-phoenix5 ] }
+            - { modules: plugin/trino-phoenix5 }
             - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
             - { modules: plugin/trino-bigquery }
           EOF

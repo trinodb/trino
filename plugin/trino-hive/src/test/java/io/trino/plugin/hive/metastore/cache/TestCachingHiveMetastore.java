@@ -26,8 +26,8 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.UnimplementedHiveMetastore;
@@ -154,7 +154,7 @@ public class TestCachingHiveMetastore
     private static ThriftHiveMetastore createThriftHiveMetastore(ThriftMetastoreClient client)
     {
         MetastoreLocator metastoreLocator = new MockMetastoreLocator(client);
-        return new ThriftHiveMetastore(metastoreLocator, new MetastoreConfig(), new HiveConfig().isTranslateHiveViews(), new ThriftMetastoreConfig(), HDFS_ENVIRONMENT, false);
+        return new ThriftHiveMetastore(metastoreLocator, new HiveMetastoreConfig().isHideDeltaLakeTables(), new HiveConfig().isTranslateHiveViews(), new ThriftMetastoreConfig(), HDFS_ENVIRONMENT, false);
     }
 
     @Test

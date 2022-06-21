@@ -30,7 +30,7 @@ import static org.testcontainers.containers.MySQLContainer.MYSQL_PORT;
 public class TestingMySqlServer
         implements AutoCloseable
 {
-    public static final String DEFAULT_IMAGE = "mysql:8.0.12";
+    public static final String DEFAULT_IMAGE = "mysql:8.0.29-oracle";
     public static final String LEGACY_IMAGE = "mysql:5.7.35";
 
     private final MySQLContainer<?> container;

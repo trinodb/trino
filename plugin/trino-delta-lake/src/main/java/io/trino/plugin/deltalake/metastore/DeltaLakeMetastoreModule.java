@@ -14,11 +14,13 @@
 package io.trino.plugin.deltalake.metastore;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.deltalake.metastore.file.DeltaLakeFileMetastoreModule;
 import io.trino.plugin.deltalake.metastore.glue.DeltaLakeGlueMetastoreModule;
 import io.trino.plugin.deltalake.metastore.thrift.DeltaLakeThriftMetastoreModule;
+import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.metastore.DecoratedHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 
@@ -30,6 +32,7 @@ public class DeltaLakeMetastoreModule
     @Override
     protected void setup(Binder binder)
     {
+        binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(false);
         bindMetastoreModule("thrift", new DeltaLakeThriftMetastoreModule());
         bindMetastoreModule("file", new DeltaLakeFileMetastoreModule());
         bindMetastoreModule("glue", new DeltaLakeGlueMetastoreModule());

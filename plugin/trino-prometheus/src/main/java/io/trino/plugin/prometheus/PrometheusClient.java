@@ -16,6 +16,7 @@ package io.trino.plugin.prometheus;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.DoubleType;
@@ -33,7 +34,6 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -84,13 +84,8 @@ public class PrometheusClient
 
     private static URI getPrometheusMetricsURI(URI prometheusUri)
     {
-        try {
-            // endpoint to retrieve metric names from Prometheus
-            return new URI(prometheusUri.getScheme(), prometheusUri.getAuthority(), prometheusUri.getPath() + METRICS_ENDPOINT, null, null);
-        }
-        catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
+        // endpoint to retrieve metric names from Prometheus
+        return HttpUriBuilder.uriBuilderFrom(prometheusUri).appendPath(METRICS_ENDPOINT).build();
     }
 
     public Set<String> getTableNames(String schema)

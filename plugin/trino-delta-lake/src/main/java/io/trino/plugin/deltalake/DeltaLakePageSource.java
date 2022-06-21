@@ -18,6 +18,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.Type;
 
@@ -166,6 +167,12 @@ public class DeltaLakePageSource
     public long getMemoryUsage()
     {
         return delegate.getMemoryUsage();
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return delegate.getMetrics();
     }
 
     protected void closeWithSuppression(Throwable throwable)

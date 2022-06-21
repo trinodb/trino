@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -42,6 +43,7 @@ import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -93,12 +95,6 @@ public class TestingMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
-    {
-        return getTableHandle(session, tableName);
-    }
-
-    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
@@ -134,6 +130,12 @@ public class TestingMetadata
             tableColumns.put(tableName, columns.build());
         }
         return tableColumns.buildOrThrow();
+    }
+
+    @Override
+    public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
+    {
+        return new ConnectorAnalyzeMetadata(tableHandle, TableStatisticsMetadata.empty());
     }
 
     @Override

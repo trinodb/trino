@@ -46,7 +46,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
@@ -166,20 +165,22 @@ public class JsonQueryFunction
         }
 
         // translate sequence to JSON items
-        List<JsonNode> sequence = pathResult.stream()
-                .map(item -> {
-                    if (item instanceof TypedValue) {
-                        Optional<JsonNode> jsonNode = getJsonNode((TypedValue) item);
-                        if (jsonNode.isEmpty()) {
-                            return handleSpecialCase(errorBehavior, new JsonOutputConversionError(format(
-                                    "JSON path returned a scalar SQL value of type %s that cannot be represented as JSON",
-                                    ((TypedValue) item).getType())));
-                        }
-                        return jsonNode.get();
-                    }
-                    return (JsonNode) item;
-                })
-                .collect(toImmutableList());
+        ImmutableList.Builder<JsonNode> builder = ImmutableList.builder();
+        for (Object item : pathResult) {
+            if (item instanceof TypedValue) {
+                Optional<JsonNode> jsonNode = getJsonNode((TypedValue) item);
+                if (jsonNode.isEmpty()) {
+                    return handleSpecialCase(errorBehavior, new JsonOutputConversionError(format(
+                            "JSON path returned a scalar SQL value of type %s that cannot be represented as JSON",
+                            ((TypedValue) item).getType())));
+                }
+                builder.add(jsonNode.get());
+            }
+            else {
+                builder.add((JsonNode) item);
+            }
+        }
+        List<JsonNode> sequence = builder.build();
 
         // apply array wrapper behavior
         switch (ArrayWrapperBehavior.values()[(int) wrapperBehavior]) {

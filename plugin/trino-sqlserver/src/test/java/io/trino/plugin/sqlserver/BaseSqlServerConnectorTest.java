@@ -132,7 +132,8 @@ public abstract class BaseSqlServerConnectorTest
                 return Optional.empty();
             }
         }
-        if (typeName.equals("timestamp(3) with time zone")) {
+        if (typeName.equals("timestamp(3) with time zone") ||
+                typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
@@ -175,6 +176,12 @@ public abstract class BaseSqlServerConnectorTest
                             "Expecting actual not to be empty).*");
             throw new SkipException("to be fixed");
         }
+    }
+
+    @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e).hasMessageContaining("was deadlocked on lock resources");
     }
 
     @Test
@@ -516,6 +523,13 @@ public abstract class BaseSqlServerConnectorTest
         assertQueryFails(
                 "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
                 "Conversion failed when converting date and/or time from character string\\.");
+    }
+
+    @Override
+    public void testNativeQuerySimple()
+    {
+        // override because SQL Server provides an empty string as the name for unnamed column
+        assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT 1 a'))", "VALUES 1");
     }
 
     @Override

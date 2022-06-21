@@ -14,9 +14,6 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -24,6 +21,7 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
@@ -31,13 +29,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -51,71 +49,106 @@ public class LocalDynamicFilterConsumer
     // Mapping from dynamic filter ID to its build channel type.
     private final Map<DynamicFilterId, Type> filterBuildTypes;
 
-    private final SettableFuture<TupleDomain<DynamicFilterId>> resultFuture;
+    private final List<Consumer<Map<DynamicFilterId, Domain>>> collectors;
 
     // Number of build-side partitions to be collected, must be provided by setPartitionCount
     @GuardedBy("this")
     private int expectedPartitionCount = PARTITION_COUNT_INITIAL_VALUE;
 
-    // The resulting predicates from each build-side partition.
     @GuardedBy("this")
-    private final List<TupleDomain<DynamicFilterId>> partitions;
+    private boolean collected;
 
-    public LocalDynamicFilterConsumer(Map<DynamicFilterId, Integer> buildChannels, Map<DynamicFilterId, Type> filterBuildTypes)
+    // The resulting predicates from each build-side partition.
+    @Nullable
+    @GuardedBy("this")
+    private List<TupleDomain<DynamicFilterId>> partitions;
+
+    public LocalDynamicFilterConsumer(
+            Map<DynamicFilterId, Integer> buildChannels,
+            Map<DynamicFilterId, Type> filterBuildTypes,
+            List<Consumer<Map<DynamicFilterId, Domain>>> collectors)
     {
         this.buildChannels = requireNonNull(buildChannels, "buildChannels is null");
         this.filterBuildTypes = requireNonNull(filterBuildTypes, "filterBuildTypes is null");
         verify(buildChannels.keySet().equals(filterBuildTypes.keySet()), "filterBuildTypes and buildChannels must have same keys");
 
-        this.resultFuture = SettableFuture.create();
+        requireNonNull(collectors, "collectors is null");
+        checkArgument(!collectors.isEmpty(), "collectors is empty");
+        this.collectors = collectors;
         this.partitions = new ArrayList<>();
-    }
-
-    public ListenableFuture<Map<DynamicFilterId, Domain>> getDynamicFilterDomains()
-    {
-        return Futures.transform(resultFuture, this::convertTupleDomain, directExecutor());
     }
 
     @Override
     public void addPartition(TupleDomain<DynamicFilterId> tupleDomain)
     {
-        if (resultFuture.isDone()) {
-            return;
-        }
-        TupleDomain<DynamicFilterId> result = null;
+        TupleDomain<DynamicFilterId> result;
         synchronized (this) {
+            if (collected) {
+                return;
+            }
+            requireNonNull(partitions, "partitions is null");
             // Called concurrently by each DynamicFilterSourceOperator instance (when collection is over).
             verify(expectedPartitionCount == PARTITION_COUNT_INITIAL_VALUE || partitions.size() < expectedPartitionCount);
             // NOTE: may result in a bit more relaxed constraint if there are multiple columns and multiple rows.
             // See the comment at TupleDomain::columnWiseUnion() for more details.
             partitions.add(tupleDomain);
-            if (partitions.size() == expectedPartitionCount || tupleDomain.isAll()) {
-                // No more partitions are left to be processed.
-                result = TupleDomain.columnWiseUnion(partitions);
+            if (tupleDomain.isAll()) {
+                result = tupleDomain;
             }
+            else if (partitions.size() == expectedPartitionCount) {
+                // No more partitions are left to be processed.
+                if (partitions.isEmpty()) {
+                    result = TupleDomain.none();
+                }
+                else {
+                    result = TupleDomain.columnWiseUnion(partitions);
+                }
+            }
+            else {
+                return;
+            }
+            collected = true;
+            partitions = null;
         }
 
-        if (result != null) {
-            resultFuture.set(result);
-        }
+        notifyConsumers(result);
     }
 
     @Override
     public void setPartitionCount(int partitionCount)
     {
-        TupleDomain<DynamicFilterId> result = null;
+        TupleDomain<DynamicFilterId> result;
         synchronized (this) {
+            if (collected) {
+                return;
+            }
             checkState(expectedPartitionCount == PARTITION_COUNT_INITIAL_VALUE, "setPartitionCount should be called only once");
+            requireNonNull(partitions, "partitions is null");
             expectedPartitionCount = partitionCount;
             if (partitions.size() == expectedPartitionCount) {
                 // No more partitions are left to be processed.
-                result = TupleDomain.columnWiseUnion(partitions);
+                if (partitions.isEmpty()) {
+                    result = TupleDomain.none();
+                }
+                else {
+                    result = TupleDomain.columnWiseUnion(partitions);
+                }
+                collected = true;
+                partitions = null;
+            }
+            else {
+                return;
             }
         }
 
-        if (result != null) {
-            resultFuture.set(result);
-        }
+        notifyConsumers(result);
+    }
+
+    private void notifyConsumers(TupleDomain<DynamicFilterId> result)
+    {
+        requireNonNull(result, "result is null");
+        Map<DynamicFilterId, Domain> dynamicFilterDomains = convertTupleDomain(result);
+        collectors.forEach(consumer -> consumer.accept(dynamicFilterDomains));
     }
 
     private Map<DynamicFilterId, Domain> convertTupleDomain(TupleDomain<DynamicFilterId> result)
@@ -135,7 +168,8 @@ public class LocalDynamicFilterConsumer
     public static LocalDynamicFilterConsumer create(
             JoinNode planNode,
             List<Type> buildSourceTypes,
-            Set<DynamicFilterId> collectedFilters)
+            Set<DynamicFilterId> collectedFilters,
+            List<Consumer<Map<DynamicFilterId, Domain>>> collectors)
     {
         checkArgument(!planNode.getDynamicFilters().isEmpty(), "Join node dynamicFilters is empty.");
         checkArgument(!collectedFilters.isEmpty(), "Collected dynamic filters set is empty");
@@ -159,7 +193,7 @@ public class LocalDynamicFilterConsumer
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
                         entry -> buildSourceTypes.get(entry.getValue())));
-        return new LocalDynamicFilterConsumer(buildChannels, filterBuildTypes);
+        return new LocalDynamicFilterConsumer(buildChannels, filterBuildTypes, collectors);
     }
 
     public Map<DynamicFilterId, Integer> getBuildChannels()
@@ -168,11 +202,12 @@ public class LocalDynamicFilterConsumer
     }
 
     @Override
-    public String toString()
+    public synchronized String toString()
     {
         return toStringHelper(this)
                 .add("buildChannels", buildChannels)
                 .add("expectedPartitionCount", expectedPartitionCount)
+                .add("collected", collected)
                 .add("partitions", partitions)
                 .toString();
     }

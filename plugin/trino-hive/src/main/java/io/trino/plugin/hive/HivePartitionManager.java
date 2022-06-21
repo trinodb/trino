@@ -203,7 +203,6 @@ public class HivePartitionManager
                 partitions.getBucketHandle(),
                 partitions.getBucketFilter(),
                 handle.getAnalyzePartitionValues(),
-                handle.getAnalyzeColumnNames(),
                 Sets.union(handle.getConstraintColumns(), constraint.getPredicateColumns().orElseGet(ImmutableSet::of)),
                 handle.getProjectedColumns(),
                 handle.getTransaction(),

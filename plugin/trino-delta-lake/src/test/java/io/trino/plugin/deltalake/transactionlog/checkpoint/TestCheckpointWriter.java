@@ -30,19 +30,15 @@ import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveHdfsConfiguration;
-import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TypeManager;
-import io.trino.testing.TestingConnectorSession;
 import io.trino.util.DateTimeUtils;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -61,12 +57,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
-import static io.trino.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -79,7 +75,6 @@ import static org.testng.Assert.assertEquals;
 public class TestCheckpointWriter
 {
     private final TypeManager typeManager = TESTING_TYPE_MANAGER;
-    private ConnectorSession session;
     private CheckpointSchemaManager checkpointSchemaManager;
     private HdfsEnvironment hdfsEnvironment;
 
@@ -90,11 +85,6 @@ public class TestCheckpointWriter
         HdfsConfig hdfsConfig = new HdfsConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), Set.of());
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
-
-        HiveSessionProperties hiveSessionProperties = getHiveSessionProperties(new HiveConfig());
-        session = TestingConnectorSession.builder()
-                .setPropertyMetadata(hiveSessionProperties.getSessionProperties())
-                .build();
     }
 
     @Test
@@ -277,7 +267,7 @@ public class TestCheckpointWriter
 
         Path targetPath = new Path("file://" + targetFile.getAbsolutePath());
         targetFile.delete(); // file must not exist when writer is called
-        writer.write(session, entries, targetPath);
+        writer.write(SESSION, entries, targetPath);
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, true);
         assertEquals(readEntries.getTransactionEntries(), entries.getTransactionEntries());
@@ -351,7 +341,7 @@ public class TestCheckpointWriter
 
         Path targetPath = new Path("file://" + targetFile.getAbsolutePath());
         targetFile.delete(); // file must not exist when writer is called
-        writer.write(session, entries, targetPath);
+        writer.write(SESSION, entries, targetPath);
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, false);
         AddFileEntry addFileEntry = getOnlyElement(readEntries.getAddFileEntries());
@@ -416,12 +406,12 @@ public class TestCheckpointWriter
     private CheckpointEntries readCheckpoint(Path checkpointPath, MetadataEntry metadataEntry, boolean rowStatisticsEnabled)
             throws IOException
     {
-        FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), checkpointPath);
+        FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(SESSION), checkpointPath);
         FileStatus fileStatus = fileSystem.getFileStatus(checkpointPath);
 
         Iterator<DeltaLakeTransactionLogEntry> checkpointEntryIterator = new CheckpointEntryIterator(
                 checkpointPath,
-                session,
+                SESSION,
                 fileStatus.getLen(),
                 checkpointSchemaManager,
                 typeManager,

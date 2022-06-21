@@ -12,29 +12,19 @@ Trino supports both ADLS Gen1 and Gen2. With ADLS Gen2 now generally available,
 we recommend using ADLS Gen2. Learn more from `the official documentation
 <https://docs.microsoft.com/en-us/azure/data-lake-store/data-lake-store-overview>`_.
 
-Hive connector configuration
-----------------------------
+Hive connector configuration for Azure Storage credentials
+----------------------------------------------------------
 
-All configuration for the Azure storage driver is stored in the Hadoop
-``core-site.xml`` configuration file. The path to the file needs to be
-configured in the catalog properties file:
+To configure Trino to use the Azure Storage credentials, set the following
+configuration properties in the catalog properties file. It is best to use this
+type of configuration if the primary storage account is linked to the cluster.
 
-.. code-block:: text
+The specific configuration depends on the type of storage and uses the
+properties from the following sections in the catalog properties file.
 
-    hive.config.resources=<path_to_hadoop_core-site.xml>
-
-Configuration for Azure Storage credentials
--------------------------------------------
-
-If you do not want to rely on Hadoop's ``core-site.xml`` and want to have Trino
-configured independently with the storage credentials, you can use the following
-properties in the catalog configuration.
-
-We suggest to use this kind of configuration when you only have the Primary
-Storage account linked to the cluster. When there are secondary storage
-accounts involved, we recommend configuring Trino using a ``core-site.xml``
-containing the appropriate credentials for each account, as described in the
-preceding section.
+For more complex use cases, such as configuring multiple secondary storage
+accounts using Hadoop's ``core-site.xml``, see the
+:ref:`hive-azure-advanced-config` options.
 
 WASB storage
 ^^^^^^^^^^^^
@@ -118,6 +108,48 @@ catalog configuration.
   * - ``hive.azure.adl-proxy-host``
     - Proxy host and port in ``host:port`` format. Use this property to connect
       to an ADLS endpoint via a SOCKS proxy.
+
+.. _hive-azure-advanced-config:
+
+Advanced configuration
+^^^^^^^^^^^^^^^^^^^^^^
+
+All of the configuration properties for the Azure storage driver are stored in
+the Hadoop ``core-site.xml`` configuration file. When there are secondary
+storage accounts involved, we recommend configuring Trino using a
+``core-site.xml`` containing the appropriate credentials for each account.
+
+The path to the file must be configured in the catalog properties file:
+
+.. code-block:: text
+
+    hive.config.resources=<path_to_hadoop_core-site.xml>
+
+One way to find your account key is to ask for the connection string for the
+storage account. The ``abfsexample.dfs.core.windows.net`` account refers to the
+storage account. The connection string contains the account key:
+
+.. code-block:: text
+
+    az storage account  show-connection-string --name abfswales1
+    {
+      "connectionString": "DefaultEndpointsProtocol=https;EndpointSuffix=core.windows.net;AccountName=abfsexample;AccountKey=examplekey..."
+    }
+
+When you have the account access key, you can add it to your ``core-site.xml``
+or Java cryptography extension (JCEKS) file. Alternatively, you can have your
+cluster management tool to set the option
+``fs.azure.account.key.STORAGE-ACCOUNT`` to the account key value:
+
+.. code-block:: text
+
+    <property>
+      <name>fs.azure.account.key.abfsexample.dfs.core.windows.net</name>
+      <value>examplekey...</value>
+    </property>
+
+For more information, see `Hadoop Azure Support: ABFS
+<https://hadoop.apache.org/docs/stable/hadoop-azure/abfs.html>`_.
 
 Accessing Azure Storage data
 ----------------------------

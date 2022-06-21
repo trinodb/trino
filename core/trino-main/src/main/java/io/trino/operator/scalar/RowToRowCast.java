@@ -163,13 +163,13 @@ public class RowToRowCast
 
         CallSiteBinder binder = new CallSiteBinder();
 
-        // Embed the MD5 hash code of input and output types into the generated class name instead of the raw type names,
-        // which could prevent the class name from hitting the length limitation and invalid characters.
-        byte[] md5Suffix = Hashing.md5().hashBytes((fromType + "$" + toType).getBytes(UTF_8)).asBytes();
+        // Embed the hash code of input and output types into the generated class name instead of the raw type names,
+        // which ensures the class name does not hit the length limitation or invalid characters.
+        byte[] hashSuffix = Hashing.goodFastHash(128).hashBytes((fromType + "$" + toType).getBytes(UTF_8)).asBytes();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(md5Suffix))),
+                makeClassName(Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(hashSuffix))),
                 type(Object.class));
 
         Parameter session = arg("session", ConnectorSession.class);

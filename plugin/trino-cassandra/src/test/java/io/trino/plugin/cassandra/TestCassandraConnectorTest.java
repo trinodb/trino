@@ -157,6 +157,11 @@ public class TestCassandraConnectorTest
             // TODO this should either work or fail cleanly
             return Optional.empty();
         }
+        if (typeName.equals("time(6)") ||
+                typeName.equals("timestamp(6)") ||
+                typeName.equals("timestamp(6) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
         return Optional.of(dataMappingTestSetup);
     }
 

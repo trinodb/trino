@@ -17,6 +17,11 @@ Trino supports three functions for querying JSON data:
 is based on the same mechanism of exploring and processing JSON input using
 JSON path.
 
+Trino also supports two functions for generating JSON data --
+:ref:`json_array<json_array>`, and :ref:`json_object<json_object>`.
+
+.. _json-path-language:
+
 JSON path language
 ------------------
 
@@ -1162,6 +1167,251 @@ id         child
 102        'missing'
 103        'missing'
 ========== ================
+
+.. _json_array:
+
+json_array
+----------
+
+The ``json_array`` function creates a JSON array containing given elements.
+
+.. code-block:: text
+
+    JSON_ARRAY(
+        [ array_element [, ...]
+          [ { NULL ON NULL | ABSENT ON NULL } ] ],
+        [ RETURNING type [ FORMAT JSON [ ENCODING { UTF8 | UTF16 | UTF32 } ] ] ]
+        )
+
+Argument types
+^^^^^^^^^^^^^^
+
+The array elements can be arbitrary expressions. Each passed value is converted
+into a JSON item according to its type, and optional ``FORMAT`` and
+``ENCODING`` specification.
+
+You can pass SQL values of types boolean, numeric, and character string. They
+are converted to corresponding JSON literals::
+
+    SELECT json_array(true, 12e-1, 'text')
+    --> '[true,1.2,"text"]'
+
+Additionally to SQL values, you can pass JSON values. They are character or
+binary strings with a specified format and optional encoding::
+
+    SELECT json_array(
+                      '[  "text"  ] ' FORMAT JSON,
+                      X'5B0035005D00' FORMAT JSON ENCODING UTF16
+                     )
+    --> '[["text"],[5]]'
+
+You can also nest other JSON-returning functions. In that case, the ``FORMAT``
+option is implicit::
+
+    SELECT json_array(
+                      json_query('{"key" : [  "value"  ]}', 'lax $.key')
+                     )
+    --> '[["value"]]'
+
+Other passed values are cast to varchar, and they become JSON text literals::
+
+    SELECT json_array(
+                      DATE '2001-01-31',
+                      UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'
+                     )
+    --> '["2001-01-31","12151fd2-7586-11e9-8f9e-2a86e4085a59"]'
+
+You can omit the arguments altogether to get an empty array::
+
+    SELECT json_array() --> '[]'
+
+Null handling
+^^^^^^^^^^^^^
+
+If a value passed for an array element is ``null``, it is treated according to
+the specified null treatment option. If ``ABSENT ON NULL`` is specified, the
+null element is omitted in the result. If ``NULL ON NULL`` is specified, JSON
+``null`` is added to the result. ``ABSENT ON NULL`` is the default
+configuration::
+
+    SELECT json_array(true, null, 1)
+    --> '[true,1]'
+
+    SELECT json_array(true, null, 1 ABSENT ON NULL)
+    --> '[true,1]'
+
+    SELECT json_array(true, null, 1 NULL ON NULL)
+    --> '[true,null,1]'
+
+Returned type
+^^^^^^^^^^^^^
+
+The SQL standard imposes that there is no dedicated data type to represent JSON
+data in SQL. Instead, JSON data is represented as character or binary strings.
+By default, the ``json_array`` function returns varchar containing the textual
+representation of the JSON array. With the ``RETURNING`` clause, you can
+specify other character string type::
+
+    SELECT json_array(true, 1 RETURNING VARCHAR(100))
+    --> '[true,1]'
+
+You can also specify to use varbinary and the required encoding as return type.
+The default encoding is UTF8::
+
+    SELECT json_array(true, 1 RETURNING VARBINARY)
+    --> X'5b 74 72 75 65 2c 31 5d'
+
+    SELECT json_array(true, 1 RETURNING VARBINARY FORMAT JSON ENCODING UTF8)
+    --> X'5b 74 72 75 65 2c 31 5d'
+
+    SELECT json_array(true, 1 RETURNING VARBINARY FORMAT JSON ENCODING UTF16)
+    --> X'5b 00 74 00 72 00 75 00 65 00 2c 00 31 00 5d 00'
+
+    SELECT json_array(true, 1 RETURNING VARBINARY FORMAT JSON ENCODING UTF32)
+    --> X'5b 00 00 00 74 00 00 00 72 00 00 00 75 00 00 00 65 00 00 00 2c 00 00 00 31 00 00 00 5d 00 00 00'
+
+.. _json_object:
+
+json_object
+-----------
+
+The ``json_object`` function creates a JSON object containing given key-value pairs.
+
+.. code-block:: text
+
+    JSON_OBJECT(
+        [ key_value [, ...]
+          [ { NULL ON NULL | ABSENT ON NULL } ] ],
+          [ { WITH UNIQUE [ KEYS ] | WITHOUT UNIQUE [ KEYS ] } ]
+        [ RETURNING type [ FORMAT JSON [ ENCODING { UTF8 | UTF16 | UTF32 } ] ] ]
+        )
+
+Argument passing conventions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+There are two conventions for passing keys and values::
+
+    SELECT json_object('key1' : 1, 'key2' : true)
+    --> '{"key1":1,"key2":true}'
+
+    SELECT json_object(KEY 'key1' VALUE 1, KEY 'key2' VALUE true)
+    --> '{"key1":1,"key2":true}'
+
+In the second convention, you can omit the ``KEY`` keyword::
+
+    SELECT json_object('key1' VALUE 1, 'key2' VALUE true)
+    --> '{"key1":1,"key2":true}'
+
+Argument types
+^^^^^^^^^^^^^^
+
+The keys can be arbitrary expressions. They must be of character string type.
+Each key is converted into a JSON text item, and it becomes a key in the
+created JSON object. Keys must not be null.
+
+The values can be arbitrary expressions. Each passed value is converted
+into a JSON item according to its type, and optional ``FORMAT`` and
+``ENCODING`` specification.
+
+You can pass SQL values of types boolean, numeric, and character string. They
+are converted to corresponding JSON literals::
+
+    SELECT json_object('x' : true, 'y' : 12e-1, 'z' : 'text')
+    --> '{"x":true,"y":1.2,"z":"text"}'
+
+Additionally to SQL values, you can pass JSON values. They are character or
+binary strings with a specified format and optional encoding::
+
+    SELECT json_object(
+                       'x' : '[  "text"  ] ' FORMAT JSON,
+                       'y' : X'5B0035005D00' FORMAT JSON ENCODING UTF16
+                      )
+    --> '{"x":["text"],"y":[5]}'
+
+You can also nest other JSON-returning functions. In that case, the ``FORMAT``
+option is implicit::
+
+    SELECT json_object(
+                       'x' : json_query('{"key" : [  "value"  ]}', 'lax $.key')
+                      )
+    --> '{"x":["value"]}'
+
+Other passed values are cast to varchar, and they become JSON text literals::
+
+    SELECT json_object(
+                       'x' : DATE '2001-01-31',
+                       'y' : UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'
+                      )
+    --> '{"x":"2001-01-31","y":"12151fd2-7586-11e9-8f9e-2a86e4085a59"}'
+
+You can omit the arguments altogether to get an empty object::
+
+    SELECT json_object() --> '{}'
+
+Null handling
+^^^^^^^^^^^^^
+
+The values passed for JSON object keys must not be null. It is allowed to pass
+``null`` for JSON object values. A null value is treated according to the
+specified null treatment option. If ``NULL ON NULL`` is specified, a JSON
+object entry with ``null`` value is added to the result. If ``ABSENT ON NULL``
+is specified, the entry is omitted in the result. ``NULL ON NULL`` is the
+default configuration.::
+
+    SELECT json_object('x' : null, 'y' : 1)
+    --> '{"x":null,"y":1}'
+
+    SELECT json_object('x' : null, 'y' : 1 NULL ON NULL)
+    --> '{"x":null,"y":1}'
+
+    SELECT json_object('x' : null, 'y' : 1 ABSENT ON NULL)
+    --> '{"y":1}'
+
+Key uniqueness
+^^^^^^^^^^^^^^
+
+If a duplicate key is encountered, it is handled according to the specified key
+uniqueness constraint.
+
+If ``WITH UNIQUE KEYS`` is specified, a duplicate key results in a query
+failure::
+
+    SELECT json_object('x' : null, 'x' : 1 WITH UNIQUE KEYS)
+    --> failure: "duplicate key passed to JSON_OBJECT function"
+
+Note that this option is not supported if any of the arguments has a
+``FORMAT`` specification.
+
+If ``WITHOUT UNIQUE KEYS`` is specified, duplicate keys are not supported due
+to implementation limitation. ``WITHOUT UNIQUE KEYS`` is the default
+configuration.
+
+Returned type
+^^^^^^^^^^^^^
+
+The SQL standard imposes that there is no dedicated data type to represent JSON
+data in SQL. Instead, JSON data is represented as character or binary strings.
+By default, the ``json_object`` function returns varchar containing the textual
+representation of the JSON object. With the ``RETURNING`` clause, you can
+specify other character string type::
+
+    SELECT json_object('x' : 1 RETURNING VARCHAR(100))
+    --> '{"x":1}'
+
+You can also specify to use varbinary and the required encoding as return type.
+The default encoding is UTF8::
+
+    SELECT json_object('x' : 1 RETURNING VARBINARY)
+    --> X'7b 22 78 22 3a 31 7d'
+
+    SELECT json_object('x' : 1 RETURNING VARBINARY FORMAT JSON ENCODING UTF8)
+    --> X'7b 22 78 22 3a 31 7d'
+
+    SELECT json_object('x' : 1 RETURNING VARBINARY FORMAT JSON ENCODING UTF16)
+    --> X'7b 00 22 00 78 00 22 00 3a 00 31 00 7d 00'
+
+    SELECT json_object('x' : 1 RETURNING VARBINARY FORMAT JSON ENCODING UTF32)
+    --> X'7b 00 00 00 22 00 00 00 78 00 00 00 22 00 00 00 3a 00 00 00 31 00 00 00 7d 00 00 00'
 
 .. warning::
 

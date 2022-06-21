@@ -60,6 +60,7 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static java.lang.Math.floorDiv;
@@ -616,6 +617,11 @@ public class TimestampColumnReader
 
             // round nanos to micros and convert to picos
             picosFraction = toIntExact(roundDiv(nanos, NANOSECONDS_PER_MICROSECOND)) * PICOSECONDS_PER_MICROSECOND;
+
+            if (picosFraction == PICOSECONDS_PER_MILLISECOND) {
+                picosFraction = 0;
+                millis++;
+            }
         }
 
         millisValues[i] = packDateTimeWithZone(millis, TimeZoneKey.UTC_KEY);

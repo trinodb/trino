@@ -21,8 +21,10 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
@@ -32,6 +34,28 @@ import static java.lang.String.format;
 public class TestDeltaLakeDatabricksUpdates
         extends BaseTestDeltaLakeS3Storage
 {
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testUpdateOnAppendOnlyTableFails()
+    {
+        String tableName = "test_update_on_append_only_table_fails_" + randomTableSuffix();
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                "         (a INT, b INT)" +
+                "         USING delta " +
+                "         LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
+                "         TBLPROPERTIES ('delta.appendOnly' = true)");
+
+        onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1,11), (2, 12)");
+        assertQueryFailure(() -> onDelta().executeQuery("UPDATE default." + tableName + " SET a = a + 1"))
+                .hasMessageContaining("This table is configured to only allow appends");
+        assertQueryFailure(() -> onTrino().executeQuery("UPDATE default." + tableName + " SET a = a + 1"))
+                .hasMessageContaining("Cannot update rows from a table with 'delta.appendOnly' set to true");
+
+        assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                .containsOnly(row(1, 11), row(2, 12));
+        onTrino().executeQuery("DROP TABLE " + tableName);
+    }
+
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     public void testUpdatesFromDatabricks()
     {

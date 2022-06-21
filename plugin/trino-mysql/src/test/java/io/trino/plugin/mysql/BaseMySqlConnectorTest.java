@@ -135,7 +135,8 @@ public abstract class BaseMySqlConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("timestamp(3) with time zone")) {
+        if (typeName.equals("timestamp(3) with time zone") ||
+                typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
@@ -145,7 +146,7 @@ public abstract class BaseMySqlConnectorTest
         }
 
         if (typeName.equals("boolean")) {
-            // MySql does not have built-in support for boolean type. MySQL provides BOOLEAN as the synonym of TINYINT(1)
+            // MySQL does not have built-in support for boolean type. MySQL provides BOOLEAN as the synonym of TINYINT(1)
             // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
             return Optional.empty();
         }
@@ -354,6 +355,23 @@ public abstract class BaseMySqlConnectorTest
                 .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
                 .collect(joining(" OR "));
         onRemoteDatabase().execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        // override because MySQL succeeds in preparing query, and then fails because of no metadata available
+        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
+    }
+
+    @Override
+    public void testNativeQueryIncorrectSyntax()
+    {
+        // override because MySQL succeeds in preparing query, and then fails because of no metadata available
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
     }
 
     private String getLongInClause(int start, int length)

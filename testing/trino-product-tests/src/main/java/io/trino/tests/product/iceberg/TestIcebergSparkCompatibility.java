@@ -829,6 +829,45 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName(trinoTable));
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "specVersions")
+    public void testCreateAndDropTableWithSameLocationWorksOnSpark(int specVersion)
+    {
+        String dataPath = "hdfs://hadoop-master:9000/user/hive/warehouse/test_create_table_same_location/obj-data";
+        String tableSameLocation1 = "test_same_location_spark_1_" + randomTableSuffix();
+        String tableSameLocation2 = "test_same_location_spark_2_" + randomTableSuffix();
+
+        onSpark().executeQuery(format("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG LOCATION '%s' TBLPROPERTIES('format-version' = %s)",
+                sparkTableName(tableSameLocation1), dataPath, specVersion));
+        onSpark().executeQuery(format("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG LOCATION '%s' TBLPROPERTIES('format-version' = %s)",
+                sparkTableName(tableSameLocation2), dataPath, specVersion));
+
+        onSpark().executeQuery(format("DROP TABLE IF EXISTS %s", sparkTableName(tableSameLocation1)));
+
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName(tableSameLocation2)))).hasNoRows();
+
+        onSpark().executeQuery(format("DROP TABLE %s", sparkTableName(tableSameLocation2)));
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "specVersions")
+    public void testCreateAndDropTableWithSameLocationFailsOnTrino(int specVersion)
+    {
+        String dataPath = "hdfs://hadoop-master:9000/user/hive/warehouse/test_create_table_same_location/obj-data";
+        String tableSameLocation1 = "test_same_location_trino_1_" + randomTableSuffix();
+        String tableSameLocation2 = "test_same_location_trino_2_" + randomTableSuffix();
+
+        onSpark().executeQuery(format("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG LOCATION '%s' TBLPROPERTIES('format-version' = %s)",
+                sparkTableName(tableSameLocation1), dataPath, specVersion));
+        onSpark().executeQuery(format("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG LOCATION '%s' TBLPROPERTIES('format-version' = %s)",
+                sparkTableName(tableSameLocation2), dataPath, specVersion));
+
+        onTrino().executeQuery(format("DROP TABLE %s", trinoTableName(tableSameLocation1)));
+
+        assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName(tableSameLocation2))))
+                .hasMessageMatching(".*Failed to open input stream for file.*");
+
+        // Can't clean up tableSameLocation2 as all data and metadata has been removed
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
     public void testTrinoWritingDataWithObjectStorageLocationProvider(StorageFormat storageFormat, int specVersion)
     {

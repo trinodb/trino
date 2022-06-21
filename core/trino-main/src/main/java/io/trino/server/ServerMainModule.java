@@ -150,7 +150,6 @@ import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Expression;
-import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
 import io.trino.type.JsonPath2016Type;
@@ -368,9 +367,6 @@ public class ServerMainModule
         // memory manager
         jaxrsBinder(binder).bind(MemoryResource.class);
         jsonCodecBinder(binder).bindJsonCodec(MemoryInfo.class);
-
-        // transaction manager
-        configBinder(binder).bindConfig(TransactionManagerConfig.class);
 
         // data stream provider
         binder.bind(PageSourceManager.class).in(Scopes.SINGLETON);

@@ -18,13 +18,13 @@ import io.trino.plugin.hive.authentication.ImpersonatingHdfsAuthentication;
 import io.trino.plugin.hive.authentication.SimpleHadoopAuthentication;
 import io.trino.plugin.hive.authentication.SimpleUserNameProvider;
 import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 
@@ -59,6 +59,6 @@ public class TestFileSystemCache
     private FileSystem getFileSystem(HdfsEnvironment environment, ConnectorIdentity identity)
             throws IOException
     {
-        return environment.getFileSystem(identity, new Path("/"), new Configuration(false));
+        return environment.getFileSystem(identity, new Path("/"), newEmptyConfiguration());
     }
 }

@@ -30,6 +30,22 @@ depending on the desired :ref:`retry policy <fte-retry-policy>`.
 
     retry-policy=QUERY
 
+.. warning::
+
+  Setting ``retry-policy`` disables :ref:`write operations
+  <sql-write-operations>` with connectors that do not support fault-tolerant
+  execution of write operations, resulting in a "This connector does not support
+  query retries" error message.
+
+  Support for fault-tolerant execution of SQL statements varies on a
+  per-connector basis:
+
+  * Fault-tolerant execution of :ref:`read operations <sql-read-operations>` is
+    supported by all connectors.
+  * Fault tolerant execution of :ref:`write operations <sql-write-operations>`
+    is only supported by the :doc:`/connector/delta-lake`,
+    :doc:`/connector/hive`, and :doc:`/connector/iceberg`.
+
 The following configuration properties control the behavior of fault-tolerant
 execution on a Trino cluster:
 
@@ -206,7 +222,7 @@ properties only apply to a ``TASK`` retry policy.
        May be overridden for the current session with the
        ``fault_tolerant_execution_target_task_input_size``
        :ref:`session property <session-properties-definition>`.
-     - ``1GB``
+     - ``4GB``
    * - ``fault-tolerant-execution-target-task-split-count``
      - Target number of standard :ref:`splits <trino-concept-splits>` processed
        by a single task that reads data from source tables. Value is interpreted
@@ -218,7 +234,7 @@ properties only apply to a ``TASK`` retry policy.
        May be overridden for the current session with the
        ``fault_tolerant_execution_target_task_split_count``
        :ref:`session property <session-properties-definition>`.
-     - ``16``
+     - ``64``
    * - ``fault-tolerant-execution-min-task-split-count``
      - Minimum number of :ref:`splits <trino-concept-splits>` processed by
        a single task. This value is not split weight-adjusted and serves as
@@ -264,7 +280,7 @@ applies to a ``TASK`` retry policy.
        for tasks. May be overridden for the current session with the
        ``fault_tolerant_execution_task_memory``
        :ref:`session property <session-properties-definition>`.
-     - ``4GB``
+     - ``5GB``
 
 Other tuning
 ^^^^^^^^^^^^

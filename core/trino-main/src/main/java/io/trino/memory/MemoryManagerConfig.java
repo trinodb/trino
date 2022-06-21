@@ -41,7 +41,7 @@ public class MemoryManagerConfig
     private DataSize maxQueryMemory = DataSize.of(20, GIGABYTE);
     // enforced against user + system memory allocations (default is maxQueryMemory * 2)
     private DataSize maxQueryTotalMemory;
-    private DataSize faultTolerantExecutionTaskMemory = DataSize.of(4, GIGABYTE);
+    private DataSize faultTolerantExecutionTaskMemory = DataSize.of(5, GIGABYTE);
     private double faultTolerantExecutionTaskMemoryGrowthFactor = 3.0;
     private double faultTolerantExecutionTaskMemoryEstimationQuantile = 0.9;
     private DataSize faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead = DataSize.of(1, GIGABYTE);

@@ -61,7 +61,9 @@ import io.trino.sql.tree.IntervalDayTimeDataType;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
@@ -889,6 +891,57 @@ public final class ExpressionFormatter
                     .append(node.getErrorBehavior())
                     .append(" ON ERROR")
                     .append(")");
+
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitJsonObject(JsonObject node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("JSON_OBJECT(");
+
+            if (!node.getMembers().isEmpty()) {
+                builder.append(node.getMembers().stream()
+                        .map(member -> "KEY " + formatExpression(member.getKey()) + " VALUE " + formatJsonExpression(member.getValue(), member.getFormat()))
+                        .collect(joining(", ")));
+                builder.append(node.isNullOnNull() ? " NULL ON NULL" : " ABSENT ON NULL");
+                builder.append(node.isUniqueKeys() ? " WITH UNIQUE KEYS" : " WITHOUT UNIQUE KEYS");
+            }
+
+            if (node.getReturnedType().isPresent()) {
+                builder.append(" RETURNING ")
+                        .append(process(node.getReturnedType().get()))
+                        .append(node.getOutputFormat().map(string -> " FORMAT " + string).orElse(""));
+            }
+
+            builder.append(")");
+
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitJsonArray(JsonArray node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("JSON_ARRAY(");
+
+            if (!node.getElements().isEmpty()) {
+                builder.append(node.getElements().stream()
+                        .map(element -> formatJsonExpression(element.getValue(), element.getFormat()))
+                        .collect(joining(", ")));
+                builder.append(node.isNullOnNull() ? " NULL ON NULL" : " ABSENT ON NULL");
+            }
+
+            if (node.getReturnedType().isPresent()) {
+                builder.append(" RETURNING ")
+                        .append(process(node.getReturnedType().get()))
+                        .append(node.getOutputFormat().map(string -> " FORMAT " + string).orElse(""));
+            }
+
+            builder.append(")");
 
             return builder.toString();
         }

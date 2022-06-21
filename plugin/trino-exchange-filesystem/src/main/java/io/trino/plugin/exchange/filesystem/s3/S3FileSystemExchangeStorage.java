@@ -54,7 +54,6 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadResponse;
-import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
@@ -66,16 +65,12 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
-import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
@@ -137,7 +132,6 @@ public class S3FileSystemExchangeStorage
     private final Optional<Region> region;
     private final Optional<String> endpoint;
     private final int multiUploadPartSize;
-    private final S3Client s3Client;
     private final S3AsyncClient s3AsyncClient;
     private final StorageClass storageClass;
     private final CompatibilityMode compatibilityMode;
@@ -167,8 +161,6 @@ public class S3FileSystemExchangeStorage
                 .putAdvancedOption(USER_AGENT_PREFIX, "")
                 .putAdvancedOption(USER_AGENT_SUFFIX, "Trino-exchange")
                 .build();
-
-        this.s3Client = createS3Client(credentialsProvider, overrideConfig);
         this.s3AsyncClient = createS3AsyncClient(
                 credentialsProvider,
                 overrideConfig,
@@ -202,7 +194,6 @@ public class S3FileSystemExchangeStorage
 
     @Override
     public void createDirectories(URI dir)
-            throws IOException
     {
         // Nothing to do for S3
     }
@@ -223,14 +214,6 @@ public class S3FileSystemExchangeStorage
     }
 
     @Override
-    public boolean exists(URI file)
-            throws IOException
-    {
-        // Only used for commit marker files and doesn't need secretKey
-        return headObject(file, Optional.empty()) != null;
-    }
-
-    @Override
     public ListenableFuture<Void> createEmptyFile(URI file)
     {
         PutObjectRequest request = PutObjectRequest.builder()
@@ -245,100 +228,74 @@ public class S3FileSystemExchangeStorage
     public ListenableFuture<Void> deleteRecursively(List<URI> directories)
     {
         if (compatibilityMode == GCP) {
-            // GCS is not compatible with S3's multi-object delete API https://cloud.google.com/storage/docs/migrating#methods-comparison
-            Storage storage = gcsClient.orElseThrow(() -> new IllegalStateException("gcsClient is expected to be initialized"));
-            ListeningExecutorService deleteExecutor = gcsDeleteExecutor.orElseThrow(() -> new IllegalStateException("gcsDeleteExecutor is expected to be initialized"));
-            return stats.getDeleteRecursively().record(asVoid(deleteExecutor.submit(() -> {
-                StorageBatch batch = storage.batch();
-                for (URI dir : directories) {
-                    Page<Blob> blobs = storage.list(getBucketName(dir), Storage.BlobListOption.prefix(keyFromUri(dir)));
-                    for (Blob blob : blobs.iterateAll()) {
-                        batch.delete(blob.getBlobId());
-                    }
-                }
-                batch.submit();
-            })));
+            return deleteRecursivelyGcp(directories);
         }
-        else {
-            ImmutableMultimap.Builder<String, ListenableFuture<List<String>>> bucketToListObjectsFuturesBuilder = ImmutableMultimap.builder();
+
+        ImmutableMultimap.Builder<String, ListenableFuture<List<String>>> bucketToListObjectsFuturesBuilder = ImmutableMultimap.builder();
+        for (URI dir : directories) {
+            ImmutableList.Builder<String> keys = ImmutableList.builder();
+            ListenableFuture<List<String>> listObjectsFuture = Futures.transform(
+                    toListenableFuture((listObjectsRecursively(dir)
+                            .subscribe(listObjectsV2Response -> listObjectsV2Response.contents().stream()
+                                    .map(S3Object::key)
+                                    .forEach(keys::add)))),
+                    ignored -> keys.build(),
+                    directExecutor());
+            bucketToListObjectsFuturesBuilder.put(getBucketName(dir), listObjectsFuture);
+        }
+        Multimap<String, ListenableFuture<List<String>>> bucketToListObjectsFutures = bucketToListObjectsFuturesBuilder.build();
+
+        ImmutableList.Builder<ListenableFuture<List<DeleteObjectsResponse>>> deleteObjectsFutures = ImmutableList.builder();
+        for (String bucketName : bucketToListObjectsFutures.keySet()) {
+            deleteObjectsFutures.add(Futures.transformAsync(
+                    Futures.allAsList(bucketToListObjectsFutures.get(bucketName)),
+                    keys -> deleteObjects(
+                            bucketName,
+                            keys.stream()
+                                    .flatMap(Collection::stream)
+                                    .collect(toImmutableList())),
+                    directExecutor()));
+        }
+        return translateFailures(Futures.allAsList(deleteObjectsFutures.build()));
+    }
+
+    private ListenableFuture<Void> deleteRecursivelyGcp(List<URI> directories)
+    {
+        // GCS is not compatible with S3's multi-object delete API https://cloud.google.com/storage/docs/migrating#methods-comparison
+        Storage storage = gcsClient.orElseThrow(() -> new IllegalStateException("gcsClient is expected to be initialized"));
+        ListeningExecutorService deleteExecutor = gcsDeleteExecutor.orElseThrow(() -> new IllegalStateException("gcsDeleteExecutor is expected to be initialized"));
+        return stats.getDeleteRecursively().record(translateFailures(deleteExecutor.submit(() -> {
+            StorageBatch batch = storage.batch();
             for (URI dir : directories) {
-                ImmutableList.Builder<String> keys = ImmutableList.builder();
-                ListenableFuture<List<String>> listObjectsFuture = Futures.transform(
-                        toListenableFuture((listObjectsRecursively(dir)
-                                .subscribe(listObjectsV2Response -> listObjectsV2Response.contents().stream()
-                                        .map(S3Object::key)
-                                        .forEach(keys::add)))),
-                        ignored -> keys.build(),
-                        directExecutor());
-                bucketToListObjectsFuturesBuilder.put(getBucketName(dir), listObjectsFuture);
+                Page<Blob> blobs = storage.list(getBucketName(dir), Storage.BlobListOption.prefix(keyFromUri(dir)));
+                for (Blob blob : blobs.iterateAll()) {
+                    batch.delete(blob.getBlobId());
+                }
             }
-            Multimap<String, ListenableFuture<List<String>>> bucketToListObjectsFutures = bucketToListObjectsFuturesBuilder.build();
-
-            ImmutableList.Builder<ListenableFuture<List<DeleteObjectsResponse>>> deleteObjectsFutures = ImmutableList.builder();
-            for (String bucketName : bucketToListObjectsFutures.keySet()) {
-                deleteObjectsFutures.add(Futures.transformAsync(
-                        Futures.allAsList(bucketToListObjectsFutures.get(bucketName)),
-                        keys -> deleteObjects(
-                                bucketName,
-                                keys.stream()
-                                        .flatMap(Collection::stream)
-                                        .collect(toImmutableList())),
-                        directExecutor()));
-            }
-            return translateFailures(Futures.allAsList(deleteObjectsFutures.build()));
-        }
+            batch.submit();
+        })));
     }
 
     @Override
-    public List<FileStatus> listFiles(URI dir)
-            throws IOException
+    public ListenableFuture<List<FileStatus>> listFilesRecursively(URI dir)
     {
-        ImmutableList.Builder<FileStatus> builder = ImmutableList.builder();
-        try {
-            stats.getListFiles().record(() -> {
-                for (S3Object object : listObjects(dir).contents()) {
-                    URI uri;
-                    try {
-                        uri = new URI(dir.getScheme(), dir.getHost(), PATH_SEPARATOR + object.key(), dir.getFragment());
-                    }
-                    catch (URISyntaxException e) {
-                        throw new IllegalArgumentException(e);
-                    }
-                    builder.add(new FileStatus(uri.toString(), object.size()));
-                }
-                return null;
-            });
-        }
-        catch (RuntimeException e) {
-            throw new IOException(e);
-        }
-        return builder.build();
-    }
-
-    @Override
-    public List<URI> listDirectories(URI dir)
-            throws IOException
-    {
-        ImmutableList.Builder<URI> builder = ImmutableList.builder();
-        try {
-            stats.getListDirectories().record(() -> {
-                for (CommonPrefix prefix : listObjects(dir).commonPrefixes()) {
-                    URI uri;
-                    try {
-                        uri = new URI(dir.getScheme(), dir.getHost(), PATH_SEPARATOR + prefix.prefix(), dir.getFragment());
-                    }
-                    catch (URISyntaxException e) {
-                        throw new IllegalArgumentException(e);
-                    }
-                    builder.add(uri);
-                }
-                return null;
-            });
-        }
-        catch (RuntimeException e) {
-            throw new IOException(e);
-        }
-        return builder.build();
+        ImmutableList.Builder<FileStatus> fileStatuses = ImmutableList.builder();
+        return stats.getListFilesRecursively().record(Futures.transform(
+                toListenableFuture((listObjectsRecursively(dir)
+                        .subscribe(listObjectsV2Response -> {
+                            for (S3Object s3Object : listObjectsV2Response.contents()) {
+                                URI uri;
+                                try {
+                                    uri = new URI(dir.getScheme(), dir.getHost(), PATH_SEPARATOR + s3Object.key(), dir.getFragment());
+                                }
+                                catch (URISyntaxException e) {
+                                    throw new IllegalArgumentException(e);
+                                }
+                                fileStatuses.add(new FileStatus(uri.toString(), s3Object.size()));
+                            }
+                        }))),
+                ignored -> fileStatuses.build(),
+                directExecutor()));
     }
 
     @Override
@@ -353,47 +310,9 @@ public class S3FileSystemExchangeStorage
             throws IOException
     {
         try (Closer closer = Closer.create()) {
-            closer.register(s3Client::close);
             closer.register(s3AsyncClient::close);
             gcsDeleteExecutor.ifPresent(listeningExecutorService -> closer.register(listeningExecutorService::shutdown));
         }
-    }
-
-    private HeadObjectResponse headObject(URI uri, Optional<SecretKey> secretKey)
-            throws IOException
-    {
-        HeadObjectRequest.Builder headObjectRequestBuilder = HeadObjectRequest.builder()
-                .bucket(getBucketName(uri))
-                .key(keyFromUri(uri));
-        configureEncryption(secretKey, headObjectRequestBuilder);
-
-        try {
-            return stats.getHeadObject().record(() -> s3Client.headObject(headObjectRequestBuilder.build()));
-        }
-        catch (RuntimeException e) {
-            if (e instanceof NoSuchKeyException) {
-                return null;
-            }
-            throw new IOException(e);
-        }
-    }
-
-    private ListObjectsV2Iterable listObjects(URI dir)
-    {
-        checkArgument(isDirectory(dir), "listObjects called on file uri %s", dir);
-
-        String key = keyFromUri(dir);
-        if (!key.isEmpty()) {
-            key += PATH_SEPARATOR;
-        }
-
-        ListObjectsV2Request request = ListObjectsV2Request.builder()
-                .bucket(getBucketName(dir))
-                .prefix(key)
-                .delimiter(PATH_SEPARATOR)
-                .build();
-
-        return s3Client.listObjectsV2Paginator(request);
     }
 
     private ListObjectsV2Publisher listObjectsRecursively(URI dir)
@@ -651,6 +570,7 @@ public class S3FileSystemExchangeStorage
             inProgressReadFuture = immediateVoidFuture(); // such that we don't retain reference to the buffer
         }
 
+        @GuardedBy("this")
         private void fillBuffer()
         {
             if (currentFile == null || fileOffset == currentFile.getFileSize()) {

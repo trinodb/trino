@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -114,9 +115,13 @@ public class DeltaLakePageSink
     private final JobConf conf;
     private final TypeManager typeManager;
     private final String trinoVersion;
+    private final long targetMaxFileSize;
 
     private long writtenBytes;
     private long memoryUsage;
+
+    private final List<DeltaLakeWriter> closedWriters = new ArrayList<>();
+    private final ImmutableList.Builder<Slice> dataFileInfos = ImmutableList.builder();
 
     public DeltaLakePageSink(
             List<DeltaLakeColumnHandle> inputColumns,
@@ -191,6 +196,7 @@ public class DeltaLakePageSink
         this.conf = toJobConf(conf);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
+        this.targetMaxFileSize = DeltaLakeSessionProperties.getTargetMaxFileSize(session);
     }
 
     @Override
@@ -220,26 +226,13 @@ public class DeltaLakePageSink
 
     private ListenableFuture<Collection<Slice>> doFinish()
     {
-        ImmutableList.Builder<Slice> dataFileInfos = ImmutableList.builder();
-        Optional<Exception> commitException = Optional.empty();
         for (DeltaLakeWriter writer : writers) {
-            writer.commit();
-            try {
-                DataFileInfo dataFileInfo = writer.getDataFileInfo();
-                dataFileInfos.add(wrappedBuffer(dataFileInfoCodec.toJsonBytes(dataFileInfo)));
-            }
-            catch (IOException e) {
-                LOG.warn("exception '%s' while finishing write on %s", e, writer);
-                commitException = Optional.of(e);
-            }
-        }
-        if (commitException.isPresent()) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Error committing Parquet file to Delta Lake", commitException.get());
+            closeWriter(writer);
         }
 
         List<Slice> result = dataFileInfos.build();
 
-        writtenBytes = writers.stream()
+        writtenBytes = closedWriters.stream()
                 .mapToLong(DeltaLakeWriter::getWrittenBytes)
                 .sum();
 
@@ -255,7 +248,7 @@ public class DeltaLakePageSink
     private void doAbort()
     {
         Optional<Exception> rollbackException = Optional.empty();
-        for (DeltaLakeWriter writer : writers) {
+        for (DeltaLakeWriter writer : Iterables.concat(writers, closedWriters)) {
             // writers can contain nulls if an exception is thrown when doAppend expends the writer list
             if (writer != null) {
                 try {
@@ -357,12 +350,21 @@ public class DeltaLakePageSink
         while (writers.size() <= pageIndexer.getMaxIndex()) {
             writers.add(null);
         }
-
+        boolean isOptimizedParquetWriter = isParquetOptimizedWriterEnabled(session);
         // create missing writers
         for (int position = 0; position < page.getPositionCount(); position++) {
             int writerIndex = writerIndexes[position];
-            if (writers.get(writerIndex) != null) {
-                continue;
+            DeltaLakeWriter deltaLakeWriter = writers.get(writerIndex);
+            if (deltaLakeWriter != null) {
+                if (isOptimizedParquetWriter) {
+                    if (deltaLakeWriter.getWrittenBytes() <= targetMaxFileSize) {
+                        continue;
+                    }
+                    closeWriter(deltaLakeWriter);
+                }
+                else {
+                    continue;
+                }
             }
 
             Path filePath = new Path(outputPath);
@@ -379,7 +381,7 @@ public class DeltaLakePageSink
             filePath = new Path(filePath, fileName);
 
             FileWriter fileWriter;
-            if (isParquetOptimizedWriterEnabled(session)) {
+            if (isOptimizedParquetWriter) {
                 fileWriter = createParquetFileWriter(filePath);
             }
             else {
@@ -407,6 +409,24 @@ public class DeltaLakePageSink
         verify(!writers.contains(null));
 
         return writerIndexes;
+    }
+
+    private void closeWriter(DeltaLakeWriter writer)
+    {
+        long currentWritten = writer.getWrittenBytes();
+        long currentMemory = writer.getMemoryUsage();
+        writer.commit();
+        writtenBytes += writer.getWrittenBytes() - currentWritten;
+        memoryUsage += writer.getMemoryUsage() - currentMemory;
+        try {
+            DataFileInfo dataFileInfo = writer.getDataFileInfo();
+            dataFileInfos.add(wrappedBuffer(dataFileInfoCodec.toJsonBytes(dataFileInfo)));
+        }
+        catch (IOException e) {
+            LOG.warn("exception '%s' while finishing write on %s", e, writer);
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Error committing Parquet file to Delta Lake", e);
+        }
+        closedWriters.add(writer);
     }
 
     /**
@@ -468,7 +488,7 @@ public class DeltaLakePageSink
                 identityMapping[i] = i;
             }
 
-            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(parquetTypes, dataColumnNames);
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(parquetTypes, dataColumnNames, false);
             return new ParquetFileWriter(
                     fileSystem.create(path),
                     rollbackAction,

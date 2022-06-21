@@ -1,0 +1,29 @@
+{
+    "tableName": "string_value_table",
+    "schemaName": "default",
+    "key": {
+        "dataFormat": "raw",
+        "fields": [
+            {
+                "name": "redis_key",
+                "type": "VARCHAR(64)",
+                "hidden": "true"
+            }
+        ]
+    },
+    "value": {
+        "dataFormat": "json",
+        "fields": [
+            {
+                "name": "id",
+                "mapping": "id",
+                "type": "BIGINT"
+            },
+            {
+                "name": "value",
+                "mapping": "value",
+                "type": "VARCHAR(36)"
+            }
+        ]
+    }
+}

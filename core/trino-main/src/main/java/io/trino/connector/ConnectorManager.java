@@ -27,8 +27,8 @@ import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.index.IndexManager;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Catalog;
-import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.CatalogMetadata.SecurityManagement;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
@@ -49,6 +49,7 @@ import io.trino.spi.VersionEmbedder;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorIndexProvider;
@@ -91,8 +92,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
-import static io.trino.metadata.Catalog.SecurityManagement.CONNECTOR;
-import static io.trino.metadata.Catalog.SecurityManagement.SYSTEM;
+import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
+import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -211,6 +212,7 @@ public class ConnectorManager
         for (MaterializedConnector connector : connectors.values()) {
             connector.shutdown();
         }
+        connectors.clear();
     }
 
     public synchronized void addConnectorFactory(ConnectorFactory connectorFactory, Function<CatalogName, ClassLoader> duplicatePluginClassLoaderFactory)
@@ -282,19 +284,14 @@ public class ConnectorManager
                 transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogName)),
                 () -> {});
 
-        SecurityManagement securityManagement = connector.getAccessControl().isPresent() ? CONNECTOR : SYSTEM;
-
         Catalog catalog = new Catalog(
-                catalogName.getCatalogName(),
-                connector.getCatalogName(),
+                catalogName,
                 connectorName,
-                connector.getConnector(),
-                securityManagement,
+                connector,
                 informationSchemaConnector.getCatalogName(),
-                informationSchemaConnector.getConnector(),
+                informationSchemaConnector,
                 systemConnector.getCatalogName(),
-                systemConnector.getConnector());
-
+                systemConnector);
         try {
             addConnectorInternal(connector);
             addConnectorInternal(informationSchemaConnector);
@@ -302,7 +299,7 @@ public class ConnectorManager
             catalogManager.registerCatalog(catalog);
         }
         catch (Throwable e) {
-            catalogManager.removeCatalog(catalog.getCatalogName());
+            catalogManager.removeCatalog(catalog.getCatalogName().getCatalogName());
             removeConnectorInternal(systemConnector.getCatalogName());
             removeConnectorInternal(informationSchemaConnector.getCatalogName());
             removeConnectorInternal(connector.getCatalogName());
@@ -352,18 +349,6 @@ public class ConnectorManager
             tableProceduresPropertyManager.addProperties(catalogName, tableProcedure.getName(), tableProcedure.getProperties());
         }
         sessionPropertyManager.addConnectorSessionProperties(catalogName, connector.getSessionProperties());
-    }
-
-    public synchronized void dropConnection(String catalogName)
-    {
-        requireNonNull(catalogName, "catalogName is null");
-
-        catalogManager.removeCatalog(catalogName).ifPresent(catalog -> {
-            // todo wait for all running transactions using the connector to complete before removing the services
-            removeConnectorInternal(catalog);
-            removeConnectorInternal(createInformationSchemaCatalogName(catalog));
-            removeConnectorInternal(createSystemTablesCatalogName(catalog));
-        });
     }
 
     private synchronized void removeConnectorInternal(CatalogName catalogName)
@@ -494,7 +479,7 @@ public class ConnectorManager
         }
     }
 
-    private static class MaterializedConnector
+    public static class MaterializedConnector
     {
         private final CatalogName catalogName;
         private final Connector connector;
@@ -516,6 +501,7 @@ public class ConnectorManager
         private final List<PropertyMetadata<?>> schemaProperties;
         private final List<PropertyMetadata<?>> columnProperties;
         private final List<PropertyMetadata<?>> analyzeProperties;
+        private final Set<ConnectorCapabilities> capabilities;
 
         public MaterializedConnector(CatalogName catalogName, Connector connector, Runnable afterShutdown)
         {
@@ -627,6 +613,10 @@ public class ConnectorManager
             List<PropertyMetadata<?>> analyzeProperties = connector.getAnalyzeProperties();
             requireNonNull(analyzeProperties, format("Connector '%s' returned a null analyze properties set", catalogName));
             this.analyzeProperties = ImmutableList.copyOf(analyzeProperties);
+
+            Set<ConnectorCapabilities> capabilities = connector.getCapabilities();
+            requireNonNull(capabilities, format("Connector '%s' returned a null capabilities set", catalogName));
+            this.capabilities = capabilities;
         }
 
         public CatalogName getCatalogName()
@@ -684,6 +674,11 @@ public class ConnectorManager
             return partitioningProvider;
         }
 
+        public SecurityManagement getSecurityManagement()
+        {
+            return accessControl.isPresent() ? CONNECTOR : SYSTEM;
+        }
+
         public Optional<ConnectorAccessControl> getAccessControl()
         {
             return accessControl;
@@ -722,6 +717,11 @@ public class ConnectorManager
         public List<PropertyMetadata<?>> getAnalyzeProperties()
         {
             return analyzeProperties;
+        }
+
+        public Set<ConnectorCapabilities> getCapabilities()
+        {
+            return capabilities;
         }
 
         public void shutdown()

@@ -37,6 +37,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
 
 public abstract class BaseOracleConnectorTest
         extends BaseJdbcConnectorTest
@@ -105,8 +106,11 @@ public abstract class BaseOracleConnectorTest
                 return Optional.empty();
             }
         }
-        if (typeName.equals("time")) {
-            return Optional.empty();
+        if (typeName.equals("time") ||
+                typeName.equals("time(6)") ||
+                typeName.equals("timestamp(6)") ||
+                typeName.equals("timestamp(6) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
         }
         if (typeName.equals("boolean")) {
             // Oracle does not have native support for boolean however usually it is represented as number(1)
@@ -413,6 +417,49 @@ public abstract class BaseOracleConnectorTest
                         .setCatalogSessionProperty("oracle", "domain_compaction_threshold", "10000")
                         .build(),
                 "SELECT * from nation", "Domain compaction threshold \\(10000\\) cannot exceed 1000");
+    }
+
+    @Override
+    public void testNativeQuerySimple()
+    {
+        // override because Oracle requires the FROM clause, and it needs explicit type
+        assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT CAST(1 AS number(2, 1)) FROM DUAL'))", ("VALUES 1"));
+    }
+
+    @Override
+    public void testNativeQueryParameters()
+    {
+        // override because Oracle requires the FROM clause, and it needs explicit type
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query_simple", "SELECT * FROM TABLE(system.query(query => ?))")
+                .addPreparedStatement("my_query", "SELECT * FROM TABLE(system.query(query => format('SELECT %s FROM %s', ?, ?)))")
+                .build();
+        assertQuery(session, "EXECUTE my_query_simple USING 'SELECT CAST(1 AS number(2, 1)) a FROM DUAL'", "VALUES 1");
+        assertQuery(session, "EXECUTE my_query USING 'a', '(SELECT CAST(2 AS number(2, 1)) a FROM DUAL) t'", "VALUES 2");
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        // override because Oracle succeeds in preparing query, and then fails because of no metadata available
+        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
+    }
+
+    @Override
+    public void testNativeQueryIncorrectSyntax()
+    {
+        // override because Oracle succeeds in preparing query, and then fails because of no metadata available
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
+    }
+
+    @Override
+    protected TestTable simpleTable()
+    {
+        // override because Oracle does not support type bigint
+        return new TestTable(onRemoteDatabase(), format("%s.simple_table", getSession().getSchema().orElseThrow()), "(col decimal(2, 1))", ImmutableList.of("1", "2"));
     }
 
     @Override

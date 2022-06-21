@@ -75,12 +75,29 @@ public final class SplitWeight
         return BigDecimal.valueOf(value, -UNIT_SCALE).stripTrailingZeros().toPlainString();
     }
 
+    /**
+     * Produces a {@link SplitWeight} from the raw internal value representation. This method is intended
+     * primarily for JSON deserialization, and connectors should use not call this factory method directly
+     * to construct {@link SplitWeight} instances. Instead, connectors should use {@link SplitWeight#fromProportion(double)}
+     * to avoid breakages that could arise if {@link SplitWeight#UNIT_VALUE} changes in the future.
+     */
     @JsonCreator
     public static SplitWeight fromRawValue(long value)
     {
         return value == UNIT_VALUE ? STANDARD_WEIGHT : new SplitWeight(value);
     }
 
+    /**
+     * Produces a {@link SplitWeight} that corresponds to the {@link SplitWeight#standard()} weight
+     * proportionally, i.e., a parameter of <code>1.0</code> will be equivalent to the standard weight
+     * and a value of <code>0.5</code> will be 1/2 of the standard split weight. Valid arguments
+     * must be greater than zero and finite. Connectors should prefer constructing split weights
+     * using this factory method rather than passing a raw integer value in case the integer representation
+     * of a standard split needs to change in the future.
+     *
+     * @param weight the proportional weight relative to a standard split, expressed as a double
+     * @return a {@link SplitWeight} with a raw value corresponding to the requested proportion
+     */
     public static SplitWeight fromProportion(double weight)
     {
         if (weight <= 0 || !Double.isFinite(weight)) {

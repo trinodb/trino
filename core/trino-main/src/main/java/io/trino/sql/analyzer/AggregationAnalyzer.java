@@ -43,7 +43,9 @@ import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
@@ -747,6 +749,20 @@ class AggregationAnalyzer
                     node.getPathParameters().stream()
                             .map(JsonPathParameter::getParameter)
                             .allMatch(expression -> process(expression, context));
+        }
+
+        @Override
+        protected Boolean visitJsonObject(JsonObject node, Void context)
+        {
+            return node.getMembers().stream()
+                    .allMatch(member -> process(member.getKey(), context) && process(member.getValue(), context));
+        }
+
+        @Override
+        protected Boolean visitJsonArray(JsonArray node, Void context)
+        {
+            return node.getElements().stream()
+                    .allMatch(element -> process(element.getValue(), context));
         }
 
         @Override

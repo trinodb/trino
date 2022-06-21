@@ -23,7 +23,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.tpcds.TpcdsPlugin;
@@ -108,7 +108,7 @@ public final class HiveQueryRunner
             return new FileHiveMetastore(
                     new NodeVersion("test_version"),
                     HDFS_ENVIRONMENT,
-                    new MetastoreConfig(),
+                    new HiveMetastoreConfig().isHideDeltaLakeTables(),
                     new FileHiveMetastoreConfig()
                             .setCatalogDirectory(baseDir.toURI().toString())
                             .setMetastoreUser("test"));

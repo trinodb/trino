@@ -47,12 +47,14 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.session.PropertyMetadata;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -63,9 +65,9 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.metrics.Metrics.EMPTY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -76,7 +78,7 @@ public class MockConnectorFactory
     private final List<PropertyMetadata<?>> sessionProperty;
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
-    private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns;
+    private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
     private final Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
@@ -96,6 +98,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final Function<SchemaTableName, List<List<?>>> data;
+    private final Function<SchemaTableName, Metrics> metrics;
     private final Set<Procedure> procedures;
     private final boolean allowMissingColumnsOnInsert;
     private final Supplier<List<PropertyMetadata<?>>> schemaProperties;
@@ -112,7 +115,7 @@ public class MockConnectorFactory
             List<PropertyMetadata<?>> sessionProperty,
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
-            Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns,
+            Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
             Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
@@ -132,6 +135,7 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             Supplier<Iterable<EventListener>> eventListeners,
             Function<SchemaTableName, List<List<?>>> data,
+            Function<SchemaTableName, Metrics> metrics,
             Set<Procedure> procedures,
             Supplier<List<PropertyMetadata<?>>> schemaProperties,
             Supplier<List<PropertyMetadata<?>>> tableProperties,
@@ -170,6 +174,7 @@ public class MockConnectorFactory
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
+        this.metrics = requireNonNull(metrics, "metrics is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
         this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
         this.supportsReportingWrittenBytes = supportsReportingWrittenBytes;
@@ -211,6 +216,7 @@ public class MockConnectorFactory
                 partitioningProvider,
                 accessControl,
                 data,
+                metrics,
                 procedures,
                 allowMissingColumnsOnInsert,
                 schemaProperties,
@@ -302,7 +308,7 @@ public class MockConnectorFactory
         private final List<PropertyMetadata<?>> sessionProperties = new ArrayList<>();
         private Function<ConnectorSession, List<String>> listSchemaNames = defaultListSchemaNames();
         private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = defaultListTables();
-        private Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns = Optional.empty();
+        private Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns = Optional.empty();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = defaultGetViews();
         private Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties = defaultGetMaterializedViewProperties();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews = defaultGetMaterializedViews();
@@ -322,6 +328,7 @@ public class MockConnectorFactory
         private ApplyTableScanRedirect applyTableScanRedirect = (session, handle) -> Optional.empty();
         private BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable = (session, tableName) -> Optional.empty();
         private Function<SchemaTableName, List<List<?>>> data = schemaTableName -> ImmutableList.of();
+        private Function<SchemaTableName, Metrics> metrics = schemaTableName -> EMPTY;
         private Set<Procedure> procedures = ImmutableSet.of();
         private Supplier<List<PropertyMetadata<?>>> schemaProperties = ImmutableList::of;
         private Supplier<List<PropertyMetadata<?>>> tableProperties = ImmutableList::of;
@@ -371,7 +378,7 @@ public class MockConnectorFactory
             return this;
         }
 
-        public Builder withStreamTableColumns(BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>> streamTableColumns)
+        public Builder withStreamTableColumns(BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>> streamTableColumns)
         {
             this.streamTableColumns = Optional.of(requireNonNull(streamTableColumns, "streamTableColumns is null"));
             return this;
@@ -501,6 +508,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withMetrics(Function<SchemaTableName, Metrics> metrics)
+        {
+            this.metrics = requireNonNull(metrics, "metrics is null");
+            return this;
+        }
+
         public Builder withProcedures(Iterable<Procedure> procedures)
         {
             this.procedures = ImmutableSet.copyOf(procedures);
@@ -603,6 +616,7 @@ public class MockConnectorFactory
                     getTableProperties,
                     eventListeners,
                     data,
+                    metrics,
                     procedures,
                     schemaProperties,
                     tableProperties,

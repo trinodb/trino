@@ -68,15 +68,6 @@ public class ParquetWriterConfig
         return this;
     }
 
-    public ParquetWriterOptions toParquetWriterOptions()
-    {
-        return ParquetWriterOptions.builder()
-                .setMaxBlockSize(getBlockSize())
-                .setMaxPageSize(getPageSize())
-                .setBatchSize(getBatchSize())
-                .build();
-    }
-
     @Config("parquet.writer.batch-size")
     @ConfigDescription("Maximum number of rows passed to the writer in each batch")
     public ParquetWriterConfig setBatchSize(int batchSize)

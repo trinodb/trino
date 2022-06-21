@@ -25,7 +25,7 @@ public class TestDbResourceGroupsMysqlFlywayMigration
     @Override
     protected final JdbcDatabaseContainer<?> startContainer()
     {
-        JdbcDatabaseContainer<?> container = new MySQLContainer<>("mysql:8.0.12");
+        JdbcDatabaseContainer<?> container = new MySQLContainer<>("mysql:8.0.29-oracle");
         container.start();
         return container;
     }
@@ -50,7 +50,7 @@ public class TestDbResourceGroupsMysqlFlywayMigration
         String propertiesTable = "CREATE TABLE resource_groups_global_properties (\n" +
                 "    name VARCHAR(128) NOT NULL PRIMARY KEY,\n" +
                 "    value VARCHAR(512) NULL,\n" +
-                "    CHECK (name in ('cpu_quota_period'))\n" +
+                "    CHECK (name in ('cpu_quota_period', 'a_name', 'a_value'))\n" +
                 ");";
         String resourceGroupsTable = "CREATE TABLE resource_groups (\n" +
                 "    resource_group_id BIGINT NOT NULL AUTO_INCREMENT,\n" +

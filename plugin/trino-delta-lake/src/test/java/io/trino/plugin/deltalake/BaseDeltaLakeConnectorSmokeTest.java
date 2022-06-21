@@ -1155,8 +1155,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
     }
 

@@ -73,6 +73,7 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
@@ -83,6 +84,7 @@ import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.Type;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -92,7 +94,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -111,7 +112,7 @@ public class MockConnector
 
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
-    private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns;
+    private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
     private final Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
@@ -134,6 +135,7 @@ public class MockConnector
     private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
     private final Optional<ConnectorAccessControl> accessControl;
     private final Function<SchemaTableName, List<List<?>>> data;
+    private final Function<SchemaTableName, Metrics> metrics;
     private final Set<Procedure> procedures;
     private final boolean supportsReportingWrittenBytes;
     private final boolean allowMissingColumnsOnInsert;
@@ -145,7 +147,7 @@ public class MockConnector
             List<PropertyMetadata<?>> sessionProperties,
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
-            Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns,
+            Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
             Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
@@ -168,6 +170,7 @@ public class MockConnector
             Optional<ConnectorNodePartitioningProvider> partitioningProvider,
             Optional<ConnectorAccessControl> accessControl,
             Function<SchemaTableName, List<List<?>>> data,
+            Function<SchemaTableName, Metrics> metrics,
             Set<Procedure> procedures,
             boolean allowMissingColumnsOnInsert,
             Supplier<List<PropertyMetadata<?>>> schemaProperties,
@@ -200,6 +203,7 @@ public class MockConnector
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
+        this.metrics = requireNonNull(metrics, "metrics is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
         this.supportsReportingWrittenBytes = supportsReportingWrittenBytes;
         this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
@@ -431,7 +435,7 @@ public class MockConnector
         }
 
         @Override
-        public Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+        public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
         {
             if (streamTableColumns.isPresent()) {
                 return streamTableColumns.get().apply(session, prefix);
@@ -439,7 +443,8 @@ public class MockConnector
 
             return listTables(session, prefix.getSchema()).stream()
                     .filter(prefix::matches)
-                    .map(name -> TableColumnsMetadata.forTable(name, getColumns.apply(name)));
+                    .map(name -> TableColumnsMetadata.forTable(name, getColumns.apply(name)))
+                    .iterator();
         }
 
         @Override
@@ -773,7 +778,7 @@ public class MockConnector
                         return projectedRow.build();
                     })
                     .collect(toImmutableList());
-            return new MockConnectorPageSource(new RecordPageSource(new InMemoryRecordSet(types, records)));
+            return new MockConnectorPageSource(new RecordPageSource(new InMemoryRecordSet(types, records)), metrics.apply(tableName));
         }
 
         private Map<String, Integer> getColumnIndexes(SchemaTableName tableName)

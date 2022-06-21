@@ -264,7 +264,6 @@ public class LocalQueryRunner
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
-    private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
     private final FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private final SpillerFactory spillerFactory;
@@ -344,7 +343,7 @@ public class LocalQueryRunner
         requireNonNull(featuresConfig, "featuresConfig is null");
         this.optimizerConfig = new OptimizerConfig();
         this.pageSinkManager = new PageSinkManager();
-        this.catalogManager = new CatalogManager();
+        CatalogManager catalogManager = new CatalogManager();
         this.transactionManager = InMemoryTransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 yieldExecutor,
@@ -362,7 +361,6 @@ public class LocalQueryRunner
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
         this.functionManager = new FunctionManager(globalFunctionCatalog);
         Metadata metadata = metadataProvider.getMetadata(
-                featuresConfig,
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 globalFunctionCatalog,
@@ -563,11 +561,6 @@ public class LocalQueryRunner
     public int getNodeCount()
     {
         return 1;
-    }
-
-    public CatalogManager getCatalogManager()
-    {
-        return catalogManager;
     }
 
     @Override
@@ -1168,7 +1161,6 @@ public class LocalQueryRunner
     public interface MetadataProvider
     {
         Metadata getMetadata(
-                FeaturesConfig featuresConfig,
                 SystemSecurityMetadata systemSecurityMetadata,
                 TransactionManager transactionManager,
                 GlobalFunctionCatalog globalFunctionCatalog,

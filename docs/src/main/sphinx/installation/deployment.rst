@@ -34,7 +34,7 @@ Linux operating system
 Java runtime environment
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino requires a 64-bit version of Java 11, with a minimum required version of 11.0.11.
+Trino requires a 64-bit version of Java 11, with a minimum required version of 11.0.15.
 Earlier patch versions such as 11.0.2 do not work, nor will earlier major versions such as Java 8.
 Newer major versions such as Java 12 or 13, including Java 17, are not supported -- they may work, but are not tested.
 
