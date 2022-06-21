@@ -22,7 +22,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -208,7 +207,7 @@ public class UnwrapCastInComparison
             Type targetType = typeAnalyzer.getType(session, types, expression.getRight());
 
             if (sourceType instanceof TimestampType && targetType == DATE) {
-                return unwrapTimestampToDateCast(session, (TimestampType) sourceType, (DateType) targetType, operator, cast.getExpression(), (long) right).orElse(expression);
+                return unwrapTimestampToDateCast(session, (TimestampType) sourceType, operator, cast.getExpression(), (long) right).orElse(expression);
             }
 
             if (targetType instanceof TimestampWithTimeZoneType) {
@@ -410,11 +409,11 @@ public class UnwrapCastInComparison
             return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
         }
 
-        private Optional<Expression> unwrapTimestampToDateCast(Session session, TimestampType sourceType, DateType targetType, ComparisonExpression.Operator operator, Expression timestampExpression, long date)
+        private Optional<Expression> unwrapTimestampToDateCast(Session session, TimestampType sourceType, ComparisonExpression.Operator operator, Expression timestampExpression, long date)
         {
             ResolvedFunction targetToSource;
             try {
-                targetToSource = plannerContext.getMetadata().getCoercion(session, targetType, sourceType);
+                targetToSource = plannerContext.getMetadata().getCoercion(session, DATE, sourceType);
             }
             catch (OperatorNotFoundException e) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
