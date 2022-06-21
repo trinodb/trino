@@ -1719,12 +1719,17 @@ public class IcebergMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
+        TupleDomain<ColumnHandle> predicate = constraint.getSummary();
+        if (predicate.isAll()) {
+            return Optional.empty();
+        }
+
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
         Map<IcebergColumnHandle, Domain> unsupported = new LinkedHashMap<>();
         Map<IcebergColumnHandle, Domain> newEnforced = new LinkedHashMap<>();
         Map<IcebergColumnHandle, Domain> newUnenforced = new LinkedHashMap<>();
-        Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
+        Map<ColumnHandle, Domain> domains = predicate.getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
         domains.forEach((column, domain) -> {
             IcebergColumnHandle columnHandle = (IcebergColumnHandle) column;
             // Iceberg metadata columns can not be used to filter a table scan in Iceberg library
