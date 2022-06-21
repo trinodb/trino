@@ -437,9 +437,8 @@ public class PushPredicateIntoTableScan
             if (unenforcedDomains.containsKey(predicateColumnHandle)) {
                 Domain unenforcedDomain = unenforcedDomains.get(predicateColumnHandle);
                 checkArgument(
-                        predicateDomain.equals(unenforcedDomain),
-                        "Enforced tuple domain cannot be determined. The connector is expected to enforce the respective domain entirely on none, some, or all of the column. " +
-                                "Got %s on %s while expecting none, all or %s",
+                        predicateDomain.contains(unenforcedDomain),
+                        "Unexpected unenforced domain %s on column %s. Expected all, none, or a domain equal to or narrower than %s",
                         unenforcedDomain,
                         predicateColumnHandle,
                         predicateDomain);
@@ -448,13 +447,7 @@ public class PushPredicateIntoTableScan
                 enforcedDomainsBuilder.put(predicateColumnHandle, predicateDomain);
             }
         }
-        Map<ColumnHandle, Domain> enforcedDomains = enforcedDomainsBuilder.buildOrThrow();
-        checkArgument(
-                enforcedDomains.size() + unenforcedDomains.size() == predicateDomains.size(),
-                "Enforced tuple domain cannot be determined. Connector returned an unenforced TupleDomain %s that contains columns not in predicate %s.",
-                unenforced,
-                predicate);
-        return TupleDomain.withColumnDomains(enforcedDomains);
+        return TupleDomain.withColumnDomains(enforcedDomainsBuilder.buildOrThrow());
     }
 
     private static class SplitExpression
