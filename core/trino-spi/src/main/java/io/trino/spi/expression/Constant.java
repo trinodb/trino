@@ -17,6 +17,8 @@ import io.airlift.slice.Slice;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -33,12 +35,13 @@ public class Constant
     /**
      * @param value the value encoded using the native "stack" representation for the given type.
      */
-    public Constant(Object value, Type type)
+    public Constant(@Nullable Object value, Type type)
     {
         super(type);
         this.value = value;
     }
 
+    @Nullable
     public Object getValue()
     {
         return value;
