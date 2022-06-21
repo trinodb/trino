@@ -93,6 +93,14 @@ public class TestIcebergReadVersionedTable
                 "Cannot specify end version both in table name and FOR clause");
     }
 
+    @Test
+    public void testSystemTables()
+    {
+        // TODO https://github.com/trinodb/trino/issues/12920
+        assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table$partitions\" FOR VERSION AS OF " + v1SnapshotId,
+                "This connector does not support versioned tables");
+    }
+
     private long getLatestSnapshotId(String tableName)
     {
         return (long) computeActual(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName))
