@@ -33,6 +33,6 @@ public class EnvSinglenodeDeltaLakeDatabricks91
     @Override
     String databricksTestJdbcUrl()
     {
-        return requireNonNull(System.getenv("DATABRICKS_91_TEST_JDBC_URL"), "Environment DATABRICKS_91_TEST_JDBC_URL was not set");
+        return requireNonNull(System.getenv("DATABRICKS_91_JDBC_URL"), "Environment DATABRICKS_91_JDBC_URL was not set");
     }
 }
