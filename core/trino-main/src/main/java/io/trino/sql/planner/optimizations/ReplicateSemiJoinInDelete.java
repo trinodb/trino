@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.optimizations;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
@@ -48,17 +49,7 @@ public class ReplicateSemiJoinInDelete
             PlanNode sourceRewritten = context.rewrite(node.getSource(), context.get());
             PlanNode filteringSourceRewritten = context.rewrite(node.getFilteringSource(), context.get());
 
-            SemiJoinNode rewrittenNode = new SemiJoinNode(
-                    node.getId(),
-                    sourceRewritten,
-                    filteringSourceRewritten,
-                    node.getSourceJoinSymbol(),
-                    node.getFilteringSourceJoinSymbol(),
-                    node.getSemiJoinOutput(),
-                    node.getSourceHashSymbol(),
-                    node.getFilteringSourceHashSymbol(),
-                    node.getDistributionType(),
-                    node.getDynamicFilterId());
+            SemiJoinNode rewrittenNode = (SemiJoinNode) node.replaceChildren(ImmutableList.of(sourceRewritten, filteringSourceRewritten));
 
             if (isDeleteQuery) {
                 return rewrittenNode.withDistributionType(REPLICATED);
@@ -74,12 +65,7 @@ public class ReplicateSemiJoinInDelete
             // so you can't do a distributed semi-join
             isDeleteQuery = true;
             PlanNode rewrittenSource = context.rewrite(node.getSource());
-            return new DeleteNode(
-                    node.getId(),
-                    rewrittenSource,
-                    node.getTarget(),
-                    node.getRowId(),
-                    node.getOutputSymbols());
+            return node.replaceChildren(ImmutableList.of(rewrittenSource));
         }
     }
 }
