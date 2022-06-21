@@ -233,6 +233,8 @@ public class IcebergMetadata
 
     public static final String TRINO_QUERY_ID_NAME = "trino_query_id";
 
+    public static final String TRINO_USER = "trino_user";
+
     public static final String TRINO_VERSION = "trino_version";
 
     private static final Pattern PATH_PATTERN = Pattern.compile("(.*)/[^/]+");
@@ -2095,7 +2097,8 @@ public class IcebergMetadata
     public static Map<String, String> getExtraSummaryMetadata(ConnectorSession session, Optional<String> trinoVersion)
     {
         ImmutableMap.Builder<String, String> snapshotSummary = ImmutableMap.<String, String>builder()
-                .put(TRINO_QUERY_ID_NAME, session.getQueryId());
+                .put(TRINO_QUERY_ID_NAME, session.getQueryId())
+                .put(TRINO_USER, session.getUser());
 
         trinoVersion.map(version -> snapshotSummary.put(TRINO_VERSION, version));
 
