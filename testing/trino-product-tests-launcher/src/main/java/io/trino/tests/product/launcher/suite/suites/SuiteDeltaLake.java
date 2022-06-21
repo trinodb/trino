@@ -40,7 +40,7 @@ public class SuiteDeltaLake
                         .withGroups("configured_features", "delta-lake-hdfs")
                         .build(),
                 //TODO enable the product tests against Databricks testing environment
-//                testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks.class)
+//                testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks73.class)
 //                        .withGroups("configured_features", "delta-lake-databricks")
 //                        .withExcludedGroups("delta-lake-exclude-73")
 //                        .build(),
