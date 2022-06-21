@@ -26,6 +26,7 @@ import io.trino.spi.function.ScalarOperator;
 
 import java.math.BigInteger;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;

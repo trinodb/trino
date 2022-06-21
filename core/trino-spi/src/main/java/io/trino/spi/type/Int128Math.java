@@ -16,6 +16,8 @@ package io.trino.spi.type;
 import java.math.BigInteger;
 import java.nio.ByteOrder;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.Decimals.MAX_PRECISION;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static java.lang.Integer.toUnsignedLong;
@@ -1387,20 +1389,6 @@ public final class Int128Math
     private static ArithmeticException divisionByZeroException()
     {
         return new ArithmeticException("Division by zero");
-    }
-
-    private static void checkArgument(boolean condition)
-    {
-        if (!condition) {
-            throw new IllegalArgumentException();
-        }
-    }
-
-    private static void checkState(boolean condition)
-    {
-        if (!condition) {
-            throw new IllegalStateException();
-        }
     }
 
     private Int128Math() {}

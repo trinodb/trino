@@ -18,8 +18,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import static io.trino.spi.ptf.Preconditions.checkArgument;
-import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -59,7 +59,7 @@ public class DescriptorMapping
 
         public DescriptorMappingBuilder mapField(String descriptor, int field, String table)
         {
-            checkNotNullOrEmpty(table, "table");
+            checkArgument(!isNullOrEmpty(table), "table is null or empty");
             checkArgument(!mappingByDescriptor.containsKey(descriptor), format("duplicate mapping for descriptor: %s, field: %s", descriptor, field));
             checkArgument(mappingByField.put(new NameAndPosition(descriptor, field), table) == null, format("duplicate mapping for descriptor: %s, field: %s", descriptor, field));
             descriptorsMappedByField.add(descriptor);
@@ -68,8 +68,8 @@ public class DescriptorMapping
 
         public DescriptorMappingBuilder mapAllFields(String descriptor, String table)
         {
-            checkNotNullOrEmpty(descriptor, "descriptor");
-            checkNotNullOrEmpty(table, "table");
+            checkArgument(!isNullOrEmpty(descriptor), "descriptor is null or empty");
+            checkArgument(!isNullOrEmpty(table), "table is null or empty");
             checkArgument(!descriptorsMappedByField.contains(descriptor), "duplicate mapping for field of descriptor: " + descriptor);
             checkArgument(mappingByDescriptor.put(descriptor, table) == null, "duplicate mapping for descriptor: " + descriptor);
             return this;

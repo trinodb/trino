@@ -21,7 +21,8 @@ import io.trino.spi.type.RowType;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -179,9 +180,12 @@ public class TableArgument
                 @JsonProperty("schemaName") String schemaName,
                 @JsonProperty("tableName") String tableName)
         {
-            this.catalogName = checkNotNullOrEmpty(catalogName, "catalogName");
-            this.schemaName = checkNotNullOrEmpty(schemaName, "schemaName");
-            this.tableName = checkNotNullOrEmpty(tableName, "tableName");
+            checkArgument(!isNullOrEmpty(catalogName), "catalogName is null or empty");
+            checkArgument(!isNullOrEmpty(schemaName), "schemaName is null or empty");
+            checkArgument(!isNullOrEmpty(tableName), "tableName is null or empty");
+            this.catalogName = catalogName;
+            this.schemaName = schemaName;
+            this.tableName = tableName;
         }
 
         @JsonProperty
@@ -215,7 +219,8 @@ public class TableArgument
                 @JsonProperty("ascending") boolean ascending,
                 @JsonProperty("nullsFirst") boolean nullsFirst)
         {
-            this.column = checkNotNullOrEmpty(column, "ordering column");
+            checkArgument(!isNullOrEmpty(column), "ordering column is null or empty");
+            this.column = column;
             this.ascending = ascending;
             this.nullsLast = nullsFirst;
         }

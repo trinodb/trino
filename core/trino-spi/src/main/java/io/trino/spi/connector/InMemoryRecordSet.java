@@ -31,6 +31,8 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -42,7 +44,6 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryRecordSet
@@ -227,34 +228,34 @@ public class InMemoryRecordSet
                 }
                 else if (BIGINT.equals(type) || DATE.equals(type) || TIMESTAMP_MILLIS.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
                     checkArgument(value instanceof Integer || value instanceof Long,
-                            "Expected value %d to be an instance of Integer or Long, but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %s to be an instance of Integer or Long, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (DOUBLE.equals(type)) {
                     checkArgument(value instanceof Double, "Expected value %s to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (VARCHAR.equals(type)) {
                     checkArgument(value instanceof String || value instanceof byte[],
-                            "Expected value %d to be an instance of String or byte[], but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %s to be an instance of String or byte[], but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (VARBINARY.equals(type)) {
                     checkArgument(value instanceof Slice,
-                            "Expected value %d to be an instance of Slice, but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %s to be an instance of Slice, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (type instanceof ArrayType) {
                     checkArgument(value instanceof Block,
-                            "Expected value %d to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %s to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (type instanceof RowType) {
                     checkArgument(value instanceof Block,
-                            "Expected value %d to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %s to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (isShortDecimal(type)) {
                     checkArgument(value instanceof Long,
-                            "Expected value %d to be an instance of Long, but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %s to be an instance of Long, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (isLongDecimal(type)) {
                     checkArgument(value instanceof Int128,
-                            "Expected value %d to be an instance of LongDecimal, but is a %s", i, value.getClass().getSimpleName());
+                            "Expected value %s to be an instance of LongDecimal, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else {
                     throw new IllegalStateException("Unsupported column type " + types.get(i));
@@ -269,20 +270,6 @@ public class InMemoryRecordSet
         public InMemoryRecordSet build()
         {
             return new InMemoryRecordSet(types, records);
-        }
-    }
-
-    private static void checkArgument(boolean test, String message, Object... args)
-    {
-        if (!test) {
-            throw new IllegalArgumentException(format(message, args));
-        }
-    }
-
-    private static void checkState(boolean test, String message)
-    {
-        if (!test) {
-            throw new IllegalStateException(message);
         }
     }
 

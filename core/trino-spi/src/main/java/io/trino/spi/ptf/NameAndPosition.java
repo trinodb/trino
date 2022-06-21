@@ -15,8 +15,8 @@ package io.trino.spi.ptf;
 
 import java.util.Objects;
 
-import static io.trino.spi.ptf.Preconditions.checkArgument;
-import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 
 /**
  * This class represents a descriptor field reference.
@@ -34,8 +34,9 @@ public class NameAndPosition
 
     public NameAndPosition(String name, int position)
     {
-        this.name = checkNotNullOrEmpty(name, "name");
+        checkArgument(!isNullOrEmpty(name), "name is null or empty");
         checkArgument(position >= 0, "position in descriptor must not be negative");
+        this.name = name;
         this.position = position;
     }
 

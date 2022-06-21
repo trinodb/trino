@@ -23,8 +23,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static io.trino.spi.ptf.Preconditions.checkArgument;
-import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
 public class Descriptor
@@ -78,7 +78,8 @@ public class Descriptor
         @JsonCreator
         public Field(@JsonProperty("name") String name, @JsonProperty("type") Optional<Type> type)
         {
-            this.name = checkNotNullOrEmpty(name, "name");
+            checkArgument(!isNullOrEmpty(name), "name is null or empty");
+            this.name = name;
             this.type = requireNonNull(type, "type is null");
         }
 

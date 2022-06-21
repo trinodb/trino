@@ -18,6 +18,7 @@ import io.trino.spi.TrinoException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Int128Math.compareAbsolute;
@@ -257,12 +258,5 @@ public final class DecimalConversions
     public static int intScale(long scale)
     {
         return (int) scale;
-    }
-
-    private static void checkState(boolean condition, String message)
-    {
-        if (!condition) {
-            throw new IllegalStateException(message);
-        }
     }
 }

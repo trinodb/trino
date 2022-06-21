@@ -13,7 +13,7 @@
  */
 package io.trino.spi.ptf;
 
-import static io.trino.spi.ptf.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**

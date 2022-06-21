@@ -15,8 +15,8 @@ package io.trino.spi.ptf;
 
 import javax.annotation.Nullable;
 
-import static io.trino.spi.ptf.Preconditions.checkArgument;
-import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 
 /**
  * Abstract class to capture the three supported argument types for a table function:
@@ -38,8 +38,9 @@ public abstract class ArgumentSpecification
 
     ArgumentSpecification(String name, boolean required, @Nullable Object defaultValue)
     {
-        this.name = checkNotNullOrEmpty(name, "name");
+        checkArgument(!isNullOrEmpty(name), "name is null or empty");
         checkArgument(!required || defaultValue == null, "non-null default value for a required argument");
+        this.name = name;
         this.required = required;
         this.defaultValue = defaultValue;
     }

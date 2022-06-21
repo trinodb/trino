@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;

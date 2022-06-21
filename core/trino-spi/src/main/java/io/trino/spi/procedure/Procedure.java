@@ -24,6 +24,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -38,8 +40,10 @@ public class Procedure
 
     public Procedure(String schema, String name, List<Argument> arguments, MethodHandle methodHandle)
     {
-        this.schema = checkNotNullOrEmpty(schema, "schema").toLowerCase(ENGLISH);
-        this.name = checkNotNullOrEmpty(name, "name").toLowerCase(ENGLISH);
+        checkArgument(!isNullOrEmpty(schema), "schema is null or empty");
+        checkArgument(!isNullOrEmpty(name), "name is null or empty");
+        this.schema = schema.toLowerCase(ENGLISH);
+        this.name = name.toLowerCase(ENGLISH);
         this.arguments = List.copyOf(requireNonNull(arguments, "arguments is null"));
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
 
@@ -121,7 +125,8 @@ public class Procedure
         @Deprecated
         public Argument(String name, boolean allowNonUppercaseName, Type type, boolean required, @Nullable Object defaultValue)
         {
-            this.name = checkNotNullOrEmpty(name, "name");
+            checkArgument(!isNullOrEmpty(name), "name is null or empty");
+            this.name = name;
             if (!allowNonUppercaseName && !name.equals(name.toUpperCase(ENGLISH))) {
                 throw new IllegalArgumentException("Argument name not uppercase. Previously argument names were matched incorrectly. " +
                         "This is now fixed and for backwards compatibility of CALL statements, the argument must be declared in uppercase. " +
@@ -164,20 +169,6 @@ public class Procedure
         public String toString()
         {
             return name + " " + type;
-        }
-    }
-
-    private static String checkNotNullOrEmpty(String value, String name)
-    {
-        requireNonNull(value, name + " is null");
-        checkArgument(!value.isEmpty(), name + " is empty");
-        return value;
-    }
-
-    private static void checkArgument(boolean assertion, String message)
-    {
-        if (!assertion) {
-            throw new IllegalArgumentException(message);
         }
     }
 }

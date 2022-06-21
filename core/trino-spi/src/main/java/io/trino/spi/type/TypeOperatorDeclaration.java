@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -514,13 +515,6 @@ public final class TypeOperatorDeclaration
                 }
             }
             throw new IllegalArgumentException(format("Unexpected parameters for %s operator: %s", operatorType, method));
-        }
-
-        private static void checkArgument(boolean test, String message, Object... arguments)
-        {
-            if (!test) {
-                throw new IllegalArgumentException(format(message, arguments));
-            }
         }
 
         private static Class<?> wrap(Class<?> type)
