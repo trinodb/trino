@@ -41,7 +41,7 @@ public class HiveAzureConfig
 
     @ConfigSecuritySensitive
     @LegacyConfig("hive.azure.wasb-storage-account")
-    @Config("azure.wasb-storage-account")
+    @Config("azure.wasb.storage-account")
     public HiveAzureConfig setWasbStorageAccount(String wasbStorageAccount)
     {
         this.wasbStorageAccount = wasbStorageAccount;
@@ -55,7 +55,7 @@ public class HiveAzureConfig
 
     @ConfigSecuritySensitive
     @LegacyConfig("hive.azure.wasb-access-key")
-    @Config("azure.wasb-access-key")
+    @Config("azure.wasb.access-key")
     public HiveAzureConfig setWasbAccessKey(String wasbAccessKey)
     {
         this.wasbAccessKey = wasbAccessKey;
@@ -69,7 +69,7 @@ public class HiveAzureConfig
 
     @ConfigSecuritySensitive
     @LegacyConfig("hive.azure.abfs-storage-account")
-    @Config("azure.abfs-storage-account")
+    @Config("azure.abfs.storage-account")
     public HiveAzureConfig setAbfsStorageAccount(String abfsStorageAccount)
     {
         this.abfsStorageAccount = abfsStorageAccount;
@@ -83,7 +83,7 @@ public class HiveAzureConfig
 
     @ConfigSecuritySensitive
     @LegacyConfig("hive.azure.abfs-access-key")
-    @Config("azure.abfs-access-key")
+    @Config("azure.abfs.access-key")
     public HiveAzureConfig setAbfsAccessKey(String abfsAccessKey)
     {
         this.abfsAccessKey = abfsAccessKey;
@@ -92,7 +92,7 @@ public class HiveAzureConfig
 
     @ConfigSecuritySensitive
     @LegacyConfig("hive.azure.adl-client-id")
-    @Config("azure.adl-client-id")
+    @Config("azure.adl.client-id")
     public HiveAzureConfig setAdlClientId(String adlClientId)
     {
         this.adlClientId = adlClientId;
@@ -106,7 +106,7 @@ public class HiveAzureConfig
 
     @ConfigSecuritySensitive
     @LegacyConfig("hive.azure.adl-credential")
-    @Config("azure.adl-credential")
+    @Config("azure.adl.credential")
     public HiveAzureConfig setAdlCredential(String adlCredential)
     {
         this.adlCredential = adlCredential;
@@ -125,7 +125,7 @@ public class HiveAzureConfig
 
     @ConfigSecuritySensitive
     @LegacyConfig("hive.azure.adl-refresh-url")
-    @Config("azure.adl-refresh-url")
+    @Config("azure.adl.refresh-url")
     public HiveAzureConfig setAdlRefreshUrl(String adlRefreshUrl)
     {
         this.adlRefreshUrl = adlRefreshUrl;
@@ -133,7 +133,7 @@ public class HiveAzureConfig
     }
 
     @LegacyConfig("hive.azure.adl-proxy-host")
-    @Config("azure.adl-proxy-host")
+    @Config("azure.adl.proxy-host")
     public HiveAzureConfig setAdlProxyHost(HostAndPort adlProxyHost)
     {
         this.adlProxyHost = adlProxyHost;
