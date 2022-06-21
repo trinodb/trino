@@ -1701,7 +1701,7 @@ class StatementAnalyzer
                 return ScalarArgument.builder()
                         .type(expectedArgumentType)
                         .value(constantValue)
-                        .build(); // TODO test coercion, test parameter
+                        .build();
             }
 
             throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
