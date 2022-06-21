@@ -426,26 +426,34 @@ public class PushPredicateIntoTableScan
         // 3. When the connector could enforce all of the domains, the unenforced would be TupleDomain.all().
 
         // In all 3 cases shown above, the unenforced is not TupleDomain.none().
-        checkArgument(!unenforced.isNone());
+        checkArgument(!unenforced.isNone(), "Unexpected unenforced none tuple domain");
 
         Map<ColumnHandle, Domain> predicateDomains = predicate.getDomains().get();
         Map<ColumnHandle, Domain> unenforcedDomains = unenforced.getDomains().get();
         ImmutableMap.Builder<ColumnHandle, Domain> enforcedDomainsBuilder = ImmutableMap.builder();
         for (Map.Entry<ColumnHandle, Domain> entry : predicateDomains.entrySet()) {
             ColumnHandle predicateColumnHandle = entry.getKey();
+            Domain predicateDomain = entry.getValue();
             if (unenforcedDomains.containsKey(predicateColumnHandle)) {
+                Domain unenforcedDomain = unenforcedDomains.get(predicateColumnHandle);
                 checkArgument(
-                        entry.getValue().equals(unenforcedDomains.get(predicateColumnHandle)),
-                        "Enforced tuple domain cannot be determined. The connector is expected to enforce the respective domain entirely on none, some, or all of the column.");
+                        predicateDomain.equals(unenforcedDomain),
+                        "Enforced tuple domain cannot be determined. The connector is expected to enforce the respective domain entirely on none, some, or all of the column. " +
+                                "Got %s on %s while expecting none, all or %s",
+                        unenforcedDomain,
+                        predicateColumnHandle,
+                        predicateDomain);
             }
             else {
-                enforcedDomainsBuilder.put(predicateColumnHandle, entry.getValue());
+                enforcedDomainsBuilder.put(predicateColumnHandle, predicateDomain);
             }
         }
         Map<ColumnHandle, Domain> enforcedDomains = enforcedDomainsBuilder.buildOrThrow();
         checkArgument(
                 enforcedDomains.size() + unenforcedDomains.size() == predicateDomains.size(),
-                "Enforced tuple domain cannot be determined. Connector returned an unenforced TupleDomain that contains columns not in predicate.");
+                "Enforced tuple domain cannot be determined. Connector returned an unenforced TupleDomain %s that contains columns not in predicate %s.",
+                unenforced,
+                predicate);
         return TupleDomain.withColumnDomains(enforcedDomains);
     }
 
