@@ -78,6 +78,7 @@ public abstract class AbstractKuduConnectorTest
             case SUPPORTS_ARRAY:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
             case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
             case SUPPORTS_ROW_TYPE:
@@ -401,14 +402,6 @@ public abstract class AbstractKuduConnectorTest
     }
 
     @Test
-    @Override
-    public void testInsert()
-    {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
-    }
-
-    @Test
     public void testInsertIntoTableHavingRowUuid()
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", " AS SELECT * FROM region WITH NO DATA")) {
@@ -423,23 +416,69 @@ public abstract class AbstractKuduConnectorTest
     @Override
     public void testInsertUnicode()
     {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
+        // TODO Remove this overriding test once kudu connector can create tables with default partitions
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_",
+                "(test varchar(50) WITH (primary_key=true)) " +
+                        "WITH (partition_by_hash_columns = ARRAY['test'], partition_by_hash_buckets = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5world\\7F16\\7801' ", 2);
+            assertThat(computeActual("SELECT test FROM " + table.getName()).getOnlyColumnAsSet())
+                    .containsExactlyInAnyOrder("Hello", "hello测试world编码");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_",
+                "(test varchar(50) WITH (primary_key=true)) " +
+                        "WITH (partition_by_hash_columns = ARRAY['test'], partition_by_hash_buckets = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'aa', 'bé'", 2);
+            assertQuery("SELECT test FROM " + table.getName(), "VALUES 'aa', 'bé'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test = 'aa'", "VALUES 'aa'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test > 'ba'", "VALUES 'bé'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test < 'ba'", "VALUES 'aa'");
+            assertQueryReturnsEmptyResult("SELECT test FROM " + table.getName() + " WHERE test = 'ba'");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_",
+                "(test varchar(50) WITH (primary_key=true)) " +
+                        "WITH (partition_by_hash_columns = ARRAY['test'], partition_by_hash_buckets = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'a', 'é'", 2);
+            assertQuery("SELECT test FROM " + table.getName(), "VALUES 'a', 'é'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test = 'a'", "VALUES 'a'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test > 'b'", "VALUES 'é'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test < 'b'", "VALUES 'a'");
+            assertQueryReturnsEmptyResult("SELECT test FROM " + table.getName() + " WHERE test = 'b'");
+        }
     }
 
     @Test
     @Override
     public void testInsertHighestUnicodeCharacter()
     {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
+        // TODO Remove this overriding test once kudu connector can create tables with default partitions
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_",
+                "(test varchar(50) WITH (primary_key=true)) " +
+                        "WITH (partition_by_hash_columns = ARRAY['test'], partition_by_hash_buckets = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
+            assertThat(computeActual("SELECT test FROM " + table.getName()).getOnlyColumnAsSet())
+                    .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
+        }
     }
 
     @Override
     public void testInsertNegativeDate()
     {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
+        // TODO Remove this overriding test once kudu connector can create tables with default partitions
+        // TODO Update this test once kudu connector supports DATE type: https://github.com/trinodb/trino/issues/11009
+        // DATE type is not supported by Kudu connector
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date",
+                "(dt DATE WITH (primary_key=true)) " +
+                        "WITH (partition_by_hash_columns = ARRAY['dt'], partition_by_hash_buckets = 2)")) {
+            assertQueryFails(format("INSERT INTO %s VALUES (DATE '-0001-01-01')", table.getName()), errorMessageForInsertNegativeDate("-0001-01-01"));
+        }
+    }
+
+    @Override
+    protected String errorMessageForInsertNegativeDate(String date)
+    {
+        return "Insert query has mismatched column types: Table: \\[varchar\\], Query: \\[date\\]";
     }
 
     @Override
