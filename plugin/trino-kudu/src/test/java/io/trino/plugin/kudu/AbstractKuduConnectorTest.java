@@ -334,6 +334,17 @@ public abstract class AbstractKuduConnectorTest
     }
 
     @Test
+    public void testInsertIntoTableHavingRowUuid()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", " AS SELECT * FROM region WITH NO DATA")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM region", 5);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT * FROM region");
+        }
+    }
+
+    @Test
     @Override
     public void testInsertUnicode()
     {

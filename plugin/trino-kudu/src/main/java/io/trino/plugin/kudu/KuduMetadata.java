@@ -313,6 +313,8 @@ public class KuduMetadata
         return new KuduInsertTableHandle(
                 tableHandle.getSchemaTableName(),
                 columnTypes,
+                columns.stream()
+                        .anyMatch(column -> column.getName().equals(ROW_ID)),
                 table);
     }
 
