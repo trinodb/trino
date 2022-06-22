@@ -70,6 +70,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -83,6 +84,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -118,6 +120,7 @@ import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -4274,6 +4277,72 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE " + timestampVersionedSinkTableName);
     }
 
+    @Test
+    public void testReadingFromSpecificSnapshot()
+    {
+        String tableName = "test_reading_snapshot" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", tableName));
+        assertUpdate(format("INSERT INTO %s VALUES(1, 1)", tableName), 1);
+        List<Long> ids = getSnapshotsIdsByCreationOrder(tableName);
+
+        assertQuery(sessionWithLegacySyntaxSupport(), format("SELECT count(*) FROM \"%s@%d\"", tableName, ids.get(0)), "VALUES(0)");
+        assertQuery(sessionWithLegacySyntaxSupport(), format("SELECT * FROM \"%s@%d\"", tableName, ids.get(1)), "VALUES(1,1)");
+        assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    @Test
+    public void testLegacySnapshotSyntaxSupport()
+    {
+        String tableName = "test_legacy_snapshot_access" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a BIGINT, b BIGINT)", tableName));
+        assertUpdate(format("INSERT INTO %s VALUES(1, 1)", tableName), 1);
+        List<Long> ids = getSnapshotsIdsByCreationOrder(tableName);
+        // come up with a timestamp value in future that is not an already existing id
+        long futureTimeStamp = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5);
+        while (ids.contains(futureTimeStamp)) {
+            futureTimeStamp += TimeUnit.MINUTES.toMillis(5);
+        }
+
+        String selectAllFromFutureTimeStamp = format("SELECT * FROM \"%s@%d\"", tableName, futureTimeStamp);
+        String selectAllFromLatestId = format("SELECT * FROM \"%s@%d\"", tableName, getLast(ids));
+        String selectFromPartitionsTable = format("SELECT record_count FROM \"%s$partitions@%d\"", tableName, getLast(ids));
+
+        assertQuery(sessionWithLegacySyntaxSupport(), selectAllFromFutureTimeStamp, "VALUES(1, 1)");
+        assertQuery(sessionWithLegacySyntaxSupport(), selectAllFromLatestId, "VALUES(1, 1)");
+        assertQuery(sessionWithLegacySyntaxSupport(), selectFromPartitionsTable, "VALUES(1)");
+
+        // DISABLED
+        String errorMessage = "Failed to access snapshot .* for table .*. This syntax for accessing Iceberg tables is not "
+                + "supported. Use the AS OF syntax OR set the catalog session property "
+                + "allow_legacy_snapshot_syntax=true for temporarily restoring previous behavior.";
+        assertThatThrownBy(() -> query(getSession(), selectAllFromFutureTimeStamp))
+                .hasMessageMatching(errorMessage);
+        assertThatThrownBy(() -> query(getSession(), selectAllFromLatestId))
+                .hasMessageMatching(errorMessage);
+        assertThatThrownBy(() -> query(getSession(), selectFromPartitionsTable))
+                .hasMessageMatching(errorMessage);
+
+        assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    @Test
+    public void testSelectWithMoreThanOneSnapshotOfTheSameTable()
+    {
+        String tableName = "test_reading_snapshot" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", tableName));
+        assertUpdate(format("INSERT INTO %s VALUES(1, 1)", tableName), 1);
+        assertUpdate(format("INSERT INTO %s VALUES(2, 2)", tableName), 1);
+        assertUpdate(format("INSERT INTO %s VALUES(3, 3)", tableName), 1);
+        List<Long> ids = getSnapshotsIdsByCreationOrder(tableName);
+
+        assertQuery(format("SELECT * FROM %s", tableName), "SELECT * FROM (VALUES(1,1), (2,2), (3,3))");
+        assertQuery(
+                sessionWithLegacySyntaxSupport(),
+                format("SELECT * FROM %1$s EXCEPT (SELECT * FROM \"%1$s@%2$d\" EXCEPT SELECT * FROM \"%1$s@%3$d\")", tableName, ids.get(2), ids.get(1)),
+                "SELECT * FROM (VALUES(1,1), (3,3))");
+        assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
     private Session prepareCleanUpSession()
     {
         return Session.builder(getSession())
@@ -4347,5 +4416,22 @@ public abstract class BaseIcebergConnectorTest
     {
         return DateTimeFormatter.ofPattern("'TIMESTAMP '''uuuu-MM-dd HH:mm:ss." + "S".repeat(precision) + " VV''")
                 .format(Instant.ofEpochMilli(epochMilliSeconds).atZone(UTC));
+    }
+
+    private List<Long> getSnapshotsIdsByCreationOrder(String tableName)
+    {
+        int idField = 0;
+        return getQueryRunner().execute(
+                format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at", tableName))
+                .getMaterializedRows().stream()
+                .map(row -> (Long) row.getField(idField))
+                .collect(toList());
+    }
+
+    private Session sessionWithLegacySyntaxSupport()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "allow_legacy_snapshot_syntax", "true")
+                .build();
     }
 }
