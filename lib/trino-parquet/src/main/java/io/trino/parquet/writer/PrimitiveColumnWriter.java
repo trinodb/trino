@@ -93,6 +93,8 @@ public class PrimitiveColumnWriter
 
     private final int pageSizeThreshold;
 
+    private long bufferedBytes;
+
     public PrimitiveColumnWriter(ColumnDescriptor columnDescriptor, PrimitiveValueWriter primitiveValueWriter, ValuesWriter definitionLevelWriter, ValuesWriter repetitionLevelWriter, CompressionCodecName compressionCodecName, int pageSizeThreshold)
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor is null");
@@ -143,7 +145,8 @@ public class PrimitiveColumnWriter
             repetitionLevelWriter.writeInteger(next);
         }
 
-        if (getBufferedBytes() >= pageSizeThreshold) {
+        updateBufferedBytes();
+        if (bufferedBytes >= pageSizeThreshold) {
             flushCurrentPageToBuffer();
         }
     }
@@ -245,6 +248,7 @@ public class PrimitiveColumnWriter
         repetitionLevelWriter.reset();
         definitionLevelWriter.reset();
         primitiveValueWriter.reset();
+        updateBufferedBytes();
     }
 
     private List<ParquetDataOutput> getDataStreams()
@@ -280,6 +284,7 @@ public class PrimitiveColumnWriter
             dictionaryPagesWithEncoding.merge(new ParquetMetadataConverter().getEncoding(dictionaryPage.getEncoding()), 1, Integer::sum);
 
             primitiveValueWriter.resetDictionary();
+            updateBufferedBytes();
         }
         getDataStreamsCalled = true;
 
@@ -292,15 +297,7 @@ public class PrimitiveColumnWriter
     @Override
     public long getBufferedBytes()
     {
-        // Avoid using streams here for performance reasons
-        long pageBufferedBytes = 0;
-        for (ParquetDataOutput output : pageBuffer) {
-            pageBufferedBytes += output.size();
-        }
-        return pageBufferedBytes +
-                definitionLevelWriter.getBufferedSize() +
-                repetitionLevelWriter.getBufferedSize() +
-                primitiveValueWriter.getBufferedSize();
+        return bufferedBytes;
     }
 
     @Override
@@ -310,5 +307,18 @@ public class PrimitiveColumnWriter
                 primitiveValueWriter.getAllocatedSize() +
                 definitionLevelWriter.getAllocatedSize() +
                 repetitionLevelWriter.getAllocatedSize();
+    }
+
+    private void updateBufferedBytes()
+    {
+        // Avoid using streams here for performance reasons
+        long pageBufferedBytes = 0;
+        for (ParquetDataOutput output : pageBuffer) {
+            pageBufferedBytes += output.size();
+        }
+        bufferedBytes = pageBufferedBytes +
+                definitionLevelWriter.getBufferedSize() +
+                repetitionLevelWriter.getBufferedSize() +
+                primitiveValueWriter.getBufferedSize();
     }
 }
