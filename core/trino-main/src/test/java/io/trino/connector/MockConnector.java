@@ -247,7 +247,13 @@ public class MockConnector
         return new ConnectorSplitManager()
         {
             @Override
-            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, DynamicFilter dynamicFilter)
+            public ConnectorSplitSource getSplits(
+                    ConnectorTransactionHandle transaction,
+                    ConnectorSession session,
+                    ConnectorTableHandle table,
+                    SplitSchedulingStrategy splitSchedulingStrategy,
+                    DynamicFilter dynamicFilter,
+                    Constraint constraint)
             {
                 return new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT));
             }

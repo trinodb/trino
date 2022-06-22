@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.pinot.query.DynamicTable;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
@@ -125,7 +126,7 @@ public class TestPinotSplitManager
     private List<PinotSplit> getSplitsHelper(PinotTableHandle pinotTable, int numSegmentsPerSplit, boolean forbidSegmentQueries)
     {
         ConnectorSession session = createSessionWithNumSplits(numSegmentsPerSplit, forbidSegmentQueries, pinotConfig);
-        ConnectorSplitSource splitSource = pinotSplitManager.getSplits(null, session, pinotTable, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY);
+        ConnectorSplitSource splitSource = pinotSplitManager.getSplits(null, session, pinotTable, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY, Constraint.alwaysTrue());
         List<PinotSplit> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
             splits.addAll(getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000)).getSplits().stream().map(s -> (PinotSplit) s).collect(toList()));

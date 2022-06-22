@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.TableNotFoundException;
@@ -49,7 +50,8 @@ public class ExampleSplitManager
             ConnectorSession session,
             ConnectorTableHandle connectorTableHandle,
             SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         ExampleTableHandle tableHandle = (ExampleTableHandle) connectorTableHandle;
         ExampleTable table = exampleClient.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
