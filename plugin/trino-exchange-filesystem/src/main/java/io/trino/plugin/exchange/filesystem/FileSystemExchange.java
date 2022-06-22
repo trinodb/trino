@@ -17,6 +17,9 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeSinkHandle;
@@ -51,13 +54,14 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.AsyncSemaphore.processAll;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeSink.COMMITTED_MARKER_FILE_NAME;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeSink.DATA_FILE_SUFFIX;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 public class FileSystemExchange
         implements Exchange
@@ -71,6 +75,7 @@ public class FileSystemExchange
     private final FileSystemExchangeStats stats;
     private final ExchangeContext exchangeContext;
     private final int outputPartitionCount;
+    private final int fileListingParallelism;
     private final Optional<SecretKey> secretKey;
     private final ExecutorService executor;
 
@@ -93,6 +98,7 @@ public class FileSystemExchange
             FileSystemExchangeStats stats,
             ExchangeContext exchangeContext,
             int outputPartitionCount,
+            int fileListingParallelism,
             Optional<SecretKey> secretKey,
             ExecutorService executor)
     {
@@ -104,6 +110,7 @@ public class FileSystemExchange
         this.stats = requireNonNull(stats, "stats is null");
         this.exchangeContext = requireNonNull(exchangeContext, "exchangeContext is null");
         this.outputPartitionCount = outputPartitionCount;
+        this.fileListingParallelism = fileListingParallelism;
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
         this.executor = requireNonNull(executor, "executor is null");
     }
@@ -154,7 +161,7 @@ public class FileSystemExchange
     private void checkInputReady()
     {
         verify(!Thread.holdsLock(this));
-        CompletableFuture<List<ExchangeSourceHandle>> exchangeSourceHandlesCreationFuture = null;
+        ListenableFuture<List<ExchangeSourceHandle>> exchangeSourceHandlesCreationFuture = null;
         synchronized (this) {
             if (exchangeSourceHandlesCreationStarted) {
                 return;
@@ -162,90 +169,85 @@ public class FileSystemExchange
             if (noMoreSinks && finishedSinks.containsAll(allSinks)) {
                 // input is ready, create exchange source handles
                 exchangeSourceHandlesCreationStarted = true;
-                exchangeSourceHandlesCreationFuture = supplyAsync(
-                        () -> stats.getCreateExchangeSourceHandles().record(this::createExchangeSourceHandles),
-                        executor);
+                exchangeSourceHandlesCreationFuture = stats.getCreateExchangeSourceHandles().record(this::createExchangeSourceHandles);
+                exchangeSourceHandlesFuture.whenComplete((value, failure) -> {
+                    if (exchangeSourceHandlesFuture.isCancelled()) {
+                        exchangeSourceHandlesFuture.cancel(true);
+                    }
+                });
             }
         }
         if (exchangeSourceHandlesCreationFuture != null) {
-            exchangeSourceHandlesCreationFuture.whenComplete((exchangeSourceHandles, throwable) -> {
-                if (throwable != null) {
-                    exchangeSourceHandlesFuture.completeExceptionally(throwable);
-                }
-                else {
+            Futures.addCallback(exchangeSourceHandlesCreationFuture, new FutureCallback<>() {
+                @Override
+                public void onSuccess(List<ExchangeSourceHandle> exchangeSourceHandles)
+                {
                     exchangeSourceHandlesFuture.complete(exchangeSourceHandles);
                 }
-            });
+
+                @Override
+                public void onFailure(Throwable throwable)
+                {
+                    exchangeSourceHandlesFuture.completeExceptionally(throwable);
+                }
+            }, directExecutor());
         }
     }
 
-    private List<ExchangeSourceHandle> createExchangeSourceHandles()
+    private ListenableFuture<List<ExchangeSourceHandle>> createExchangeSourceHandles()
     {
-        Multimap<Integer, FileStatus> partitionFiles = ArrayListMultimap.create();
         List<Integer> finishedTaskPartitions;
         synchronized (this) {
             finishedTaskPartitions = ImmutableList.copyOf(finishedSinks);
         }
-        for (Integer taskPartition : finishedTaskPartitions) {
-            URI committedAttemptPath = stats.getGetCommittedAttemptPath().record(() -> getCommittedAttemptPath(taskPartition));
-            Multimap<Integer, FileStatus> partitions = stats.getGetCommittedPartitions().record(() -> getCommittedPartitions(committedAttemptPath));
-            partitions.forEach(partitionFiles::put);
-        }
 
-        ImmutableList.Builder<ExchangeSourceHandle> result = ImmutableList.builder();
-        for (Integer partitionId : partitionFiles.keySet()) {
-            result.add(new FileSystemExchangeSourceHandle(partitionId, ImmutableList.copyOf(partitionFiles.get(partitionId)), secretKey.map(SecretKey::getEncoded)));
-        }
-        return result.build();
+        return Futures.transform(
+                processAll(finishedTaskPartitions, this::getCommittedPartitions, fileListingParallelism, executor),
+                partitionsList -> {
+                    Multimap<Integer, FileStatus> partitionFiles = ArrayListMultimap.create();
+                    partitionsList.forEach(partitions -> partitions.forEach(partitionFiles::put));
+                    ImmutableList.Builder<ExchangeSourceHandle> result = ImmutableList.builder();
+                    for (Integer partitionId : partitionFiles.keySet()) {
+                        result.add(new FileSystemExchangeSourceHandle(partitionId, ImmutableList.copyOf(partitionFiles.get(partitionId)), secretKey.map(SecretKey::getEncoded)));
+                    }
+                    return result.build();
+                },
+                executor);
     }
 
-    private URI getCommittedAttemptPath(int taskPartitionId)
+    private ListenableFuture<Multimap<Integer, FileStatus>> getCommittedPartitions(int taskPartitionId)
     {
-        URI sinkOutputBasePath = getTaskOutputDirectory(taskPartitionId);
-        try {
-            List<URI> attemptPaths = exchangeStorage.listDirectories(sinkOutputBasePath);
-            checkState(!attemptPaths.isEmpty(), "No attempts found under sink output path %s", sinkOutputBasePath);
+        URI sinkOutputPath = getTaskOutputDirectory(taskPartitionId);
+        return stats.getGetCommittedPartitions().record(Futures.transform(
+                exchangeStorage.listFilesRecursively(sinkOutputPath),
+                sinkOutputFiles -> {
+                    String committedMarkerFilePath = sinkOutputFiles.stream()
+                            .map(FileStatus::getFilePath)
+                            .filter(filePath -> filePath.endsWith(COMMITTED_MARKER_FILE_NAME))
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalStateException(format("No committed attempts found under sink output path %s", sinkOutputPath)));
+                    // Committed marker file path format: {sinkOutputPath}/{attemptId}/committed
+                    String[] parts = committedMarkerFilePath.split(PATH_SEPARATOR);
+                    checkState(parts.length >= 3, "committedMarkerFilePath %s is malformed", committedMarkerFilePath);
+                    String committedAttemptId = parts[parts.length - 2];
+                    int attemptIdOffset = committedMarkerFilePath.length() - committedAttemptId.length()
+                            - PATH_SEPARATOR.length() - COMMITTED_MARKER_FILE_NAME.length();
 
-            return attemptPaths.stream()
-                    .filter(this::isCommitted)
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException(format("No committed attempts found under sink output path %s", sinkOutputBasePath)));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
+                    // Data output file path format: {sinkOutputPath}/{attemptId}/{sourcePartitionId}_{splitId}.data
+                    List<FileStatus> partitionFiles = sinkOutputFiles.stream()
+                            .filter(file -> file.getFilePath().startsWith(committedAttemptId + PATH_SEPARATOR, attemptIdOffset) && file.getFilePath().endsWith(DATA_FILE_SUFFIX))
+                            .collect(toImmutableList());
 
-    private boolean isCommitted(URI attemptPath)
-    {
-        URI commitMarkerFilePath = attemptPath.resolve(COMMITTED_MARKER_FILE_NAME);
-        try {
-            return exchangeStorage.exists(commitMarkerFilePath);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private Multimap<Integer, FileStatus> getCommittedPartitions(URI committedAttemptPath)
-    {
-        try {
-            List<FileStatus> partitionFiles = exchangeStorage.listFiles(committedAttemptPath)
-                    .stream()
-                    .filter(file -> file.getFilePath().endsWith(DATA_FILE_SUFFIX))
-                    .collect(toImmutableList());
-            ImmutableMultimap.Builder<Integer, FileStatus> result = ImmutableMultimap.builder();
-            for (FileStatus partitionFile : partitionFiles) {
-                Matcher matcher = PARTITION_FILE_NAME_PATTERN.matcher(new File(partitionFile.getFilePath()).getName());
-                checkState(matcher.matches(), "Unexpected partition file: %s", partitionFile);
-                int partitionId = Integer.parseInt(matcher.group(1));
-                result.put(partitionId, partitionFile);
-            }
-            return result.build();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+                    ImmutableMultimap.Builder<Integer, FileStatus> result = ImmutableMultimap.builder();
+                    for (FileStatus partitionFile : partitionFiles) {
+                        Matcher matcher = PARTITION_FILE_NAME_PATTERN.matcher(new File(partitionFile.getFilePath()).getName());
+                        checkState(matcher.matches(), "Unexpected partition file: %s", partitionFile);
+                        int partitionId = Integer.parseInt(matcher.group(1));
+                        result.put(partitionId, partitionFile);
+                    }
+                    return result.build();
+                },
+                executor));
     }
 
     private URI getTaskOutputDirectory(int taskPartitionId)

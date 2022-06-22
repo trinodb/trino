@@ -34,6 +34,8 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
+import java.nio.file.Path;
+
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
@@ -44,6 +46,7 @@ public class TestSharedHiveMetastore
         extends BaseSharedMetastoreTest
 {
     private static final String HIVE_CATALOG = "hive";
+    private Path dataDirectory;
 
     @Override
     protected QueryRunner createQueryRunner()

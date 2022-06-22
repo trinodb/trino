@@ -83,7 +83,7 @@ General configuration
 These configuration properties are independent of which catalog implementation
 is used.
 
-.. list-table:: Iceberg configuration properties
+.. list-table:: Iceberg general configuration properties
   :widths: 30, 58, 12
   :header-rows: 1
 
@@ -110,14 +110,43 @@ is used.
   * - ``iceberg.max-partitions-per-writer``
     - Maximum number of partitions handled per writer.
     - 100
-  * - ``hive.orc.bloom-filters.enabled``
-    - Enable bloom filters for predicate pushdown.
-    - ``false``
   * - ``iceberg.target-max-file-size``
     - Target maximum size of written files; the actual size may be larger
     - ``1GB``
+  * - ``iceberg.unique-table-location``
+    - Use randomized, unique table locations
+    - ``false``
   * - ``iceberg.delete-schema-locations-fallback``
     - Whether schema locations should be deleted when Trino can't determine whether they contain external files.
+    - ``false``
+  * - ``iceberg.minimum-assigned-split-weight``
+    - A decimal value in the range (0, 1] used as a minimum for weights assigned to each split. A low value may improve performance
+      on tables with small files. A higher value may improve performance for queries with highly skewed aggregations or joins.
+    - 0.05
+  * - ``iceberg.table-statistics-enabled``
+    - Enables :doc:`/optimizer/statistics`. The equivalent
+      :doc:`catalog session property </sql/set-session>`
+      is ``statistics_enabled`` for session specific use.
+      Set to ``false`` to disable statistics. Disabling statistics
+      means that :doc:`/optimizer/cost-based-optimizations` can
+      not make smart decisions about the query plan.
+    - ``true``
+
+ORC format configuration
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following properties are used to configure the read and write operations
+with ORC files performed by the Iceberg connector.
+
+.. list-table:: ORC format configuration properties
+  :widths: 30, 58, 12
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default
+  * - ``hive.orc.bloom-filters.enabled``
+    - Enable bloom filters for predicate pushdown.
     - ``false``
 
 .. _iceberg-authorization:

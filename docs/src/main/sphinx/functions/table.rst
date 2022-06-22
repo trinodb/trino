@@ -68,4 +68,10 @@ skipped arguments are declared with default values.
 You cannot mix the argument conventions in one invocation.
 
 All arguments must be constant expressions, and they can be of any SQL type,
-which is compatible with the declared argument type.
+which is compatible with the declared argument type. You can also use
+parameters in arguments::
+
+    PREPARE stmt FROM
+    SELECT * FROM TABLE(my_function("row_count" => ? + 1, "column_count" => ?));
+
+    EXECUTE stmt USING 100, 1;

@@ -61,6 +61,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -85,7 +86,7 @@ public class CachingJdbcClient
     private final Cache<TableHandlesByNameCacheKey, Optional<JdbcTableHandle>> tableHandlesByNameCache;
     private final Cache<TableHandlesByQueryCacheKey, JdbcTableHandle> tableHandlesByQueryCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
-    private final Cache<TableStatisticsCacheKey, TableStatistics> statisticsCache;
+    private final Cache<JdbcTableHandle, TableStatistics> statisticsCache;
 
     @Inject
     public CachingJdbcClient(
@@ -354,16 +355,22 @@ public class CachingJdbcClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        TableStatisticsCacheKey key = new TableStatisticsCacheKey(handle, tupleDomain);
+        checkArgument(tupleDomain.isAll(), "Unexpected non-ALL constraint: %s", tupleDomain);
+        return getTableStatistics(session, handle);
+    }
 
-        TableStatistics cachedStatistics = statisticsCache.getIfPresent(key);
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+    {
+        // TODO depend on Identity when needed
+        TableStatistics cachedStatistics = statisticsCache.getIfPresent(handle);
         if (cachedStatistics != null) {
             if (cacheMissing || !cachedStatistics.equals(TableStatistics.empty())) {
                 return cachedStatistics;
             }
-            statisticsCache.invalidate(key);
+            statisticsCache.invalidate(handle);
         }
-        return get(statisticsCache, key, () -> delegate.getTableStatistics(session, handle, tupleDomain));
+        return get(statisticsCache, handle, () -> delegate.getTableStatistics(session, handle));
     }
 
     @Override
@@ -489,7 +496,7 @@ public class CachingJdbcClient
 
     public void onDataChanged(SchemaTableName table)
     {
-        invalidateCache(statisticsCache, key -> key.tableHandle.references(table));
+        invalidateCache(statisticsCache, key -> key.references(table));
     }
 
     /**
@@ -500,7 +507,7 @@ public class CachingJdbcClient
     @Deprecated
     public void onDataChanged(JdbcTableHandle handle)
     {
-        invalidateCache(statisticsCache, key -> key.tableHandle.equals(handle));
+        invalidateCache(statisticsCache, key -> key.equals(handle));
     }
 
     @Override
@@ -558,7 +565,7 @@ public class CachingJdbcClient
         invalidateCache(tableHandlesByNameCache, key -> key.tableName.equals(schemaTableName));
         tableHandlesByQueryCache.invalidateAll();
         invalidateCache(tableNamesCache, key -> key.schemaName.equals(Optional.of(schemaTableName.getSchemaName())));
-        invalidateCache(statisticsCache, key -> key.tableHandle.references(schemaTableName));
+        invalidateCache(statisticsCache, key -> key.references(schemaTableName));
     }
 
     private void invalidateColumnsCache(SchemaTableName table)
@@ -751,48 +758,6 @@ public class CachingJdbcClient
         catch (ExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new UncheckedExecutionException(e);
-        }
-    }
-
-    private static final class TableStatisticsCacheKey
-    {
-        // TODO depend on Identity when needed
-        private final JdbcTableHandle tableHandle;
-        private final TupleDomain<ColumnHandle> tupleDomain;
-
-        private TableStatisticsCacheKey(JdbcTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
-        {
-            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-            this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TableStatisticsCacheKey that = (TableStatisticsCacheKey) o;
-            return tableHandle.equals(that.tableHandle)
-                    && tupleDomain.equals(that.tupleDomain);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(tableHandle, tupleDomain);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("tableHandle", tableHandle)
-                    .add("tupleDomain", tupleDomain)
-                    .toString();
         }
     }
 

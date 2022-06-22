@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
@@ -131,10 +132,10 @@ public class IcebergFileWriterFactory
     {
         switch (fileFormat) {
             case PARQUET:
-                // TODO use metricsConfig
-                return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext);
+                // TODO use metricsConfig https://github.com/trinodb/trino/issues/9791
+                return createParquetWriter(MetricsConfig.getDefault(), outputPath, icebergSchema, jobConf, session, hdfsContext);
             case ORC:
-                return createOrcWriter(metricsConfig, outputPath, icebergSchema, jobConf, session, storageProperties);
+                return createOrcWriter(metricsConfig, outputPath, icebergSchema, jobConf, session, storageProperties, getOrcStringStatisticsLimit(session));
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
         }
@@ -150,15 +151,16 @@ public class IcebergFileWriterFactory
     {
         switch (fileFormat) {
             case PARQUET:
-                return createParquetWriter(outputPath, POSITION_DELETE_SCHEMA, jobConf, session, hdfsContext);
+                return createParquetWriter(FULL_METRICS_CONFIG, outputPath, POSITION_DELETE_SCHEMA, jobConf, session, hdfsContext);
             case ORC:
-                return createOrcWriter(FULL_METRICS_CONFIG, outputPath, POSITION_DELETE_SCHEMA, jobConf, session, storageProperties);
+                return createOrcWriter(FULL_METRICS_CONFIG, outputPath, POSITION_DELETE_SCHEMA, jobConf, session, storageProperties, DataSize.ofBytes(Integer.MAX_VALUE));
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
         }
     }
 
     private IcebergFileWriter createParquetWriter(
+            MetricsConfig metricsConfig,
             Path outputPath,
             Schema icebergSchema,
             JobConf jobConf,
@@ -187,6 +189,7 @@ public class IcebergFileWriterFactory
                     .build();
 
             return new IcebergParquetFileWriter(
+                    metricsConfig,
                     hdfsEnvironment.doAs(session.getIdentity(), () -> fileSystem.create(outputPath)),
                     rollbackAction,
                     fileColumnTypes,
@@ -211,7 +214,8 @@ public class IcebergFileWriterFactory
             Schema icebergSchema,
             JobConf jobConf,
             ConnectorSession session,
-            Map<String, String> storageProperties)
+            Map<String, String> storageProperties,
+            DataSize stringStatisticsLimit)
     {
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), outputPath, jobConf);
@@ -261,7 +265,7 @@ public class IcebergFileWriterFactory
                             .withStripeMaxSize(getOrcWriterMaxStripeSize(session))
                             .withStripeMaxRowCount(getOrcWriterMaxStripeRows(session))
                             .withDictionaryMaxMemory(getOrcWriterMaxDictionaryMemory(session))
-                            .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session)),
+                            .withMaxStringStatisticsLimit(stringStatisticsLimit),
                     IntStream.range(0, fileColumnNames.size()).toArray(),
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())

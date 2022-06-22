@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryContext;
@@ -115,7 +116,8 @@ public class TestHttpEventListener
                 new HashMap<>(), // sessionProperties
                 new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.of(1000L)),
                 "serverAddress", "serverVersion", "environment",
-                Optional.of(QueryType.SELECT));
+                Optional.of(QueryType.SELECT),
+                RetryPolicy.QUERY.toString());
 
         queryMetadata = new QueryMetadata(
                 "queryId",

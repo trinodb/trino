@@ -134,7 +134,7 @@ public class TestPrometheusSplit
                 config.getQueryChunkSizeDuration().toMillis() -
                 OFFSET_MILLIS * 20);
         assertEquals(queryInSplit,
-                new URI("http://doesnotmatter:9090/api/v1/query?query=up+now[" + getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(config) + "]" + "&time=" +
+                new URI("http://doesnotmatter:9090/api/v1/query?query=up%20now[" + getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(config) + "]" + "&time=" +
                         timeShouldBe).getQuery());
     }
 

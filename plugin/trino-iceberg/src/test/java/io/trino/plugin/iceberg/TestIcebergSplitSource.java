@@ -137,9 +137,11 @@ public class TestIcebergSplitSource
                 nationTable.location(),
                 nationTable.properties(),
                 NO_RETRIES,
-                ImmutableList.of());
+                ImmutableList.of(),
+                false,
+                Optional.empty());
 
-        IcebergSplitSource splitSource = new IcebergSplitSource(
+        try (IcebergSplitSource splitSource = new IcebergSplitSource(
                 tableHandle,
                 nationTable.newScan(),
                 Optional.empty(),
@@ -186,21 +188,21 @@ public class TestIcebergSplitSource
                 alwaysTrue(),
                 new TestingTypeManager(),
                 false,
-                new IcebergConfig().getMinimumAssignedSplitWeight());
-
-        ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
-        while (!splitSource.isFinished()) {
-            splitSource.getNextBatch(null, 100).get()
-                    .getSplits()
-                    .stream()
-                    .map(IcebergSplit.class::cast)
-                    .forEach(splits::add);
+                new IcebergConfig().getMinimumAssignedSplitWeight())) {
+            ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
+            while (!splitSource.isFinished()) {
+                splitSource.getNextBatch(null, 100).get()
+                        .getSplits()
+                        .stream()
+                        .map(IcebergSplit.class::cast)
+                        .forEach(splits::add);
+            }
+            assertThat(splits.build().size()).isGreaterThan(0);
+            assertTrue(splitSource.isFinished());
+            assertThat(System.currentTimeMillis() - startMillis)
+                    .as("IcebergSplitSource failed to wait for dynamicFilteringWaitTimeout")
+                    .isGreaterThanOrEqualTo(2000);
         }
-        assertThat(splits.build().size()).isGreaterThan(0);
-        assertTrue(splitSource.isFinished());
-        assertThat(System.currentTimeMillis() - startMillis)
-                .as("IcebergSplitSource failed to wait for dynamicFilteringWaitTimeout")
-                .isGreaterThanOrEqualTo(2000);
     }
 
     @Test

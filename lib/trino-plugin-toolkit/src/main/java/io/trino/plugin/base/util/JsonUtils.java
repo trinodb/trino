@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.base.util;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -81,6 +82,10 @@ public final class JsonUtils
     static <T> T parseJson(byte[] jsonBytes, Class<T> javaType)
             throws IOException
     {
-        return OBJECT_MAPPER.readValue(jsonBytes, javaType);
+        try (JsonParser parser = OBJECT_MAPPER.createParser(jsonBytes)) {
+            T value = OBJECT_MAPPER.readValue(parser, javaType);
+            checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
+            return value;
+        }
     }
 }

@@ -111,6 +111,6 @@ public class TestIcebergTableWithExternalLocation
         assertQuerySucceeds(format("DROP TABLE %s", tableName));
         assertThat(metastore.getTable("tpch", tableName)).as("Table should be dropped").isEmpty();
         assertFalse(fileSystem.exists(new Path(dataFile.getFilePath())), "The data file should have been removed");
-        assertFalse(fileSystem.exists(tableLocation), "The directory corresponding to the dropped Iceberg table should not be removed because it may be shared with other tables");
+        assertFalse(fileSystem.exists(tableLocation), "The directory corresponding to the dropped Iceberg table should be removed as we don't allow shared locations.");
     }
 }

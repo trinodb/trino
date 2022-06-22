@@ -73,9 +73,9 @@ Type mapping
 
 Trino supports the following MariaDB data types:
 
-==================================  ===============================
-MariaDB Type                        Trino Type
-==================================  ===============================
+==================================  =============================== =============================================================================================================
+MariaDB Type                        Trino Type                      Notes
+==================================  =============================== =============================================================================================================
 ``boolean``                         ``tinyint``
 ``tinyint``                         ``tinyint``
 ``smallint``                        ``smallint``
@@ -102,7 +102,10 @@ MariaDB Type                        Trino Type
 ``varbinary(n)``                    ``varbinary``
 ``date``                            ``date``
 ``time(n)``                         ``time(n)``
-==================================  ===============================
+``timestamp(n)``                    ``timestamp(n)``                MariaDB stores the current timestamp by default.
+                                                                    Please enable `explicit_defaults_for_timestamp <https://mariadb.com/docs/reference/mdb/system-variables/explicit_defaults_for_timestamp/>`_
+                                                                    to avoid implicit default values.
+==================================  =============================== =============================================================================================================
 
 Complete list of `MariaDB data types
 <https://mariadb.com/kb/en/data-types/>`_.

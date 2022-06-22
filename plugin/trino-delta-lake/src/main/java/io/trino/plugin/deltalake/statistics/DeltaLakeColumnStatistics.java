@@ -19,30 +19,41 @@ import io.airlift.slice.Slices;
 import io.airlift.stats.cardinality.HyperLogLog;
 
 import java.util.Base64;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeColumnStatistics
 {
+    private final OptionalLong totalSizeInBytes;
     private final HyperLogLog ndvSummary;
 
     @JsonCreator
     public static DeltaLakeColumnStatistics create(
+            @JsonProperty("totalSizeInBytes") OptionalLong totalSizeInBytes,
             @JsonProperty("ndvSummary") String ndvSummaryBase64)
     {
+        requireNonNull(totalSizeInBytes, "totalSizeInBytes is null");
         requireNonNull(ndvSummaryBase64, "ndvSummaryBase64 is null");
         byte[] ndvSummaryBytes = Base64.getDecoder().decode(ndvSummaryBase64);
-        return new DeltaLakeColumnStatistics(HyperLogLog.newInstance(Slices.wrappedBuffer(ndvSummaryBytes)));
+        return new DeltaLakeColumnStatistics(totalSizeInBytes, HyperLogLog.newInstance(Slices.wrappedBuffer(ndvSummaryBytes)));
     }
 
-    public static DeltaLakeColumnStatistics create(HyperLogLog ndvSummary)
+    public static DeltaLakeColumnStatistics create(OptionalLong totalSizeInBytes, HyperLogLog ndvSummary)
     {
-        return new DeltaLakeColumnStatistics(ndvSummary);
+        return new DeltaLakeColumnStatistics(totalSizeInBytes, ndvSummary);
     }
 
-    private DeltaLakeColumnStatistics(HyperLogLog ndvSummary)
+    private DeltaLakeColumnStatistics(OptionalLong totalSizeInBytes, HyperLogLog ndvSummary)
     {
+        this.totalSizeInBytes = requireNonNull(totalSizeInBytes, "totalSizeInBytes is null");
         this.ndvSummary = requireNonNull(ndvSummary, "ndvSummary is null");
+    }
+
+    @JsonProperty
+    public OptionalLong getTotalSizeInBytes()
+    {
+        return totalSizeInBytes;
     }
 
     @JsonProperty("ndvSummary")
@@ -58,8 +69,17 @@ public class DeltaLakeColumnStatistics
 
     public DeltaLakeColumnStatistics update(DeltaLakeColumnStatistics newStatistics)
     {
+        OptionalLong totalSizeInBytes = mergeIntegerStatistics(this.totalSizeInBytes, newStatistics.totalSizeInBytes);
         HyperLogLog ndvSummary = HyperLogLog.newInstance(this.ndvSummary.serialize());
         ndvSummary.mergeWith(newStatistics.ndvSummary);
-        return new DeltaLakeColumnStatistics(ndvSummary);
+        return new DeltaLakeColumnStatistics(totalSizeInBytes, ndvSummary);
+    }
+
+    private static OptionalLong mergeIntegerStatistics(OptionalLong first, OptionalLong second)
+    {
+        if (first.isPresent() && second.isPresent()) {
+            return OptionalLong.of(first.getAsLong() + second.getAsLong());
+        }
+        return OptionalLong.empty();
     }
 }

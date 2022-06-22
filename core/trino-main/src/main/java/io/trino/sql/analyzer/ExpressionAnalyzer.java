@@ -97,7 +97,11 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.JsonArray;
+import io.trino.sql.tree.JsonArrayElement;
 import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonObject;
+import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonPathParameter.JsonFormat;
@@ -167,12 +171,14 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonExistsFunction.JSON_EXISTS_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_TO_JSON;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_UTF16_TO_JSON;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_UTF32_TO_JSON;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_UTF8_TO_JSON;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARCHAR_TO_JSON;
+import static io.trino.operator.scalar.json.JsonObjectFunction.JSON_OBJECT_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonOutputFunctions.JSON_TO_VARBINARY;
 import static io.trino.operator.scalar.json.JsonOutputFunctions.JSON_TO_VARBINARY_UTF16;
 import static io.trino.operator.scalar.json.JsonOutputFunctions.JSON_TO_VARBINARY_UTF32;
@@ -2767,7 +2773,9 @@ public class ExpressionAnalyzer
                 }
                 // if the input expression is a JSON-returning function, there should be an explicit or implicit input format (spec p.817)
                 // JSON-returning functions are: JSON_OBJECT, JSON_OBJECTAGG, JSON_ARRAY, JSON_ARRAYAGG and JSON_QUERY
-                if (parameter instanceof JsonQuery && // TODO add JSON_OBJECT, JSON_OBJECTAGG, JSON_ARRAY, JSON_ARRAYAGG when supported
+                if ((parameter instanceof JsonQuery ||
+                        parameter instanceof JsonObject ||
+                        parameter instanceof JsonArray) && // TODO add JSON_OBJECTAGG, JSON_ARRAYAGG when supported
                         parameterFormat.isEmpty()) {
                     parameterFormat = Optional.of(JsonFormat.JSON);
                 }
@@ -2791,17 +2799,17 @@ public class ExpressionAnalyzer
                     else if (isNumericType(parameterType) || parameterType.equals(BOOLEAN)) {
                         passedType = parameterType;
                     }
-                    else if (isDateTimeType(parameterType)) {
-                        if (parameterType.equals(INTERVAL_DAY_TIME) || parameterType.equals(INTERVAL_YEAR_MONTH)) {
-                            throw semanticException(INVALID_FUNCTION_ARGUMENT, parameter, "Invalid type of JSON path parameter: %s", parameterType.getDisplayName());
-                        }
+                    else if (isDateTimeType(parameterType) && !parameterType.equals(INTERVAL_DAY_TIME) && !parameterType.equals(INTERVAL_YEAR_MONTH)) {
                         passedType = parameterType;
                     }
                     else {
-                        if (!typeCoercion.canCoerce(parameterType, VARCHAR)) {
-                            throw semanticException(INVALID_FUNCTION_ARGUMENT, parameter, "Invalid type of JSON path parameter: %s", parameterType.getDisplayName());
+                        try {
+                            plannerContext.getMetadata().getCoercion(session, parameterType, VARCHAR);
                         }
-                        coerceType(parameter, parameterType, VARCHAR, "JSON path parameter");
+                        catch (OperatorNotFoundException e) {
+                            throw semanticException(NOT_SUPPORTED, node, "Unsupported type of JSON path parameter: %s", parameterType.getDisplayName());
+                        }
+                        addOrReplaceExpressionCoercion(parameter, parameterType, VARCHAR);
                         passedType = VARCHAR;
                     }
                 }
@@ -2907,6 +2915,244 @@ public class ExpressionAnalyzer
             catch (TrinoException e) {
                 throw new TrinoException(TYPE_MISMATCH, extractLocation(node), format("Cannot output JSON value as %s using formatting %s", type, format), e);
             }
+        }
+
+        @Override
+        protected Type visitJsonObject(JsonObject node, StackableAstVisitorContext<Context> context)
+        {
+            // TODO verify parameter count? Is there a limit on Row size?
+
+            ImmutableList.Builder<RowType.Field> keyFields = ImmutableList.builder();
+            ImmutableList.Builder<RowType.Field> valueFields = ImmutableList.builder();
+
+            for (JsonObjectMember member : node.getMembers()) {
+                Expression key = member.getKey();
+                Expression value = member.getValue();
+                Optional<JsonFormat> format = member.getFormat();
+
+                Type keyType = process(key, context);
+                if (!isCharacterStringType(keyType)) {
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, key, "Invalid type of JSON object key: %s", keyType.getDisplayName());
+                }
+                keyFields.add(new RowType.Field(Optional.empty(), keyType));
+
+                if (value instanceof LambdaExpression || value instanceof BindExpression) {
+                    throw semanticException(NOT_SUPPORTED, value, "%s is not supported as JSON object value", value.getClass().getSimpleName());
+                }
+
+                // types accepted for values of a JSON object:
+                // - values of types numeric, string, and boolean are passed as-is
+                // - values with explicit or implicit FORMAT, are converted to JSON (type JSON_2016)
+                // - all other values are cast to VARCHAR
+
+                // if the value expression is a JSON-returning function, there should be an explicit or implicit input format (spec p.817)
+                // JSON-returning functions are: JSON_OBJECT, JSON_OBJECTAGG, JSON_ARRAY, JSON_ARRAYAGG and JSON_QUERY
+                if ((value instanceof JsonQuery ||
+                        value instanceof JsonObject ||
+                        value instanceof JsonArray) && // TODO add JSON_OBJECTAGG, JSON_ARRAYAGG when supported
+                        format.isEmpty()) {
+                    format = Optional.of(JsonFormat.JSON);
+                }
+
+                Type valueType = process(value, context);
+
+                if (format.isPresent()) {
+                    // in case when there is an input expression with FORMAT option, the only supported behavior
+                    // for the JSON_OBJECT function is WITHOUT UNIQUE KEYS. This is because the functions used for
+                    // converting input to JSON only support this option.
+                    if (node.isUniqueKeys()) {
+                        throw semanticException(NOT_SUPPORTED, node, "WITH UNIQUE KEYS behavior is not supported for JSON_OBJECT function when input expression has FORMAT");
+                    }
+                    // resolve function to read the value as JSON
+                    ResolvedFunction inputFunction = getInputFunction(valueType, format.get(), value);
+                    Type expectedValueType = inputFunction.getSignature().getArgumentType(0);
+                    coerceType(value, valueType, expectedValueType, "value passed to JSON_OBJECT function");
+                    jsonInputFunctions.put(NodeRef.of(value), inputFunction);
+                    valueType = JSON_2016;
+                }
+                else {
+                    if (isStringType(valueType)) {
+                        if (!isCharacterStringType(valueType)) {
+                            throw semanticException(NOT_SUPPORTED, value, "Unsupported type of value passed to JSON_OBJECT function: %s", valueType.getDisplayName());
+                        }
+                    }
+
+                    if (!isStringType(valueType) && !isNumericType(valueType) && !valueType.equals(BOOLEAN)) {
+                        try {
+                            plannerContext.getMetadata().getCoercion(session, valueType, VARCHAR);
+                        }
+                        catch (OperatorNotFoundException e) {
+                            throw semanticException(NOT_SUPPORTED, node, "Unsupported type of value passed to JSON_OBJECT function: %s", valueType.getDisplayName());
+                        }
+                        addOrReplaceExpressionCoercion(value, valueType, VARCHAR);
+                        valueType = VARCHAR;
+                    }
+                }
+
+                valueFields.add(new RowType.Field(Optional.empty(), valueType));
+            }
+
+            RowType keysRowType = JSON_NO_PARAMETERS_ROW_TYPE;
+            RowType valuesRowType = JSON_NO_PARAMETERS_ROW_TYPE;
+            if (!node.getMembers().isEmpty()) {
+                keysRowType = RowType.from(keyFields.build());
+                valuesRowType = RowType.from(valueFields.build());
+            }
+
+            // resolve function
+            List<Type> argumentTypes = ImmutableList.of(keysRowType, valuesRowType, BOOLEAN, BOOLEAN);
+            ResolvedFunction function;
+            try {
+                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_OBJECT_FUNCTION_NAME), fromTypes(argumentTypes));
+            }
+            catch (TrinoException e) {
+                if (e.getLocation().isPresent()) {
+                    throw e;
+                }
+                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+            }
+            accessControl.checkCanExecuteFunction(SecurityContext.of(session), JSON_OBJECT_FUNCTION_NAME);
+            resolvedFunctions.put(NodeRef.of(node), function);
+
+            // analyze returned type and format
+            Type returnedType = VARCHAR; // default
+            if (node.getReturnedType().isPresent()) {
+                try {
+                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(node.getReturnedType().get()));
+                }
+                catch (TypeNotFoundException e) {
+                    throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getReturnedType().get());
+                }
+            }
+            JsonFormat outputFormat = node.getOutputFormat().orElse(JsonFormat.JSON); // default
+
+            // resolve function to format output
+            ResolvedFunction outputFunction = getOutputFunction(returnedType, outputFormat, node);
+            jsonOutputFunctions.put(NodeRef.of(node), outputFunction);
+
+            // cast the output value to the declared returned type if necessary
+            Type outputType = outputFunction.getSignature().getReturnType();
+            if (!outputType.equals(returnedType)) {
+                try {
+                    plannerContext.getMetadata().getCoercion(session, outputType, returnedType);
+                }
+                catch (OperatorNotFoundException e) {
+                    throw semanticException(TYPE_MISMATCH, node, "Cannot return type %s from JSON_OBJECT function", returnedType);
+                }
+            }
+
+            return setExpressionType(node, returnedType);
+        }
+
+        @Override
+        protected Type visitJsonArray(JsonArray node, StackableAstVisitorContext<Context> context)
+        {
+            // TODO verify parameter count? Is there a limit on Row size?
+
+            ImmutableList.Builder<RowType.Field> elementFields = ImmutableList.builder();
+
+            for (JsonArrayElement arrayElement : node.getElements()) {
+                Expression element = arrayElement.getValue();
+                Optional<JsonFormat> format = arrayElement.getFormat();
+
+                if (element instanceof LambdaExpression || element instanceof BindExpression) {
+                    throw semanticException(NOT_SUPPORTED, element, "%s is not supported as JSON array element", element.getClass().getSimpleName());
+                }
+
+                // types accepted for elements of a JSON array:
+                // - values of types numeric, string, and boolean are passed as-is
+                // - values with explicit or implicit FORMAT, are converted to JSON (type JSON_2016)
+                // - all other values are cast to VARCHAR
+
+                // if the value expression is a JSON-returning function, there should be an explicit or implicit input format (spec p.817)
+                // JSON-returning functions are: JSON_OBJECT, JSON_OBJECTAGG, JSON_ARRAY, JSON_ARRAYAGG and JSON_QUERY
+                if ((element instanceof JsonQuery ||
+                        element instanceof JsonObject ||
+                        element instanceof JsonArray) && // TODO add JSON_OBJECTAGG, JSON_ARRAYAGG when supported
+                        format.isEmpty()) {
+                    format = Optional.of(JsonFormat.JSON);
+                }
+
+                Type elementType = process(element, context);
+
+                if (format.isPresent()) {
+                    // resolve function to read the value as JSON
+                    ResolvedFunction inputFunction = getInputFunction(elementType, format.get(), element);
+                    Type expectedElementType = inputFunction.getSignature().getArgumentType(0);
+                    coerceType(element, elementType, expectedElementType, "value passed to JSON_ARRAY function");
+                    jsonInputFunctions.put(NodeRef.of(element), inputFunction);
+                    elementType = JSON_2016;
+                }
+                else {
+                    if (isStringType(elementType)) {
+                        if (!isCharacterStringType(elementType)) {
+                            throw semanticException(NOT_SUPPORTED, element, "Unsupported type of value passed to JSON_ARRAY function: %s", elementType.getDisplayName());
+                        }
+                    }
+
+                    if (!isStringType(elementType) && !isNumericType(elementType) && !elementType.equals(BOOLEAN)) {
+                        try {
+                            plannerContext.getMetadata().getCoercion(session, elementType, VARCHAR);
+                        }
+                        catch (OperatorNotFoundException e) {
+                            throw semanticException(NOT_SUPPORTED, node, "Unsupported type of value passed to JSON_ARRAY function: %s", elementType.getDisplayName());
+                        }
+                        addOrReplaceExpressionCoercion(element, elementType, VARCHAR);
+                        elementType = VARCHAR;
+                    }
+                }
+
+                elementFields.add(new RowType.Field(Optional.empty(), elementType));
+            }
+
+            RowType elementsRowType = JSON_NO_PARAMETERS_ROW_TYPE;
+            if (!node.getElements().isEmpty()) {
+                elementsRowType = RowType.from(elementFields.build());
+            }
+
+            // resolve function
+            List<Type> argumentTypes = ImmutableList.of(elementsRowType, BOOLEAN);
+            ResolvedFunction function;
+            try {
+                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_ARRAY_FUNCTION_NAME), fromTypes(argumentTypes));
+            }
+            catch (TrinoException e) {
+                if (e.getLocation().isPresent()) {
+                    throw e;
+                }
+                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+            }
+            accessControl.checkCanExecuteFunction(SecurityContext.of(session), JSON_ARRAY_FUNCTION_NAME);
+            resolvedFunctions.put(NodeRef.of(node), function);
+
+            // analyze returned type and format
+            Type returnedType = VARCHAR; // default
+            if (node.getReturnedType().isPresent()) {
+                try {
+                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(node.getReturnedType().get()));
+                }
+                catch (TypeNotFoundException e) {
+                    throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getReturnedType().get());
+                }
+            }
+            JsonFormat outputFormat = node.getOutputFormat().orElse(JsonFormat.JSON); // default
+
+            // resolve function to format output
+            ResolvedFunction outputFunction = getOutputFunction(returnedType, outputFormat, node);
+            jsonOutputFunctions.put(NodeRef.of(node), outputFunction);
+
+            // cast the output value to the declared returned type if necessary
+            Type outputType = outputFunction.getSignature().getReturnType();
+            if (!outputType.equals(returnedType)) {
+                try {
+                    plannerContext.getMetadata().getCoercion(session, outputType, returnedType);
+                }
+                catch (OperatorNotFoundException e) {
+                    throw semanticException(TYPE_MISMATCH, node, "Cannot return type %s from JSON_ARRAY function", returnedType);
+                }
+            }
+
+            return setExpressionType(node, returnedType);
         }
 
         private Type getOperator(StackableAstVisitorContext<Context> context, Expression node, OperatorType operatorType, Expression... arguments)

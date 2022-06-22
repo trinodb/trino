@@ -518,6 +518,62 @@ public abstract class BaseConnectorTest
         });
     }
 
+    @Test
+    public void testSelectVersionOfNonExistentTable()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        String tableName = "foo_" + randomTableSuffix();
+        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'"))
+                .hasMessage(format("line 1:15: Table '%s.%s.%s' does not exist", catalog, schema, tableName));
+        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'version1'"))
+                .hasMessage(format("line 1:15: Table '%s.%s.%s' does not exist", catalog, schema, tableName));
+    }
+
+    /**
+     * A connector can support FOR TIMESTAMP, FOR VERSION, both or none. With FOR TIMESTAMP/VERSION is can support some types but not the others.
+     * Because of version support being multidimensional, {@link TestingConnectorBehavior} is not defined. The test verifies that query doesn't fail in
+     * some weird way, serving as a smoke test for versioning. The purpose of the test is to validate the connector does proper validation.
+     */
+    @Test
+    public void testTrySelectTableVersion()
+    {
+        testTrySelectTableVersion("SELECT * FROM nation FOR TIMESTAMP AS OF DATE '2005-09-10'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR TIMESTAMP AS OF TIMESTAMP '2005-09-10 13:00:00'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR TIMESTAMP AS OF TIMESTAMP '2005-09-10 13:00:00 Europe/Warsaw'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF TINYINT '123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF SMALLINT '123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF 123");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF BIGINT '123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF REAL '123.123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF DOUBLE '123.123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF DECIMAL '123.123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF CHAR 'abc'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF '123'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF CAST('abc' AS varchar(5))");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF CAST('abc' AS varchar)");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF DATE '2005-09-10'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF TIME '13:00:00'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF TIMESTAMP '2005-09-10 13:00:00'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF TIMESTAMP '2005-09-10 13:00:00 Europe/Warsaw'");
+        testTrySelectTableVersion("SELECT * FROM nation FOR VERSION AS OF JSON '{}'");
+    }
+
+    private void testTrySelectTableVersion(@Language("SQL") String query)
+    {
+        try {
+            computeActual(query);
+        }
+        catch (Exception somewhatExpected) {
+            verifyVersionedQueryFailurePermissible(getTrinoExceptionCause(somewhatExpected));
+        }
+    }
+
+    protected void verifyVersionedQueryFailurePermissible(Exception e)
+    {
+        assertThat(e).hasMessageContaining("This connector does not support versioned tables");
+    }
+
     /**
      * Test interactions between optimizer (including CBO), scheduling and connector metadata APIs.
      */
@@ -745,6 +801,26 @@ public abstract class BaseConnectorTest
                                 "CROSS JOIN UNNEST(ARRAY['orderkey', 'orderstatus', 'half'])");
 
         assertUpdate("DROP VIEW " + testView);
+    }
+
+    @Test
+    public void testCreateViewSchemaNotFound()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+
+        String schemaName = "test_schema_" + randomTableSuffix();
+        String viewName = "test_view_create_no_schema_" + randomTableSuffix();
+        try {
+            assertQueryFails(
+                    format("CREATE VIEW %s.%s AS SELECT 1 AS c1", schemaName, viewName),
+                    format("Schema %s not found", schemaName));
+            assertQueryFails(
+                    format("CREATE OR REPLACE VIEW %s.%s AS SELECT 1 AS c1", schemaName, viewName),
+                    format("Schema %s not found", schemaName));
+        }
+        finally {
+            assertUpdate(format("DROP VIEW IF EXISTS %s.%s", schemaName, viewName));
+        }
     }
 
     @Test
@@ -2264,7 +2340,7 @@ public abstract class BaseConnectorTest
         }
     }
 
-    private String getTableComment(String catalogName, String schemaName, String tableName)
+    protected String getTableComment(String catalogName, String schemaName, String tableName)
     {
         String sql = format("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'", catalogName, schemaName, tableName);
         return (String) computeActual(sql).getOnlyValue();
@@ -3364,9 +3440,13 @@ public abstract class BaseConnectorTest
                 .add(new DataMappingTestSetup("date", "DATE '2020-02-12'", "DATE '9999-12-31'"))
                 .add(new DataMappingTestSetup("time", "TIME '15:03:00'", "TIME '23:59:59.999'"))
                 .add(new DataMappingTestSetup("time(6)", "TIME '15:03:00'", "TIME '23:59:59.999999'"))
+                .add(new DataMappingTestSetup("timestamp", "TIMESTAMP '1969-12-31 15:03:00.123'", "TIMESTAMP '1969-12-31 17:03:00.456'"))
                 .add(new DataMappingTestSetup("timestamp", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999'"))
+                .add(new DataMappingTestSetup("timestamp(6)", "TIMESTAMP '1969-12-31 15:03:00.123456'", "TIMESTAMP '1969-12-31 17:03:00.123456'"))
                 .add(new DataMappingTestSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999999'"))
+                .add(new DataMappingTestSetup("timestamp(3) with time zone", "TIMESTAMP '1969-12-31 15:03:00.123 +01:00'", "TIMESTAMP '1969-12-31 17:03:00.456 +01:00'"))
                 .add(new DataMappingTestSetup("timestamp(3) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999 +12:00'"))
+                .add(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '1969-12-31 15:03:00.123456 +01:00'", "TIMESTAMP '1969-12-31 17:03:00.123456 +01:00'"))
                 .add(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999999 +12:00'"))
                 .add(new DataMappingTestSetup("char(3)", "'ab'", "'zzz'"))
                 .add(new DataMappingTestSetup("varchar(3)", "'de'", "'zzz'"))

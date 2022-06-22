@@ -25,6 +25,7 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -336,7 +337,9 @@ public class LogicalPlanner
 
     private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
     {
-        TableHandle targetTable = analysis.getAnalyzeTarget().orElseThrow();
+        AnalyzeMetadata analyzeMetadata = analysis.getAnalyzeMetadata().orElseThrow();
+        TableHandle targetTable = analyzeMetadata.getTableHandle();
+        TableStatisticsMetadata tableStatisticsMetadata = analyzeMetadata.getStatisticsMetadata();
 
         // Plan table scan
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);
@@ -350,11 +353,6 @@ public class LogicalPlanner
             symbolToColumnHandle.put(symbol, columnHandles.get(column.getName()));
             columnNameToSymbol.put(column.getName(), symbol);
         }
-
-        TableStatisticsMetadata tableStatisticsMetadata = metadata.getStatisticsCollectionMetadata(
-                session,
-                targetTable.getCatalogName().getCatalogName(),
-                tableMetadata.getMetadata());
 
         TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToSymbol.buildOrThrow());
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();

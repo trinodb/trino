@@ -53,6 +53,8 @@ public abstract class BaseIcebergMaterializedViewTest
 {
     protected abstract String getSchemaName();
 
+    protected abstract String getSchemaDirectory();
+
     @BeforeClass
     public void setUp()
     {
@@ -151,14 +153,22 @@ public abstract class BaseIcebergMaterializedViewTest
     public void testShowCreate()
     {
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_with_property " +
-                "WITH (partitioning = ARRAY['_date']) AS " +
+                "WITH (\n" +
+                "   partitioning = ARRAY['_date'],\n" +
+                "   orc_bloom_filter_columns = ARRAY['_date'],\n" +
+                "   orc_bloom_filter_fpp = 0.1) AS " +
                 "SELECT _bigint, _date FROM base_table1");
         assertQuery("SELECT COUNT(*) FROM materialized_view_with_property", "VALUES 6");
-        assertThat(computeActual("SHOW CREATE MATERIALIZED VIEW materialized_view_with_property").getOnlyValue())
-                .isEqualTo(
-                        "CREATE MATERIALIZED VIEW iceberg." + getSchemaName() + ".materialized_view_with_property\n" +
+
+        assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW materialized_view_with_property"))
+                .matches(
+                        "\\QCREATE MATERIALIZED VIEW iceberg." + getSchemaName() + ".materialized_view_with_property\n" +
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
+                                "   format_version = 2,\n" +
+                                "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+\\Q',\n" +
+                                "   orc_bloom_filter_columns = ARRAY['_date'],\n" +
+                                "   orc_bloom_filter_fpp = 1E-1,\n" +
                                 "   partitioning = ARRAY['_date']\n" +
                                 ") AS\n" +
                                 "SELECT\n" +
@@ -425,10 +435,12 @@ public abstract class BaseIcebergMaterializedViewTest
         assertQueryFails("show create view  materialized_view_window",
                 "line 1:1: Relation '" + qualifiedMaterializedViewName + "' is a materialized view, not a view");
 
-        assertThat(computeScalar("show create materialized view  materialized_view_window"))
-                .isEqualTo("CREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + "\n" +
+        assertThat((String) computeScalar("show create materialized view materialized_view_window"))
+                .matches("\\QCREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + "\n" +
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
+                        "   format_version = 2,\n" +
+                        "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+\\Q',\n" +
                         "   partitioning = ARRAY['_date']\n" +
                         ") AS\n" +
                         "SELECT\n" +

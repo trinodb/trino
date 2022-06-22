@@ -254,7 +254,7 @@ public abstract class BaseJdbcConnectorTest
         // pruned away aggregation
         assertThat(query("SELECT -13 FROM (SELECT count(*) FROM nation)"))
                 .matches("VALUES -13")
-                .hasPlan(node(OutputNode.class, node(ProjectNode.class, node(ValuesNode.class))));
+                .hasPlan(node(OutputNode.class, node(ValuesNode.class)));
         // aggregation over aggregation
         assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation)"))
                 .matches("VALUES BIGINT '1'")
@@ -1589,6 +1589,17 @@ public abstract class BaseJdbcConnectorTest
     public void testNativeQuerySimple()
     {
         assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT 1'))", "VALUES 1");
+    }
+
+    @Test
+    public void testNativeQueryParameters()
+    {
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query_simple", "SELECT * FROM TABLE(system.query(query => ?))")
+                .addPreparedStatement("my_query", "SELECT * FROM TABLE(system.query(query => format('SELECT %s FROM %s', ?, ?)))")
+                .build();
+        assertQuery(session, "EXECUTE my_query_simple USING 'SELECT 1 a'", "VALUES 1");
+        assertQuery(session, "EXECUTE my_query USING 'a', '(SELECT 2 a) t'", "VALUES 2");
     }
 
     @Test

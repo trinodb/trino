@@ -98,6 +98,7 @@ public class RedisSplitManager
                     redisTableHandle.getKeyDataFormat(),
                     redisTableHandle.getValueDataFormat(),
                     redisTableHandle.getKeyName(),
+                    redisTableHandle.getConstraint(),
                     startIndex,
                     endIndex,
                     nodes);

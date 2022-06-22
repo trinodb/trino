@@ -261,16 +261,13 @@ public class JmxMetadata
     @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
-        Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
-        if (domains.isEmpty()) {
-            return Optional.empty();
-        }
+        Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
 
         JmxTableHandle tableHandle = (JmxTableHandle) handle;
 
         Map<ColumnHandle, Domain> nodeDomains = new LinkedHashMap<>();
         Map<ColumnHandle, Domain> otherDomains = new LinkedHashMap<>();
-        domains.get().forEach((column, domain) -> {
+        domains.forEach((column, domain) -> {
             JmxColumnHandle columnHandle = (JmxColumnHandle) column;
             if (columnHandle.getColumnName().equals(NODE_COLUMN_NAME)) {
                 nodeDomains.put(column, domain);

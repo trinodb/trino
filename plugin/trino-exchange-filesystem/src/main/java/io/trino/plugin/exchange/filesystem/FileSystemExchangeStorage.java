@@ -32,15 +32,11 @@ public interface FileSystemExchangeStorage
 
     ExchangeStorageWriter createExchangeStorageWriter(URI file, Optional<SecretKey> secretKey);
 
-    boolean exists(URI file) throws IOException;
-
     ListenableFuture<Void> createEmptyFile(URI file);
 
     ListenableFuture<Void> deleteRecursively(List<URI> directories);
 
-    List<FileStatus> listFiles(URI dir) throws IOException;
-
-    List<URI> listDirectories(URI dir) throws IOException;
+    ListenableFuture<List<FileStatus>> listFilesRecursively(URI dir);
 
     int getWriteBufferSize();
 

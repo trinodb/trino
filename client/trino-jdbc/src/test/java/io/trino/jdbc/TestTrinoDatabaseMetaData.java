@@ -46,6 +46,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -86,6 +87,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -1419,12 +1421,12 @@ public class TestTrinoDatabaseMetaData
                         .withGetColumnsCount(3000));
     }
 
-    @Test
-    public void testAssumeLiteralMetadataCalls()
+    @Test(dataProvider = "escapeLiteralParameters")
+    public void testAssumeLiteralMetadataCalls(String escapeLiteralParameter)
             throws Exception
     {
         try (Connection connection = DriverManager.getConnection(
-                format("jdbc:trino://%s?assumeLiteralNamesInMetadataCallsForNonConformingClients=true", server.getAddress()),
+                format("jdbc:trino://%s?%s", server.getAddress(), escapeLiteralParameter),
                 "admin",
                 null)) {
             // getTables's schema name pattern treated as literal
@@ -1497,22 +1499,52 @@ public class TestTrinoDatabaseMetaData
         }
     }
 
+    @DataProvider
+    public Object[][] escapeLiteralParameters()
+    {
+        return new Object[][]{
+                {"assumeLiteralNamesInMetadataCallsForNonConformingClients=true"},
+                {"assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true"},
+                {"assumeLiteralNamesInMetadataCallsForNonConformingClients=false&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true"},
+                {"assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=false"},
+        };
+    }
+
+    @Test
+    public void testFailedBothEscapeLiteralParameters()
+            throws SQLException
+    {
+        assertThatThrownBy(() -> DriverManager.getConnection(
+                format("jdbc:trino://%s?%s", server.getAddress(), "assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true"),
+                "admin",
+                null))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'assumeLiteralNamesInMetadataCallsForNonConformingClients' is not allowed");
+    }
+
     @Test
     public void testEscapeIfNecessary()
+            throws SQLException
     {
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, null), null);
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "a"), "a");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "abc_def"), "abc_def");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "abc__de_f"), "abc__de_f");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "abc%def"), "abc%def");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "abc\\_def"), "abc\\_def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, null), null);
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "a"), "a");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc_def"), "abc_def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc__de_f"), "abc__de_f");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc%def"), "abc%def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc\\_def"), "abc\\_def");
 
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, null), null);
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "a"), "a");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "abc_def"), "abc\\_def");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "abc__de_f"), "abc\\_\\_de\\_f");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "abc%def"), "abc\\%def");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "abc\\_def"), "abc\\\\\\_def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, null), null);
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "a"), "a");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc_def"), "abc\\_def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc__de_f"), "abc\\_\\_de\\_f");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc%def"), "abc\\%def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc\\_def"), "abc\\\\\\_def");
+
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, null), null);
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "a"), "a");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "abc_def"), "abc\\_def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "abc__de_f"), "abc\\_\\_de\\_f");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "abc\\_def"), "abc\\\\\\_def");
     }
 
     @Test

@@ -294,10 +294,12 @@ public class TestTableWriterOperator
                 0,
                 new PlanNodeId("test"),
                 pageSinkManager,
-                new CreateTarget(new OutputTableHandle(
-                        CONNECTOR_ID,
-                        new ConnectorTransactionHandle() {},
-                        new ConnectorOutputTableHandle() {}),
+                new CreateTarget(
+                        new OutputTableHandle(
+                                CONNECTOR_ID,
+                                schemaTableName,
+                                new ConnectorTransactionHandle() {},
+                                new ConnectorOutputTableHandle() {}),
                         schemaTableName,
                         false),
                 ImmutableList.of(0),

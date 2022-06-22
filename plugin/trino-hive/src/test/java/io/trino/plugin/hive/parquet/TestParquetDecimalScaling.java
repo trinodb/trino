@@ -53,6 +53,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.transform;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.maximumValue;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.minimumValue;
 import static io.trino.spi.type.Decimals.overflows;
@@ -441,7 +442,7 @@ public class TestParquetDecimalScaling
     {
         Properties tableProperties = createTableProperties(columnNames, Collections.singletonList(inspector));
 
-        JobConf jobConf = new JobConf();
+        JobConf jobConf = new JobConf(newEmptyConfiguration());
         jobConf.setEnum(COMPRESSION, UNCOMPRESSED);
         jobConf.setBoolean(ENABLE_DICTIONARY, false);
         jobConf.setEnum(WRITER_VERSION, writerVersion);

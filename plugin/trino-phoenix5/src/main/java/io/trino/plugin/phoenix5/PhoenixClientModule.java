@@ -71,6 +71,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
+import static io.trino.plugin.phoenix5.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
 
 public class PhoenixClientModule
@@ -167,7 +168,7 @@ public class PhoenixClientModule
 
     private static Configuration readConfig(PhoenixConfig config)
     {
-        Configuration result = new Configuration(false);
+        Configuration result = newEmptyConfiguration();
         for (String resourcePath : config.getResourceConfigFiles()) {
             result.addResource(new Path(resourcePath));
         }

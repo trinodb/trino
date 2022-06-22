@@ -176,7 +176,16 @@ public interface JdbcClient
     PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException;
 
+    /**
+     * @deprecated Use {@link #getTableStatistics(ConnectorSession, JdbcTableHandle)}
+     */
+    @Deprecated
     TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain);
+
+    default TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return getTableStatistics(session, handle, TupleDomain.all());
+    }
 
     void createSchema(ConnectorSession session, String schemaName);
 

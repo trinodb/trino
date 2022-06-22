@@ -31,6 +31,7 @@ import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static org.jline.reader.LineReader.BLINK_MATCHING_PAREN;
 import static org.jline.reader.LineReader.HISTORY_FILE;
 import static org.jline.reader.LineReader.MAIN;
+import static org.jline.reader.LineReader.Option.HISTORY_IGNORE_SPACE;
 import static org.jline.reader.LineReader.Option.HISTORY_TIMESTAMPED;
 import static org.jline.reader.LineReader.SECONDARY_PROMPT_PATTERN;
 import static org.jline.utils.AttributedStyle.BRIGHT;
@@ -49,6 +50,7 @@ public class InputReader
                 .variable(HISTORY_FILE, historyFile)
                 .variable(SECONDARY_PROMPT_PATTERN, isRealTerminal() ? colored("%P -> ") : "") // workaround for https://github.com/jline/jline3/issues/751
                 .variable(BLINK_MATCHING_PAREN, 0)
+                .option(HISTORY_IGNORE_SPACE, false) // store history even if the query starts with spaces
                 .parser(new InputParser())
                 .highlighter(new InputHighlighter())
                 .completer(new AggregateCompleter(completers))

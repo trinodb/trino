@@ -38,7 +38,11 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.JsonArray;
+import io.trino.sql.tree.JsonArrayElement;
 import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonObject;
+import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
 import io.trino.sql.tree.JsonValue;
@@ -72,6 +76,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
+import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
 import static java.lang.String.format;
@@ -596,6 +602,142 @@ class TranslationMap
                 }
 
                 return new ParametersRow(parametersRow, parametersOrder);
+            }
+
+            @Override
+            public Expression rewriteJsonObject(JsonObject node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<Expression> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
+                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
+
+                Expression keysRow;
+                Expression valuesRow;
+
+                // prepare keys and values as rows
+                if (node.getMembers().isEmpty()) {
+                    checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(0)));
+                    checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(1)));
+                    keysRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
+                    valuesRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
+                }
+                else {
+                    ImmutableList.Builder<Expression> keys = ImmutableList.builder();
+                    ImmutableList.Builder<Expression> values = ImmutableList.builder();
+                    for (JsonObjectMember member : node.getMembers()) {
+                        Expression key = member.getKey();
+                        Expression value = member.getValue();
+
+                        Expression rewrittenKey = treeRewriter.rewrite(key, context);
+                        keys.add(rewrittenKey);
+
+                        Expression rewrittenValue = treeRewriter.rewrite(value, context);
+                        ResolvedFunction valueToJson = analysis.getJsonInputFunction(value);
+                        if (valueToJson != null) {
+                            values.add(new FunctionCall(valueToJson.toQualifiedName(), ImmutableList.of(rewrittenValue, TRUE_LITERAL)));
+                        }
+                        else {
+                            values.add(rewrittenValue);
+                        }
+                    }
+                    keysRow = new Row(keys.build());
+                    valuesRow = new Row(values.build());
+                }
+
+                List<Expression> arguments = ImmutableList.<Expression>builder()
+                        .add(keysRow)
+                        .add(valuesRow)
+                        .add(node.isNullOnNull() ? TRUE_LITERAL : FALSE_LITERAL)
+                        .add(node.isUniqueKeys() ? TRUE_LITERAL : FALSE_LITERAL)
+                        .build();
+
+                Expression function = new FunctionCall(resolvedFunction.toQualifiedName(), arguments);
+
+                // apply function to format output
+                ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
+                Expression result = new FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(
+                        function,
+                        new GenericLiteral("tinyint", String.valueOf(JsonQuery.EmptyOrErrorBehavior.ERROR.ordinal())),
+                        FALSE_LITERAL));
+
+                // cast to requested returned type
+                Type returnedType = node.getReturnedType()
+                        .map(TypeSignatureTranslator::toTypeSignature)
+                        .map(plannerContext.getTypeManager()::getType)
+                        .orElse(VARCHAR);
+
+                Type resultType = outputFunction.getSignature().getReturnType();
+                if (!resultType.equals(returnedType)) {
+                    result = new Cast(result, toSqlType(returnedType));
+                }
+
+                return coerceIfNecessary(node, result);
+            }
+
+            @Override
+            public Expression rewriteJsonArray(JsonArray node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<Expression> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
+                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
+
+                Expression elementsRow;
+
+                // prepare elements as row
+                if (node.getElements().isEmpty()) {
+                    checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(resolvedFunction.getSignature().getArgumentType(0)));
+                    elementsRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
+                }
+                else {
+                    ImmutableList.Builder<Expression> elements = ImmutableList.builder();
+                    for (JsonArrayElement arrayElement : node.getElements()) {
+                        Expression element = arrayElement.getValue();
+                        Expression rewrittenElement = treeRewriter.rewrite(element, context);
+                        ResolvedFunction elementToJson = analysis.getJsonInputFunction(element);
+                        if (elementToJson != null) {
+                            elements.add(new FunctionCall(elementToJson.toQualifiedName(), ImmutableList.of(rewrittenElement, TRUE_LITERAL)));
+                        }
+                        else {
+                            elements.add(rewrittenElement);
+                        }
+                    }
+                    elementsRow = new Row(elements.build());
+                }
+
+                List<Expression> arguments = ImmutableList.<Expression>builder()
+                        .add(elementsRow)
+                        .add(node.isNullOnNull() ? TRUE_LITERAL : FALSE_LITERAL)
+                        .build();
+
+                Expression function = new FunctionCall(resolvedFunction.toQualifiedName(), arguments);
+
+                // apply function to format output
+                ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
+                Expression result = new FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(
+                        function,
+                        new GenericLiteral("tinyint", String.valueOf(JsonQuery.EmptyOrErrorBehavior.ERROR.ordinal())),
+                        FALSE_LITERAL));
+
+                // cast to requested returned type
+                Type returnedType = node.getReturnedType()
+                        .map(TypeSignatureTranslator::toTypeSignature)
+                        .map(plannerContext.getTypeManager()::getType)
+                        .orElse(VARCHAR);
+
+                Type resultType = outputFunction.getSignature().getReturnType();
+                if (!resultType.equals(returnedType)) {
+                    result = new Cast(result, toSqlType(returnedType));
+                }
+
+                return coerceIfNecessary(node, result);
             }
 
             private Expression coerceIfNecessary(Expression original, Expression rewritten)

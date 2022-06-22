@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
+import com.google.common.math.IntMath;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogName;
@@ -85,6 +87,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
@@ -141,6 +144,8 @@ import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FrameBound;
@@ -229,6 +234,9 @@ import io.trino.sql.tree.WithQuery;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.TypeCoercion;
 
+import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -308,7 +316,10 @@ import static io.trino.spi.ptf.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
@@ -775,10 +786,12 @@ class StatementAnalyzer
             analysis.setUpdateType("ANALYZE");
             analysis.setUpdateTarget(tableName, Optional.empty(), Optional.empty());
 
-            // verify the target table exists and it's not a view
             if (metadata.isView(session, tableName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
+
+            TableHandle tableHandle = metadata.getTableHandle(session, tableName)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
 
             validateProperties(node.getProperties(), scope);
             CatalogName catalogName = getRequiredCatalogHandle(metadata, session, node, tableName.getCatalogName());
@@ -791,8 +804,8 @@ class StatementAnalyzer
                     accessControl,
                     analysis.getParameters(),
                     true);
-            TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
-                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
+
+            analysis.setAnalyzeMetadata(metadata.getStatisticsCollectionMetadata(session, tableHandle, analyzeProperties));
 
             // user must have read and insert permission in order to analyze stats of a table
             analysis.addTableColumnReferences(
@@ -808,7 +821,6 @@ class StatementAnalyzer
                 throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName));
             }
 
-            analysis.setAnalyzeTarget(tableHandle);
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
 
@@ -1667,13 +1679,29 @@ class StatementAnalyzer
                 if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "'descriptor' function is not allowed as a table function argument");
                 }
+                // inline parameters
+                Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
+                {
+                    @Override
+                    public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                    {
+                        if (analysis.isDescribe()) {
+                            // We cannot handle DESCRIBE when a table function argument involves a parameter.
+                            // In DESCRIBE, the parameter values are not known. We cannot pass a dummy value for a parameter.
+                            // The value of a table function argument can affect the returned relation type. The returned
+                            // relation type can affect the assumed types for other parameters in the query.
+                            throw semanticException(NOT_SUPPORTED, node, "DESCRIBE is not supported if a table function uses parameters");
+                        }
+                        return analysis.getParameters().get(NodeRef.of(node));
+                    }
+                }, expression);
                 Type expectedArgumentType = ((ScalarArgumentSpecification) argumentSpecification).getType();
                 // currently, only constant arguments are supported
-                Object constantValue = ExpressionInterpreter.evaluateConstantExpression(expression, expectedArgumentType, plannerContext, session, accessControl, analysis.getParameters());
+                Object constantValue = ExpressionInterpreter.evaluateConstantExpression(inlined, expectedArgumentType, plannerContext, session, accessControl, analysis.getParameters());
                 return ScalarArgument.builder()
                         .type(expectedArgumentType)
                         .value(constantValue)
-                        .build(); // TODO test coercion, test parameter
+                        .build();
             }
 
             throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
@@ -2367,15 +2395,7 @@ class StatementAnalyzer
                 throw semanticException(INVALID_ARGUMENTS, samplePercentage, "Sample percentage cannot be NULL");
             }
 
-            if (samplePercentageType != DOUBLE) {
-                ResolvedFunction coercion = metadata.getCoercion(session, samplePercentageType, DOUBLE);
-                InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
-                samplePercentageObject = functionInvoker.invoke(coercion, session.toConnectorSession(), samplePercentageObject);
-                verify(samplePercentageObject != null, "Coercion from %s to %s returned null", samplePercentageType, DOUBLE);
-            }
-
-            double samplePercentageValue = (double) samplePercentageObject;
-
+            double samplePercentageValue = (double) coerce(samplePercentageType, samplePercentageObject, DOUBLE);
             if (samplePercentageValue < 0.0) {
                 throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, samplePercentage, "Sample percentage must be greater than or equal to 0");
             }
@@ -4539,8 +4559,8 @@ class StatementAnalyzer
         private RedirectionAwareTableHandle getTableHandle(Table table, QualifiedObjectName name, Optional<Scope> scope)
         {
             if (table.getQueryPeriod().isPresent()) {
-                Optional<TableVersion> startVersion = extractTableVersion(table, name, table.getQueryPeriod().get().getStart(), scope);
-                Optional<TableVersion> endVersion = extractTableVersion(table, name, table.getQueryPeriod().get().getEnd(), scope);
+                Optional<TableVersion> startVersion = extractTableVersion(table, table.getQueryPeriod().get().getStart(), scope);
+                Optional<TableVersion> endVersion = extractTableVersion(table, table.getQueryPeriod().get().getEnd(), scope);
                 return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion);
             }
             return metadata.getRedirectionAwareTableHandle(session, name);
@@ -4549,7 +4569,7 @@ class StatementAnalyzer
         /**
          * Analyzes the version pointer in a query period and extracts an evaluated version value
          */
-        private Optional<TableVersion> extractTableVersion(Table table, QualifiedObjectName tableName, Optional<Expression> version, Optional<Scope> scope)
+        private Optional<TableVersion> extractTableVersion(Table table, Optional<Expression> version, Optional<Scope> scope)
         {
             Optional<TableVersion> tableVersion = Optional.empty();
             if (version.isEmpty()) {
@@ -4561,36 +4581,51 @@ class StatementAnalyzer
             // Once the range value is analyzed, we can evaluate it
             Type versionType = expressionAnalysis.getType(version.get());
             PointerType pointerType = toPointerType(table.getQueryPeriod().get().getRangeType());
+            if (versionType == UNKNOWN) {
+                throw semanticException(INVALID_ARGUMENTS, table.getQueryPeriod().get(), "Pointer value cannot be NULL");
+            }
             Object evaluatedVersion = evaluateConstantExpression(version.get(), versionType, plannerContext, session, accessControl, ImmutableMap.of());
             TableVersion extractedVersion = new TableVersion(pointerType, versionType, evaluatedVersion);
-
-            // Before checking if the connector supports the version type, verify that version is a valid time-based type
-            if (extractedVersion.getPointerType() == PointerType.TEMPORAL) {
-                if (!isValidTemporalType(extractedVersion.getObjectType())) {
-                    throw semanticException(
-                            TYPE_MISMATCH,
-                            table.getQueryPeriod().get(),
-                            format(
-                                    "Type %s invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.",
-                                    extractedVersion.getObjectType().getDisplayName()));
-                }
-            }
-
-            if (!metadata.isValidTableVersion(session, tableName, extractedVersion)) {
-                throw semanticException(
-                        TYPE_MISMATCH,
-                        table.getQueryPeriod().get(),
-                        format("Type %s not supported by this connector.", extractedVersion.getObjectType().getDisplayName()));
-            }
-
+            validateVersionPointer(table.getQueryPeriod().get(), extractedVersion);
             return Optional.of(extractedVersion);
         }
 
-        private boolean isValidTemporalType(Type type)
+        private void validateVersionPointer(QueryPeriod queryPeriod, TableVersion extractedVersion)
         {
-            return (type instanceof TimestampWithTimeZoneType ||
-                    type instanceof TimestampType ||
-                    type instanceof DateType);
+            Type type = extractedVersion.getObjectType();
+            Object pointer = extractedVersion.getPointer();
+            if (extractedVersion.getPointerType() == PointerType.TEMPORAL) {
+                // Before checking if the connector supports the version type, verify that version is a valid time-based type
+                if (!(type instanceof TimestampWithTimeZoneType ||
+                        type instanceof TimestampType ||
+                        type instanceof DateType)) {
+                    throw semanticException(TYPE_MISMATCH, queryPeriod, format(
+                            "Type %s invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.",
+                            type.getDisplayName()));
+                }
+                if (pointer == null) {
+                    throw semanticException(INVALID_ARGUMENTS, queryPeriod, "Pointer value cannot be NULL");
+                }
+                Instant pointerInstant = getInstantWithRoundUp((LongTimestampWithTimeZone) coerce(type, pointer, createTimestampWithTimeZoneType(TimestampWithTimeZoneType.MAX_PRECISION)));
+                if (!pointerInstant.isBefore(session.getStart())) {
+                    String varchar = ((Slice) coerce(type, pointer, createUnboundedVarcharType())).toStringUtf8();
+                    throw semanticException(
+                            INVALID_ARGUMENTS,
+                            queryPeriod,
+                            format("Pointer value '%s' is not in the past", varchar));
+                }
+            }
+            else {
+                if (pointer == null) {
+                    throw semanticException(INVALID_ARGUMENTS, queryPeriod, "Pointer value cannot be NULL");
+                }
+            }
+        }
+
+        private Instant getInstantWithRoundUp(LongTimestampWithTimeZone value)
+        {
+            return Instant.ofEpochMilli(value.getEpochMillis())
+                    .plus(IntMath.divide(value.getPicosOfMilli(), PICOSECONDS_PER_NANOSECOND, RoundingMode.CEILING), ChronoUnit.NANOS);
         }
 
         private PointerType toPointerType(QueryPeriod.RangeType type)
@@ -4602,6 +4637,16 @@ class StatementAnalyzer
                     return PointerType.TARGET_ID;
             }
             throw new UnsupportedOperationException("Unsupported range type: " + type);
+        }
+
+        private Object coerce(Type sourceType, Object value, Type targetType)
+        {
+            if (sourceType.equals(targetType)) {
+                return value;
+            }
+            ResolvedFunction coercion = metadata.getCoercion(session, sourceType, targetType);
+            InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
+            return functionInvoker.invoke(coercion, session.toConnectorSession(), value);
         }
     }
 

@@ -31,7 +31,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -185,17 +184,12 @@ public abstract class BaseHiveConnectorTest
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
     }
 
-    protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties, Map<String, String> exchangeManagerProperties)
+    protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties, Consumer<QueryRunner> additionalSetup)
             throws Exception
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
-                .setAdditionalSetup(runner -> {
-                    if (!exchangeManagerProperties.isEmpty()) {
-                        runner.installPlugin(new FileSystemExchangePlugin());
-                        runner.loadExchangeManager("filesystem", exchangeManagerProperties);
-                    }
-                })
+                .setAdditionalSetup(additionalSetup)
                 .setHiveProperties(ImmutableMap.of(
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
@@ -816,22 +810,22 @@ public abstract class BaseHiveConnectorTest
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
-        assertUpdate(admin, "CREATE SCHEMA test_table_authorization");
-        assertUpdate(admin, "CREATE TABLE test_table_authorization.foo (col int)");
+        assertUpdate(admin, "CREATE SCHEMA test_table_authorization_role");
+        assertUpdate(admin, "CREATE TABLE test_table_authorization_role.foo (col int)");
 
         // TODO Change assertions once https://github.com/trinodb/trino/issues/5706 is done
         assertAccessDenied(
                 alice,
-                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION ROLE admin",
-                "Cannot set authorization for table test_table_authorization.foo to ROLE admin");
-        assertUpdate(admin, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice");
+                "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION ROLE admin",
+                "Cannot set authorization for table test_table_authorization_role.foo to ROLE admin");
+        assertUpdate(admin, "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION alice");
         assertQueryFails(
                 alice,
-                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION ROLE admin",
+                "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION ROLE admin",
                 "Setting table owner type as a role is not supported");
 
-        assertUpdate(admin, "DROP TABLE test_table_authorization.foo");
-        assertUpdate(admin, "DROP SCHEMA test_table_authorization");
+        assertUpdate(admin, "DROP TABLE test_table_authorization_role.foo");
+        assertUpdate(admin, "DROP SCHEMA test_table_authorization_role");
     }
 
     @Test
@@ -3815,7 +3809,7 @@ public abstract class BaseHiveConnectorTest
                         "   bucketed_by = ARRAY['c1','c 2'],\n" +
                         "   bucketing_version = 1,\n" +
                         "   format = 'ORC',\n" +
-                        "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
+                        "   orc_bloom_filter_columns = ARRAY['c1','c 2'],\n" +
                         "   orc_bloom_filter_fpp = 7E-1,\n" +
                         "   partitioned_by = ARRAY['c5'],\n" +
                         "   sorted_by = ARRAY['c1','c 2 DESC'],\n" +
@@ -7763,8 +7757,22 @@ public abstract class BaseHiveConnectorTest
                         .hasMessage("Unsupported codec: LZ4");
                 return;
             }
+
+            if (!isSupportedCodec(hiveStorageFormat, compressionCodec)) {
+                assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
+                        .hasMessage("Compression codec " + compressionCodec + " not supported for " + hiveStorageFormat);
+                return;
+            }
             testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec);
         });
+    }
+
+    private boolean isSupportedCodec(HiveStorageFormat storageFormat, HiveCompressionCodec codec)
+    {
+        if (storageFormat == HiveStorageFormat.AVRO && codec == HiveCompressionCodec.LZ4) {
+            return false;
+        }
+        return true;
     }
 
     @DataProvider

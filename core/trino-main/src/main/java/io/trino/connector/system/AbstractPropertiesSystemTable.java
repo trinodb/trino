@@ -14,6 +14,7 @@
 package io.trino.connector.system;
 
 import io.trino.connector.CatalogName;
+import io.trino.metadata.CatalogInfo;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -77,17 +78,18 @@ abstract class AbstractPropertiesSystemTable
 
         InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(tableMetadata);
 
-        List<CatalogName> catalogNames = transactionManager.getCatalogs(transactionId).keySet().stream()
+        List<String> catalogNames = transactionManager.getCatalogs(transactionId).stream()
+                .map(CatalogInfo::getCatalogName)
+                .map(CatalogName::getCatalogName)
                 .sorted()
-                .map(CatalogName::new)
                 .collect(toImmutableList());
 
-        for (CatalogName catalogName : catalogNames) {
-            catalogProperties.apply(catalogName).stream()
+        for (String catalogName : catalogNames) {
+            catalogProperties.apply(new CatalogName(catalogName)).stream()
                     .sorted(Comparator.comparing(PropertyMetadata::getName))
                     .forEach(propertyMetadata ->
                             table.addRow(
-                                    catalogName.toString(),
+                                    catalogName,
                                     propertyMetadata.getName(),
                                     firstNonNull(propertyMetadata.getDefaultValue(), "").toString(),
                                     propertyMetadata.getSqlType().toString(),
