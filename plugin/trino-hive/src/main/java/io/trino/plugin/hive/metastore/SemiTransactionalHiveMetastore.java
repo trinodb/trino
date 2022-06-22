@@ -40,6 +40,7 @@ import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadataMetastore;
+import io.trino.plugin.hive.util.RetryDriver;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -122,6 +123,7 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.conf.MetastoreConf.ConfVars.TXN_TIMEOUT;
@@ -133,6 +135,10 @@ public class SemiTransactionalHiveMetastore
     private static final Logger log = Logger.get(SemiTransactionalHiveMetastore.class);
     private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
     private static final Pattern DELTA_DIRECTORY_MATCHER = Pattern.compile("(delete_)?delta_[\\d]+_[\\d]+_[\\d]+$");
+
+    private static final RetryDriver DELETE_RETRY = RetryDriver.retry()
+            .maxAttempts(3)
+            .exponentialBackoff(new Duration(1, SECONDS), new Duration(1, SECONDS), new Duration(10, SECONDS), 2.0);
 
     private final HiveMetastoreClosure delegate;
     private final HdfsEnvironment hdfsEnvironment;
@@ -3663,8 +3669,12 @@ public class SemiTransactionalHiveMetastore
             Iterator<String> filesToDeleteIterator = filesToDelete.iterator();
             while (filesToDeleteIterator.hasNext()) {
                 String fileName = filesToDeleteIterator.next();
-                log.debug("Deleting failed attempt file %s/%s for query %s", path, fileName, queryId);
-                checkedDelete(fileSystem, new Path(path, fileName), false);
+                Path filePath = new Path(path, fileName);
+                log.debug("Deleting failed attempt file %s for query %s", filePath, queryId);
+                DELETE_RETRY.run("delete " + filePath, () -> {
+                    checkedDelete(fileSystem, filePath, false);
+                    return null;
+                });
                 deletedFilesBuilder.add(fileName);
                 filesToDeleteIterator.remove();
             }
@@ -3674,7 +3684,10 @@ public class SemiTransactionalHiveMetastore
                 log.info("Deleted failed attempt files %s from %s for query %s", deletedFiles, path, queryId);
             }
         }
-        catch (IOException e) {
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             // If we fail here query will be rolled back. The optimal outcome would be for rollback to complete successfully and clean up everything for query.
             // Yet if we have problem here, probably rollback will also fail.
             //
