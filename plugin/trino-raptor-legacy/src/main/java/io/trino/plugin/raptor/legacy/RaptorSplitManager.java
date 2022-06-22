@@ -30,6 +30,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import org.jdbi.v3.core.result.ResultIterator;
@@ -97,7 +98,8 @@ public class RaptorSplitManager
             ConnectorSession session,
             ConnectorTableHandle handle,
             SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         RaptorTableHandle table = (RaptorTableHandle) handle;
         long tableId = table.getTableId();

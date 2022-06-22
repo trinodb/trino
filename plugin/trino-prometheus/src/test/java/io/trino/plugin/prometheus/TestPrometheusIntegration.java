@@ -16,6 +16,7 @@ package io.trino.plugin.prometheus;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
@@ -120,7 +121,8 @@ public class TestPrometheusIntegration
                 null,
                 new PrometheusTableHandle("default", table.getName()),
                 null,
-                (DynamicFilter) null);
+                (DynamicFilter) null,
+                Constraint.alwaysTrue());
         int numSplits = splits.getNextBatch(NOT_PARTITIONED, NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits().size();
         assertEquals(numSplits, config.getMaxQueryRangeDuration().getValue(TimeUnit.SECONDS) / config.getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS),
                 0.001);

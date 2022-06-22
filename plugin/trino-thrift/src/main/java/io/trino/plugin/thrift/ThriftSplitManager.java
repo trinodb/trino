@@ -34,6 +34,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -75,7 +76,8 @@ public class ThriftSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         ThriftTableHandle tableHandle = (ThriftTableHandle) table;
         return new ThriftSplitSource(
