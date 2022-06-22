@@ -14,7 +14,7 @@
 package io.trino.plugin.exchange.filesystem.containers;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.containers.Minio;
+import io.trino.testing.containers.MinioContainer;
 import org.testcontainers.containers.Network;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -36,13 +36,13 @@ public class MinioStorage
 
     private final String bucketName;
     private final Network network;
-    private final Minio minio;
+    private final MinioContainer minio;
 
     public MinioStorage(String bucketName)
     {
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         this.network = newNetwork();
-        this.minio = Minio.builder()
+        this.minio = MinioContainer.builder()
                 .withNetwork(network)
                 .withEnvVars(ImmutableMap.<String, String>builder()
                         .put("MINIO_ACCESS_KEY", ACCESS_KEY)
@@ -65,7 +65,7 @@ public class MinioStorage
         s3Client.createBucket(createBucketRequest);
     }
 
-    public Minio getMinio()
+    public MinioContainer getMinio()
     {
         return minio;
     }

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.util;
 
+import io.trino.testing.containers.MinioContainer;
 import io.trino.testing.minio.MinioClient;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
@@ -23,8 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_ACCESS_KEY;
-import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.MinioContainer.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.MinioContainer.MINIO_SECRET_KEY;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.time.temporal.ChronoUnit.SECONDS;
 
@@ -85,7 +86,9 @@ public final class DockerizedMinioDataLake
 
     private MinioContainer initMinioContainer()
     {
-        MinioContainer container = new MinioContainer(network);
+        MinioContainer container = MinioContainer.builder()
+                .withNetwork(network)
+                .build();
         closer.register(container);
         container.start();
         return container;

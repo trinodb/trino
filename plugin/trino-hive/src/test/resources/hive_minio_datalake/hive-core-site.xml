@@ -6,7 +6,7 @@
     </property>
     <property>
         <name>fs.s3a.endpoint</name>
-        <value>http://minio:4566</value>
+        <value>http://minio:9080</value>
     </property>
     <property>
         <name>fs.s3a.access.key</name>

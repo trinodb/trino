@@ -19,7 +19,7 @@ import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.containers.Minio;
+import io.trino.testing.containers.MinioContainer;
 import io.trino.util.AutoCloseableCloser;
 import org.testcontainers.containers.Network;
 
@@ -36,7 +36,7 @@ public class HiveMinioDataLake
     public static final String SECRET_KEY = "secretkey";
 
     private final String bucketName;
-    private final Minio minio;
+    private final MinioContainer minio;
     private final HiveHadoop hiveHadoop;
 
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
@@ -54,7 +54,7 @@ public class HiveMinioDataLake
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         Network network = closer.register(newNetwork());
         this.minio = closer.register(
-                Minio.builder()
+                MinioContainer.builder()
                         .withNetwork(network)
                         .withEnvVars(ImmutableMap.<String, String>builder()
                                 .put("MINIO_ACCESS_KEY", ACCESS_KEY)
@@ -105,7 +105,7 @@ public class HiveMinioDataLake
         state = State.STOPPED;
     }
 
-    public Minio getMinio()
+    public MinioContainer getMinio()
     {
         return minio;
     }
