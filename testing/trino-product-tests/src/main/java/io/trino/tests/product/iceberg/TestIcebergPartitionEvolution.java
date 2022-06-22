@@ -14,9 +14,11 @@
 package io.trino.tests.product.iceberg;
 
 import io.trino.tempto.ProductTest;
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.ICEBERG;
@@ -43,9 +45,9 @@ public class TestIcebergPartitionEvolution
 
         onSpark().executeQuery("ALTER TABLE iceberg_test.default.test_dropped_partition_field DROP PARTITION FIELD " + (dropFirst ? "a" : "b"));
 
-        assertThat(onTrino().executeQuery("SHOW CREATE TABLE test_dropped_partition_field"))
-                .containsOnly(
-                        row("CREATE TABLE iceberg.default.test_dropped_partition_field (\n" +
+        Assertions.assertThat((String) getOnlyElement(getOnlyElement(onTrino().executeQuery("SHOW CREATE TABLE test_dropped_partition_field").rows())))
+                .matches(
+                        "\\QCREATE TABLE iceberg.default.test_dropped_partition_field (\n" +
                                 "   a varchar,\n" +
                                 "   b varchar,\n" +
                                 "   c varchar\n" +
@@ -53,9 +55,9 @@ public class TestIcebergPartitionEvolution
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
                                 "   format_version = 1,\n" +
-                                "   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/test_dropped_partition_field',\n" +
+                                "   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/test_dropped_partition_field-\\E.*\\Q',\n" +
                                 "   partitioning = ARRAY[" + (dropFirst ? "'void(a)','b'" : "'a','void(b)'") + "]\n" +
-                                ")"));
+                                ")\\E");
 
         assertThat(onTrino().executeQuery("SELECT * FROM test_dropped_partition_field"))
                 .containsOnly(

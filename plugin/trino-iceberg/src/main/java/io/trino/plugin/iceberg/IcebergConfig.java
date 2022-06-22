@@ -46,7 +46,7 @@ public class IcebergConfig
     private HiveCompressionCodec compressionCodec = ZSTD;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
-    private boolean uniqueTableLocation;
+    private boolean uniqueTableLocation = true;
     private CatalogType catalogType = HIVE_METASTORE;
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;

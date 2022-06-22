@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.iceberg;
 
-import com.google.inject.name.Named;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
@@ -27,8 +26,11 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.hive.Engine.SPARK;
@@ -44,10 +46,6 @@ import static java.lang.String.format;
 public class TestIcebergSparkDropTableCompatibility
         extends ProductTest
 {
-    @Inject
-    @Named("databases.hive.warehouse_directory_path")
-    private String warehouseDirectory;
-
     @Inject
     private HdfsClient hdfsClient;
 
@@ -78,13 +76,25 @@ public class TestIcebergSparkDropTableCompatibility
         tableCreatorEngine.queryExecutor().executeQuery("CREATE TABLE " + tableName + "(col0 INT, col1 INT)");
         onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 2)");
 
-        String tableDirectory = format("%s/%s", warehouseDirectory, tableName);
+        String tableDirectory = getTableLocation(tableName);
         assertFileExistence(tableDirectory, true, "The table directory exists after creating the table");
         List<String> dataFilePaths = getDataFilePaths(tableName);
 
         tableDropperEngine.queryExecutor().executeQuery("DROP TABLE " + tableName);
         assertFileExistence(tableDirectory, false, format("The table directory %s should be removed after dropping the table", tableDirectory));
         dataFilePaths.forEach(dataFilePath -> assertFileExistence(dataFilePath, false, format("The data file %s removed after dropping the table", dataFilePath)));
+    }
+
+    private String getTableLocation(String tableName)
+    {
+        Pattern locationPattern = Pattern.compile(".*location = 'hdfs://hadoop-master:9000(.*?)'.*", Pattern.DOTALL);
+        Matcher m = locationPattern.matcher((String) onTrino().executeQuery("SHOW CREATE TABLE " + tableName).row(0).get(0));
+        if (m.find()) {
+            String location = m.group(1);
+            verify(!m.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
     private void assertFileExistence(String path, boolean exists, String description)

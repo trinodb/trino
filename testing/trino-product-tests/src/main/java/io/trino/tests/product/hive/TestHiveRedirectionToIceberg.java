@@ -262,8 +262,8 @@ public class TestHiveRedirectionToIceberg
 
         createIcebergTable(icebergTableName, true);
 
-        assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + hiveTableName))
-                .containsOnly(row("CREATE TABLE " + icebergTableName + " (\n" +
+        Assertions.assertThat((String) getOnlyElement(getOnlyElement(onTrino().executeQuery("SHOW CREATE TABLE " + hiveTableName).rows())))
+                .matches("\\QCREATE TABLE " + icebergTableName + " (\n" +
                         "   nationkey bigint,\n" +
                         "   name varchar,\n" +
                         "   regionkey bigint,\n" +
@@ -272,9 +272,9 @@ public class TestHiveRedirectionToIceberg
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
                         "   format_version = 2,\n" +
-                        format("   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/%s',\n", tableName) +
+                        format("   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/%s-\\E.*\\Q',\n", tableName) +
                         "   partitioning = ARRAY['regionkey']\n" + // 'partitioning' comes from Iceberg
-                        ")"));
+                        ")\\E");
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
