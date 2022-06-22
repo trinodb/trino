@@ -50,7 +50,6 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -63,7 +62,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -231,13 +229,7 @@ public class HeartbeatFailureDetector
         // make sure only one thread is updating the registrations
         synchronized (tasks) {
             // 1. remove expired tasks
-            List<UUID> expiredIds = tasks.values().stream()
-                    .filter(MonitoringTask::isExpired)
-                    .map(MonitoringTask::getService)
-                    .map(ServiceDescriptor::getId)
-                    .collect(toImmutableList());
-
-            tasks.keySet().removeAll(expiredIds);
+            tasks.entrySet().removeIf(task -> task.getValue().isExpired());
 
             // 2. disable offline services
             tasks.values().stream()
@@ -246,7 +238,7 @@ public class HeartbeatFailureDetector
 
             // 3. create tasks for new services
             Set<ServiceDescriptor> newServices = online.stream()
-                    .filter(service -> !tasks.keySet().contains(service.getId()))
+                    .filter(service -> !tasks.containsKey(service.getId()))
                     .collect(toImmutableSet());
 
             for (ServiceDescriptor service : newServices) {
