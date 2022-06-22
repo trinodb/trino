@@ -30,6 +30,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
@@ -90,15 +91,16 @@ public class BigQuerySplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         log.debug("getSplits(transaction=%s, session=%s, table=%s, splitSchedulingStrategy=%s)", transaction, session, table, splitSchedulingStrategy);
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) table;
 
         TableId remoteTableId = bigQueryTableHandle.getRemoteTableName().toTableId();
         int actualParallelism = parallelism.orElse(nodeManager.getRequiredWorkerNodes().size());
-        TupleDomain<ColumnHandle> constraint = bigQueryTableHandle.getConstraint();
-        Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(constraint);
+        TupleDomain<ColumnHandle> tableConstraint = bigQueryTableHandle.getConstraint();
+        Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
         List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.getProjectedColumns()) ?
                 createEmptyProjection(session, remoteTableId, actualParallelism, filter) :
                 readFromBigQuery(session, TableDefinition.Type.valueOf(bigQueryTableHandle.getType()), remoteTableId, bigQueryTableHandle.getProjectedColumns(), actualParallelism, filter);

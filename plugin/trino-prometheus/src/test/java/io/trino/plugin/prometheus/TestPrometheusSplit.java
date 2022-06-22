@@ -21,6 +21,7 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -126,7 +127,8 @@ public class TestPrometheusSplit
                 null,
                 new PrometheusTableHandle("default", table.getName()),
                 null,
-                (DynamicFilter) null);
+                (DynamicFilter) null,
+                Constraint.alwaysTrue());
         PrometheusSplit split = (PrometheusSplit) splits.getNextBatch(NOT_PARTITIONED, 1).getNow(null).getSplits().get(0);
         String queryInSplit = URI.create(split.getUri()).getQuery();
         String timeShouldBe = decimalSecondString(now.toEpochMilli() -
@@ -152,7 +154,8 @@ public class TestPrometheusSplit
                 null,
                 new PrometheusTableHandle("default", table.getName()),
                 null,
-                (DynamicFilter) null);
+                (DynamicFilter) null,
+                Constraint.alwaysTrue());
         PrometheusSplit split = (PrometheusSplit) splits.getNextBatch(NOT_PARTITIONED, 1).getNow(null).getSplits().get(0);
         String queryInSplit = URI.create(split.getUri()).getQuery();
         String timeShouldBe = decimalSecondString(now.toEpochMilli() -
@@ -178,7 +181,8 @@ public class TestPrometheusSplit
                 null,
                 new PrometheusTableHandle("default", table.getName()),
                 null,
-                (DynamicFilter) null);
+                (DynamicFilter) null,
+                Constraint.alwaysTrue());
         List<ConnectorSplit> splits = splitsMaybe.getNextBatch(NOT_PARTITIONED, NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits();
         int lastSplitIndex = splits.size() - 1;
         PrometheusSplit lastSplit = (PrometheusSplit) splits.get(lastSplitIndex);
@@ -203,7 +207,8 @@ public class TestPrometheusSplit
                 null,
                 new PrometheusTableHandle("default", table.getName()),
                 null,
-                (DynamicFilter) null);
+                (DynamicFilter) null,
+                Constraint.alwaysTrue());
         PrometheusSplit split1 = (PrometheusSplit) splits.getNextBatch(NOT_PARTITIONED, 1).getNow(null).getSplits().get(0);
         Map<String, String> paramsMap1 = parse(URI.create(split1.getUri()), StandardCharsets.UTF_8).stream().collect(Collectors.toMap(NameValuePair::getName, NameValuePair::getValue));
         PrometheusSplit split2 = (PrometheusSplit) splits.getNextBatch(NOT_PARTITIONED, 1).getNow(null).getSplits().get(0);
