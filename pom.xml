@@ -39,6 +39,9 @@
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
+        <!-- Jacoco is explicitly disabled, but the profiles setting this property are activated
+             by a different property, so we have to set this as well: -->
+        <argLine/>
 
         <project.build.targetJdk>11</project.build.targetJdk>
         <air.java.version>11.0.11</air.java.version>
