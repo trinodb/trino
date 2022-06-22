@@ -71,6 +71,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -267,8 +268,8 @@ public abstract class BaseIcebergConnectorTest
     public void testShowCreateTable()
     {
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
-        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE iceberg.tpch.orders (\n" +
+        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .matches("\\QCREATE TABLE iceberg.tpch.orders (\n" +
                         "   orderkey bigint,\n" +
                         "   custkey bigint,\n" +
                         "   orderstatus varchar,\n" +
@@ -282,8 +283,8 @@ public abstract class BaseIcebergConnectorTest
                         "WITH (\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
-                        "   location = '" + tempDir + "/iceberg_data/tpch/orders'\n" +
-                        ")");
+                        "   location = '" + tempDir + "/iceberg_data/tpch/orders-\\E.*\\Q'\n" +
+                        ")\\E");
     }
 
     @Override
@@ -1160,14 +1161,16 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testCreateTableFailsOnNonEmptyPath()
+    public void testTableNameCollision()
     {
         String tableName = "test_rename_table_" + randomTableSuffix();
         String tmpName = "test_rename_table_tmp_" + randomTableSuffix();
         try {
             assertUpdate("CREATE TABLE " + tmpName + " AS SELECT 1 as a", 1);
             assertUpdate("ALTER TABLE " + tmpName + " RENAME TO " + tableName);
-            assertQueryFails("CREATE TABLE " + tmpName + " AS SELECT 1 as a", "Cannot create a table on a non-empty location.*");
+            assertUpdate("CREATE TABLE " + tmpName + " AS SELECT 2 as a", 1);
+            assertQuery("SELECT * FROM " + tmpName, "VALUES 2");
+            assertQuery("SELECT * FROM " + tableName, "VALUES 1");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
@@ -1220,11 +1223,11 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy1"), "WITH (\n" +
-                format("   format = '%s',\n   format_version = 2,\n   location = '%s'\n)", format, tempDir + "/iceberg_data/tpch/test_create_table_like_copy1"));
+                format("   format = '%s',\n   format_version = 2,\n   location = '%s'\n)", format, getTableLocation("test_create_table_like_copy1")));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy2"), "WITH (\n" +
-                format("   format = '%s',\n   format_version = 2,\n   location = '%s'\n)", format, tempDir + "/iceberg_data/tpch/test_create_table_like_copy2"));
+                format("   format = '%s',\n   format_version = 2,\n   location = '%s'\n)", format, getTableLocation("test_create_table_like_copy2")));
         dropTable("test_create_table_like_copy2");
 
         assertQueryFails("CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)",
@@ -4441,11 +4444,22 @@ public abstract class BaseIcebergConnectorTest
                 .collect(toImmutableList());
     }
 
+    private String getTableLocation(String tableName)
+    {
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        if (m.find()) {
+            String location = m.group(1);
+            verify(!m.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
+    }
+
     private List<String> getAllDataFilesFromTableDirectory(String tableName)
             throws IOException
     {
-        String schema = getSession().getSchema().orElseThrow();
-        Path tableDataDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("iceberg_data").resolve(schema).resolve(tableName).resolve("data");
+        Path tableDataDir = getIcebergTableDataPath(getTableLocation(tableName));
         try (Stream<Path> walk = Files.walk(tableDataDir)) {
             return walk
                     .filter(Files::isRegularFile)
@@ -4591,12 +4605,13 @@ public abstract class BaseIcebergConnectorTest
                 .matches("VALUES (BIGINT '3', VARCHAR 'one two')");
 
         List<Long> initialSnapshots = getSnapshotIds(tableName);
-        List<String> initialFiles = getAllMetadataFilesFromTableDirectoryForTable(tableName);
+        String tableLocation = getTableLocation(tableName);
+        List<String> initialFiles = getAllMetadataFilesFromTableDirectoryForTable(tableLocation);
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
 
         assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                 .matches("VALUES (BIGINT '3', VARCHAR 'one two')");
-        List<String> updatedFiles = getAllMetadataFilesFromTableDirectoryForTable(tableName);
+        List<String> updatedFiles = getAllMetadataFilesFromTableDirectoryForTable(tableLocation);
         List<Long> updatedSnapshots = getSnapshotIds(tableName);
         assertThat(updatedFiles.size()).isEqualTo(initialFiles.size() - 1);
         assertThat(updatedSnapshots.size()).isLessThan(initialSnapshots.size());
@@ -4664,7 +4679,8 @@ public abstract class BaseIcebergConnectorTest
         Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
-        Path orphanFile = Files.createFile(Path.of(getIcebergTableDataPath(tableName).toString(), "invalidData." + format));
+        String location = getTableLocation(tableName);
+        Path orphanFile = Files.createFile(Path.of(getIcebergTableDataPath(location).toString(), "invalidData." + format));
         List<String> initialDataFiles = getAllDataFilesFromTableDirectory(tableName);
 
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
@@ -4683,7 +4699,8 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (partitioning = ARRAY['key'])");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
-        Path orphanFile = Files.createFile(Path.of(getIcebergTableDataPath(tableName) + "/key=one/", "invalidData." + format));
+        String tableLocation = getTableLocation(tableName);
+        Path orphanFile = Files.createFile(Path.of(getIcebergTableDataPath(tableLocation) + "/key=one/", "invalidData." + format));
         List<String> initialDataFiles = getAllDataFilesFromTableDirectory(tableName);
 
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
@@ -4702,12 +4719,13 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (partitioning = ARRAY['key'])");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
-        Path orphanMetadataFile = Files.createFile(Path.of(getIcebergTableMetadataPath(tableName).toString(), "invalidData." + format));
-        List<String> initialMetadataFiles = getAllMetadataFilesFromTableDirectoryForTable(tableName);
+        String tableLocation = getTableLocation(tableName);
+        Path orphanMetadataFile = Files.createFile(Path.of(getIcebergTableMetadataPath(tableLocation).toString(), "invalidData." + format));
+        List<String> initialMetadataFiles = getAllMetadataFilesFromTableDirectoryForTable(tableLocation);
 
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
 
-        List<String> updatedMetadataFiles = getAllMetadataFilesFromTableDirectoryForTable(tableName);
+        List<String> updatedMetadataFiles = getAllMetadataFilesFromTableDirectoryForTable(tableLocation);
         assertThat(updatedMetadataFiles.size()).isLessThan(initialMetadataFiles.size());
         assertThat(updatedMetadataFiles).doesNotContain(orphanMetadataFile.toString());
     }
@@ -5038,7 +5056,8 @@ public abstract class BaseIcebergConnectorTest
     protected OptionalInt maxTableNameLength()
     {
         // This value depends on metastore type
-        return OptionalInt.of(255);
+        // The connector appends uuids to the end of all table names
+        return OptionalInt.of(255 - UUID.randomUUID().toString().length());
     }
 
     @Override
@@ -5055,12 +5074,10 @@ public abstract class BaseIcebergConnectorTest
                 .build();
     }
 
-    private List<String> getAllMetadataFilesFromTableDirectoryForTable(String tableName)
+    private List<String> getAllMetadataFilesFromTableDirectoryForTable(String tableLocation)
             throws IOException
     {
-        String schema = getSession().getSchema().orElseThrow();
-        Path tableDataDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("iceberg_data").resolve(schema).resolve(tableName).resolve("metadata");
-        return listAllTableFilesInDirectory(tableDataDir);
+        return listAllTableFilesInDirectory(getIcebergTableMetadataPath(tableLocation));
     }
 
     private List<String> getAllMetadataFilesFromTableDirectory(String tableDataDir)
@@ -5094,20 +5111,14 @@ public abstract class BaseIcebergConnectorTest
         return (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1");
     }
 
-    private Path getIcebergTableDataPath(String tableName)
+    private Path getIcebergTableDataPath(String tableLocation)
     {
-        return getIcebergTablePath(tableName, "data");
+        return Path.of(tableLocation, "data");
     }
 
-    private Path getIcebergTableMetadataPath(String tableName)
+    private Path getIcebergTableMetadataPath(String tableLocation)
     {
-        return getIcebergTablePath(tableName, "metadata");
-    }
-
-    private Path getIcebergTablePath(String tableName, String suffix)
-    {
-        String schema = getSession().getSchema().orElseThrow();
-        return getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("iceberg_data").resolve(schema).resolve(tableName).resolve(suffix);
+        return Path.of(tableLocation, "metadata");
     }
 
     private long getCommittedAtInEpochMilliseconds(String tableName, long snapshotId)
