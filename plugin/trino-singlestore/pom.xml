@@ -72,6 +72,12 @@
         <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>runtime</scope>
         </dependency>
