@@ -292,7 +292,12 @@ public class PrimitiveColumnWriter
     @Override
     public long getBufferedBytes()
     {
-        return pageBuffer.stream().mapToLong(ParquetDataOutput::size).sum() +
+        // Avoid using streams here for performance reasons
+        long pageBufferedBytes = 0;
+        for (ParquetDataOutput output : pageBuffer) {
+            pageBufferedBytes += output.size();
+        }
+        return pageBufferedBytes +
                 definitionLevelWriter.getBufferedSize() +
                 repetitionLevelWriter.getBufferedSize() +
                 primitiveValueWriter.getBufferedSize();
