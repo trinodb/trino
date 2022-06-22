@@ -122,7 +122,7 @@ is used.
     - ``1GB``
   * - ``iceberg.unique-table-location``
     - Use randomized, unique table locations.
-    - ``false``
+    - ``true``
   * - ``iceberg.dynamic-filtering.wait-timeout``
     - Maximum duration to wait for completion of dynamic filters during split generation.
     - ``0s``
