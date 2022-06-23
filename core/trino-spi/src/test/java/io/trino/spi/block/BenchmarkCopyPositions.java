@@ -26,11 +26,14 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.Random;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.jmh.Benchmarks.benchmark;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
@@ -41,7 +44,7 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 @Warmup(iterations = 5, time = 1000, timeUnit = MILLISECONDS)
 @Measurement(iterations = 10, time = 1000, timeUnit = MILLISECONDS)
 @BenchmarkMode(AverageTime)
-public class BenchmarkVariableWidthBlock
+public class BenchmarkCopyPositions
 {
     private static final int SEED = 831;
     private static final int POSITIONS = 8096;
@@ -51,7 +54,7 @@ public class BenchmarkVariableWidthBlock
     public Block copyPositions(BenchmarkData data)
     {
         int[] positionIds = data.getPositionsIds();
-        return data.getVariableWidthBlock().copyPositions(positionIds, 0, positionIds.length);
+        return data.getBlock().copyPositions(positionIds, 0, positionIds.length);
     }
 
     @State(Thread)
@@ -70,27 +73,36 @@ public class BenchmarkVariableWidthBlock
         })
         private SelectedPositions selectedPositions;
 
-        private int[] positionsIds;
-        private Block variableWidthBlock;
+        @Param({"VARCHAR", "ROW(BIGINT)"})
+        private String type;
 
-        public BenchmarkData(int selectedPositionsCount, boolean nullsAllowed, SelectedPositions selectedPositions)
+        private int[] positionsIds;
+        private Block block;
+
+        public BenchmarkData(int selectedPositionsCount, boolean nullsAllowed, SelectedPositions selectedPositions, String type)
         {
             this.selectedPositionsCount = selectedPositionsCount;
             this.nullsAllowed = nullsAllowed;
-            this.selectedPositions = selectedPositions;
+            this.selectedPositions = requireNonNull(selectedPositions, "selectedPositions is null");
+            this.type = requireNonNull(type, "type is null");
         }
 
         public BenchmarkData()
         {
-            this(1000, false, SelectedPositions.SEQUENCE);
+            this(1000, false, SelectedPositions.SEQUENCE, "VARCHAR");
         }
 
         @Setup
         public void setup()
         {
             positionsIds = selectedPositions.generateIds(selectedPositionsCount);
-            Slice[] slices = generateValues();
-            variableWidthBlock = createBlockBuilderWithValues(slices).build();
+            if (type.equals("VARCHAR")) {
+                Slice[] slices = generateValues();
+                block = createBlockBuilderWithValues(slices).build();
+            }
+            else if (type.equals("ROW(BIGINT)")) {
+                block = createRowBlock(POSITIONS, createRandomLongArrayBlock());
+            }
         }
 
         private Slice[] generateValues()
@@ -135,14 +147,36 @@ public class BenchmarkVariableWidthBlock
             return blockBuilder;
         }
 
+        private static LongArrayBlock createRandomLongArrayBlock()
+        {
+            Random random = new Random(SEED);
+            return new LongArrayBlock(POSITIONS, Optional.empty(), LongStream.range(0, POSITIONS).map(i -> random.nextLong()).toArray());
+        }
+
+        private Block createRowBlock(int positionCount, Block... field)
+        {
+            Optional<boolean[]> rowIsNull = nullsAllowed ? Optional.of(generateIsNull(positionCount)) : Optional.empty();
+            return RowBlock.fromFieldBlocks(positionCount, rowIsNull, field);
+        }
+
+        private boolean[] generateIsNull(int positionCount)
+        {
+            Random random = new Random(SEED);
+            boolean[] result = new boolean[positionCount];
+            for (int i = 0; i < positionCount; i++) {
+                result[i] = randomNullChance(random);
+            }
+            return result;
+        }
+
         public int[] getPositionsIds()
         {
             return positionsIds;
         }
 
-        public Block getVariableWidthBlock()
+        public Block getBlock()
         {
-            return variableWidthBlock;
+            return block;
         }
     }
 
@@ -197,17 +231,24 @@ public class BenchmarkVariableWidthBlock
     {
         for (SelectedPositions selectedPositions : SelectedPositions.values()) {
             for (boolean nullsAllowed : new boolean[] {false, true}) {
-                BenchmarkData data = new BenchmarkData(1024, nullsAllowed, selectedPositions);
-                data.setup();
-                copyPositions(data);
+                for (String type : new String[] {"VARCHAR", "ROW(BIGINT)"}) {
+                    BenchmarkData data = new BenchmarkData(1024, nullsAllowed, selectedPositions, type);
+                    data.setup();
+                    copyPositions(data);
+                }
             }
         }
+    }
+
+    static {
+        // pollute profile
+        new BenchmarkCopyPositions().testCopyPositions();
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        benchmark(BenchmarkVariableWidthBlock.class)
+        benchmark(BenchmarkCopyPositions.class)
                 .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g"))
                 .run();
     }
