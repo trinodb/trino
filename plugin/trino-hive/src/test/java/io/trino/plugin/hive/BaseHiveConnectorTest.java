@@ -1458,6 +1458,60 @@ public abstract class BaseHiveConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
     }
 
+    // Regression test for https://github.com/trinodb/trino/issues/12866
+    @Test
+    public void testConcurrentReadFromFile()
+    {
+        testWithAllStorageFormats(this::testConcurrentReadFromFile);
+    }
+
+    private void testConcurrentReadFromFile(Session session, HiveStorageFormat storageFormat)
+    {
+        if (storageFormat != HiveStorageFormat.JSON && storageFormat != HiveStorageFormat.AVRO) {
+            return
+                    ; // TODO
+        }
+
+        String catalog = session.getCatalog().orElseThrow();
+        String tableName = "test_concurrent_read_" + storageFormat.name().toLowerCase(ENGLISH);
+        assertUpdate(session, "CREATE TABLE " + tableName + "(a_bigint bigint, a_varchar varchar) WITH (format = '" + storageFormat + "')");
+
+        int rowCount = 100 * 1000;
+        assertUpdate(
+                // Tune for creating bigger files
+                Session.builder(session)
+                        .setSystemProperty("scale_writers", "false")
+                        .setSystemProperty("task_writer_count", "1")
+                        .build(),
+                "INSERT INTO " + tableName + " " +
+                        "SELECT i*j, format('Let''s do some math: %s * %s = %s.', i, j, i*j) " +
+                        "FROM UNNEST(sequence(1, 100)) AS _(i) " +
+                        "CROSS JOIN UNNEST(sequence(1, 1000)) AS _(j) ",
+                rowCount);
+
+        for (int i = 0; i < 1000; i++) {
+            Session forceConcurrency = Session.builder(session)
+                    .setSystemProperty("task_concurrency", "2")
+                    .setCatalogSessionProperty(catalog, "max_initial_split_size", "10kB")
+                    .setCatalogSessionProperty(catalog, "max_split_size", "10kB")
+                    .build();
+
+            String checksumResult = "VALUES (BIGINT '2527525000', X'ca3b71333ee0d2b2')";
+            assertThat(query(
+                    forceConcurrency,
+                    "SELECT sum(a_bigint), checksum(a_varchar) FROM " + tableName))
+                    .matches(checksumResult);
+
+            String temporaryTable = tableName + i;
+            assertUpdate(forceConcurrency, "CREATE TABLE " + temporaryTable + " WITH (format='ORC') AS SELECT * FROM " + tableName, rowCount);
+            assertThat(query("SELECT sum(a_bigint), checksum(a_varchar) FROM " + temporaryTable))
+                    .matches(checksumResult);
+            assertUpdate("DROP TABLE " + temporaryTable);
+        }
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test
     public void testCreatePartitionedTable()
     {
