@@ -220,23 +220,12 @@ public class ParquetTester
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
             throws Exception
     {
-        // just the values
-        testRoundTripType(singletonList(objectInspector), new Iterable<?>[] {writeValues},
-                new Iterable<?>[] {readValues}, TEST_COLUMN, singletonList(type), Optional.empty(), ParquetSchemaOptions.defaultOptions());
+        testRoundTrip(objectInspector, writeValues, readValues, type, Optional.empty());
 
-        // all nulls
-        assertRoundTrip(objectInspector, transform(writeValues, constant(null)),
-                transform(writeValues, constant(null)), getOnlyElement(TEST_COLUMN), type, Optional.empty());
         if (objectInspector.getTypeName().contains("map<")) {
             List<TypeInfo> typeInfos = getTypeInfosFromTypeString(objectInspector.getTypeName());
             MessageType schema = MapKeyValuesSchemaConverter.convert(TEST_COLUMN, typeInfos);
-            // just the values
-            testRoundTripType(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {
-                    readValues}, TEST_COLUMN, singletonList(type), Optional.of(schema), ParquetSchemaOptions.defaultOptions());
-
-            // all nulls
-            assertRoundTrip(objectInspector, transform(writeValues, constant(null)),
-                    transform(writeValues, constant(null)), getOnlyElement(TEST_COLUMN), type, Optional.of(schema));
+            testRoundTrip(objectInspector, writeValues, readValues, type, Optional.of(schema));
         }
     }
 
