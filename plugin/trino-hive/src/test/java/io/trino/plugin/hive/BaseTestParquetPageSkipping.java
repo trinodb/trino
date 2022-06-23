@@ -13,11 +13,9 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -27,49 +25,12 @@ import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestParquetPageSkipping
+public abstract class BaseTestParquetPageSkipping
         extends AbstractTestQueryFramework
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return HiveQueryRunner.builder()
-                .setHiveProperties(
-                        ImmutableMap.of(
-                                "parquet.use-column-index", "true",
-                                // Small max-buffer-size allows testing mix of small and large ranges in HdfsParquetDataSource#planRead
-                                "parquet.max-buffer-size", "400B"))
-                .build();
-    }
-
     private void buildSortedTables(String tableName, String sortByColumnName, String sortByColumnType)
     {
-        String createTableTemplate =
-                "CREATE TABLE %s ( " +
-                        "   orderkey bigint, " +
-                        "   custkey bigint, " +
-                        "   orderstatus varchar(1), " +
-                        "   totalprice double, " +
-                        "   orderdate date, " +
-                        "   orderpriority varchar(15), " +
-                        "   clerk varchar(15), " +
-                        "   shippriority integer, " +
-                        "   comment varchar(79), " +
-                        "   rvalues double array " +
-                        ") " +
-                        "WITH ( " +
-                        "   format = 'PARQUET', " +
-                        "   bucketed_by = array['orderstatus'], " +
-                        "   bucket_count = 1, " +
-                        "   sorted_by = array['%s'] " +
-                        ")";
-        createTableTemplate = createTableTemplate.replaceFirst(sortByColumnName + "[ ]+([^,]*)", sortByColumnName + " " + sortByColumnType);
-
-        assertUpdate(format(
-                createTableTemplate,
-                tableName,
-                sortByColumnName));
+        assertUpdate(tableDefinitionForSortedTables(tableName, sortByColumnName, sortByColumnType));
         String catalog = getSession().getCatalog().orElseThrow();
         assertUpdate(
                 Session.builder(getSession())
@@ -79,6 +40,8 @@ public class TestParquetPageSkipping
                 format("INSERT INTO %s SELECT *, ARRAY[rand(), rand(), rand()] FROM tpch.tiny.orders", tableName),
                 15000);
     }
+
+    protected abstract String tableDefinitionForSortedTables(String tableName, String sortByColumnName, String sortByColumnType);
 
     @Test
     public void testAndPredicates()
