@@ -136,10 +136,10 @@ connector.
       - Description
       - Default
     * - ``delta.domain-compaction-threshold``
-      - Sets the number of transactions to act as threshold. Once reached the
-        connector initiates compaction of the underlying files and the delta
-        files. A higher compaction threshold means reading less data from the
-        underlying data source, but a higher memory and network consumption.
+      - Sets the number of transactions to act as a threshold. After reaching
+        the threshold, the connector initiates compacting a large IN or OR
+        clause into a min-max range predicate for pushdown into an ORC or
+        Parquet reader.
       - 100
     * - ``delta.max-outstanding-splits``
       - The target number of buffered splits for each table scan in a query,
