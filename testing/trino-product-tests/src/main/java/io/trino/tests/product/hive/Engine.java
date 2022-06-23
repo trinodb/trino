@@ -17,6 +17,7 @@ import io.trino.tempto.query.QueryExecutor;
 
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
+import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
 public enum Engine
@@ -46,7 +47,7 @@ public enum Engine
         @Override
         public QueryExecutor queryExecutor()
         {
-            return onTrino();
+            return onSpark();
         }
     },
     /**/;
