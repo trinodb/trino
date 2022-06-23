@@ -30,13 +30,13 @@ public class ParquetWriterOptions
         return new ParquetWriterOptions.Builder();
     }
 
-    private final int maxRowGroupSize;
+    private final long maxRowGroupSize;
     private final int maxPageSize;
     private final int batchSize;
 
     private ParquetWriterOptions(DataSize maxBlockSize, DataSize maxPageSize, int batchSize)
     {
-        this.maxRowGroupSize = toIntExact(requireNonNull(maxBlockSize, "maxBlockSize is null").toBytes());
+        this.maxRowGroupSize = requireNonNull(maxBlockSize, "maxBlockSize is null").toBytes();
         this.maxPageSize = toIntExact(requireNonNull(maxPageSize, "maxPageSize is null").toBytes());
         this.batchSize = batchSize;
     }
