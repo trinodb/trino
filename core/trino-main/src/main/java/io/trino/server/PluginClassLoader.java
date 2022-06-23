@@ -23,8 +23,10 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.System.identityHashCode;
 import static java.util.Objects.requireNonNull;
 
 public class PluginClassLoader
@@ -90,6 +92,17 @@ public class PluginClassLoader
     public String getId()
     {
         return pluginName + catalogName.map(name -> ":" + name).orElse("");
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .omitNullValues()
+                .add("pluginName", pluginName)
+                .add("catalogName", catalogName.orElse(null))
+                .add("identityHash", "@" + Integer.toHexString(identityHashCode(this)))
+                .toString();
     }
 
     @Override
