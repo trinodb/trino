@@ -78,7 +78,6 @@ public class PinotQueryRunner
         Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()
                 .put("pinot.controller-urls", pinot.getControllerConnectString())
                 .put("pinot.segments-per-split", "10")
-                .put("pinot.request-timeout", "3m")
                 .buildOrThrow();
         DistributedQueryRunner queryRunner = createPinotQueryRunner(properties, pinotProperties, Optional.empty());
         Thread.sleep(10);
