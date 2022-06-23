@@ -31,14 +31,14 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
         "dynamic-filtering-max-per-driver-size",
         "experimental.dynamic-filtering-max-per-driver-size",
         "dynamic-filtering-range-row-limit-per-driver",
-        "experimental.dynamic-filtering-refresh-interval"
+        "experimental.dynamic-filtering-refresh-interval",
+        "dynamic-filtering.service-thread-count"
 })
 public class DynamicFilterConfig
 {
     private boolean enableDynamicFiltering = true;
     private boolean enableCoordinatorDynamicFiltersDistribution = true;
     private boolean enableLargeDynamicFilters;
-    private int serviceThreadCount = 2;
 
     private int smallBroadcastMaxDistinctValuesPerDriver = 200;
     private DataSize smallBroadcastMaxSizePerDriver = DataSize.of(20, KILOBYTE);
@@ -93,19 +93,6 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setEnableLargeDynamicFilters(boolean enableLargeDynamicFilters)
     {
         this.enableLargeDynamicFilters = enableLargeDynamicFilters;
-        return this;
-    }
-
-    @Min(1)
-    public int getServiceThreadCount()
-    {
-        return serviceThreadCount;
-    }
-
-    @Config("dynamic-filtering.service-thread-count")
-    public DynamicFilterConfig setServiceThreadCount(int serviceThreadCount)
-    {
-        this.serviceThreadCount = serviceThreadCount;
         return this;
     }
 

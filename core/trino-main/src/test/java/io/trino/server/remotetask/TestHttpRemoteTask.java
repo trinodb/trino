@@ -31,7 +31,6 @@ import io.airlift.units.Duration;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
-import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
@@ -107,7 +106,6 @@ import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -215,8 +213,7 @@ public class TestHttpRemoteTask
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                new TypeOperators(),
-                newDirectExecutorService());
+                new TypeOperators());
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
 
@@ -274,7 +271,6 @@ public class TestHttpRemoteTask
         assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 4L);
 
         httpRemoteTaskFactory.stop();
-        dynamicFilterService.stop();
     }
 
     @Test(timeOut = 30_000)
@@ -296,8 +292,7 @@ public class TestHttpRemoteTask
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                new TypeOperators(),
-                newDirectExecutorService());
+                new TypeOperators());
         dynamicFilterService.registerQuery(
                 queryId,
                 TEST_SESSION,
@@ -369,7 +364,6 @@ public class TestHttpRemoteTask
                 ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L)));
 
         httpRemoteTaskFactory.stop();
-        dynamicFilterService.stop();
     }
 
     private void runTest(FailureScenario failureScenario)
@@ -434,8 +428,7 @@ public class TestHttpRemoteTask
         return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                new TypeOperators(),
-                new DynamicFilterConfig()));
+                new TypeOperators()));
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, DynamicFilterService dynamicFilterService)

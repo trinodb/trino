@@ -55,7 +55,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
@@ -78,6 +78,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -742,8 +743,8 @@ public class TestDynamicFilterService
                 ImmutableMap.of(
                         filterId1, multipleValues(INTEGER, ImmutableList.of(1L, 3L)),
                         filterId2, multipleValues(INTEGER, ImmutableList.of(2L, 4L))));
-        // both filters should be received in single callback
-        assertEquals(callbackCount.get(), 1);
+
+        assertEquals(callbackCount.get(), 2);
 
         // register another consumer after both filters have been collected
         Map<DynamicFilterId, Domain> secondConsumerCollectedFilters = new HashMap<>();
@@ -761,10 +762,9 @@ public class TestDynamicFilterService
                 ImmutableMap.of(
                         filterId1, multipleValues(INTEGER, ImmutableList.of(1L, 3L)),
                         filterId2, multipleValues(INTEGER, ImmutableList.of(2L, 4L))));
-        // both filters should be received by second consumer in single callback
-        assertEquals(secondCallbackCount.get(), 1);
+        assertEquals(secondCallbackCount.get(), 2);
         // first consumer should not receive callback again since it already got the completed filter
-        assertEquals(callbackCount.get(), 1);
+        assertEquals(callbackCount.get(), 2);
     }
 
     @Test
@@ -843,13 +843,48 @@ public class TestDynamicFilterService
                         getSimplifiedDomainString(4L, 6L, 3, INTEGER))));
     }
 
+    @Test
+    public void testCollectMoreThanOnceForTheSameTask()
+    {
+        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        QueryId query = new QueryId("query");
+        StageId stage = new StageId(query, 0);
+        DynamicFilterId filter = new DynamicFilterId("filter");
+
+        dynamicFilterService.registerQuery(
+                query,
+                session,
+                ImmutableSet.of(filter),
+                ImmutableSet.of(filter),
+                ImmutableSet.of());
+
+        dynamicFilterService.stageCannotScheduleMoreTasks(stage, 0, 2);
+
+        Domain domain1 = Domain.singleValue(VARCHAR, utf8Slice("value1"));
+        Domain domain2 = Domain.singleValue(VARCHAR, utf8Slice("value2"));
+        Domain domain3 = Domain.singleValue(VARCHAR, utf8Slice("value3"));
+
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stage, 0, 0),
+                ImmutableMap.of(filter, domain1));
+        assertThat(dynamicFilterService.getSummary(query, filter)).isNotPresent();
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stage, 0, 0),
+                ImmutableMap.of(filter, domain2));
+        assertThat(dynamicFilterService.getSummary(query, filter)).isNotPresent();
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stage, 1, 0),
+                ImmutableMap.of(filter, domain3));
+        assertThat(dynamicFilterService.getSummary(query, filter)).isPresent();
+        assertEquals(dynamicFilterService.getSummary(query, filter).get(), domain1.union(domain3));
+    }
+
     private static DynamicFilterService createDynamicFilterService()
     {
         return new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                PLANNER_CONTEXT.getTypeOperators(),
-                newDirectExecutorService());
+                PLANNER_CONTEXT.getTypeOperators());
     }
 
     private static PlanFragment createPlan(DynamicFilterId dynamicFilterId, PartitioningHandle stagePartitioning, ExchangeNode.Type exchangeType)

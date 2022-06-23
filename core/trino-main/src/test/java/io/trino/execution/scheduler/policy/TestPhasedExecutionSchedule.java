@@ -41,7 +41,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.execution.scheduler.StageExecution.State.ABORTED;
 import static io.trino.execution.scheduler.StageExecution.State.FINISHED;
 import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
@@ -63,8 +62,7 @@ public class TestPhasedExecutionSchedule
     private final DynamicFilterService dynamicFilterService = new DynamicFilterService(
             createTestMetadataManager(),
             createTestingFunctionManager(),
-            new TypeOperators(),
-            newDirectExecutorService());
+            new TypeOperators());
 
     @Test
     public void testPartitionedJoin()
