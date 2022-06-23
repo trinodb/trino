@@ -24,9 +24,6 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
 import static java.lang.String.format;
@@ -64,8 +61,6 @@ public final class TestingPhoenixServer
     private HBaseTestingUtility hbaseTestingUtility;
     private final int port;
     private final Configuration conf = HBaseConfiguration.create();
-    private final AtomicBoolean tpchLoaded = new AtomicBoolean();
-    private final CountDownLatch tpchLoadComplete = new CountDownLatch(1);
 
     private final java.util.logging.Logger apacheLogger;
 
@@ -126,21 +121,5 @@ public final class TestingPhoenixServer
     public String getJdbcUrl()
     {
         return format("jdbc:phoenix:localhost:%d:/hbase;phoenix.schema.isNamespaceMappingEnabled=true", port);
-    }
-
-    public boolean isTpchLoaded()
-    {
-        return tpchLoaded.getAndSet(true);
-    }
-
-    public void setTpchLoaded()
-    {
-        tpchLoadComplete.countDown();
-    }
-
-    public void waitTpchLoaded()
-            throws InterruptedException
-    {
-        tpchLoadComplete.await(2, TimeUnit.MINUTES);
     }
 }
