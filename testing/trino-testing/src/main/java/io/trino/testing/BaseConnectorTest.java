@@ -1416,7 +1416,7 @@ public abstract class BaseConnectorTest
         Runnable writeInitialized = writeTasksInitialized::countDown;
         Supplier<Boolean> done = () -> incompleteReadTasks.get() == 0;
         List<Callable<Void>> writeTasks = new ArrayList<>();
-        writeTasks.add(createDropRepeatedly(writeInitialized, done, "concur_table", "CREATE TABLE %s(a integer)", "DROP TABLE %s"));
+        writeTasks.add(createDropRepeatedly(writeInitialized, done, "concur_table", createTableSqlTemplateForConcurrentModifications(), "DROP TABLE %s"));
         if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
             writeTasks.add(createDropRepeatedly(writeInitialized, done, "concur_view", "CREATE VIEW %s AS SELECT 1 a", "DROP VIEW %s"));
         }
@@ -1449,6 +1449,12 @@ public abstract class BaseConnectorTest
             executor.shutdownNow();
         }
         assertTrue(executor.awaitTermination(10, SECONDS));
+    }
+
+    @Language("SQL")
+    protected String createTableSqlTemplateForConcurrentModifications()
+    {
+        return "CREATE TABLE %s(a integer)";
     }
 
     /**
@@ -3008,7 +3014,7 @@ public abstract class BaseConnectorTest
         int threads = 4;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert", "(col integer)")) {
+        try (TestTable table = createTableWithOneIntegerColumn("test_insert")) {
             String tableName = table.getName();
 
             List<Future<OptionalInt>> futures = IntStream.range(0, threads)
@@ -3076,7 +3082,7 @@ public abstract class BaseConnectorTest
         int threads = 4;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column", "(col integer)")) {
+        try (TestTable table = createTableWithOneIntegerColumn("test_add_column")) {
             String tableName = table.getName();
 
             List<Future<Optional<String>>> futures = IntStream.range(0, threads)
@@ -3126,6 +3132,11 @@ public abstract class BaseConnectorTest
     {
         // By default, do not expect ALTER TABLE ADD COLUMN to fail in case of concurrent inserts
         throw new AssertionError("Unexpected concurrent add column failure", e);
+    }
+
+    protected TestTable createTableWithOneIntegerColumn(String namePrefix)
+    {
+        return new TestTable(getQueryRunner()::execute, namePrefix, "(col integer)");
     }
 
     @Test
