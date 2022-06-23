@@ -15,6 +15,7 @@ package io.trino.tests.product.hive;
 
 import io.trino.tempto.query.QueryExecutor;
 
+import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
@@ -32,6 +33,13 @@ public enum Engine
         public QueryExecutor queryExecutor()
         {
             return onTrino();
+        }
+    },
+    DELTA {
+        @Override
+        public QueryExecutor queryExecutor()
+        {
+            return onDelta();
         }
     },
     SPARK {
