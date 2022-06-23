@@ -1402,18 +1402,28 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
+    public void finishTableExecute(
+            ConnectorSession session,
+            ConnectorTableHandle sourceHandle,
+            ConnectorTableExecuteHandle tableExecuteHandle,
+            Collection<Slice> fragments,
+            List<Object> splitSourceInfo)
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
         switch (executeHandle.getProcedureId()) {
             case OPTIMIZE:
-                finishOptimize(session, executeHandle, fragments, splitSourceInfo);
+                finishOptimize(session, (DeltaLakeTableHandle) sourceHandle, executeHandle, fragments, splitSourceInfo);
                 return;
         }
         throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
     }
 
-    private void finishOptimize(ConnectorSession session, DeltaLakeTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
+    private void finishOptimize(
+            ConnectorSession session,
+            DeltaLakeTableHandle sourceHandle,
+            DeltaLakeTableExecuteHandle executeHandle,
+            Collection<Slice> fragments,
+            List<Object> splitSourceInfo)
     {
         DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.getProcedureHandle();
         long readVersion = optimizeHandle.getCurrentVersion().orElseThrow(() -> new IllegalArgumentException("currentVersion not set"));
@@ -1430,7 +1440,7 @@ public class DeltaLakeMetadata
                 .map(dataFileInfoCodec::fromJson)
                 .collect(toImmutableList());
 
-        if (optimizeHandle.isRetriesEnabled()) {
+        if (sourceHandle.isRetriesEnabled()) {
             cleanExtraOutputFiles(session, executeHandle.getTableLocation(), dataFileInfos);
         }
 
@@ -1465,7 +1475,7 @@ public class DeltaLakeMetadata
             }
 
             // Note: during writes we want to preserve original case of partition columns
-            List<String> partitionColumns = optimizeHandle.getMetadataEntry().getOriginalPartitionColumns();
+            List<String> partitionColumns = sourceHandle.getMetadataEntry().getOriginalPartitionColumns();
             appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumns, false);
 
             transactionLogWriter.flush();

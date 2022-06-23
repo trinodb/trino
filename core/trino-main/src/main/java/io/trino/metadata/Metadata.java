@@ -97,7 +97,7 @@ public interface Metadata
 
     BeginTableExecuteResult<TableExecuteHandle, TableHandle> beginTableExecute(Session session, TableExecuteHandle handle, TableHandle updatedSourceTableHandle);
 
-    void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState);
+    void finishTableExecute(Session session, TableHandle sourceHandle, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState);
 
     void executeTableExecute(Session session, TableExecuteHandle handle);
 

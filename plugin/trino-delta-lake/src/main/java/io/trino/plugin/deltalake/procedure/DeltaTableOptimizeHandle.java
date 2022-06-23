@@ -34,7 +34,6 @@ public class DeltaTableOptimizeHandle
     private final List<String> originalPartitionColumns;
     private final DataSize maxScannedFileSize;
     private final Optional<Long> currentVersion;
-    private final boolean retriesEnabled;
 
     @JsonCreator
     public DeltaTableOptimizeHandle(
@@ -42,15 +41,13 @@ public class DeltaTableOptimizeHandle
             List<DeltaLakeColumnHandle> tableColumns,
             List<String> originalPartitionColumns,
             DataSize maxScannedFileSize,
-            Optional<Long> currentVersion,
-            boolean retriesEnabled)
+            Optional<Long> currentVersion)
     {
         this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
         this.tableColumns = ImmutableList.copyOf(requireNonNull(tableColumns, "tableColumns is null"));
         this.originalPartitionColumns = ImmutableList.copyOf(requireNonNull(originalPartitionColumns, "originalPartitionColumns is null"));
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.currentVersion = requireNonNull(currentVersion, "currentVersion is null");
-        this.retriesEnabled = retriesEnabled;
     }
 
     public DeltaTableOptimizeHandle withCurrentVersion(long currentVersion)
@@ -61,8 +58,7 @@ public class DeltaTableOptimizeHandle
                 tableColumns,
                 originalPartitionColumns,
                 maxScannedFileSize,
-                Optional.of(currentVersion),
-                retriesEnabled);
+                Optional.of(currentVersion));
     }
 
     @JsonProperty
@@ -96,11 +92,5 @@ public class DeltaTableOptimizeHandle
     public DataSize getMaxScannedFileSize()
     {
         return maxScannedFileSize;
-    }
-
-    @JsonProperty
-    public boolean isRetriesEnabled()
-    {
-        return retriesEnabled;
     }
 }

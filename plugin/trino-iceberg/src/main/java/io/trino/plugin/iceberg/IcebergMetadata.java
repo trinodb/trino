@@ -866,7 +866,7 @@ public class IcebergMetadata
 
         switch (procedureId) {
             case OPTIMIZE:
-                return getTableHandleForOptimize(session, tableHandle, executeProperties, retryMode);
+                return getTableHandleForOptimize(session, tableHandle, executeProperties);
             case EXPIRE_SNAPSHOTS:
                 return getTableHandleForExpireSnapshots(session, tableHandle, executeProperties);
             case REMOVE_ORPHAN_FILES:
@@ -876,7 +876,7 @@ public class IcebergMetadata
         throw new IllegalArgumentException("Unknown procedure: " + procedureId);
     }
 
-    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties, RetryMode retryMode)
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
     {
         DataSize maxScannedFileSize = (DataSize) executeProperties.get("file_size_threshold");
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
@@ -891,8 +891,7 @@ public class IcebergMetadata
                         getColumns(icebergTable.schema(), typeManager),
                         getFileFormat(icebergTable),
                         icebergTable.properties(),
-                        maxScannedFileSize,
-                        retryMode != NO_RETRIES),
+                        maxScannedFileSize),
                 icebergTable.location()));
     }
 
@@ -989,12 +988,17 @@ public class IcebergMetadata
     }
 
     @Override
-    public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
+    public void finishTableExecute(
+            ConnectorSession session,
+            ConnectorTableHandle sourceHandle,
+            ConnectorTableExecuteHandle tableExecuteHandle,
+            Collection<Slice> fragments,
+            List<Object> splitSourceInfo)
     {
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
         switch (executeHandle.getProcedureId()) {
             case OPTIMIZE:
-                finishOptimize(session, executeHandle, fragments, splitSourceInfo);
+                finishOptimize(session, (IcebergTableHandle) sourceHandle, executeHandle, fragments, splitSourceInfo);
                 return;
             case EXPIRE_SNAPSHOTS:
             case REMOVE_ORPHAN_FILES:
@@ -1003,7 +1007,12 @@ public class IcebergMetadata
         throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
     }
 
-    private void finishOptimize(ConnectorSession session, IcebergTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
+    private void finishOptimize(
+            ConnectorSession session,
+            IcebergTableHandle sourceHandle,
+            IcebergTableExecuteHandle executeHandle,
+            Collection<Slice> fragments,
+            List<Object> splitSourceInfo)
     {
         IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.getProcedureHandle();
         Table icebergTable = transaction.table();
@@ -1046,7 +1055,7 @@ public class IcebergMetadata
         }
 
         // try to leave as little garbage as possible behind
-        if (optimizeHandle.isRetriesEnabled()) {
+        if (sourceHandle.getRetryMode() != NO_RETRIES) {
             cleanExtraOutputFiles(
                     session,
                     newFiles.stream()

@@ -37,7 +37,6 @@ public class IcebergOptimizeHandle
     private final IcebergFileFormat fileFormat;
     private final Map<String, String> tableStorageProperties;
     private final DataSize maxScannedFileSize;
-    private final boolean retriesEnabled;
 
     @JsonCreator
     public IcebergOptimizeHandle(
@@ -47,8 +46,7 @@ public class IcebergOptimizeHandle
             List<IcebergColumnHandle> tableColumns,
             IcebergFileFormat fileFormat,
             Map<String, String> tableStorageProperties,
-            DataSize maxScannedFileSize,
-            boolean retriesEnabled)
+            DataSize maxScannedFileSize)
     {
         this.snapshotId = snapshotId;
         this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
@@ -57,7 +55,6 @@ public class IcebergOptimizeHandle
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.tableStorageProperties = ImmutableMap.copyOf(requireNonNull(tableStorageProperties, "tableStorageProperties is null"));
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
-        this.retriesEnabled = retriesEnabled;
     }
 
     @JsonProperty
@@ -102,12 +99,6 @@ public class IcebergOptimizeHandle
         return maxScannedFileSize;
     }
 
-    @JsonProperty
-    public boolean isRetriesEnabled()
-    {
-        return retriesEnabled;
-    }
-
     @Override
     public String toString()
     {
@@ -119,7 +110,6 @@ public class IcebergOptimizeHandle
                 .add("fileFormat", fileFormat)
                 .add("tableStorageProperties", tableStorageProperties)
                 .add("maxScannedFileSize", maxScannedFileSize)
-                .add("retriesEnabled", retriesEnabled)
                 .toString();
     }
 }

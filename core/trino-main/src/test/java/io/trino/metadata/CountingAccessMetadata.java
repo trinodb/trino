@@ -151,9 +151,9 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    public void finishTableExecute(Session session, TableHandle sourceHandle, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
-        delegate.finishTableExecute(session, handle, fragments, tableExecuteState);
+        delegate.finishTableExecute(session, sourceHandle, handle, fragments, tableExecuteState);
     }
 
     @Override

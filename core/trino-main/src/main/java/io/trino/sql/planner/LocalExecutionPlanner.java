@@ -3984,8 +3984,9 @@ public class LocalExecutionPlanner
                 return Optional.empty();
             }
             else if (target instanceof TableExecuteTarget) {
+                TableHandle tableHandle = ((TableExecuteTarget) target).getSourceHandle().orElseThrow();
                 TableExecuteHandle tableExecuteHandle = ((TableExecuteTarget) target).getExecuteHandle();
-                metadata.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteContext.getSplitsInfo());
+                metadata.finishTableExecute(session, tableHandle, tableExecuteHandle, fragments, tableExecuteContext.getSplitsInfo());
                 return Optional.empty();
             }
             else {
