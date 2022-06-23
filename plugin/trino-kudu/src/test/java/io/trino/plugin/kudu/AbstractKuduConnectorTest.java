@@ -497,46 +497,6 @@ public abstract class AbstractKuduConnectorTest
 
     @Test
     @Override
-    public void testDelete()
-    {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
-    }
-
-    @Test
-    @Override
-    public void testDeleteWithSemiJoin()
-    {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
-    }
-
-    @Test
-    @Override
-    public void testDeleteWithVarcharPredicate()
-    {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
-    }
-
-    @Test
-    @Override
-    public void testDeleteWithComplexPredicate()
-    {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
-    }
-
-    @Test
-    @Override
-    public void testDeleteWithSubquery()
-    {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
-    }
-
-    @Test
-    @Override
     public void testWrittenStats()
     {
         // TODO Kudu connector supports CTAS and inserts, but the test would fail
