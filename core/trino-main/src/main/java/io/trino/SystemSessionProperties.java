@@ -166,12 +166,12 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR = "fault_tolerant_execution_task_memory_growth_factor";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE = "fault_tolerant_execution_task_memory_estimation_quantile";
     public static final String FAULT_TOLERANT_EXECUTION_PARTITION_COUNT = "fault_tolerant_execution_partition_count";
-
     public static final String FAULT_TOLERANT_EXECUTION_PRESERVE_INPUT_PARTITIONS_IN_WRITE_STAGE = "fault_tolerant_execution_preserve_input_partitions_in_write_stage";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT = "join_partitioned_build_min_row_count";
+    public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -837,6 +837,11 @@ public final class SystemSessionProperties
                         "Minimum number of join build side rows required to use partitioned join lookup",
                         optimizerConfig.getJoinPartitionedBuildMinRowCount(),
                         value -> validateNonNegativeLongValue(value, JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT),
+                        false),
+                booleanProperty(
+                        USE_EXACT_PARTITIONING,
+                        "When enabled this forces data repartitioning unless the partitioning of upstream stage matches exactly what downstream stage expects",
+                        optimizerConfig.isUseExactPartitioning(),
                         false));
     }
 
@@ -1509,5 +1514,10 @@ public final class SystemSessionProperties
     public static long getJoinPartitionedBuildMinRowCount(Session session)
     {
         return session.getSystemProperty(JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT, Long.class);
+    }
+
+    public static boolean isUseExactPartitioning(Session session)
+    {
+        return session.getSystemProperty(USE_EXACT_PARTITIONING, Boolean.class);
     }
 }
