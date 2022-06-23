@@ -19,6 +19,7 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.HideDeltaLakeTables;
+import io.trino.plugin.hive.metastore.dlf.AlibabaDlfMetaStoreModule;
 import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
@@ -47,6 +48,7 @@ public class HiveMetastoreModule
             bindMetastoreModule("thrift", new ThriftMetastoreModule());
             bindMetastoreModule("file", new FileMetastoreModule());
             bindMetastoreModule("glue", new GlueMetastoreModule());
+            bindMetastoreModule("alibaba-dlf", new AlibabaDlfMetaStoreModule());
             // Load Alluxio metastore support through reflection. This makes Alluxio effectively an optional dependency
             // and allows deploying Trino without the Alluxio jar. Can be useful if the integration is unused and is flagged
             // by a security scanner.

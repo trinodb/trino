@@ -124,6 +124,24 @@
         </dependency>
 
         <dependency>
+            <groupId>com.aliyun</groupId>
+            <artifactId>datalake20200710</artifactId>
+            <version>2.0.2</version>
+            <classifier>shaded</classifier>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.aliyun.datalake</groupId>
+            <artifactId>metastore-client-common</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-core</artifactId>
         </dependency>
@@ -460,6 +478,13 @@
                             <excludes>
                                 <exclude>**/TestHiveGlueMetastore.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
+                                <exclude>**/TestHive*FailureRecoveryTest.java</exclude>
+                                <exclude>**/TestHiveFaultTolerantExecution*.java</exclude>
+                                <include>**/TestDlfDatabase.java</include>
+                                <include>**/TestDlfDatabaseCache.java</include>
+                                <include>**/TestDlfPartition.java</include>
+                                <include>**/TestDlfTable.java</include>
+                                <include>**/TestDlfTableCache.java</include>
                             </excludes>
                         </configuration>
                     </plugin>
