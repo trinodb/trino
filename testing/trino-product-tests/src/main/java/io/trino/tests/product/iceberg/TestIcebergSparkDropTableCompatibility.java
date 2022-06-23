@@ -83,7 +83,8 @@ public class TestIcebergSparkDropTableCompatibility
         List<String> dataFilePaths = getDataFilePaths(tableName);
 
         tableDropperEngine.queryExecutor().executeQuery("DROP TABLE " + tableName);
-        assertFileExistence(tableDirectory, false, format("The table directory %s should be removed after dropping the table", tableDirectory));
+        boolean expectExists = tableDropperEngine == SPARK; // Note: Spark's behavior is Catalog dependent
+        assertFileExistence(tableDirectory, expectExists, format("The table directory %s should be removed after dropping the table", tableDirectory));
         dataFilePaths.forEach(dataFilePath -> assertFileExistence(dataFilePath, false, format("The data file %s removed after dropping the table", dataFilePath)));
     }
 
