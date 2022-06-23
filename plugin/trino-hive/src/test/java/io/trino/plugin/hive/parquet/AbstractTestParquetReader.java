@@ -81,12 +81,16 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.StructuralTestUtil.mapType;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -2005,18 +2009,13 @@ public abstract class AbstractTestParquetReader
         return new SqlVarbinary(input);
     }
 
-    private static Timestamp intToTimestamp(Integer input)
+    private static Timestamp intToTimestamp(Integer epochMillis)
     {
-        if (input == null) {
+        if (epochMillis == null) {
             return null;
         }
-        long seconds = (input / 1000);
-        int nanos = ((input % 1000) * 1_000_000);
-
-        if (nanos < 0) {
-            nanos += 1_000_000_000;
-            seconds -= 1;
-        }
+        long seconds = floorDiv(epochMillis, MILLISECONDS_PER_SECOND);
+        int nanos = floorMod(epochMillis, MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND;
         return Timestamp.ofEpochSecond(seconds, nanos);
     }
 
