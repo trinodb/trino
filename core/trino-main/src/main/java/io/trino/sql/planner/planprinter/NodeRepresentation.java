@@ -25,6 +25,8 @@ import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -37,7 +39,7 @@ public class NodeRepresentation
     private final PlanNodeId id;
     private final String name;
     private final String type;
-    private final String descriptor;
+    private final Map<String, String> descriptor;
     private final List<TypedSymbol> outputs;
     private final List<PlanNodeId> children;
     private final List<PlanFragmentId> remoteSources;
@@ -52,7 +54,7 @@ public class NodeRepresentation
             PlanNodeId id,
             String name,
             String type,
-            String descriptor,
+            Map<String, String> descriptor,
             List<TypedSymbol> outputs,
             Optional<PlanNodeStats> stats,
             List<PlanNodeStatsEstimate> estimatedStats,
@@ -107,7 +109,7 @@ public class NodeRepresentation
         return type;
     }
 
-    public String getDescriptor()
+    public Map<String, String> getDescriptor()
     {
         return descriptor;
     }
@@ -201,6 +203,31 @@ public class NodeRepresentation
         public String getType()
         {
             return type;
+        }
+
+        public static TypedSymbol typedSymbol(String symbol, String type)
+        {
+            return new TypedSymbol(new Symbol(symbol), type);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof TypedSymbol)) {
+                return false;
+            }
+            TypedSymbol that = (TypedSymbol) o;
+            return symbol.equals(that.symbol)
+                    && type.equals(that.type);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(symbol, type);
         }
     }
 }

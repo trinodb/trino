@@ -278,7 +278,7 @@ public abstract class BaseQueryAssertionsTest
                                 "\n" +
                                 "] but found [\n" +
                                 "\n" +
-                                "Output[name]\n");
+                                "Output[columnNames = [name]]\n");
     }
 
     @Test
@@ -307,7 +307,7 @@ public abstract class BaseQueryAssertionsTest
                                 "\n" +
                                 "] but found [\n" +
                                 "\n" +
-                                "Output[_col0]\n");
+                                "Output[columnNames = [_col0]]\n");
     }
 
     @Test
@@ -327,6 +327,6 @@ public abstract class BaseQueryAssertionsTest
                                 "\n" +
                                 "] but found [\n" +
                                 "\n" +
-                                "Output[name]\n");
+                                "Output[columnNames = [name]]\n");
     }
 }
