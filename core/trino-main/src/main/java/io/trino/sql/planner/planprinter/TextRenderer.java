@@ -65,7 +65,7 @@ public class TextRenderer
     {
         output.append(indent.nodeIndent())
                 .append(node.getName())
-                .append(node.getIdentifier())
+                .append(node.getDescriptor())
                 .append("\n");
 
         String columns = node.getOutputs().stream()
