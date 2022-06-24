@@ -253,7 +253,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
 
     public synchronized Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
@@ -281,7 +281,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
 
     public synchronized Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
@@ -352,7 +352,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
 
     public synchronized HivePageSinkMetadata generatePageSinkMetadata(SchemaTableName schemaTableName)
@@ -522,7 +522,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
 
     public synchronized void dropTable(ConnectorSession session, String databaseName, String tableName)
@@ -550,7 +550,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
 
     public synchronized void replaceTable(String databaseName, String tableName, Table table, PrincipalPrivileges principalPrivileges)
@@ -654,7 +654,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
 
     private boolean isAcidTransactionRunning()
@@ -734,7 +734,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
 
     public synchronized void finishUpdate(
@@ -781,7 +781,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
 
     public synchronized Optional<List<String>> getPartitionNames(String databaseName, String tableName)
@@ -867,7 +867,7 @@ public class SemiTransactionalHiveMetastore
                     resultBuilder.add(partitionName);
                     break;
                 default:
-                    throw new IllegalStateException("Unknown action type");
+                    throw new IllegalStateException("Unknown action type: " + partitionAction.getType());
             }
         }
         // add newly-added partitions to the results from underlying metastore.
@@ -934,7 +934,7 @@ public class SemiTransactionalHiveMetastore
             case DROP_PRESERVE_DATA:
                 return Optional.empty();
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + partitionAction.getType());
     }
 
     public synchronized void addPartition(
@@ -975,7 +975,7 @@ public class SemiTransactionalHiveMetastore
             case UPDATE:
                 throw new TrinoException(ALREADY_EXISTS, format("Partition already exists for table '%s.%s': %s", databaseName, tableName, partition.getValues()));
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldPartitionAction.getType());
     }
 
     public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
@@ -1006,7 +1006,7 @@ public class SemiTransactionalHiveMetastore
                         NOT_SUPPORTED,
                         format("dropping a partition added in the same transaction is not supported: %s %s %s", databaseName, tableName, partitionValues));
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldPartitionAction.getType());
     }
 
     public synchronized void finishInsertIntoExistingPartition(
@@ -1059,7 +1059,7 @@ public class SemiTransactionalHiveMetastore
             case UPDATE:
                 throw new UnsupportedOperationException("Inserting into a partition that were added, altered, or inserted into in the same transaction is not supported");
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldPartitionAction.getType());
     }
 
     private synchronized AcidTransaction getCurrentAcidTransaction()
@@ -1167,7 +1167,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
 
     private synchronized String getRequiredTableOwner(String databaseName, String tableName)
@@ -1456,7 +1456,7 @@ public class SemiTransactionalHiveMetastore
                         committer.prepareUpdateExistingTable(action.getHdfsContext(), action.getData());
                         break;
                     default:
-                        throw new IllegalStateException("Unknown action type");
+                        throw new IllegalStateException("Unknown action type: " + action.getType());
                 }
             }
             for (Map.Entry<SchemaTableName, Map<List<String>, Action<PartitionAndMore>>> tableEntry : partitionActions.entrySet()) {
@@ -1484,7 +1484,7 @@ public class SemiTransactionalHiveMetastore
                         case DELETE_ROWS:
                             break;
                         default:
-                            throw new IllegalStateException("Unknown action type");
+                            throw new IllegalStateException("Unknown action type: " + action.getType());
                     }
                 }
             }
