@@ -37,7 +37,7 @@ public class NodeRepresentation
     private final PlanNodeId id;
     private final String name;
     private final String type;
-    private final String identifier;
+    private final String descriptor;
     private final List<TypedSymbol> outputs;
     private final List<PlanNodeId> children;
     private final List<PlanFragmentId> remoteSources;
@@ -52,7 +52,7 @@ public class NodeRepresentation
             PlanNodeId id,
             String name,
             String type,
-            String identifier,
+            String descriptor,
             List<TypedSymbol> outputs,
             Optional<PlanNodeStats> stats,
             List<PlanNodeStatsEstimate> estimatedStats,
@@ -64,7 +64,7 @@ public class NodeRepresentation
         this.id = requireNonNull(id, "id is null");
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
-        this.identifier = requireNonNull(identifier, "identifier is null");
+        this.descriptor = requireNonNull(descriptor, "descriptor is null");
         this.outputs = requireNonNull(outputs, "outputs is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.estimatedStats = requireNonNull(estimatedStats, "estimatedStats is null");
@@ -107,9 +107,9 @@ public class NodeRepresentation
         return type;
     }
 
-    public String getIdentifier()
+    public String getDescriptor()
     {
-        return identifier;
+        return descriptor;
     }
 
     public List<TypedSymbol> getOutputs()

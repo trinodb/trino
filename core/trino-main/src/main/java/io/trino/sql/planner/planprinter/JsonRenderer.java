@@ -48,7 +48,7 @@ public class JsonRenderer
         return new JsonRenderedNode(
                 node.getId().toString(),
                 node.getName(),
-                node.getIdentifier(),
+                node.getDescriptor(),
                 node.getOutputs(),
                 node.getDetails(),
                 node.getEstimates(plan.getTypes()),
@@ -62,7 +62,7 @@ public class JsonRenderer
     {
         private final String id;
         private final String name;
-        private final String identifier;
+        private final String descriptor;
         private final List<TypedSymbol> outputs;
         private final String details;
         private final List<PlanNodeStatsAndCostSummary> estimates;
@@ -72,7 +72,7 @@ public class JsonRenderer
         public JsonRenderedNode(
                 String id,
                 String name,
-                String identifier,
+                String descriptor,
                 List<TypedSymbol> outputs,
                 String details,
                 List<PlanNodeStatsAndCostSummary> estimates,
@@ -81,7 +81,7 @@ public class JsonRenderer
         {
             this.id = requireNonNull(id, "id is null");
             this.name = requireNonNull(name, "name is null");
-            this.identifier = requireNonNull(identifier, "identifier is null");
+            this.descriptor = requireNonNull(descriptor, "descriptor is null");
             this.outputs = requireNonNull(outputs, "outputs is null");
             this.details = requireNonNull(details, "details is null");
             this.estimates = requireNonNull(estimates, "estimates is null");
@@ -102,9 +102,9 @@ public class JsonRenderer
         }
 
         @JsonProperty
-        public String getIdentifier()
+        public String getDescriptor()
         {
-            return identifier;
+            return descriptor;
         }
 
         @JsonProperty
