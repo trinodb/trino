@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -48,6 +49,7 @@ public class DynamicFilterConfig
     private DataSize smallPartitionedMaxSizePerDriver = DataSize.of(10, KILOBYTE);
     private int smallPartitionedRangeRowLimitPerDriver = 100;
     private DataSize smallPartitionedMaxSizePerOperator = DataSize.of(100, KILOBYTE);
+    private DataSize smallMaxSizePerFilter = DataSize.of(1, MEGABYTE);
 
     private int largeBroadcastMaxDistinctValuesPerDriver = 5_000;
     private DataSize largeBroadcastMaxSizePerDriver = DataSize.of(500, KILOBYTE);
@@ -57,6 +59,7 @@ public class DynamicFilterConfig
     private DataSize largePartitionedMaxSizePerDriver = DataSize.of(50, KILOBYTE);
     private int largePartitionedRangeRowLimitPerDriver = 1_000;
     private DataSize largePartitionedMaxSizePerOperator = DataSize.of(500, KILOBYTE);
+    private DataSize largeMaxSizePerFilter = DataSize.of(5, MEGABYTE);
 
     public boolean isEnableDynamicFiltering()
     {
@@ -200,6 +203,20 @@ public class DynamicFilterConfig
         return this;
     }
 
+    @NotNull
+    @MaxDataSize("10MB")
+    public DataSize getSmallMaxSizePerFilter()
+    {
+        return smallMaxSizePerFilter;
+    }
+
+    @Config("dynamic-filtering.small.max-size-per-filter")
+    public DynamicFilterConfig setSmallMaxSizePerFilter(DataSize smallMaxSizePerFilter)
+    {
+        this.smallMaxSizePerFilter = smallMaxSizePerFilter;
+        return this;
+    }
+
     @Min(0)
     public int getLargeBroadcastMaxDistinctValuesPerDriver()
     {
@@ -301,6 +318,20 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setLargePartitionedMaxSizePerOperator(DataSize largePartitionedMaxSizePerOperator)
     {
         this.largePartitionedMaxSizePerOperator = largePartitionedMaxSizePerOperator;
+        return this;
+    }
+
+    @NotNull
+    @MaxDataSize("10MB")
+    public DataSize getLargeMaxSizePerFilter()
+    {
+        return largeMaxSizePerFilter;
+    }
+
+    @Config("dynamic-filtering.large.max-size-per-filter")
+    public DynamicFilterConfig setLargeMaxSizePerFilter(DataSize largeMaxSizePerFilter)
+    {
+        this.largeMaxSizePerFilter = largeMaxSizePerFilter;
         return this;
     }
 }
