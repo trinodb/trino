@@ -100,7 +100,7 @@ public abstract class BaseMongoConnectorTest
         // and there's no requirement that the conform to a specific shape or contain certain keywords.
         assertExplain(
                 "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
-                "TopNPartial\\[5 by \\(nationkey DESC");
+                "TopNPartial\\[count = 5, orderBy = \\[nationkey DESC");
     }
 
     @Override

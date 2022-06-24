@@ -72,7 +72,7 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
         result.set(node.id, {
             id: node.id,
             name: node['name'],
-            identifier: node['identifier'],
+            descriptor: node['descriptor'],
             details: node['details'],
             sources: node.children.map(node => node.id),
             remoteSources: node.remoteSources,
@@ -112,7 +112,7 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
 type PlanNodeProps = {
     id: string,
     name: string,
-    identifier: string,
+    descriptor: Map<string, string>,
     details: string,
     sources: string[],
     remoteSources: string[],
@@ -133,12 +133,17 @@ class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
             distribution = " (" + matchArray[1] + ")";
         }
 
+        var descriptor = Object.entries(this.props.descriptor)
+                .map(([key, value]) => key + " = " + String(value))
+                .join(", ");
+        descriptor = "(" + descriptor + ")";
+
         return (
             <div style={{color: "#000"}} data-toggle="tooltip" data-placement="bottom" data-container="body" data-html="true"
-                 title={"<h4>" + this.props.name + "</h4>" + this.props.identifier}>
+                 title={"<h4>" + this.props.name + "</h4>" + descriptor}>
                 <strong>{this.props.name + distribution}</strong>
                 <div>
-                    {truncateString(this.props.identifier, 35)}
+                    {truncateString(descriptor, 35)}
                 </div>
             </div>
         );
