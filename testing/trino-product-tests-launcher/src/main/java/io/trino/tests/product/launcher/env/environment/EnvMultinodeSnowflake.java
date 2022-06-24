@@ -21,6 +21,14 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
+
+import static java.nio.file.attribute.PosixFilePermissions.fromString;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -40,6 +48,31 @@ public class EnvMultinodeSnowflake
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addConnector("snowflake", forHostPath(configDir.getPath("snowflake.properties")));
+        builder.addConnector("snowflake", forHostPath(getEnvProperties()));
+    }
+
+    private Path getEnvProperties()
+    {
+        try {
+            String properties = Files.readString(configDir.getPath("snowflake.properties"))
+                    .replace("${ENV:SNOWFLAKE_URL}", requireEnv("SNOWFLAKE_URL"))
+                    .replace("${ENV:SNOWFLAKE_USER}", requireEnv("SNOWFLAKE_USER"))
+                    .replace("${ENV:SNOWFLAKE_PASSWORD}", requireEnv("SNOWFLAKE_PASSWORD"))
+                    .replace("${ENV:SNOWFLAKE_DATABASE}", requireEnv("SNOWFLAKE_DATABASE"))
+                    .replace("${ENV:SNOWFLAKE_ROLE}", requireEnv("SNOWFLAKE_ROLE"))
+                    .replace("${ENV:SNOWFLAKE_WAREHOUSE}", requireEnv("SNOWFLAKE_WAREHOUSE"));
+            File newProperties = Files.createTempFile("snowflake-replaced", ".properties", PosixFilePermissions.asFileAttribute(fromString("rwxrwxrwx"))).toFile();
+            newProperties.deleteOnExit();
+            Files.writeString(newProperties.toPath(), properties);
+            return newProperties.toPath();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static String requireEnv(String variable)
+    {
+        return requireNonNull(System.getenv(variable), () -> "environment variable not set: " + variable);
     }
 }
