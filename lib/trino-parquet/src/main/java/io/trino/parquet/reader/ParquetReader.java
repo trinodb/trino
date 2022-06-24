@@ -133,20 +133,6 @@ public class ParquetReader
             ParquetDataSource dataSource,
             DateTimeZone timeZone,
             AggregatedMemoryContext memoryContext,
-            ParquetReaderOptions options)
-            throws IOException
-    {
-        this(fileCreatedBy, messageColumnIO, blocks, firstRowsOfBlocks, dataSource, timeZone, memoryContext, options, null, null);
-    }
-
-    public ParquetReader(
-            Optional<String> fileCreatedBy,
-            MessageColumnIO messageColumnIO,
-            List<BlockMetaData> blocks,
-            List<Long> firstRowsOfBlocks,
-            ParquetDataSource dataSource,
-            DateTimeZone timeZone,
-            AggregatedMemoryContext memoryContext,
             ParquetReaderOptions options,
             Predicate parquetPredicate,
             List<Optional<ColumnIndexStore>> columnIndexStore)
