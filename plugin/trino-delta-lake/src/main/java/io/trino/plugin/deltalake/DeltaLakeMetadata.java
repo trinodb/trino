@@ -135,6 +135,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -244,6 +245,7 @@ public class DeltaLakeMetadata
     public static final String UPDATE_OPERATION = "UPDATE";
     public static final String OPTIMIZE_OPERATION = "OPTIMIZE";
     public static final String SET_TBLPROPERTIES_OPERATION = "SET TBLPROPERTIES";
+    public static final String CHANGE_COLUMN_OPERATION = "CHANGE COLUMN";
     public static final String ISOLATION_LEVEL = "WriteSerializable";
     private static final int READER_VERSION = 1;
     private static final int WRITER_VERSION = 2;
@@ -997,6 +999,53 @@ public class DeltaLakeMetadata
         }
         catch (Exception e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to comment on table: %s.%s", handle.getSchemaName(), handle.getTableName()), e);
+        }
+    }
+
+    @Override
+    public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment)
+    {
+        DeltaLakeTableHandle deltaLakeTableHandle = (DeltaLakeTableHandle) tableHandle;
+        DeltaLakeColumnHandle deltaLakeColumnHandle = (DeltaLakeColumnHandle) column;
+        checkSupportedWriterVersion(session, deltaLakeTableHandle.getSchemaTableName());
+
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, deltaLakeTableHandle);
+
+        try {
+            long commitVersion = deltaLakeTableHandle.getReadVersion() + 1;
+
+            List<String> partitionColumns = getPartitionedBy(tableMetadata.getProperties());
+            List<DeltaLakeColumnHandle> columns = tableMetadata.getColumns().stream()
+                    .filter(columnMetadata -> !columnMetadata.isHidden())
+                    .map(columnMetadata -> toColumnHandle(columnMetadata, partitionColumns))
+                    .collect(toImmutableList());
+
+            ImmutableMap.Builder<String, String> columnComments = ImmutableMap.builder();
+            columnComments.putAll(getColumnComments(deltaLakeTableHandle.getMetadataEntry()).entrySet().stream()
+                    .filter(e -> !e.getKey().equals(deltaLakeColumnHandle.getName()))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+            comment.ifPresent(s -> columnComments.put(deltaLakeColumnHandle.getName(), s));
+
+            Optional<Long> checkpointInterval = DeltaLakeTableProperties.getCheckpointInterval(tableMetadata.getProperties());
+
+            TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, deltaLakeTableHandle.getLocation());
+            appendTableEntries(
+                    commitVersion,
+                    transactionLogWriter,
+                    deltaLakeTableHandle.getMetadataEntry().getId(),
+                    columns,
+                    partitionColumns,
+                    columnComments.buildOrThrow(),
+                    buildDeltaMetadataConfiguration(checkpointInterval),
+                    CHANGE_COLUMN_OPERATION,
+                    session,
+                    nodeVersion,
+                    nodeId,
+                    Optional.ofNullable(deltaLakeTableHandle.getMetadataEntry().getDescription()));
+            transactionLogWriter.flush();
+        }
+        catch (Exception e) {
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to add '%s' column comment for: %s.%s", deltaLakeColumnHandle.getName(), deltaLakeTableHandle.getSchemaName(), deltaLakeTableHandle.getTableName()), e);
         }
     }
 

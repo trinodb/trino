@@ -122,4 +122,48 @@ public class TestDeltaLakeAlterTableCompatibility
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
         }
     }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testCommentOnColumn()
+    {
+        String tableName = "test_dl_comment_column_" + randomTableSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s')",
+                tableName,
+                bucketName,
+                tableDirectory));
+
+        try {
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment'");
+            assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test column comment");
+            assertEquals(getColumnCommentOnDelta("default", tableName, "col"), "test column comment");
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testCommentOnColumnUnsupportedWriterVersion()
+    {
+        String tableName = "test_dl_comment_column_unsupported_writer_" + randomTableSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery(format("" +
+                        "CREATE TABLE default.%s (col int) " +
+                        "USING DELTA LOCATION 's3://%s/%s'" +
+                        "TBLPROPERTIES ('delta.minWriterVersion'='3')",
+                tableName,
+                bucketName,
+                tableDirectory));
+
+        try {
+            assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment'"))
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 3 which is not supported");
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
 }
