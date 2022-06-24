@@ -51,7 +51,7 @@ Configuration properties
 The following configuration properties are available:
 
 ======================================  ==============================================================
-Property Name                           Description
+Property name                           Description
 ======================================  ==============================================================
 ``redis.table-names``                   List of all tables provided by the catalog
 ``redis.default-schema``                Default schema name for tables

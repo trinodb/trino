@@ -75,7 +75,7 @@ all, then access is granted.
 The following table summarizes the permissions required for each SQL command:
 
 ==================================== ========== ======= ==================== ===================================================
-SQL Command                          Catalog    Schema  Table                Note
+SQL command                          Catalog    Schema  Table                Note
 ==================================== ========== ======= ==================== ===================================================
 SHOW CATALOGS                                                                Always allowed
 SHOW SCHEMAS                         read-only  any*    any*                 Allowed if catalog is :ref:`visible<system-file-auth-visibility>`

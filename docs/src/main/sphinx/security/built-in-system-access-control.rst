@@ -15,7 +15,7 @@ contain a comma separated list of the access control property files to use
 Trino offers the following built-in implementations:
 
 ================================================== =================================================================
-System Access Control Name                         Description
+System access control name                         Description
 ================================================== =================================================================
 ``default``                                        All operations are permitted, except for user impersonation.
                                                    This is the default access control if none are configured.

@@ -372,7 +372,7 @@ To enable AWS authorization using IAM policies, the ``elasticsearch.security`` o
 Additionally, the following options need to be configured appropriately:
 
 ================================================ ==================================================================
-Property Name                                    Description
+Property name                                    Description
 ================================================ ==================================================================
 ``elasticsearch.aws.region``                     AWS region or the Elasticsearch endpoint. This option is required.
 
@@ -395,7 +395,7 @@ To enable password authentication, the ``elasticsearch.security`` option needs t
 Additionally the following options need to be configured appropriately:
 
 ================================================ ==================================================================
-Property Name                                    Description
+Property name                                    Description
 ================================================ ==================================================================
 ``elasticsearch.auth.user``                      User name to use to connect to Elasticsearch.
 ``elasticsearch.auth.password``                  Password to use to connect to Elasticsearch.
