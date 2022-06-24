@@ -1560,25 +1560,25 @@ public class PlanPrinter
             return addNode(node, name, "");
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, String identifier)
+        public NodeRepresentation addNode(PlanNode node, String name, String descriptor)
         {
-            return addNode(node, name, identifier, node.getSources(), Optional.empty());
+            return addNode(node, name, descriptor, node.getSources(), Optional.empty());
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, String identifier, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost)
+        public NodeRepresentation addNode(PlanNode node, String name, String descriptor, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost)
         {
-            return addNode(node, name, identifier, node.getSources(), reorderJoinStatsAndCost);
+            return addNode(node, name, descriptor, node.getSources(), reorderJoinStatsAndCost);
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, String identifier, List<PlanNode> children, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost)
+        public NodeRepresentation addNode(PlanNode node, String name, String descriptor, List<PlanNode> children, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost)
         {
-            return addNode(node, name, identifier, ImmutableList.of(node.getId()), children, ImmutableList.of(), reorderJoinStatsAndCost);
+            return addNode(node, name, descriptor, ImmutableList.of(node.getId()), children, ImmutableList.of(), reorderJoinStatsAndCost);
         }
 
         public NodeRepresentation addNode(
                 PlanNode rootNode,
                 String name,
-                String identifier,
+                String descriptor,
                 List<PlanNodeId> allNodes,
                 List<PlanNode> children,
                 List<PlanFragmentId> remoteSources,
@@ -1596,7 +1596,7 @@ public class PlanPrinter
                     rootNode.getId(),
                     name,
                     rootNode.getClass().getSimpleName(),
-                    identifier,
+                    descriptor,
                     rootNode.getOutputSymbols().stream()
                             .map(s -> new TypedSymbol(s, types.get(s).getDisplayName()))
                             .collect(toImmutableList()),
