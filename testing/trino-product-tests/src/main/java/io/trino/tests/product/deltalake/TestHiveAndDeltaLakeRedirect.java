@@ -489,6 +489,51 @@ public class TestHiveAndDeltaLakeRedirect
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testDeltaToHiveCommentColumn()
+    {
+        String tableName = "hive_comment_column_by_delta_" + randomTableSuffix();
+        String columnName = "id";
+
+        onTrino().executeQuery(createTableInHiveConnector("default", tableName, true));
+        try {
+            assertColumnComment("hive", "default", tableName, columnName).isNull();
+            assertColumnComment("delta", "default", tableName, columnName).isNull();
+
+            String columnComment = "Internal identifier";
+            onTrino().executeQuery(format("COMMENT ON COLUMN delta.default.%s.%s IS '%s'", tableName, columnName, columnComment));
+
+            assertColumnComment("hive", "default", tableName, columnName).isEqualTo(columnComment);
+            assertColumnComment("delta", "default", tableName, columnName).isEqualTo(columnComment);
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE hive.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testHiveToDeltaCommentColumn()
+    {
+        String tableName = "delta_comment_column_by_hive_" + randomTableSuffix();
+        String columnName = "nationkey";
+
+        onDelta().executeQuery(createTableInDatabricks(tableName, true));
+
+        try {
+            assertColumnComment("hive", "default", tableName, columnName).isNull();
+            assertColumnComment("delta", "default", tableName, columnName).isNull();
+
+            String columnComment = "Internal identifier for the nation";
+            onTrino().executeQuery(format("COMMENT ON COLUMN hive.default.%s.%s IS '%s'", tableName, columnName, columnComment));
+
+            assertColumnComment("hive", "default", tableName, columnName).isEqualTo(columnComment);
+            assertColumnComment("delta", "default", tableName, columnName).isEqualTo(columnComment);
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testInsertIntoDeltaTableFromHiveNonDefaultSchemaRedirect()
     {
         String destSchema = "extraordinary";
@@ -837,6 +882,21 @@ public class TestHiveAndDeltaLakeRedirect
                 param(VARCHAR, catalog),
                 param(VARCHAR, schema),
                 param(VARCHAR, tableName));
+    }
+
+    private static AbstractStringAssert<?> assertColumnComment(String catalog, String schema, String tableName, String columnName)
+    {
+        QueryResult queryResult = readColumnComment(catalog, schema, tableName, columnName);
+        return Assertions.assertThat((String) getOnlyElement(getOnlyElement(queryResult.rows())));
+    }
+
+    private static QueryResult readColumnComment(String catalog, String schema, String tableName, String columnName)
+    {
+        return onTrino().executeQuery(
+                format("SELECT comment FROM %s.information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?", catalog),
+                param(VARCHAR, schema),
+                param(VARCHAR, tableName),
+                param(VARCHAR, columnName));
     }
 
     private static void assertResultsEqual(QueryResult first, QueryResult second)
