@@ -162,7 +162,9 @@ public abstract class BaseDataDefinitionTaskTest
                 Optional.empty(),
                 Identity.ofUser("owner"),
                 Optional.empty(),
-                ImmutableMap.of(MATERIALIZED_VIEW_PROPERTY_2_NAME, MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE));
+                ImmutableMap.of(MATERIALIZED_VIEW_PROPERTY_2_NAME, MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE),
+                Optional.empty(),
+                Optional.empty());
     }
 
     protected static ConnectorTableMetadata someTable(QualifiedObjectName tableName)
@@ -355,7 +357,9 @@ public abstract class BaseDataDefinitionTaskTest
                             existingDefinition.getComment(),
                             existingDefinition.getRunAsIdentity().get(),
                             existingDefinition.getStorageTable(),
-                            newProperties));
+                            newProperties,
+                            Optional.empty(),
+                            Optional.empty()));
         }
 
         @Override

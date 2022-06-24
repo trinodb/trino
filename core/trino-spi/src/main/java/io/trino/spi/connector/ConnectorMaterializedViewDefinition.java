@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
@@ -33,6 +34,12 @@ public class ConnectorMaterializedViewDefinition
     private final Optional<String> comment;
     private final Optional<String> owner;
     private final Map<String, Object> properties;
+    /**
+     * MV versioning layout. When present, MV supports insert versioning
+     * and storage table has corresponding versioning columns.
+     */
+    private final Optional<VersioningLayout> versioningLayout;
+    private final Optional<Map<CatalogSchemaTableName, ConnectorTableVersion>> sourceTableVersions;
 
     public ConnectorMaterializedViewDefinition(
             String originalSql,
@@ -42,7 +49,9 @@ public class ConnectorMaterializedViewDefinition
             List<Column> columns,
             Optional<String> comment,
             Optional<String> owner,
-            Map<String, Object> properties)
+            Map<String, Object> properties,
+            Optional<VersioningLayout> versioningLayout,
+            Optional<Map<CatalogSchemaTableName, ConnectorTableVersion>> sourceTableVersions)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.storageTable = requireNonNull(storageTable, "storageTable is null");
@@ -52,6 +61,8 @@ public class ConnectorMaterializedViewDefinition
         this.comment = requireNonNull(comment, "comment is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.properties = requireNonNull(properties, "properties are null");
+        this.versioningLayout = requireNonNull(versioningLayout, "versioningLayout is null");
+        this.sourceTableVersions = requireNonNull(sourceTableVersions, "sourceTableVersions is null");
 
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
@@ -101,6 +112,16 @@ public class ConnectorMaterializedViewDefinition
         return properties;
     }
 
+    public Optional<VersioningLayout> getVersioningLayout()
+    {
+        return versioningLayout;
+    }
+
+    public Optional<Map<CatalogSchemaTableName, ConnectorTableVersion>> getSourceTableVersions()
+    {
+        return sourceTableVersions;
+    }
+
     @Override
     public String toString()
     {
@@ -113,6 +134,8 @@ public class ConnectorMaterializedViewDefinition
         comment.ifPresent(value -> joiner.add("comment=" + value));
         joiner.add("owner=" + owner);
         joiner.add("properties=" + properties);
+        joiner.add("versioningLayout=" + versioningLayout);
+        joiner.add("sourceTableVersions=" + sourceTableVersions);
         return getClass().getSimpleName() + joiner.toString();
     }
 
@@ -133,13 +156,15 @@ public class ConnectorMaterializedViewDefinition
                 Objects.equals(columns, that.columns) &&
                 Objects.equals(comment, that.comment) &&
                 Objects.equals(owner, that.owner) &&
-                Objects.equals(properties, that.properties);
+                Objects.equals(properties, that.properties) &&
+                Objects.equals(versioningLayout, that.versioningLayout) &&
+                Objects.equals(sourceTableVersions, that.sourceTableVersions);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(originalSql, storageTable, catalog, schema, columns, comment, owner, properties);
+        return Objects.hash(originalSql, storageTable, catalog, schema, columns, comment, owner, properties, versioningLayout, sourceTableVersions);
     }
 
     public static final class Column
@@ -187,6 +212,56 @@ public class ConnectorMaterializedViewDefinition
         public int hashCode()
         {
             return Objects.hash(name, type);
+        }
+    }
+
+    public static final class VersioningLayout
+    {
+        private final Set<Column> versioningColumns;
+        private final boolean unique;
+
+        public VersioningLayout(Set<Column> versioningColumns, boolean unique)
+        {
+            this.versioningColumns = requireNonNull(versioningColumns, "versioningColumns is null");
+            this.unique = unique;
+        }
+
+        public Set<Column> getVersioningColumns()
+        {
+            return versioningColumns;
+        }
+
+        public boolean isUnique()
+        {
+            return unique;
+        }
+
+        @Override
+        public String toString()
+        {
+            return new StringJoiner(", ", VersioningLayout.class.getSimpleName() + "[", "]")
+                    .add("versioningColumns=" + versioningColumns)
+                    .add("unique=" + unique)
+                    .toString();
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            VersioningLayout that = (VersioningLayout) o;
+            return unique == that.unique && versioningColumns.equals(that.versioningColumns);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(versioningColumns, unique);
         }
     }
 }

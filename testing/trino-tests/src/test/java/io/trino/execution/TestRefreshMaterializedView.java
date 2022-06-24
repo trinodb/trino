@@ -106,7 +106,9 @@ public class TestRefreshMaterializedView
                                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("nationkey", BIGINT.getTypeId())),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
-                                                ImmutableMap.of())))
+                                                ImmutableMap.of(),
+                                                Optional.empty(),
+                                                Optional.empty())))
                                 .withDelegateMaterializedViewRefreshToConnector((connectorSession, schemaTableName) -> true)
                                 .withRefreshMaterializedView(((connectorSession, schemaTableName) -> {
                                     startRefreshMaterializedView.set(null);

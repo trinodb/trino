@@ -933,11 +933,31 @@ public final class MetadataManager
         CatalogName catalogName = insertHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
 
-        List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
-                .map(TableHandle::getConnectorHandle)
-                .collect(toImmutableList());
-        return metadata.finishRefreshMaterializedView(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), insertHandle.getConnectorHandle(),
-                fragments, computedStatistics, sourceConnectorHandles);
+        ImmutableMap.Builder<CatalogSchemaTableName, ConnectorTableVersion> sourceTableVersions = ImmutableMap.builder();
+        for (TableHandle sourceTableHandle : ImmutableSet.copyOf(sourceTableHandles)) {
+            // TODO: KS use catalogMetadata to get catalog name
+            CatalogName sourceTableCatalog = sourceTableHandle.getCatalogName();
+            ConnectorTableHandle sourceConnectorTableHandle = sourceTableHandle.getConnectorHandle();
+            ConnectorSession sourceConnectorSession = session.toConnectorSession(sourceTableCatalog);
+            ConnectorMetadata sourceTableMetadata = getMetadata(session, sourceTableCatalog);
+            Optional<ConnectorTableVersion> sourceTableVersion = sourceTableMetadata.getCurrentTableVersion(sourceConnectorSession, sourceConnectorTableHandle);
+            if (sourceTableVersion.isEmpty()) {
+                continue;
+            }
+            sourceTableVersions.put(
+                    new CatalogSchemaTableName(
+                            sourceTableHandle.getCatalogName().toString(),
+                            sourceTableMetadata.getSchemaTableName(sourceConnectorSession, sourceConnectorTableHandle)),
+                    sourceTableVersion.get());
+        }
+
+        return metadata.finishRefreshMaterializedView(
+                session.toConnectorSession(catalogName),
+                tableHandle.getConnectorHandle(),
+                insertHandle.getConnectorHandle(),
+                fragments,
+                computedStatistics,
+                sourceTableVersions.buildOrThrow());
     }
 
     @Override

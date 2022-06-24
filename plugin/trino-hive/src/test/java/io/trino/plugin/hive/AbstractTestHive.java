@@ -866,7 +866,9 @@ public abstract class AbstractTestHive
                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("abc", TypeId.of("type"))),
                                 Optional.empty(),
                                 Optional.of("alice"),
-                                ImmutableMap.of()));
+                                ImmutableMap.of(),
+                                Optional.empty(),
+                                Optional.empty()));
                     }
                 },
                 SqlStandardAccessControlMetadata::new,

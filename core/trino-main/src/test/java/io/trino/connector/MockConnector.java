@@ -54,6 +54,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
@@ -577,7 +578,7 @@ public class MockConnector
                 ConnectorInsertTableHandle insertHandle,
                 Collection<Slice> fragments,
                 Collection<ComputedStatistics> computedStatistics,
-                List<ConnectorTableHandle> sourceTableHandles)
+                Map<CatalogSchemaTableName, ConnectorTableVersion> sourceTableVersions)
         {
             return Optional.empty();
         }

@@ -615,7 +615,7 @@ public interface ConnectorMetadata
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
-            List<ConnectorTableHandle> sourceTableHandles)
+            Map<CatalogSchemaTableName, ConnectorTableVersion> sourceTableVersions)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginRefreshMaterializedView() is implemented without finishRefreshMaterializedView()");
     }
@@ -1357,5 +1357,29 @@ public interface ConnectorMetadata
     default boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
     {
         return false;
+    }
+
+    /**
+     * Specifies table versioning layout (if present).
+     **/
+    default Optional<ConnectorTableVersioningLayout> getTableVersioningLayout(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Returns current version of table (if present).
+     */
+    default Optional<ConnectorTableVersion> getCurrentTableVersion(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Returns table handle that produces versioning grouping sets that were removed from table since `fromVersionExclusive`.
+     */
+    default Optional<ConnectorTableHandle> getDeletedGroupingSets(ConnectorSession session, ConnectorTableHandle handle, ConnectorTableVersion fromVersionExclusive)
+    {
+        return Optional.empty();
     }
 }

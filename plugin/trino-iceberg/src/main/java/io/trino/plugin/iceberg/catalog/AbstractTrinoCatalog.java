@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment;
@@ -28,6 +29,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
@@ -60,12 +62,16 @@ import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.getStorageSchema;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
+import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DEPENDS_ON_TABLES;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.connector.PointerType.TARGET_ID;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -284,6 +290,29 @@ public abstract class AbstractTrinoCatalog
             SchemaTableName storageTableName)
     {
         IcebergMaterializedViewDefinition definition = decodeMaterializedViewData(viewOriginalText);
+
+        Optional<Map<CatalogSchemaTableName, ConnectorTableVersion>> sourceTableVersions = Optional.empty();
+        String dependsOnTables = icebergTable.currentSnapshot().summary().getOrDefault(DEPENDS_ON_TABLES, "");
+        if (!dependsOnTables.isEmpty()) {
+            ImmutableMap.Builder<CatalogSchemaTableName, ConnectorTableVersion> sourceTableVersionsBuilder = ImmutableMap.builder();
+            Map<String, String> tableToSnapshotIdMap = Splitter.on(',').withKeyValueSeparator('=').split(dependsOnTables);
+            for (Map.Entry<String, String> entry : tableToSnapshotIdMap.entrySet()) {
+                List<String> strings = Splitter.on(".").splitToList(entry.getKey());
+                if (strings.size() == 3) {
+                    strings = strings.subList(1, 3);
+                }
+                else if (strings.size() != 2) {
+                    throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid table name in '%s' property: %s'", DEPENDS_ON_TABLES, strings));
+                }
+                String schema = strings.get(0);
+                String name = strings.get(1);
+                SchemaTableName schemaTableName = new SchemaTableName(schema, name);
+
+                sourceTableVersionsBuilder.put(new CatalogSchemaTableName(catalogName.toString(), schemaTableName), new ConnectorTableVersion(TARGET_ID, BIGINT, Long.parseLong(entry.getValue())));
+            }
+            sourceTableVersions = Optional.of(sourceTableVersionsBuilder.buildOrThrow());
+        }
+
         return new ConnectorMaterializedViewDefinition(
                 definition.getOriginalSql(),
                 Optional.of(new CatalogSchemaTableName(catalogName.toString(), storageTableName)),
@@ -297,7 +326,9 @@ public abstract class AbstractTrinoCatalog
                 ImmutableMap.<String, Object>builder()
                         .putAll(getIcebergTableProperties(icebergTable))
                         .put(STORAGE_SCHEMA, storageTableName.getSchemaName())
-                        .buildOrThrow());
+                        .buildOrThrow(),
+                Optional.empty(),
+                sourceTableVersions);
     }
 
     protected Map<String, String> createMaterializedViewProperties(ConnectorSession session, SchemaTableName storageTableName)

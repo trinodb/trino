@@ -202,6 +202,7 @@ import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.REMOVE_O
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.PointerType.TARGET_ID;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -2013,7 +2014,7 @@ public class IcebergMetadata
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
-            List<ConnectorTableHandle> sourceTableHandles)
+            Map<CatalogSchemaTableName, ConnectorTableVersion> sourceTableVersions)
     {
         // delete before insert .. simulating overwrite
         executeDelete(session, tableHandle);
@@ -2049,10 +2050,11 @@ public class IcebergMetadata
             writtenFiles.add(task.getPath());
         }
 
-        String dependencies = sourceTableHandles.stream()
-                .map(handle -> (IcebergTableHandle) handle)
-                .filter(handle -> handle.getSnapshotId().isPresent())
-                .map(handle -> handle.getSchemaTableName() + "=" + handle.getSnapshotId().get())
+        String dependencies = sourceTableVersions.entrySet().stream()
+                // TODO: MV support versioning from other connectors
+                .peek(entry -> verify(entry.getValue().getVersionType().equals(BIGINT)))
+                .peek(entry -> verify(entry.getValue().getPointerType() == TARGET_ID))
+                .map(entry -> entry.getKey().getSchemaTableName() + "=" + entry.getValue().getVersion())
                 .distinct()
                 .collect(joining(","));
 
@@ -2168,6 +2170,13 @@ public class IcebergMetadata
             }
         }
         return new MaterializedViewFreshness(true);
+    }
+
+    @Override
+    public Optional<ConnectorTableVersion> getCurrentTableVersion(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        IcebergTableHandle tableHandle = (IcebergTableHandle) handle;
+        return tableHandle.getSnapshotId().map(id -> new ConnectorTableVersion(TARGET_ID, BIGINT, id));
     }
 
     @Override

@@ -16,6 +16,8 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.VersioningLayout;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.security.Identity;
 
 import java.util.List;
@@ -31,6 +33,8 @@ public class MaterializedViewDefinition
 {
     private final Optional<CatalogSchemaTableName> storageTable;
     private final Map<String, Object> properties;
+    private final Optional<VersioningLayout> versioningLayout;
+    private final Optional<Map<CatalogSchemaTableName, ConnectorTableVersion>> sourceTableVersions;
 
     public MaterializedViewDefinition(
             String originalSql,
@@ -40,11 +44,15 @@ public class MaterializedViewDefinition
             Optional<String> comment,
             Identity owner,
             Optional<CatalogSchemaTableName> storageTable,
-            Map<String, Object> properties)
+            Map<String, Object> properties,
+            Optional<VersioningLayout> versioningLayout,
+            Optional<Map<CatalogSchemaTableName, ConnectorTableVersion>> sourceTableVersions)
     {
         super(originalSql, catalog, schema, columns, comment, Optional.of(owner));
         this.storageTable = requireNonNull(storageTable, "storageTable is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.versioningLayout = requireNonNull(versioningLayout, "versioningLayout is null");
+        this.sourceTableVersions = requireNonNull(sourceTableVersions, "sourceTableVersions is null");
     }
 
     public MaterializedViewDefinition(ConnectorMaterializedViewDefinition view, Identity runAsIdentity)
@@ -60,6 +68,8 @@ public class MaterializedViewDefinition
                 Optional.of(runAsIdentity));
         this.storageTable = view.getStorageTable();
         this.properties = ImmutableMap.copyOf(view.getProperties());
+        this.versioningLayout = view.getVersioningLayout();
+        this.sourceTableVersions = view.getSourceTableVersions();
     }
 
     public Optional<CatalogSchemaTableName> getStorageTable()
@@ -84,7 +94,9 @@ public class MaterializedViewDefinition
                         .collect(toImmutableList()),
                 getComment(),
                 getRunAsIdentity().map(Identity::getUser),
-                properties);
+                properties,
+                versioningLayout,
+                sourceTableVersions);
     }
 
     @Override
@@ -99,6 +111,8 @@ public class MaterializedViewDefinition
                 .add("runAsIdentity", getRunAsIdentity())
                 .add("storageTable", storageTable.orElse(null))
                 .add("properties", properties)
+                .add("versioningLayout", versioningLayout)
+                .add("sourceTableVersions", sourceTableVersions)
                 .toString();
     }
 }

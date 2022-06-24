@@ -95,7 +95,9 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty());
 
         ConnectorMaterializedViewDefinition freshMaterializedView = new ConnectorMaterializedViewDefinition(
                 "SELECT * FROM local.tiny.nation",
@@ -109,7 +111,9 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty());
 
         ConnectorMaterializedViewDefinition materializedViewWithCasts = new ConnectorMaterializedViewDefinition(
                 "SELECT nationkey, cast(name as varchar(1)) as name, regionkey, comment FROM local.tiny.nation",
@@ -123,7 +127,9 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty());
 
         MockConnectorFactory mock = MockConnectorFactory.builder()
                 .withGetColumns(schemaTableName -> {

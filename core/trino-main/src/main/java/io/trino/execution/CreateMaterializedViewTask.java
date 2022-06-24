@@ -115,7 +115,9 @@ public class CreateMaterializedViewTask
                 statement.getComment(),
                 session.getIdentity(),
                 Optional.empty(),
-                properties);
+                properties,
+                Optional.empty(),
+                Optional.empty());
 
         accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, properties);
         plannerContext.getMetadata().createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());

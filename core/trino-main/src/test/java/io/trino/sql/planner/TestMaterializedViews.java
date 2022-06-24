@@ -120,7 +120,9 @@ public class TestMaterializedViews
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 Optional.of(new CatalogSchemaTableName(CATALOG, SCHEMA, "storage_table")),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty());
         queryRunner.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
@@ -151,7 +153,9 @@ public class TestMaterializedViews
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 Optional.of(new CatalogSchemaTableName(CATALOG, SCHEMA, "storage_table_with_casts")),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty());
         QualifiedObjectName materializedViewWithCasts = new QualifiedObjectName(CATALOG, SCHEMA, "materialized_view_with_casts");
         queryRunner.inTransaction(session -> {
             metadata.createMaterializedView(

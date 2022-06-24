@@ -104,7 +104,9 @@ public class TestMockConnector
                                                 ImmutableList.of(new Column("nationkey", BIGINT.getTypeId())),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
-                                                ImmutableMap.of())))
+                                                ImmutableMap.of(),
+                                                Optional.empty(),
+                                                Optional.empty())))
                                 .withData(schemaTableName -> {
                                     if (schemaTableName.equals(new SchemaTableName("default", "nation"))) {
                                         return TPCH_NATION_DATA;

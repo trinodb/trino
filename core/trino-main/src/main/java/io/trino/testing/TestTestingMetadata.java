@@ -60,6 +60,8 @@ public class TestTestingMetadata
                 ImmutableList.of(new Column("test", BIGINT.getTypeId())),
                 Optional.empty(),
                 Optional.of("owner"),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty());
     }
 }
