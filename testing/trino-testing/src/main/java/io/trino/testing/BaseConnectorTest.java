@@ -2144,6 +2144,7 @@ public abstract class BaseConnectorTest
 
     @Test
     public void testRenameTable()
+            throws Exception
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
         String tableName = "test_rename_" + randomTableSuffix();
@@ -2156,7 +2157,14 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
+        try {
+            assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
+        }
+        catch (Throwable e) {
+            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + tableName)) {
+                throw e;
+            }
+        }
         assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
 
         String testExistsTableName = "test_rename_exists_" + randomTableSuffix();
@@ -2181,6 +2189,7 @@ public abstract class BaseConnectorTest
 
     @Test
     public void testRenameTableAcrossSchema()
+            throws Exception
     {
         if (!hasBehavior(SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS)) {
             if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
@@ -2205,7 +2214,14 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE SCHEMA " + schemaName);
 
         String renamedTable = "test_rename_new_" + randomTableSuffix();
-        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + schemaName + "." + renamedTable);
+        try {
+            assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + schemaName + "." + renamedTable);
+        }
+        catch (Throwable e) {
+            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + tableName)) {
+                throw e;
+            }
+        }
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
         assertQuery("SELECT x FROM " + schemaName + "." + renamedTable, "VALUES 123");
@@ -2219,6 +2235,7 @@ public abstract class BaseConnectorTest
 
     @Test
     public void testRenameTableToUnqualifiedPreservesSchema()
+            throws Exception
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA) && hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_RENAME_TABLE));
 
@@ -2229,7 +2246,14 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE TABLE " + sourceSchemaName + "." + tableName + " AS SELECT 123 x", 1);
 
         String renamedTable = "test_rename_unqualified_name_new_" + randomTableSuffix();
-        assertUpdate("ALTER TABLE " + sourceSchemaName + "." + tableName + " RENAME TO " + renamedTable);
+        try {
+            assertUpdate("ALTER TABLE " + sourceSchemaName + "." + tableName + " RENAME TO " + renamedTable);
+        }
+        catch (Throwable e) {
+            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + tableName)) {
+                throw e;
+            }
+        }
         assertQuery("SELECT x FROM " + sourceSchemaName + "." + renamedTable, "VALUES 123");
 
         assertUpdate("DROP TABLE " + sourceSchemaName + "." + renamedTable);
