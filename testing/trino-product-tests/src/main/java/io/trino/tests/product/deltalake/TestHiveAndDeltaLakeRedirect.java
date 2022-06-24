@@ -477,8 +477,11 @@ public class TestHiveAndDeltaLakeRedirect
         try {
             assertThat(onTrino().executeQuery("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'delta' AND schema_name = 'default' AND table_name = '" + tableName + "'"))
                     .is(new Condition<>(queryResult -> queryResult.row(0).get(0) == null, "Unexpected table comment"));
-            assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON TABLE hive.default.\"" + tableName + "\" IS 'This is my table, there are many like it but this one is mine'"))
-                    .hasMessageMatching(".*This connector does not support setting table comments");
+
+            String tableComment = "This is my table, there are many like it but this one is mine";
+            onTrino().executeQuery(format("COMMENT ON TABLE hive.default.\"" + tableName + "\" IS '%s'", tableComment));
+            assertTableComment("hive", "default", tableName).isEqualTo(tableComment);
+            assertTableComment("delta", "default", tableName).isEqualTo(tableComment);
         }
         finally {
             onDelta().executeQuery("DROP TABLE " + tableName);
