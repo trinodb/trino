@@ -16,6 +16,7 @@ package io.trino.execution.scheduler.policy;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.StageId;
@@ -62,7 +63,8 @@ public class TestPhasedExecutionSchedule
     private final DynamicFilterService dynamicFilterService = new DynamicFilterService(
             createTestMetadataManager(),
             createTestingFunctionManager(),
-            new TypeOperators());
+            new TypeOperators(),
+            new DynamicFilterConfig());
 
     @Test
     public void testPartitionedJoin()
