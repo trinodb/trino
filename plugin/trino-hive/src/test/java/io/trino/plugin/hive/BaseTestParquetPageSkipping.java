@@ -45,6 +45,7 @@ public abstract class BaseTestParquetPageSkipping
 
     @Test
     public void testAndPredicates()
+            throws Exception
     {
         String tableName = "test_and_predicate_" + randomTableSuffix();
         buildSortedTables(tableName, "totalprice", "double");
@@ -122,7 +123,7 @@ public abstract class BaseTestParquetPageSkipping
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    private int assertColumnIndexResults(String query)
+    protected int assertColumnIndexResults(String query)
     {
         MaterializedResult withColumnIndexing = computeActual(query);
         MaterializedResult withoutColumnIndexing = computeActual(noParquetColumnIndexFiltering(getSession()), query);
@@ -130,7 +131,7 @@ public abstract class BaseTestParquetPageSkipping
         return withoutColumnIndexing.getRowCount();
     }
 
-    private void assertRowGroupPruning(@Language("SQL") String sql)
+    protected void assertRowGroupPruning(@Language("SQL") String sql)
     {
         assertQueryStats(
                 noParquetColumnIndexFiltering(getSession()),
