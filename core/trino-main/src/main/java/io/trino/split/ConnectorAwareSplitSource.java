@@ -27,7 +27,6 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorAwareSplitSource
@@ -51,7 +50,7 @@ public class ConnectorAwareSplitSource
     @Override
     public ListenableFuture<SplitBatch> getNextBatch(int maxSize)
     {
-        ListenableFuture<ConnectorSplitBatch> nextBatch = toListenableFuture(source.getNextBatch(NOT_PARTITIONED, maxSize));
+        ListenableFuture<ConnectorSplitBatch> nextBatch = toListenableFuture(source.getNextBatch(maxSize));
         return Futures.transform(nextBatch, splitBatch -> {
             ImmutableList.Builder<Split> result = ImmutableList.builder();
             for (ConnectorSplit connectorSplit : splitBatch.getSplits()) {

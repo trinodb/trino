@@ -24,7 +24,6 @@ import io.trino.execution.scheduler.ScheduleResult.BlockedReason;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.server.DynamicFilterService;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -41,7 +40,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsSourceScheduler;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.Objects.requireNonNull;
 
 public class FixedSourcePartitionedScheduler
@@ -64,7 +62,6 @@ public class FixedSourcePartitionedScheduler
             BucketNodeMap bucketNodeMap,
             int splitBatchSize,
             NodeSelector nodeSelector,
-            List<ConnectorPartitionHandle> partitionHandles,
             DynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager)
     {
@@ -72,7 +69,6 @@ public class FixedSourcePartitionedScheduler
         requireNonNull(splitSources, "splitSources is null");
         requireNonNull(bucketNodeMap, "bucketNodeMap is null");
         checkArgument(!requireNonNull(nodes, "nodes is null").isEmpty(), "nodes is empty");
-        requireNonNull(partitionHandles, "partitionHandles is null");
         requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
 
         this.stageExecution = stageExecution;
@@ -83,7 +79,6 @@ public class FixedSourcePartitionedScheduler
         BucketedSplitPlacementPolicy splitPlacementPolicy = new BucketedSplitPlacementPolicy(nodeSelector, nodes, bucketNodeMap, stageExecution::getAllTasks);
 
         ArrayList<SourceScheduler> sourceSchedulers = new ArrayList<>();
-        checkArgument(partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)), "PartitionHandles should be [NOT_PARTITIONED]");
 
         boolean firstPlanNode = true;
 

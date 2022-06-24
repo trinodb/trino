@@ -18,9 +18,6 @@ import io.trino.spi.type.Type;
 import java.util.List;
 import java.util.function.ToIntFunction;
 
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static java.util.Collections.singletonList;
-
 public interface ConnectorNodePartitioningProvider
 {
     // TODO: Use ConnectorPartitionHandle (instead of int) to represent individual buckets.
@@ -31,10 +28,13 @@ public interface ConnectorNodePartitioningProvider
      * <p>
      * This method must be implemented for connectors that support addressable split discovery.
      * The partitions return here will be used as address for the purpose of split discovery.
+     *
+     * @deprecated The method is not used. Implementations can be simply removed
      */
+    @Deprecated
     default List<ConnectorPartitionHandle> listPartitionHandles(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
-        return singletonList(NOT_PARTITIONED);
+        throw new UnsupportedOperationException();
     }
 
     ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);

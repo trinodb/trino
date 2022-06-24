@@ -48,7 +48,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestDeltaLakeSplitManager
@@ -192,7 +191,7 @@ public class TestDeltaLakeSplitManager
                 Constraint.alwaysTrue());
         ImmutableList.Builder<DeltaLakeSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {
-            List<ConnectorSplit> nextBatch = splitSource.getNextBatch(NOT_PARTITIONED, 10).get().getSplits();
+            List<ConnectorSplit> nextBatch = splitSource.getNextBatch(10).get().getSplits();
             splits.addAll(
                     nextBatch.stream()
                             .map(split -> (DeltaLakeSplit) split)

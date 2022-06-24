@@ -191,7 +191,7 @@ public class TestIcebergSplitSource
                 new IcebergConfig().getMinimumAssignedSplitWeight())) {
             ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
             while (!splitSource.isFinished()) {
-                splitSource.getNextBatch(null, 100).get()
+                splitSource.getNextBatch(100).get()
                         .getSplits()
                         .stream()
                         .map(IcebergSplit.class::cast)

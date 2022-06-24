@@ -16,7 +16,6 @@ package io.trino.plugin.kudu;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -28,9 +27,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.function.ToIntFunction;
-import java.util.stream.IntStream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static java.util.Objects.requireNonNull;
 
@@ -43,18 +40,6 @@ public class KuduNodePartitioningProvider
     public KuduNodePartitioningProvider(KuduClientSession clientSession)
     {
         this.clientSession = requireNonNull(clientSession, "clientSession is null");
-    }
-
-    @Override
-    public List<ConnectorPartitionHandle> listPartitionHandles(
-            ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session,
-            ConnectorPartitioningHandle partitioningHandle)
-    {
-        KuduPartitioningHandle handle = (KuduPartitioningHandle) partitioningHandle;
-        return IntStream.range(0, handle.getBucketCount())
-                .mapToObj(KuduPartitionHandle::new)
-                .collect(toImmutableList());
     }
 
     @Override

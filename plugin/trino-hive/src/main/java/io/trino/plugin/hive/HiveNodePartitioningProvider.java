@@ -19,7 +19,6 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -35,7 +34,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.ToIntFunction;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -124,13 +122,5 @@ public class HiveNodePartitioningProvider
     {
         return value -> ((HiveSplit) value).getReadBucketNumber()
                 .orElseThrow(() -> new IllegalArgumentException("Bucket number not set in split"));
-    }
-
-    @Override
-    public List<ConnectorPartitionHandle> listPartitionHandles(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
-    {
-        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
-        int bucketCount = handle.getBucketCount();
-        return IntStream.range(0, bucketCount).mapToObj(HivePartitionHandle::new).collect(toImmutableList());
     }
 }
