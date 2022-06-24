@@ -50,7 +50,7 @@ Configuration properties
 The following configuration properties are available:
 
 ================================================== ======================================================================
-Property Name                                      Description
+Property name                                      Description
 ================================================== ======================================================================
 ``cassandra.contact-points``                       Comma-separated list of hosts in a Cassandra cluster. The Cassandra
                                                    driver uses these contact points to discover cluster topology.
@@ -94,7 +94,7 @@ Property Name                                      Description
 The following advanced configuration properties are available:
 
 ============================================================= ======================================================================
-Property Name                                                 Description
+Property name                                                 Description
 ============================================================= ======================================================================
 ``cassandra.fetch-size``                                      Number of rows fetched at a time in a Cassandra query.
 

@@ -139,7 +139,7 @@ Table property usage example::
 The following are supported ClickHouse table properties from `<https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/>`_
 
 =========================== ================ ==============================================================================================================
-Property Name               Default Value    Description
+Property name               Default value    Description
 =========================== ================ ==============================================================================================================
 ``engine``                  ``Log``          Name and parameters of the engine.
 

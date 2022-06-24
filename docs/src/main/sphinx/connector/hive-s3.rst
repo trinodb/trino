@@ -14,7 +14,7 @@ S3 configuration properties
 ---------------------------
 
 ============================================ =================================================================
-Property Name                                Description
+Property name                                Description
 ============================================ =================================================================
 ``hive.s3.aws-access-key``                   Default AWS access key to use.
 
@@ -265,7 +265,7 @@ Example JSON configuration:
     }
 
 ======================================================= =================================================================
-Property Name                                           Description
+Property name                                           Description
 ======================================================= =================================================================
 ``hive.s3.security-mapping.config-file``                The JSON configuration file or REST-endpoint URI containing
                                                         security mappings.
@@ -295,7 +295,7 @@ Most of these parameters affect settings on the ``ClientConfiguration``
 object associated with the ``AmazonS3Client``.
 
 ===================================== =========================================================== ===============
-Property Name                         Description                                                 Default
+Property name                         Description                                                 Default
 ===================================== =========================================================== ===============
 ``hive.s3.max-error-retries``         Maximum number of error retries, set on the S3 client.      ``10``
 

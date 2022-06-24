@@ -48,7 +48,7 @@ Configuration properties
 The following configuration properties are available:
 
 ======================================== ============================================================================================
-Property Name                                   Description
+Property name                                   Description
 ======================================== ============================================================================================
 ``prometheus.uri``                       Where to find Prometheus coordinator host
 ``prometheus.query.chunk.size.duration`` The duration of each query to Prometheus

@@ -540,7 +540,7 @@ Iceberg table properties
 ------------------------
 
 ================================================== ================================================================
-Property Name                                      Description
+Property name                                      Description
 ================================================== ================================================================
 ``format``                                         Optionally specifies the format of table data files;
                                                    either ``PARQUET`` or ``ORC``.  Defaults to ``ORC``.

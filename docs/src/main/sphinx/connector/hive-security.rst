@@ -10,7 +10,7 @@ the ``hive.security`` property in the Hive catalog properties file. This
 property must be one of the following values:
 
 ================================================== ============================================================
-Property Value                                     Description
+Property value                                     Description
 ================================================== ============================================================
 ``legacy`` (default value)                         Few authorization checks are enforced, thus allowing most
                                                    operations. The config properties ``hive.allow-drop-table``,
@@ -120,7 +120,7 @@ authenticates using Kerberos. Kerberos authentication for the metastore is
 configured in the connector's properties file using the following properties:
 
 ================================================== ============================================================
-Property Name                                      Description
+Property name                                      Description
 ================================================== ============================================================
 ``hive.metastore.authentication.type``             Hive metastore authentication type.
 
@@ -248,7 +248,7 @@ Kerberos authentication for HDFS is configured in the connector's properties
 file using the following properties:
 
 ================================================== ============================================================
-Property Name                                      Description
+Property name                                      Description
 ================================================== ============================================================
 ``hive.hdfs.authentication.type``                  HDFS authentication type.
                                                    Possible values are ``NONE`` or ``KERBEROS``.
