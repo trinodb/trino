@@ -64,7 +64,7 @@ Database resource group manager properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ================================================ =========================================================== ===============
-Property Name                                    Description                                                 Default
+Property name                                    Description                                                 Default
 ================================================ =========================================================== ===============
 ``resource-groups.config-db-url``                Database URL to load configuration from.                    ``none``
 

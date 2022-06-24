@@ -38,7 +38,7 @@ Configuration properties
 The following configuration properties are available:
 
 ==============================================  =======================================================================
-Property Name                                   Description
+Property name                                   Description
 ==============================================  =======================================================================
 ``kinesis.access-key``                          Access key to AWS account or blank to use default provider chain
 ``kinesis.secret-key``                          Secret key to AWS account or blank to use default provider chain
