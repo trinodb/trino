@@ -26,6 +26,7 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
+import static io.airlift.configuration.ConfigurationUtils.replaceEnvironmentVariables;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemExchangeManagerFactory
@@ -40,7 +41,7 @@ public class FileSystemExchangeManagerFactory
     @Override
     public ExchangeManager create(Map<String, String> config)
     {
-        requireNonNull(config, "config is null");
+        config = replaceEnvironmentVariables(requireNonNull(config, "config is null"));
 
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),
