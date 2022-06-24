@@ -51,6 +51,7 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import org.roaringbitmap.RoaringBitmap;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -662,7 +663,8 @@ public class DynamicFilterService
     {
         private final boolean replicated;
         private final long domainSizeLimitInBytes;
-        private final Set<Integer> collectedTasks = newConcurrentHashSet();
+        @GuardedBy("collectedTasks")
+        private final RoaringBitmap collectedTasks = new RoaringBitmap();
         private final Queue<Domain> summaryDomains = new ConcurrentLinkedQueue<>();
 
         @GuardedBy("this")
@@ -719,8 +721,10 @@ public class DynamicFilterService
 
         private void collectPartitioned(TaskId taskId, Domain domain)
         {
-            if (!collectedTasks.add(taskId.getPartitionId())) {
-                return;
+            synchronized (collectedTasks) {
+                if (!collectedTasks.checkedAdd(taskId.getPartitionId())) {
+                    return;
+                }
             }
 
             summaryDomains.add(domain);
