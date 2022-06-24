@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -50,12 +49,8 @@ public class FixedSplitSource
 
     @SuppressWarnings("ObjectEquality")
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
-        if (!partitionHandle.equals(NOT_PARTITIONED)) {
-            throw new IllegalArgumentException("partitionHandle must be NOT_PARTITIONED");
-        }
-
         int remainingSplits = splits.size() - offset;
         int size = Math.min(remainingSplits, maxSize);
         List<ConnectorSplit> results = splits.subList(offset, offset + size);

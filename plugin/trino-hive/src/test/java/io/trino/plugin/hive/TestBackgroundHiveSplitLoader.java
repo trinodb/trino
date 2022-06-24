@@ -118,7 +118,6 @@ import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -960,7 +959,7 @@ public class TestBackgroundHiveSplitLoader
         while (!source.isFinished()) {
             ConnectorSplitBatch batch;
             try {
-                batch = source.getNextBatch(NOT_PARTITIONED, 100).get();
+                batch = source.getNextBatch(100).get();
             }
             catch (ExecutionException e) {
                 throwIfUnchecked(e.getCause());

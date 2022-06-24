@@ -49,7 +49,6 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static io.trino.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -208,7 +207,7 @@ public class TestJmxSplitManager
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {
-            splits.addAll(splitSource.getNextBatch(NOT_PARTITIONED, 1000).get().getSplits());
+            splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
         }
         return splits.build();
     }

@@ -29,7 +29,6 @@ import io.trino.operator.PartitionFunction;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
@@ -101,19 +100,6 @@ public class NodePartitioningManager
                 bucketCount);
         checkArgument(bucketFunction != null, "No bucket function for partitioning: %s", partitioningHandle);
         return bucketFunction;
-    }
-
-    public List<ConnectorPartitionHandle> listPartitionHandles(
-            Session session,
-            PartitioningHandle partitioningHandle)
-    {
-        CatalogName catalogName = partitioningHandle.getConnectorId()
-                .orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
-        ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogName);
-        return partitioningProvider.listPartitionHandles(
-                partitioningHandle.getTransactionHandle().orElseThrow(() -> new IllegalArgumentException("No transactionHandle for partitioning handle: " + partitioningHandle)),
-                session.toConnectorSession(catalogName),
-                partitioningHandle.getConnectorHandle());
     }
 
     public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)

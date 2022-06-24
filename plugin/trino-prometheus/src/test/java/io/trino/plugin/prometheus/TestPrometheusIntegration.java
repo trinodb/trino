@@ -27,7 +27,6 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.plugin.prometheus.PrometheusQueryRunner.createPrometheusClient;
 import static io.trino.plugin.prometheus.PrometheusQueryRunner.createPrometheusQueryRunner;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -122,7 +121,7 @@ public class TestPrometheusIntegration
                 new PrometheusTableHandle("default", table.getName()),
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
-        int numSplits = splits.getNextBatch(NOT_PARTITIONED, NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits().size();
+        int numSplits = splits.getNextBatch(NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits().size();
         assertEquals(numSplits, config.getMaxQueryRangeDuration().getValue(TimeUnit.SECONDS) / config.getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS),
                 0.001);
     }

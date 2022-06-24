@@ -61,7 +61,6 @@ import io.trino.server.DynamicFilterService;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeId;
@@ -151,7 +150,6 @@ import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
@@ -1428,7 +1426,6 @@ public class SqlQueryScheduler
                     List<PlanNodeId> schedulingOrder = fragment.getPartitionedSources();
                     Optional<CatalogName> catalogName = partitioningHandle.getConnectorId();
                     checkArgument(catalogName.isPresent(), "No connector ID for partitioning handle: %s", partitioningHandle);
-                    List<ConnectorPartitionHandle> connectorPartitionHandles = ImmutableList.of(NOT_PARTITIONED);
 
                     BucketNodeMap bucketNodeMap;
                     List<InternalNode> stageNodeList;
@@ -1454,7 +1451,6 @@ public class SqlQueryScheduler
                             bucketNodeMap,
                             splitBatchSize,
                             nodeScheduler.createNodeSelector(session, catalogName),
-                            connectorPartitionHandles,
                             dynamicFilterService,
                             tableExecuteContextManager);
                 }

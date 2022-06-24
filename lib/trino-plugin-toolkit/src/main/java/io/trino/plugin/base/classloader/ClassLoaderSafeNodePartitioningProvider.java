@@ -57,6 +57,7 @@ public final class ClassLoaderSafeNodePartitioningProvider
         }
     }
 
+    @Deprecated
     @Override
     public List<ConnectorPartitionHandle> listPartitionHandles(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
