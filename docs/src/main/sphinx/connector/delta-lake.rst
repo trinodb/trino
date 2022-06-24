@@ -136,10 +136,11 @@ connector.
       - Description
       - Default
     * - ``delta.domain-compaction-threshold``
-      - Sets the number of transactions to act as a threshold. After reaching
-        the threshold, the connector initiates compacting a large IN or OR
-        clause into a min-max range predicate for pushdown into an ORC or
-        Parquet reader.
+      - Minimum size of query predicates above which Trino starts compaction.
+        Some databases perform poorly when a large list of predicates is pushed
+        down to the data source. For optimization in that situation, Trino can
+        compact the large predicates. When necessary, adjust the threshold to
+        ensure a balance between performance and pushdown.
       - 100
     * - ``delta.max-outstanding-splits``
       - The target number of buffered splits for each table scan in a query,
