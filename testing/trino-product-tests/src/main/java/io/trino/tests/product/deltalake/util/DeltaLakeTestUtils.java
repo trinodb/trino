@@ -34,4 +34,13 @@ public final class DeltaLakeTestUtils
         QueryResult result = onDelta().executeQuery(format("DESCRIBE %s.%s %s", schemaName, tableName, columnName));
         return (String) result.row(2).get(1);
     }
+
+    public static String getTableCommentOnDelta(String schemaName, String tableName)
+    {
+        QueryResult result = onDelta().executeQuery(format("DESCRIBE EXTENDED %s.%s", schemaName, tableName));
+        return (String) result.rows().stream()
+                .filter(row -> row.get(0).equals("Comment"))
+                .map(row -> row.get(1))
+                .findFirst().orElseThrow();
+    }
 }

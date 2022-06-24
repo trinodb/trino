@@ -110,7 +110,6 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN:
             case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_NOT_NULL_CONSTRAINT:

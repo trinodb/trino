@@ -243,6 +243,7 @@ public class DeltaLakeMetadata
     public static final String DELETE_OPERATION = "DELETE";
     public static final String UPDATE_OPERATION = "UPDATE";
     public static final String OPTIMIZE_OPERATION = "OPTIMIZE";
+    public static final String SET_TBLPROPERTIES_OPERATION = "SET TBLPROPERTIES";
     public static final String ISOLATION_LEVEL = "WriteSerializable";
     private static final int READER_VERSION = 1;
     private static final int WRITER_VERSION = 2;
@@ -957,6 +958,46 @@ public class DeltaLakeMetadata
     {
         Optional<String> tableQueryId = getQueryId(table);
         return tableQueryId.isPresent() && tableQueryId.get().equals(queryId);
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
+    {
+        DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
+        checkSupportedWriterVersion(session, handle.getSchemaTableName());
+
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
+
+        try {
+            long commitVersion = handle.getReadVersion() + 1;
+
+            List<String> partitionColumns = getPartitionedBy(tableMetadata.getProperties());
+            List<DeltaLakeColumnHandle> columns = tableMetadata.getColumns().stream()
+                    .filter(column -> !column.isHidden())
+                    .map(column -> toColumnHandle(column, partitionColumns))
+                    .collect(toImmutableList());
+
+            Optional<Long> checkpointInterval = DeltaLakeTableProperties.getCheckpointInterval(tableMetadata.getProperties());
+
+            TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, handle.getLocation());
+            appendTableEntries(
+                    commitVersion,
+                    transactionLogWriter,
+                    handle.getMetadataEntry().getId(),
+                    columns,
+                    partitionColumns,
+                    getColumnComments(handle.getMetadataEntry()),
+                    buildDeltaMetadataConfiguration(checkpointInterval),
+                    SET_TBLPROPERTIES_OPERATION,
+                    session,
+                    nodeVersion,
+                    nodeId,
+                    comment);
+            transactionLogWriter.flush();
+        }
+        catch (Exception e) {
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to comment on table: %s.%s", handle.getSchemaName(), handle.getTableName()), e);
+        }
     }
 
     @Override
