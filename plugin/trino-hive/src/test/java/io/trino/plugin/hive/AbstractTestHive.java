@@ -271,7 +271,6 @@ import static io.trino.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
@@ -5136,7 +5135,7 @@ public abstract class AbstractTestHive
     {
         int splitCount = 0;
         while (!splitSource.isFinished()) {
-            splitCount += getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000)).getSplits().size();
+            splitCount += getFutureValue(splitSource.getNextBatch(1000)).getSplits().size();
         }
         return splitCount;
     }
@@ -5150,7 +5149,7 @@ public abstract class AbstractTestHive
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {
-            splits.addAll(getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
+            splits.addAll(getFutureValue(splitSource.getNextBatch(1000)).getSplits());
         }
         return splits.build();
     }

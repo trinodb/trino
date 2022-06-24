@@ -13,6 +13,7 @@
  */
 package io.trino.spi.connector;
 
+@Deprecated
 public final class NotPartitionedPartitionHandle
         extends ConnectorPartitionHandle
 {

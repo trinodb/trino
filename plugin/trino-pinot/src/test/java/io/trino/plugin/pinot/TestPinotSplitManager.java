@@ -34,7 +34,6 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.plugin.pinot.PinotSplit.SplitType.BROKER;
 import static io.trino.plugin.pinot.PinotSplit.SplitType.SEGMENT;
 import static io.trino.plugin.pinot.query.DynamicTableBuilder.buildFromPql;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -128,7 +127,7 @@ public class TestPinotSplitManager
         ConnectorSplitSource splitSource = pinotSplitManager.getSplits(null, session, pinotTable, DynamicFilter.EMPTY, Constraint.alwaysTrue());
         List<PinotSplit> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
-            splits.addAll(getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000)).getSplits().stream().map(s -> (PinotSplit) s).collect(toList()));
+            splits.addAll(getFutureValue(splitSource.getNextBatch(1000)).getSplits().stream().map(s -> (PinotSplit) s).collect(toList()));
         }
 
         return splits;

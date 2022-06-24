@@ -28,7 +28,6 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -473,7 +472,7 @@ public class TestCoordinatorDynamicFiltering
                     return new ConnectorSplitSource()
                     {
                         @Override
-                        public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+                        public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
                         {
                             CompletableFuture<?> blocked = dynamicFilter.isBlocked();
 

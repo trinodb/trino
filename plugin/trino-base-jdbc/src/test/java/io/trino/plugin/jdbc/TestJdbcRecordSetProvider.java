@@ -43,7 +43,6 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Closeables.closeAll;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -203,7 +202,7 @@ public class TestJdbcRecordSetProvider
                 jdbcTableHandle.getNextSyntheticColumnId());
 
         ConnectorSplitSource splits = jdbcClient.getSplits(SESSION, jdbcTableHandle);
-        JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
+        JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)).getSplits());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient, executor);

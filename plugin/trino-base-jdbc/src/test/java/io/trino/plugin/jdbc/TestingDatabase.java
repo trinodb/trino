@@ -29,7 +29,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.function.Function.identity;
 
 final class TestingDatabase
@@ -105,7 +104,7 @@ final class TestingDatabase
     public JdbcSplit getSplit(ConnectorSession session, JdbcTableHandle table)
     {
         ConnectorSplitSource splits = jdbcClient.getSplits(session, table);
-        return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
+        return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)).getSplits());
     }
 
     public Map<String, JdbcColumnHandle> getColumnHandles(ConnectorSession session, JdbcTableHandle table)

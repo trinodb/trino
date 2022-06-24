@@ -27,7 +27,6 @@ import io.trino.plugin.thrift.api.TrinoThriftSplitBatch;
 import io.trino.plugin.thrift.api.TrinoThriftTupleDomain;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -130,7 +129,7 @@ public class ThriftSplitManager
          * It can be called by multiple threads, but only if the previous call finished.
          */
         @Override
-        public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+        public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
         {
             checkState(future.get() == null || future.get().isDone(), "previous batch not completed");
             checkState(hasMoreData.get(), "this method cannot be invoked when there's no more data");

@@ -38,11 +38,20 @@ public class ClassLoaderSafeConnectorSplitSource
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
+    @Deprecated
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getNextBatch(partitionHandle, maxSize);
+        }
+    }
+
+    @Override
+    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getNextBatch(maxSize);
         }
     }
 
