@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsConfig;
@@ -49,6 +50,7 @@ import org.apache.iceberg.deletes.EqualityDeleteWriter;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.parquet.Parquet;
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -57,8 +59,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -67,6 +71,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.NATION;
+import static java.lang.String.format;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -400,5 +405,56 @@ public class TestIcebergV2
                 false,
                 false);
         return (BaseTable) loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName("tpch", tableName));
+    }
+
+    @Test
+    public void testOptimizingPartitionsOfV2TableWithPositionDeleteFilesAffectingManyFiles()
+            throws Exception
+    {
+        String tableName = "test_optmize_table_with_pos_delete_affecting_many_files" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = updateTableToV2(tableName);
+        Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+        Set<String> firstFiles = ImmutableSet.copyOf(getActiveFiles(tableName));
+        Assertions.assertThat(firstFiles).hasSizeGreaterThanOrEqualTo(1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES(25, 'POLAND', 2, 'comment 1')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES(26, 'THAILAND', 3, 'comment 1')", 1);
+        Set<String> filesAfterInserts = ImmutableSet.copyOf(getActiveFiles(tableName));
+        Assertions.assertThat(filesAfterInserts).hasSizeGreaterThanOrEqualTo(3);
+        Set<String> newFiles = Sets.difference(filesAfterInserts, firstFiles);
+        writePositionDeleteFile(icebergTable, newFiles, icebergTable.spec(), icebergTable.schema());
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+    }
+
+    private void writePositionDeleteFile(Table icebergTable, Set<String> dataFilePaths, PartitionSpec partitionSpec, Schema schema)
+            throws Exception
+    {
+        Path metadataDir = new Path(metastoreDir.toURI());
+        String deleteFileName = "delete_file_" + UUID.randomUUID();
+        FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext(SESSION), metadataDir);
+
+        PositionDeleteWriter<Record> writer = Parquet.writeDeletes(HadoopOutputFile.fromPath(new Path(metadataDir, deleteFileName), fs))
+                .forTable(icebergTable)
+                .rowSchema(schema)
+                .createWriterFunc(GenericParquetWriter::buildWriter)
+                .withSpec(partitionSpec)
+                .withPartition(new PartitionData(new Long[]{2L, 3L}))
+                .overwrite()
+                .buildPositionWriter();
+
+        try (Closeable ignored = writer) {
+            for(String path: dataFilePaths) {
+                writer.delete(path, 0, GenericRecord.create(schema));
+            }
+        }
+
+        icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
+    }
+
+    private List<String> getActiveFiles(String tableName)
+    {
+        return computeActual(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumn()
+                .map(String.class::cast)
+                .collect(toImmutableList());
     }
 }
