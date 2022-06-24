@@ -327,6 +327,167 @@ view of the underlying data.
 The provider creates a ``RecordSet``, which in turn creates a ``RecordCursor``
 that's used by Trino to read the column values for each row.
 
+The provided record set must only include requested columns in the order
+matching the list of column handles passed to the
+``ConnectorRecordSetProvider.getRecordSet()`` method. The record set must return
+all the rows contained in the "virtual table" represented by the TableHandle
+associated with the TableScan operation.
+
+For simple connectors, where performance isn't critical, the record set
+provider can return an instance of ``InMemoryRecordSet``. The in-memory record
+set can be built using lists of values for every row, which can be simpler than
+implementing a ``RecordCursor``.
+
+A ``RecordCursor`` implementation needs to keep track of the current record.
+It return values for columns by a numerical position, in the data type matching
+the column definition in the table. When the engine is done reading the current
+record it calls ``advanceNextPosition`` on the cursor.
+
+Type mapping
+^^^^^^^^^^^^
+
+The built-in SQL data types use different Java types as carrier types.
+
+.. list-table:: SQL type to carrier type mapping
+  :widths: 45, 55
+  :header-rows: 1
+
+  * - SQL type
+    - Java type
+  * - ``BOOLEAN``
+    - ``boolean``
+  * - ``TINYINT``
+    - ``long``
+  * - ``SMALLINT``
+    - ``long``
+  * - ``INTEGER``
+    - ``long``
+  * - ``BIGINT``
+    - ``long``
+  * - ``REAL``
+    - ``double``
+  * - ``DOUBLE``
+    - ``double``
+  * - ``DECIMAL``
+    - ``long`` for precision up to 19, inclusive;
+      ``Int128`` for precision greater than 19
+  * - ``VARCHAR``
+    - ``Slice``
+  * - ``CHAR``
+    - ``Slice``
+  * - ``VARBINARY``
+    - ``Slice``
+  * - ``JSON``
+    - ``Slice``
+  * - ``DATE``
+    - ``long``
+  * - ``TIME(P)``
+    - ``long``
+  * - ``TIME WITH TIME ZONE``
+    - ``long`` for precision up to 9;
+      ``LongTimeWithTimeZone`` for precision greater than 9
+  * - ``TIMESTAMP(P)``
+    - ``long`` for precision up to 6;
+      ``LongTimestamp`` for precision greater than 6
+  * - ``TIMESTAMP(P) WITH TIME ZONE``
+    - ``long`` for precision up to 3;
+      ``LongTimestampWithTimeZone`` for precision greater than 3
+  * - ``INTERVAL YEAR TO MONTH``
+    - ``long``
+  * - ``INTERVAL DAY TO SECOND``
+    - ``long``
+  * - ``ARRAY``
+    - ``Block``
+  * - ``MAP``
+    - ``Block``
+  * - ``ROW``
+    - ``Block``
+  * - ``IPADDRESS``
+    - ``Slice``
+  * - ``UUID``
+    - ``Slice``
+  * - ``HyperLogLog``
+    - ``Slice``
+  * - ``P4HyperLogLog``
+    - ``Slice``
+  * - ``SetDigest``
+    - ``Slice``
+  * - ``QDigest``
+    - ``Slice``
+  * - ``TDigest``
+    - ``TDigest``
+
+The ``RecordCursor.getType(int field)`` method returns the SQL type for a field
+and the field value is returned by one of the following methods, matching
+the carrier type:
+
+* ``getBoolean(int field)``
+* ``getLong(int field)``
+* ``getDouble(int field)``
+* ``getSlice(int field)``
+* ``getObject(int field)``
+
+Values for the ``timestamp(p) with time zone`` and ``time(p) with time zone``
+types of regular precision can be converted into ``long`` using static methods
+from the ``io.trino.spi.type.DateTimeEncoding`` class, like ``pack()`` or
+``packDateTimeWithZone()``.
+
+UTF-8 encoded strings can be converted to Slices using
+the ``Slices.utf8Slice()`` static method.
+
+.. note::
+
+  The ``Slice`` class is provided by the ``io.airlift:slice`` package.
+
+``Int128`` objects can be created using the ``Int128.valueOf()`` method.
+
+The following example creates a block for an ``array(varchar)``  column:
+
+.. code-block:: java
+
+    private Block encodeArray(List<String> names)
+    {
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, names.size());
+        for (String name : names) {
+            if (name == null) {
+                builder.appendNull();
+            }
+            else {
+                VARCHAR.writeString(builder, name);
+            }
+        }
+        return builder.build();
+    }
+
+The following example creates a block for a ``map(varchar, varchar)`` column:
+
+.. code-block:: java
+
+    private Block encodeMap(Map<String, ?> map)
+    {
+        MapType mapType = typeManager.getType(TypeSignature.mapType(
+                                VARCHAR.getTypeSignature(),
+                                VARCHAR.getTypeSignature()));
+        BlockBuilder values = mapType.createBlockBuilder(null, map != null ? map.size() : 0);
+        if (map == null) {
+            values.appendNull();
+            return values.build().getObject(0, Block.class);
+        }
+        BlockBuilder builder = values.beginBlockEntry();
+        for (Map.Entry<String, ?> entry : map.entrySet()) {
+            VARCHAR.writeString(builder, entry.getKey());
+            Object value = entry.getValue();
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                VARCHAR.writeString(builder, value.toString());
+            }
+        }
+        values.closeEntry();
+        return values.build().getObject(0, Block.class);
+    }
+
 .. _connector-page-source-provider:
 
 ConnectorPageSourceProvider
@@ -383,4 +544,3 @@ Example that shows how to iterate over the page to access single values:
       }
       return NOT_BLOCKED;
   }
-
