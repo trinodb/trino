@@ -31,6 +31,7 @@ import io.airlift.units.Duration;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
+import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
@@ -213,7 +214,8 @@ public class TestHttpRemoteTask
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                new TypeOperators());
+                new TypeOperators(),
+                new DynamicFilterConfig());
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
 
@@ -292,7 +294,8 @@ public class TestHttpRemoteTask
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                new TypeOperators());
+                new TypeOperators(),
+                new DynamicFilterConfig());
         dynamicFilterService.registerQuery(
                 queryId,
                 TEST_SESSION,
@@ -428,7 +431,8 @@ public class TestHttpRemoteTask
         return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                new TypeOperators()));
+                new TypeOperators(),
+                new DynamicFilterConfig()));
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, DynamicFilterService dynamicFilterService)

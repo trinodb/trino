@@ -23,8 +23,10 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.SqlQueryExecution;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -84,6 +86,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.DynamicFilters.extractSourceSymbols;
@@ -99,14 +102,16 @@ public class DynamicFilterService
     private final Metadata metadata;
     private final FunctionManager functionManager;
     private final TypeOperators typeOperators;
+    private final DynamicFilterConfig dynamicFilterConfig;
     private final Map<QueryId, DynamicFilterContext> dynamicFilterContexts = new ConcurrentHashMap<>();
 
     @Inject
-    public DynamicFilterService(Metadata metadata, FunctionManager functionManager, TypeOperators typeOperators)
+    public DynamicFilterService(Metadata metadata, FunctionManager functionManager, TypeOperators typeOperators, DynamicFilterConfig dynamicFilterConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.dynamicFilterConfig = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null");
     }
 
     public void registerQuery(SqlQueryExecution sqlQueryExecution, SubPlan fragmentedPlan)
@@ -143,7 +148,16 @@ public class DynamicFilterService
                 dynamicFilters,
                 lazyDynamicFilters,
                 replicatedDynamicFilters,
+                getDynamicFilterSizeLimit(session),
                 0));
+    }
+
+    private DataSize getDynamicFilterSizeLimit(Session session)
+    {
+        if (isEnableLargeDynamicFilters(session)) {
+            return dynamicFilterConfig.getLargeMaxSizePerFilter();
+        }
+        return dynamicFilterConfig.getSmallMaxSizePerFilter();
     }
 
     public void registerQueryRetry(QueryId queryId, int attemptId)
@@ -647,6 +661,7 @@ public class DynamicFilterService
     private static class DynamicFilterCollectionContext
     {
         private final boolean replicated;
+        private final long domainSizeLimitInBytes;
         private final Set<Integer> collectedTasks = newConcurrentHashSet();
         private final Queue<Domain> summaryDomains = new ConcurrentLinkedQueue<>();
 
@@ -661,9 +676,10 @@ public class DynamicFilterService
         private volatile boolean collected;
         private final SettableFuture<Domain> collectedDomainsFuture = SettableFuture.create();
 
-        private DynamicFilterCollectionContext(boolean replicated)
+        private DynamicFilterCollectionContext(boolean replicated, long domainSizeLimitInBytes)
         {
             this.replicated = replicated;
+            this.domainSizeLimitInBytes = domainSizeLimitInBytes;
         }
 
         public void collect(TaskId taskId, Domain domain)
@@ -682,6 +698,12 @@ public class DynamicFilterService
 
         private void collectReplicated(Domain domain)
         {
+            if (domain.getRetainedSizeInBytes() > domainSizeLimitInBytes) {
+                domain = domain.simplify(1);
+            }
+            if (domain.getRetainedSizeInBytes() > domainSizeLimitInBytes) {
+                domain = Domain.all(domain.getType());
+            }
             Domain result;
             synchronized (this) {
                 if (collected) {
@@ -700,6 +722,7 @@ public class DynamicFilterService
             if (!collectedTasks.add(taskId.getPartitionId())) {
                 return;
             }
+
             summaryDomains.add(domain);
             unionSummaryDomains();
 
@@ -715,17 +738,36 @@ public class DynamicFilterService
                     unionSummaryDomains();
                 }
 
-                boolean collectionFinished = domain.isAll() || allPartitionsCollected;
+                boolean sizeLimitExceeded = false;
+                Domain allDomain = null;
+                Domain summary = summaryDomains.poll();
+                // summary can be null as another concurrent summary compaction may be running
+                if (summary != null) {
+                    if (summary.getRetainedSizeInBytes() > domainSizeLimitInBytes) {
+                        summary = summary.simplify(1);
+                    }
+                    if (summary.getRetainedSizeInBytes() > domainSizeLimitInBytes) {
+                        sizeLimitExceeded = true;
+                        allDomain = Domain.all(summary.getType());
+                    }
+                    else {
+                        summaryDomains.add(summary);
+                    }
+                }
+
+                boolean collectionFinished = sizeLimitExceeded || domain.isAll() || allPartitionsCollected;
                 if (!collectionFinished) {
                     return;
                 }
                 collected = true;
-                if (domain.isAll()) {
+                if (sizeLimitExceeded) {
+                    result = allDomain;
+                }
+                else if (domain.isAll()) {
                     result = domain;
                 }
                 else {
-                    // run union one more time
-                    unionSummaryDomains();
+                    verify(allPartitionsCollected, "allPartitionsCollected is expected to be true");
                     int summaryDomainsCount = summaryDomains.size();
                     verify(summaryDomainsCount == 1, "summaryDomainsCount is expected to be equal to 1, got: %s", summaryDomainsCount);
                     result = summaryDomains.poll();
@@ -802,6 +844,7 @@ public class DynamicFilterService
         private final Session session;
         private final Set<DynamicFilterId> dynamicFilters;
         private final Set<DynamicFilterId> replicatedDynamicFilters;
+        private final DataSize dynamicFilterSizeLimit;
         private final Map<DynamicFilterId, SettableFuture<Void>> lazyDynamicFilters;
         private final Map<DynamicFilterId, DynamicFilterCollectionContext> dynamicFilterCollectionContexts;
 
@@ -815,6 +858,7 @@ public class DynamicFilterService
                 Set<DynamicFilterId> dynamicFilters,
                 Set<DynamicFilterId> lazyDynamicFilters,
                 Set<DynamicFilterId> replicatedDynamicFilters,
+                DataSize dynamicFilterSizeLimit,
                 int attemptId)
         {
             this.session = requireNonNull(session, "session is null");
@@ -823,9 +867,10 @@ public class DynamicFilterService
             this.lazyDynamicFilters = lazyDynamicFilters.stream()
                     .collect(toImmutableMap(identity(), filter -> SettableFuture.create()));
             this.replicatedDynamicFilters = requireNonNull(replicatedDynamicFilters, "replicatedDynamicFilters is null");
+            this.dynamicFilterSizeLimit = requireNonNull(dynamicFilterSizeLimit, "dynamicFilterSizeLimit is null");
             ImmutableMap.Builder<DynamicFilterId, DynamicFilterCollectionContext> collectionContexts = ImmutableMap.builder();
             for (DynamicFilterId dynamicFilterId : dynamicFilters) {
-                DynamicFilterCollectionContext collectionContext = new DynamicFilterCollectionContext(replicatedDynamicFilters.contains(dynamicFilterId));
+                DynamicFilterCollectionContext collectionContext = new DynamicFilterCollectionContext(replicatedDynamicFilters.contains(dynamicFilterId), dynamicFilterSizeLimit.toBytes());
                 collectionContexts.put(dynamicFilterId, collectionContext);
                 SettableFuture<Void> lazyDynamicFilterFuture = this.lazyDynamicFilters.get(dynamicFilterId);
                 if (lazyDynamicFilterFuture != null) {
@@ -843,6 +888,7 @@ public class DynamicFilterService
                     dynamicFilters,
                     lazyDynamicFilters.keySet(),
                     replicatedDynamicFilters,
+                    dynamicFilterSizeLimit,
                     attemptId);
         }
 
