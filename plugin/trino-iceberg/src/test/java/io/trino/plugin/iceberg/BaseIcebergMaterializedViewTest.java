@@ -589,7 +589,7 @@ public abstract class BaseIcebergMaterializedViewTest
                 "CREATE MATERIALIZED VIEW " + viewName + " " +
                         "WITH (storage_schema = 'non_existent') AS " +
                         "SELECT * FROM base_table1"))
-                .hasMessageContaining("Schema non_existent not found");
+                .hasMessageContaining("non_existent not found");
         assertThatThrownBy(() -> query("DESCRIBE " + viewName))
                 .hasMessageContaining(format("'iceberg.%s.%s' does not exist", getSchemaName(), viewName));
     }
