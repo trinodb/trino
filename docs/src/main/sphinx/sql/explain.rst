@@ -13,8 +13,8 @@ where ``option`` can be one of:
 
 .. code-block:: text
 
-        FORMAT { TEXT | GRAPHVIZ | JSON }
-        TYPE { LOGICAL | DISTRIBUTED | VALIDATE | IO }
+    FORMAT { TEXT | GRAPHVIZ | JSON }
+    TYPE { LOGICAL | DISTRIBUTED | VALIDATE | IO }
 
 Description
 -----------
