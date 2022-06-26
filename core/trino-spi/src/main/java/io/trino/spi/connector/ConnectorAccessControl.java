@@ -631,7 +631,7 @@ public interface ConnectorAccessControl
      */
     default List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        return emptyList();
+        return getRowFilter(context, tableName).map(List::of).orElseGet(List::of);
     }
 
     /**
@@ -659,6 +659,6 @@ public interface ConnectorAccessControl
      */
     default List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
-        return emptyList();
+        return getColumnMask(context, tableName, columnName, type).map(List::of).orElseGet(List::of);
     }
 }
