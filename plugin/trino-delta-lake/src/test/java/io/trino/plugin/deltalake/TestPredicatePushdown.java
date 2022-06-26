@@ -15,7 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.Sets;
-import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.OptionalLong;
 import java.util.Set;
 
-import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -51,19 +50,20 @@ public class TestPredicatePushdown
     private final TableResource testTable =
             new TableResource("custkey_15rowgroups", "custkey bigint, mktsegment varchar, phone varchar");
 
-    private DockerizedMinioDataLake deltaLake;
+    private HiveMinioDataLake hiveMinioDataLake;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        deltaLake = closeAfterClass(createDockerizedMinioDataLakeForDeltaLake(BUCKET_NAME));
+        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(BUCKET_NAME));
+        hiveMinioDataLake.start();
         return createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 TEST_SCHEMA,
                 Map.of("delta.enable-non-concurrent-writes", "true"),
-                deltaLake.getMinioAddress(),
-                deltaLake.getTestingHadoop());
+                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getHiveHadoop());
     }
 
     @Test
@@ -226,7 +226,7 @@ public class TestPredicatePushdown
         String create(String namePrefix)
         {
             String name = format("%s_%s", namePrefix, randomTableSuffix());
-            deltaLake.copyResources(RESOURCE_PATH.resolve(resourcePath).toString(), name);
+            hiveMinioDataLake.copyResources(RESOURCE_PATH.resolve(resourcePath).toString(), name);
             getQueryRunner().execute(format(
                     "CREATE TABLE %2$s (%3$s) WITH (location = 's3://%1$s/%2$s')",
                     BUCKET_NAME,

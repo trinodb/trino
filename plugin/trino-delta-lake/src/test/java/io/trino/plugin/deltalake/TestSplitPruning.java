@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,7 +58,7 @@ public class TestSplitPruning
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner();
+        return createDeltaLakeQueryRunner(DELTA_CATALOG);
     }
 
     @BeforeClass

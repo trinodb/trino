@@ -46,7 +46,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, ImmutableMap.of()));
+        this.hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         this.hiveMinioDataLake.start();
 
         return IcebergQueryRunner.builder()

@@ -22,9 +22,9 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.QueryManager;
 import io.trino.operator.OperatorStats;
-import io.trino.plugin.deltalake.util.DockerizedDataLake;
-import io.trino.plugin.deltalake.util.TestingHadoop;
 import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.hive.containers.HiveHadoop;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.BaseConnectorSmokeTest;
@@ -40,7 +40,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
@@ -102,9 +101,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
     protected final String bucketName = "test-delta-lake-integration-smoke-test-" + randomTableSuffix();
 
-    protected DockerizedDataLake dockerizedDataLake;
+    protected HiveMinioDataLake hiveMinioDataLake;
 
-    protected abstract DockerizedDataLake createDockerizedDataLake()
+    protected abstract HiveMinioDataLake createHiveMinioDataLake()
             throws Exception;
 
     protected abstract QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
@@ -122,7 +121,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.dockerizedDataLake = closeAfterClass(createDockerizedDataLake());
+        this.hiveMinioDataLake = closeAfterClass(createHiveMinioDataLake());
 
         QueryRunner queryRunner = createDeltaLakeQueryRunner(
                 ImmutableMap.<String, String>builder()
@@ -161,11 +160,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         return queryRunner;
     }
 
-    protected Optional<String> getHadoopBaseImage()
-    {
-        return Optional.of("ghcr.io/trinodb/testing/hdp2.6-hive");
-    }
-
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -190,11 +184,11 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String subDir = schemaDir + "subdir/";
         String externalFile = subDir + "external-file";
 
-        TestingHadoop hadoopContainer = dockerizedDataLake.getTestingHadoop();
+        HiveHadoop hadoopContainer = hiveMinioDataLake.getHiveHadoop();
 
         // Create file in a subdirectory of the schema directory before creating schema
-        hadoopContainer.runCommandInContainer("hdfs", "dfs", "-mkdir", "-p", subDir);
-        hadoopContainer.runCommandInContainer("hdfs", "dfs", "-touchz", externalFile);
+        hadoopContainer.executeInContainerFailOnError("hdfs", "dfs", "-mkdir", "-p", subDir);
+        hadoopContainer.executeInContainerFailOnError("hdfs", "dfs", "-touchz", externalFile);
 
         query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
         assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
@@ -207,7 +201,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 .isEqualTo(0);
 
         // Test behavior without external file
-        hadoopContainer.runCommandInContainer("hdfs", "dfs", "-rm", "-r", subDir);
+        hadoopContainer.executeInContainerFailOnError("hdfs", "dfs", "-rm", "-r", subDir);
 
         query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
         assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-d", schemaDir).getExitCode())
@@ -324,7 +318,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 "hive",
                 "hive",
                 ImmutableMap.of(
-                        "hive.metastore.uri", dockerizedDataLake.getTestingHadoop().getMetastoreAddress(),
+                        "hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
                         "hive.allow-drop-table", "true"));
         String hiveTableName = "foo_hive";
         queryRunner.execute(
@@ -359,20 +353,20 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testHiveViewsCannotBeAccessed()
     {
         String viewName = "dummy_view";
-        dockerizedDataLake.getTestingHadoop().runOnHive(format("CREATE VIEW %1$s.%2$s AS SELECT * FROM %1$s.customer", SCHEMA, viewName));
+        hiveMinioDataLake.getHiveHadoop().runOnHive(format("CREATE VIEW %1$s.%2$s AS SELECT * FROM %1$s.customer", SCHEMA, viewName));
         assertEquals(computeActual(format("SHOW TABLES LIKE '%s'", viewName)).getOnlyValue(), viewName);
         assertThatThrownBy(() -> computeActual("DESCRIBE " + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", SCHEMA, viewName));
-        dockerizedDataLake.getTestingHadoop().runOnHive("DROP VIEW " + viewName);
+        hiveMinioDataLake.getHiveHadoop().runOnHive("DROP VIEW " + viewName);
     }
 
     @Test
     public void testNonDeltaTablesCannotBeAccessed()
     {
         String tableName = "hive_table";
-        dockerizedDataLake.getTestingHadoop().runOnHive(format("CREATE TABLE %s.%s (id BIGINT)", SCHEMA, tableName));
+        hiveMinioDataLake.getHiveHadoop().runOnHive(format("CREATE TABLE %s.%s (id BIGINT)", SCHEMA, tableName));
         assertEquals(computeActual(format("SHOW TABLES LIKE '%s'", tableName)).getOnlyValue(), tableName);
         assertThatThrownBy(() -> computeActual("DESCRIBE " + tableName)).hasMessageContaining(tableName + " is not a Delta Lake table");
-        dockerizedDataLake.getTestingHadoop().runOnHive(format("DROP TABLE %s.%s", SCHEMA, tableName));
+        hiveMinioDataLake.getHiveHadoop().runOnHive(format("DROP TABLE %s.%s", SCHEMA, tableName));
     }
 
     @Test
