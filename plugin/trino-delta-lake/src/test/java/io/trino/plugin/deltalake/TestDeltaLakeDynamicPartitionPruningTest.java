@@ -39,7 +39,7 @@ public class TestDeltaLakeDynamicPartitionPruningTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(EXTRA_PROPERTIES, ImmutableMap.of(
+        DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, EXTRA_PROPERTIES, ImmutableMap.of(
                 "delta.dynamic-filtering.wait-timeout", "1h",
                 "delta.enable-non-concurrent-writes", "true"));
         for (TpchTable<?> table : REQUIRED_TABLES) {

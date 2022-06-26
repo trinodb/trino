@@ -13,20 +13,28 @@
  */
 package io.trino.plugin.hive.containers;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.ClassPath;
 import io.trino.testing.containers.Minio;
+import io.trino.testing.minio.MinioClient;
 import io.trino.util.AutoCloseableCloser;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.Network;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
+import static java.time.temporal.ChronoUnit.MINUTES;
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
+import static java.util.regex.Matcher.quoteReplacement;
 import static org.testcontainers.containers.Network.newNetwork;
 
 public class HiveMinioDataLake
@@ -42,11 +50,16 @@ public class HiveMinioDataLake
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
     private State state = State.INITIAL;
-    private AmazonS3 s3Client;
+    private MinioClient minioClient;
 
-    public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
+    public HiveMinioDataLake(String bucketName)
     {
-        this(bucketName, hiveHadoopFilesToMount, HiveHadoop.DEFAULT_IMAGE);
+        this(bucketName, HiveHadoop.DEFAULT_IMAGE);
+    }
+
+    public HiveMinioDataLake(String bucketName, String hiveHadoopImage)
+    {
+        this(bucketName, ImmutableMap.of("/etc/hadoop/conf/core-site.xml", getPathFromClassPathResource("hive_minio_datalake/hive-core-site.xml")), hiveHadoopImage);
     }
 
     public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage)
@@ -61,15 +74,12 @@ public class HiveMinioDataLake
                                 .put("MINIO_SECRET_KEY", SECRET_KEY)
                                 .buildOrThrow())
                         .build());
-        this.hiveHadoop = closer.register(
-                HiveHadoop.builder()
-                        .withFilesToMount(ImmutableMap.<String, String>builder()
-                                .put("hive_minio_datalake/hive-core-site.xml", "/etc/hadoop/conf/core-site.xml")
-                                .putAll(hiveHadoopFilesToMount)
-                                .buildOrThrow())
-                        .withImage(hiveHadoopImage)
-                        .withNetwork(network)
-                        .build());
+
+        HiveHadoop.Builder hiveHadoopBuilder = HiveHadoop.builder()
+                .withImage(hiveHadoopImage)
+                .withNetwork(network)
+                .withFilesToMount(hiveHadoopFilesToMount);
+        this.hiveHadoop = closer.register(hiveHadoopBuilder.build());
     }
 
     public void start()
@@ -78,24 +88,8 @@ public class HiveMinioDataLake
         state = State.STARTING;
         minio.start();
         hiveHadoop.start();
-        s3Client = AmazonS3ClientBuilder
-                .standard()
-                .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
-                        "http://localhost:" + minio.getMinioApiEndpoint().getPort(),
-                        "us-east-1"))
-                .withPathStyleAccessEnabled(true)
-                .withCredentials(new AWSStaticCredentialsProvider(
-                        new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY)))
-                .build();
-        s3Client.createBucket(this.bucketName);
-        closer.register(() -> s3Client.shutdown());
+        minioClient = initMinioClient();
         state = State.STARTED;
-    }
-
-    public AmazonS3 getS3Client()
-    {
-        checkState(state == State.STARTED, "Can't provide client when MinIO state is: %s", state);
-        return s3Client;
     }
 
     public void stop()
@@ -103,6 +97,38 @@ public class HiveMinioDataLake
     {
         closer.close();
         state = State.STOPPED;
+    }
+
+    public MinioClient getMinioClient()
+    {
+        checkState(state == State.STARTED, "Can't provide client when MinIO state is: %s", state);
+        return minioClient;
+    }
+
+    public void copyResources(String resourcePath, String target)
+    {
+        try {
+            for (ClassPath.ResourceInfo resourceInfo : ClassPath.from(MinioClient.class.getClassLoader())
+                    .getResources()) {
+                if (resourceInfo.getResourceName().startsWith(resourcePath)) {
+                    String fileName = resourceInfo.getResourceName().replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(target));
+                    writeFile(resourceInfo.asByteSource().read(), fileName);
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public void writeFile(byte[] contents, String target)
+    {
+        getMinioClient().putObject(getBucketName(), contents, target);
+    }
+
+    public List<String> listFiles(String targetDirectory)
+    {
+        return getMinioClient().listObjects(getBucketName(), targetDirectory);
     }
 
     public Minio getMinio()
@@ -120,11 +146,32 @@ public class HiveMinioDataLake
         return bucketName;
     }
 
+    public String getMinioAddress()
+    {
+        return "http://" + getMinio().getMinioApiEndpoint();
+    }
+
     @Override
     public void close()
             throws Exception
     {
         stop();
+    }
+
+    private MinioClient initMinioClient()
+    {
+        MinioClient minioClient = new MinioClient(getMinioAddress(), ACCESS_KEY, SECRET_KEY);
+        closer.register(minioClient);
+
+        // use retry loop for minioClient.makeBucket as minio container tends to return "Server not initialized, please try again" error
+        // for some time after starting up
+        RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
+                .withMaxDuration(Duration.of(2, MINUTES))
+                .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
+                .withDelay(Duration.of(10, SECONDS));
+        Failsafe.with(retryPolicy).run(() -> minioClient.makeBucket(bucketName));
+
+        return minioClient;
     }
 
     private enum State

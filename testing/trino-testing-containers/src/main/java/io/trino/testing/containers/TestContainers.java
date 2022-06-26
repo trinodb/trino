@@ -22,6 +22,7 @@ import java.io.Closeable;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.System.getenv;
+import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public final class TestContainers
 {
@@ -44,5 +45,14 @@ public final class TestContainers
             return () -> {};
         }
         return container::stop;
+    }
+
+    public static String getPathFromClassPathResource(String resourcePath)
+    {
+        return forClasspathResource(resourcePath)
+                // Container fails to mount jar:file:/<host_path>!<resource_path> resources
+                // This ensures that JAR resources are being copied out to tmp locations
+                // and mounted from there.
+                .getResolvedPath();
     }
 }

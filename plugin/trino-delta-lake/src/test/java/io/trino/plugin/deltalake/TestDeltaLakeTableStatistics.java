@@ -19,6 +19,7 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static java.lang.String.format;
 
@@ -29,7 +30,7 @@ public class TestDeltaLakeTableStatistics
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner();
+        return createDeltaLakeQueryRunner(DELTA_CATALOG);
     }
 
     @BeforeClass

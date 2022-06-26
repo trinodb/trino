@@ -22,7 +22,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteSource;
 import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
-import io.trino.plugin.deltalake.util.DockerizedDataLake;
+import io.trino.plugin.hive.containers.HiveHadoop;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Parameters;
@@ -37,7 +38,6 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -77,7 +77,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     }
 
     @Override
-    protected DockerizedDataLake createDockerizedDataLake()
+    protected HiveMinioDataLake createHiveMinioDataLake()
             throws Exception
     {
         String abfsSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("io/trino/plugin/deltalake/hdp3.1-core-site.xml.abfs-template"), UTF_8)
@@ -89,30 +89,26 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
         Files.write(hadoopCoreSiteXmlTempFile, abfsSpecificCoreSiteXmlContent.getBytes(UTF_8));
 
-        return new DockerizedDataLake(
-                getHadoopBaseImage(),
-                ImmutableMap.of(),
-                ImmutableMap.of(hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString(), "/etc/hadoop/conf/core-site.xml"));
+        HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(
+                bucketName,
+                ImmutableMap.of("/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString()),
+                HiveHadoop.HIVE3_IMAGE);
+        hiveMinioDataLake.start();
+        return hiveMinioDataLake;
     }
 
     @Override
     protected QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
             throws Exception
     {
-        return createAbfsDeltaLakeQueryRunner(DELTA_CATALOG, SCHEMA, ImmutableMap.of(), connectorProperties, dockerizedDataLake.getTestingHadoop());
-    }
-
-    @Override
-    protected Optional<String> getHadoopBaseImage()
-    {
-        return Optional.of("ghcr.io/trinodb/testing/hdp3.1-hive");
+        return createAbfsDeltaLakeQueryRunner(DELTA_CATALOG, SCHEMA, ImmutableMap.of(), connectorProperties, hiveMinioDataLake.getHiveHadoop());
     }
 
     @AfterClass(alwaysRun = true)
     public void removeTestData()
     {
-        if (adlsDirectory != null && dockerizedDataLake.getTestingHadoop() != null) {
-            dockerizedDataLake.getTestingHadoop().runCommandInContainer("hadoop", "fs", "-rm", "-f", "-r", adlsDirectory);
+        if (adlsDirectory != null) {
+            hiveMinioDataLake.getHiveHadoop().executeInContainerFailOnError("hadoop", "fs", "-rm", "-f", "-r", adlsDirectory);
         }
         assertThat(azureContainerClient.listBlobsByHierarchy(bucketName + "/").stream()).hasSize(0);
     }

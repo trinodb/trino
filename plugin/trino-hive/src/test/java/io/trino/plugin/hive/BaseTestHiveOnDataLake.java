@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.amazonaws.services.s3.AmazonS3;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.Session;
@@ -26,6 +25,7 @@ import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.minio.MinioClient;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -49,7 +49,7 @@ public abstract class BaseTestHiveOnDataLake
     private static final DataSize HIVE_S3_STREAMING_PART_SIZE = DataSize.of(5, MEGABYTE);
 
     private String bucketName;
-    private HiveMinioDataLake dockerizedS3DataLake;
+    private HiveMinioDataLake hiveMinioDataLake;
     private HiveMetastore metastoreClient;
 
     private final String hiveHadoopImage;
@@ -64,14 +64,14 @@ public abstract class BaseTestHiveOnDataLake
             throws Exception
     {
         this.bucketName = "test-hive-insert-overwrite-" + randomTableSuffix();
-        this.dockerizedS3DataLake = closeAfterClass(
-                new HiveMinioDataLake(bucketName, ImmutableMap.of(), hiveHadoopImage));
-        this.dockerizedS3DataLake.start();
+        this.hiveMinioDataLake = closeAfterClass(
+                new HiveMinioDataLake(bucketName, hiveHadoopImage));
+        this.hiveMinioDataLake.start();
         this.metastoreClient = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
-                        .metastoreClient(this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                        .metastoreClient(this.hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
                         .build());
-        return S3HiveQueryRunner.builder(dockerizedS3DataLake)
+        return S3HiveQueryRunner.builder(hiveMinioDataLake)
                 .setHiveProperties(
                         ImmutableMap.<String, String>builder()
                                 // This is required when using MinIO which requires path style access
@@ -265,15 +265,13 @@ public abstract class BaseTestHiveOnDataLake
         String renamedPartitionSuffix = "CP";
 
         // Copy whole partition to new location
-        AmazonS3 amazonS3 = dockerizedS3DataLake.getS3Client();
-        amazonS3.listObjects(bucketName)
-                .getObjectSummaries()
-                .forEach(object -> {
-                    String objectKey = object.getKey();
+        MinioClient minioClient = hiveMinioDataLake.getMinioClient();
+        minioClient.listObjects(bucketName, "/")
+                .forEach(objectKey -> {
                     if (objectKey.startsWith(partitionS3KeyPrefix)) {
                         String fileName = objectKey.substring(objectKey.lastIndexOf('/'));
                         String destinationKey = partitionS3KeyPrefix + renamedPartitionSuffix + fileName;
-                        amazonS3.copyObject(bucketName, objectKey, bucketName, destinationKey);
+                        minioClient.copyObject(bucketName, objectKey, bucketName, destinationKey);
                     }
                 });
 

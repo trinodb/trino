@@ -15,7 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -24,7 +24,6 @@ import org.testng.annotations.Test;
 import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
-import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static java.lang.String.format;
@@ -44,16 +43,16 @@ public class TestDeltaLakePreferredPartitioning
                 !new ParquetWriterConfig().isParquetOptimizedWriterEnabled(),
                 "This test assumes the optimized Parquet writer is disabled by default");
 
-        DockerizedMinioDataLake dockerizedMinioDataLake = closeAfterClass(createDockerizedMinioDataLakeForDeltaLake(TEST_BUCKET_NAME));
-
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(TEST_BUCKET_NAME));
+        hiveMinioDataLake.start();
         return createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 "default",
                 ImmutableMap.of(
                         "delta.enable-non-concurrent-writes", "true",
                         "delta.max-partitions-per-writer", String.valueOf(WRITE_PARTITIONING_TEST_PARTITIONS_COUNT - 1)),
-                dockerizedMinioDataLake.getMinioAddress(),
-                dockerizedMinioDataLake.getTestingHadoop());
+                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getHiveHadoop());
     }
 
     @Test
