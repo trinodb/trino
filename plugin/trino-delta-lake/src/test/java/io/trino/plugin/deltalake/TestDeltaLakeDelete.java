@@ -15,7 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -26,7 +26,6 @@ import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -38,7 +37,7 @@ public class TestDeltaLakeDelete
     private static final String SCHEMA = "default";
     private final String bucketName = "test-delta-lake-connector-test-" + randomTableSuffix();
 
-    private DockerizedMinioDataLake dockerizedMinioDataLake;
+    private HiveMinioDataLake hiveMinioDataLake;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -46,13 +45,14 @@ public class TestDeltaLakeDelete
     {
         verify(!new ParquetWriterConfig().isParquetOptimizedWriterEnabled(), "This test assumes the optimized Parquet writer is disabled by default");
 
-        this.dockerizedMinioDataLake = closeAfterClass(createDockerizedMinioDataLakeForDeltaLake(bucketName));
+        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        hiveMinioDataLake.start();
         QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
-                dockerizedMinioDataLake.getMinioAddress(),
-                dockerizedMinioDataLake.getTestingHadoop());
+                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getHiveHadoop());
 
         TpchTable.getTables().forEach(table ->
                 queryRunner.execute(format("CREATE TABLE %s WITH (location = '%s') AS SELECT * FROM tpch.tiny.%1$s", table.getTableName(), getLocationForTable(table.getTableName()))));
@@ -101,7 +101,7 @@ public class TestDeltaLakeDelete
 
     private void testDeleteMultiFile(String tableName, String resourcePath)
     {
-        dockerizedMinioDataLake.copyResources(resourcePath + "/lineitem", tableName);
+        hiveMinioDataLake.copyResources(resourcePath + "/lineitem", tableName);
         getQueryRunner().execute(format("CREATE TABLE %s (dummy int) WITH (location = '%s')",
                 tableName,
                 getLocationForTable(tableName)));
@@ -178,7 +178,7 @@ public class TestDeltaLakeDelete
                 .addAll(originalFiles)
                 .add(tableName + "/_delta_log/00000000000000000021.json")
                 .build();
-        assertThat(dockerizedMinioDataLake.listFiles(tableName)).containsExactlyInAnyOrder(expected.toArray(new String[0]));
+        assertThat(hiveMinioDataLake.listFiles(tableName)).containsExactlyInAnyOrder(expected.toArray(new String[0]));
     }
 
     @Test
@@ -192,13 +192,13 @@ public class TestDeltaLakeDelete
                 .addAll(originalFiles)
                 .add(tableName + "/_delta_log/00000000000000000001.json")
                 .build();
-        assertThat(dockerizedMinioDataLake.listFiles(tableName)).containsExactlyInAnyOrder(expected.toArray(new String[0]));
+        assertThat(hiveMinioDataLake.listFiles(tableName)).containsExactlyInAnyOrder(expected.toArray(new String[0]));
     }
 
     private Set<String> testDeleteAllAndReturnInitialDataLakeFilesSet(String tableName, String resourcePath)
     {
-        dockerizedMinioDataLake.copyResources(resourcePath + "/customer", tableName);
-        Set<String> originalFiles = dockerizedMinioDataLake.listFiles(tableName).stream()
+        hiveMinioDataLake.copyResources(resourcePath + "/customer", tableName);
+        Set<String> originalFiles = hiveMinioDataLake.listFiles(tableName).stream()
                 .collect(toImmutableSet());
         getQueryRunner().execute(format("CREATE TABLE %s (dummy int) WITH (location = '%s')",
                 tableName,

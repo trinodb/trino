@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
-import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -39,7 +38,7 @@ public class TestHiveTaskFailureRecoveryTest
         super(RetryPolicy.TASK);
     }
 
-    private HiveMinioDataLake dockerizedS3DataLake;
+    private HiveMinioDataLake hiveMinioDataLake;
     private MinioStorage minioStorage;
 
     @Override
@@ -50,13 +49,13 @@ public class TestHiveTaskFailureRecoveryTest
             throws Exception
     {
         String bucketName = "test-hive-insert-overwrite-" + randomTableSuffix(); // randomizing bucket name to ensure cached TrinoS3FileSystem objects are not reused
-        this.dockerizedS3DataLake = new HiveMinioDataLake(bucketName, ImmutableMap.of(), HiveHadoop.DEFAULT_IMAGE);
-        dockerizedS3DataLake.start();
+        this.hiveMinioDataLake = new HiveMinioDataLake(bucketName);
+        hiveMinioDataLake.start();
 
         this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
         minioStorage.start();
 
-        return S3HiveQueryRunner.builder(dockerizedS3DataLake)
+        return S3HiveQueryRunner.builder(hiveMinioDataLake)
                 .setInitialTables(requiredTpchTables)
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
@@ -84,9 +83,9 @@ public class TestHiveTaskFailureRecoveryTest
     public void destroy()
             throws Exception
     {
-        if (dockerizedS3DataLake != null) {
-            dockerizedS3DataLake.close();
-            dockerizedS3DataLake = null;
+        if (hiveMinioDataLake != null) {
+            hiveMinioDataLake.close();
+            hiveMinioDataLake = null;
         }
         if (minioStorage != null) {
             minioStorage.close();

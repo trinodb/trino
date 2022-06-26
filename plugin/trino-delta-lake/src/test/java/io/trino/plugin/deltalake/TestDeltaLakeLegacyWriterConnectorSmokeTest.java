@@ -36,7 +36,7 @@ public class TestDeltaLakeLegacyWriterConnectorSmokeTest
                         .put("delta.enable-non-concurrent-writes", "true")
                         .put("hive.s3.max-connections", "2")
                         .buildOrThrow(),
-                dockerizedMinioDataLake.getMinioAddress(),
-                dockerizedMinioDataLake.getTestingHadoop());
+                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getHiveHadoop());
     }
 }
