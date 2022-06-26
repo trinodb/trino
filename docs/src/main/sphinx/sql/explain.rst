@@ -9,7 +9,9 @@ Synopsis
 
     EXPLAIN [ ( option [, ...] ) ] statement
 
-    where option can be one of:
+where ``option`` can be one of:
+
+.. code-block:: text
 
         FORMAT { TEXT | GRAPHVIZ | JSON }
         TYPE { LOGICAL | DISTRIBUTED | VALIDATE | IO }
