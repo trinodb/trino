@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
-import io.trino.plugin.deltalake.util.TestingHadoop;
+import io.trino.plugin.hive.containers.HiveHadoop;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -34,9 +34,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
-import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
-import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_ACCESS_KEY;
-import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_SECRET_KEY;
+import static io.trino.plugin.hive.containers.HiveMinioDataLake.ACCESS_KEY;
+import static io.trino.plugin.hive.containers.HiveMinioDataLake.SECRET_KEY;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -67,7 +66,7 @@ public final class DeltaLakeQueryRunner
     public static class Builder
             extends DistributedQueryRunner.Builder<Builder>
     {
-        private String catalogName = DELTA_CATALOG;
+        private String catalogName;
         private ImmutableMap.Builder<String, String> deltaProperties = ImmutableMap.builder();
 
         protected Builder()
@@ -121,16 +120,17 @@ public final class DeltaLakeQueryRunner
         }
     }
 
-    public static DistributedQueryRunner createDeltaLakeQueryRunner()
+    public static DistributedQueryRunner createDeltaLakeQueryRunner(String catalogName)
             throws Exception
     {
-        return createDeltaLakeQueryRunner(ImmutableMap.of(), ImmutableMap.of());
+        return createDeltaLakeQueryRunner(catalogName, ImmutableMap.of(), ImmutableMap.of());
     }
 
-    public static DistributedQueryRunner createDeltaLakeQueryRunner(Map<String, String> extraProperties, Map<String, String> connectorProperties)
+    public static DistributedQueryRunner createDeltaLakeQueryRunner(String catalogName, Map<String, String> extraProperties, Map<String, String> connectorProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = builder(createSession())
+                .setCatalogName(catalogName)
                 .setExtraProperties(extraProperties)
                 .setDeltaProperties(connectorProperties)
                 .build();
@@ -140,7 +140,7 @@ public final class DeltaLakeQueryRunner
         return queryRunner;
     }
 
-    public static DistributedQueryRunner createS3DeltaLakeQueryRunner(String catalogName, String schemaName, Map<String, String> connectorProperties, String minioAddress, TestingHadoop testingHadoop)
+    public static DistributedQueryRunner createS3DeltaLakeQueryRunner(String catalogName, String schemaName, Map<String, String> connectorProperties, String minioAddress, HiveHadoop testingHadoop)
             throws Exception
     {
         return createS3DeltaLakeQueryRunner(catalogName, schemaName, ImmutableMap.of(), ImmutableMap.of(), connectorProperties, minioAddress, testingHadoop, queryRunner -> {});
@@ -153,7 +153,7 @@ public final class DeltaLakeQueryRunner
             Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             String minioAddress,
-            TestingHadoop testingHadoop,
+            HiveHadoop testingHadoop,
             Consumer<QueryRunner> additionalSetup)
             throws Exception
     {
@@ -163,8 +163,8 @@ public final class DeltaLakeQueryRunner
                 coordinatorProperties,
                 extraProperties,
                 ImmutableMap.<String, String>builder()
-                        .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
-                        .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
+                        .put("hive.s3.aws-access-key", ACCESS_KEY)
+                        .put("hive.s3.aws-secret-key", SECRET_KEY)
                         .put("hive.s3.endpoint", minioAddress)
                         .put("hive.s3.path-style-access", "true")
                         .putAll(connectorProperties)
@@ -178,7 +178,7 @@ public final class DeltaLakeQueryRunner
             String schemaName,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
-            TestingHadoop testingHadoop)
+            HiveHadoop testingHadoop)
             throws Exception
     {
         return createDockerizedDeltaLakeQueryRunner(
@@ -201,7 +201,7 @@ public final class DeltaLakeQueryRunner
             Map<String, String> coordinatorProperties,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
-            TestingHadoop testingHadoop,
+            HiveHadoop hiveHadoop,
             Consumer<QueryRunner> additionalSetup)
             throws Exception
     {
@@ -217,7 +217,7 @@ public final class DeltaLakeQueryRunner
                 .setCatalogName(catalogName)
                 .setAdditionalSetup(additionalSetup)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", testingHadoop.getMetastoreAddress())
+                        .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
                         .put("hive.s3.streaming.part-size", "5MB") //must be at least 5MB according to annotations on io.trino.plugin.hive.s3.HiveS3Config.getS3StreamingPartSize
                         .putAll(connectorProperties)
                         .buildOrThrow())
@@ -288,6 +288,7 @@ public final class DeltaLakeQueryRunner
                 throws Exception
         {
             DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(
+                    DELTA_CATALOG,
                     ImmutableMap.of("http-server.http.port", "8080"),
                     ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
 
@@ -309,15 +310,15 @@ public final class DeltaLakeQueryRunner
         {
             String bucketName = "test-bucket";
 
-            DockerizedMinioDataLake dockerizedMinioDataLake = createDockerizedMinioDataLakeForDeltaLake(bucketName);
+            HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
             DistributedQueryRunner queryRunner = createS3DeltaLakeQueryRunner(
                     DELTA_CATALOG,
                     TPCH_SCHEMA,
                     ImmutableMap.of("http-server.http.port", "8080"),
                     ImmutableMap.of(),
                     ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
-                    dockerizedMinioDataLake.getMinioAddress(),
-                    dockerizedMinioDataLake.getTestingHadoop(),
+                    hiveMinioDataLake.getMinioAddress(),
+                    hiveMinioDataLake.getHiveHadoop(),
                     runner -> {});
 
             queryRunner.execute("CREATE SCHEMA tpch");
