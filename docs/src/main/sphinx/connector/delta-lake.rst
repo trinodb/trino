@@ -519,7 +519,7 @@ Table statistics
 ^^^^^^^^^^^^^^^^
 
 You can use :doc:`/sql/analyze` statements in Trino to populate the table
-statistics in Delta Lake. Number of distinct values (NDV)
+statistics in Delta Lake. Data size and number of distinct values (NDV)
 statistics are supported; whereas minimum value, maximum value, and null value
 count statistics are not supported. The :doc:`cost-based optimizer
 </optimizer/cost-based-optimizations>` then uses these statistics to improve
