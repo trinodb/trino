@@ -117,6 +117,17 @@ the maximum number of joins that can be reordered at once.
 Reduces number of rows produced by joins when optimizer detects that duplicated
 join output rows can be skipped.
 
+``optimizer.use-exact-partitioning``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``false``
+
+Re-partition data unless the partitioning of the upstream
+:ref:`stage <trino-concept-stage>` exactly matches what the downstream stage
+expects. This can also be specified using the ``use_exact_partitioning`` session
+property.
+
 ``optimizer.use-table-scan-node-partitioning``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
