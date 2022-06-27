@@ -108,10 +108,10 @@ public class LocalDynamicFilterConsumer
             TupleDomain<DynamicFilterId> summary = summaryDomains.poll();
             // summary can be null as another concurrent summary compaction may be running
             if (summary != null) {
-                if (summary.getRetainedSizeInBytes(DynamicFilterId::getRetainedSizeInBytes) > domainSizeLimitInBytes) {
+                if (getRetainedSizeInBytes(summary) > domainSizeLimitInBytes) {
                     summary = summary.simplify(1);
                 }
-                if (summary.getRetainedSizeInBytes(DynamicFilterId::getRetainedSizeInBytes) > domainSizeLimitInBytes) {
+                if (getRetainedSizeInBytes(summary) > domainSizeLimitInBytes) {
                     sizeLimitExceeded = true;
                 }
                 summaryDomains.add(summary);
@@ -247,5 +247,10 @@ public class LocalDynamicFilterConsumer
                 .add("collected", collected)
                 .add("summaryDomains", summaryDomains)
                 .toString();
+    }
+
+    private static long getRetainedSizeInBytes(TupleDomain<DynamicFilterId> summary)
+    {
+        return summary.getRetainedSizeInBytes(DynamicFilterId::getRetainedSizeInBytes);
     }
 }
