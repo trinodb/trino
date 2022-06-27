@@ -1963,10 +1963,11 @@ public class TestSqlParser
         Table table = new Table(QualifiedName.of("foo"));
         Identifier procedure = new Identifier("bar");
 
-        assertStatement("ALTER TABLE foo EXECUTE bar", new TableExecute(table, procedure, ImmutableList.of(), Optional.empty()));
+        assertStatement("ALTER TABLE foo EXECUTE bar", new TableExecute(location(1, 1), table, procedure, ImmutableList.of(), Optional.empty()));
         assertStatement(
                 "ALTER TABLE foo EXECUTE bar(bah => 1, wuh => 'clap') WHERE age > 17",
                 new TableExecute(
+                        location(1, 1),
                         table,
                         procedure,
                         ImmutableList.of(
@@ -1980,6 +1981,7 @@ public class TestSqlParser
         assertStatement(
                 "ALTER TABLE foo EXECUTE bar(1, 'clap') WHERE age > 17",
                 new TableExecute(
+                        location(1, 1),
                         table,
                         procedure,
                         ImmutableList.of(

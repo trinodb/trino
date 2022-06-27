@@ -709,7 +709,8 @@ class AstBuilder
         }
 
         return new TableExecute(
-                new Table(getLocation(context), getQualifiedName(context.tableName)),
+                getLocation(context),
+                new Table(getLocation(context.TABLE()), getQualifiedName(context.tableName)),
                 (Identifier) visit(context.procedureName),
                 arguments,
                 visitIfPresent(context.booleanExpression(), Expression.class));
