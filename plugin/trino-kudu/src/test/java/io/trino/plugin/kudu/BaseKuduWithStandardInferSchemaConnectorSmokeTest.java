@@ -17,11 +17,10 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.testng.Assert.assertEquals;
 
-public abstract class AbstractKuduWithStandardInferSchemaConnectorTest
-        extends AbstractKuduConnectorTest
+public abstract class BaseKuduWithStandardInferSchemaConnectorSmokeTest
+        extends BaseKuduConnectorSmokeTest
 {
     @Override
     protected Optional<String> getKuduSchemaEmulationPrefix()
@@ -35,23 +34,5 @@ public abstract class AbstractKuduWithStandardInferSchemaConnectorTest
         // The special $schemas table is created when listing schema names with schema emulation enabled
         // Depending on test ordering, this table may or may not be created when this test runs, so filter it out
         assertEquals(computeActual("SHOW TABLES FROM default LIKE '%$schemas'").getRowCount(), 0);
-    }
-
-    @Test
-    @Override
-    public void testDropNonEmptySchemaWithTable()
-    {
-        // Set column and table properties in CREATE TABLE statement
-        String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();
-
-        try {
-            assertUpdate("CREATE SCHEMA " + schemaName);
-            assertUpdate("CREATE TABLE " + schemaName + ".t(x int WITH (primary_key=true)) WITH (partition_by_hash_columns=ARRAY['x'], partition_by_hash_buckets=2)");
-            assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + schemaName + ".t");
-            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
-        }
     }
 }

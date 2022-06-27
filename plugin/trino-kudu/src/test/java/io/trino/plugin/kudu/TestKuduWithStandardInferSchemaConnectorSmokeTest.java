@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.kudu;
 
-import static io.trino.plugin.kudu.TestingKuduServer.LATEST_TAG;
+import static io.trino.plugin.kudu.TestingKuduServer.EARLIEST_TAG;
 
-public class TestKuduLatestWithStandardInferSchemaConnectorTest
-        extends AbstractKuduWithStandardInferSchemaConnectorTest
+public class TestKuduWithStandardInferSchemaConnectorSmokeTest
+        extends BaseKuduWithStandardInferSchemaConnectorSmokeTest
 {
     @Override
     protected String getKuduServerVersion()
     {
-        return LATEST_TAG;
+        return EARLIEST_TAG;
     }
 }
