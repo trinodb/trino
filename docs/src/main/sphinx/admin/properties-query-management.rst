@@ -102,6 +102,16 @@ The maximum allowed time for a query to be actively executing on the
 cluster, before it is terminated. Compared to the run time below, execution
 time does not include analysis, query planning or wait times in a queue.
 
+``query.max-length``
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Default value:** ``1,000,000``
+* **Maximum value:** ``1,000,000,000``
+
+The maximum number of characters allowed for the SQL query text. Longer queries
+are not processed, and terminated with error ``QUERY_TEXT_TOO_LARGE``.
+
 ``query.max-planning-time``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
