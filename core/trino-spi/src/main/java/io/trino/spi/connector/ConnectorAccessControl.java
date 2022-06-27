@@ -77,7 +77,6 @@ import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 
 public interface ConnectorAccessControl
