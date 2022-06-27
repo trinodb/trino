@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
@@ -79,6 +80,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
 import static io.trino.plugin.hive.util.HiveCoercionPolicy.canCoerce;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static java.lang.Math.min;
@@ -179,7 +181,8 @@ public class HiveSplitManager
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
             SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTable.getSchemaTableName();
@@ -187,6 +190,12 @@ public class HiveSplitManager
         // get table metadata
         TransactionalMetadata transactionalMetadata = transactionManager.get(transaction, session.getIdentity());
         SemiTransactionalHiveMetastore metastore = transactionalMetadata.getMetastore();
+        if (!metastore.isReadableWithinTransaction(tableName.getSchemaName(), tableName.getTableName())) {
+            // Until transaction is committed, the table data may or may not be visible.
+            throw new TrinoException(NOT_SUPPORTED, format(
+                    "Cannot read from a table %s that was modified within transaction, you need to commit the transaction first",
+                    tableName));
+        }
         Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 

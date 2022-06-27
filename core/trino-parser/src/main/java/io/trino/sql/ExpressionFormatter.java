@@ -61,6 +61,13 @@ import io.trino.sql.tree.IntervalDayTimeDataType;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.JsonArray;
+import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonObject;
+import io.trino.sql.tree.JsonPathInvocation;
+import io.trino.sql.tree.JsonPathParameter;
+import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
@@ -105,9 +112,9 @@ import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.PrimitiveIterator;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -482,7 +489,7 @@ public final class ExpressionFormatter
             return "(" +
                     node.getTerms().stream()
                             .map(term -> process(term, context))
-                            .collect(Collectors.joining(" " + node.getOperator().toString() + " ")) +
+                            .collect(joining(" " + node.getOperator().toString() + " ")) +
                     ")";
         }
 
@@ -797,6 +804,148 @@ public final class ExpressionFormatter
             return "LABEL_DEREFERENCE(" + formatIdentifier(node.getLabel()) + ", " + node.getReference().map(this::process).orElse("*") + ")";
         }
 
+        @Override
+        protected String visitJsonExists(JsonExists node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("JSON_EXISTS(")
+                    .append(formatJsonPathInvocation(node.getJsonPathInvocation()))
+                    .append(" ")
+                    .append(node.getErrorBehavior())
+                    .append(" ON ERROR")
+                    .append(")");
+
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitJsonValue(JsonValue node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("JSON_VALUE(")
+                    .append(formatJsonPathInvocation(node.getJsonPathInvocation()));
+
+            if (node.getReturnedType().isPresent()) {
+                builder.append(" RETURNING ")
+                        .append(process(node.getReturnedType().get()));
+            }
+
+            builder.append(" ")
+                    .append(node.getEmptyBehavior())
+                    .append(node.getEmptyDefault().map(expression -> " " + process(expression)).orElse(""))
+                    .append(" ON EMPTY ")
+                    .append(node.getErrorBehavior())
+                    .append(node.getErrorDefault().map(expression -> " " + process(expression)).orElse(""))
+                    .append(" ON ERROR")
+                    .append(")");
+
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitJsonQuery(JsonQuery node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("JSON_QUERY(")
+                    .append(formatJsonPathInvocation(node.getJsonPathInvocation()));
+
+            if (node.getReturnedType().isPresent()) {
+                builder.append(" RETURNING ")
+                        .append(process(node.getReturnedType().get()))
+                        .append(node.getOutputFormat().map(string -> " FORMAT " + string).orElse(""));
+            }
+
+            switch (node.getWrapperBehavior()) {
+                case WITHOUT:
+                    builder.append(" WITHOUT ARRAY WRAPPER");
+                    break;
+                case CONDITIONAL:
+                    builder.append(" WITH CONDITIONAL ARRAY WRAPPER");
+                    break;
+                case UNCONDITIONAL:
+                    builder.append((" WITH UNCONDITIONAL ARRAY WRAPPER"));
+                    break;
+                default:
+                    throw new IllegalStateException("unexpected array wrapper behavior: " + node.getWrapperBehavior());
+            }
+
+            if (node.getQuotesBehavior().isPresent()) {
+                switch (node.getQuotesBehavior().get()) {
+                    case KEEP:
+                        builder.append(" KEEP QUOTES ON SCALAR STRING");
+                        break;
+                    case OMIT:
+                        builder.append(" OMIT QUOTES ON SCALAR STRING");
+                        break;
+                    default:
+                        throw new IllegalStateException("unexpected quotes behavior: " + node.getQuotesBehavior());
+                }
+            }
+
+            builder.append(" ")
+                    .append(node.getEmptyBehavior())
+                    .append(" ON EMPTY ")
+                    .append(node.getErrorBehavior())
+                    .append(" ON ERROR")
+                    .append(")");
+
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitJsonObject(JsonObject node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("JSON_OBJECT(");
+
+            if (!node.getMembers().isEmpty()) {
+                builder.append(node.getMembers().stream()
+                        .map(member -> "KEY " + formatExpression(member.getKey()) + " VALUE " + formatJsonExpression(member.getValue(), member.getFormat()))
+                        .collect(joining(", ")));
+                builder.append(node.isNullOnNull() ? " NULL ON NULL" : " ABSENT ON NULL");
+                builder.append(node.isUniqueKeys() ? " WITH UNIQUE KEYS" : " WITHOUT UNIQUE KEYS");
+            }
+
+            if (node.getReturnedType().isPresent()) {
+                builder.append(" RETURNING ")
+                        .append(process(node.getReturnedType().get()))
+                        .append(node.getOutputFormat().map(string -> " FORMAT " + string).orElse(""));
+            }
+
+            builder.append(")");
+
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitJsonArray(JsonArray node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("JSON_ARRAY(");
+
+            if (!node.getElements().isEmpty()) {
+                builder.append(node.getElements().stream()
+                        .map(element -> formatJsonExpression(element.getValue(), element.getFormat()))
+                        .collect(joining(", ")));
+                builder.append(node.isNullOnNull() ? " NULL ON NULL" : " ABSENT ON NULL");
+            }
+
+            if (node.getReturnedType().isPresent()) {
+                builder.append(" RETURNING ")
+                        .append(process(node.getReturnedType().get()))
+                        .append(node.getOutputFormat().map(string -> " FORMAT " + string).orElse(""));
+            }
+
+            builder.append(")");
+
+            return builder.toString();
+        }
+
         private String formatBinaryExpression(String operator, Expression left, Expression right)
         {
             return '(' + process(left, null) + ' ' + operator + ' ' + process(right, null) + ')';
@@ -1107,5 +1256,33 @@ public final class ExpressionFormatter
 
             return builder.toString();
         };
+    }
+
+    public static String formatJsonPathInvocation(JsonPathInvocation pathInvocation)
+    {
+        StringBuilder builder = new StringBuilder();
+
+        builder.append(formatJsonExpression(pathInvocation.getInputExpression(), Optional.of(pathInvocation.getInputFormat())))
+                .append(", ")
+                .append(formatExpression(pathInvocation.getJsonPath()));
+
+        if (!pathInvocation.getPathParameters().isEmpty()) {
+            builder.append(" PASSING ");
+            builder.append(formatJsonPathParameters(pathInvocation.getPathParameters()));
+        }
+
+        return builder.toString();
+    }
+
+    private static String formatJsonExpression(Expression expression, Optional<JsonPathParameter.JsonFormat> format)
+    {
+        return formatExpression(expression) + format.map(jsonFormat -> " FORMAT " + jsonFormat).orElse("");
+    }
+
+    private static String formatJsonPathParameters(List<JsonPathParameter> parameters)
+    {
+        return parameters.stream()
+                .map(parameter -> formatJsonExpression(parameter.getParameter(), parameter.getFormat()) + " AS " + formatExpression(parameter.getName()))
+                .collect(joining(", "));
     }
 }

@@ -68,7 +68,6 @@ public final class EnvMultinodeAllConnectors
                         "mongodb",
                         "mysql",
                         "oracle",
-                        "phoenix",
                         "phoenix5",
                         "pinot",
                         "postgresql",
@@ -87,6 +86,9 @@ public final class EnvMultinodeAllConnectors
                 container.withCopyFileToContainer(
                         forHostPath(configDir.getPath("google-sheets-auth.json")),
                         CONTAINER_PRESTO_ETC + "/catalog/google-sheets-auth.json");
+                container.withCopyFileToContainer(
+                        forHostPath(configDir.getPath("prometheus-bearer.txt")),
+                        CONTAINER_PRESTO_ETC + "/catalog/prometheus-bearer.txt");
             }
         });
     }

@@ -21,7 +21,6 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -73,7 +72,6 @@ public class DeltaLakePageSourceProvider
             FileFormatDataSourceStats fileFormatDataSourceStats,
             ParquetReaderConfig parquetReaderConfig,
             DeltaLakeConfig deltaLakeConfig,
-            HiveConfig hiveConfig,
             ExecutorService executorService,
             TypeManager typeManager,
             JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec)
@@ -82,7 +80,7 @@ public class DeltaLakePageSourceProvider
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
         this.domainCompactionThreshold = requireNonNull(deltaLakeConfig, "deltaLakeConfig is null").getDomainCompactionThreshold();
-        this.parquetDateTimeZone = requireNonNull(hiveConfig, "hiveConfig is null").getParquetDateTimeZone();
+        this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "deleteResultJsonCodec is null");
@@ -181,9 +179,7 @@ public class DeltaLakePageSourceProvider
         effectivePredicate.getDomains().get().forEach((columnHandle, domain) -> {
             String baseType = columnHandle.getType().getTypeSignature().getBase();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
-            if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW) &&
-                    // TODO: Remove the next line once timestamp predicate pushdown works in Parquet reader (https://github.com/trinodb/trino/issues/12007)
-                    !baseType.equals(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)) {
+            if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)) {
                 HiveColumnHandle hiveColumnHandle = columnHandle.toHiveColumnHandle();
                 predicate.put(hiveColumnHandle, domain);
             }

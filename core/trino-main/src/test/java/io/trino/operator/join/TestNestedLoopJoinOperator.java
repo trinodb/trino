@@ -528,7 +528,7 @@ public class TestNestedLoopJoinOperator
         nestedLoopBuildOperatorFactory.noMoreOperators();
 
         while (nestedLoopBuildOperator.isBlocked().isDone()) {
-            driver.process();
+            driver.processUntilBlocked();
         }
 
         return joinOperatorFactory;

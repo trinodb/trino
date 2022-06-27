@@ -60,10 +60,11 @@ import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.STORAGE_SCHEMA;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.getStorageSchema;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
-import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
-import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
+import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -263,7 +264,8 @@ public abstract class AbstractTrinoCatalog
         Map<String, Object> storageTableProperties = new HashMap<>(definition.getProperties());
         storageTableProperties.putIfAbsent(FILE_FORMAT_PROPERTY, DEFAULT_FILE_FORMAT_DEFAULT);
 
-        SchemaTableName storageTable = new SchemaTableName(viewName.getSchemaName(), storageTableName);
+        String storageSchema = getStorageSchema(definition.getProperties()).orElse(viewName.getSchemaName());
+        SchemaTableName storageTable = new SchemaTableName(storageSchema, storageTableName);
         List<ColumnMetadata> columns = definition.getColumns().stream()
                 .map(column -> new ColumnMetadata(column.getName(), typeManager.getType(column.getType())))
                 .collect(toImmutableList());
@@ -276,22 +278,15 @@ public abstract class AbstractTrinoCatalog
     }
 
     protected ConnectorMaterializedViewDefinition getMaterializedViewDefinition(
-            SchemaTableName viewName,
             Table icebergTable,
             Optional<String> owner,
             String viewOriginalText,
-            String storageTableName)
+            SchemaTableName storageTableName)
     {
-        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        properties.put(FILE_FORMAT_PROPERTY, IcebergUtil.getFileFormat(icebergTable));
-        if (!icebergTable.spec().fields().isEmpty()) {
-            properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
-        }
-
         IcebergMaterializedViewDefinition definition = decodeMaterializedViewData(viewOriginalText);
         return new ConnectorMaterializedViewDefinition(
                 definition.getOriginalSql(),
-                Optional.of(new CatalogSchemaTableName(catalogName.toString(), new SchemaTableName(viewName.getSchemaName(), storageTableName))),
+                Optional.of(new CatalogSchemaTableName(catalogName.toString(), storageTableName)),
                 definition.getCatalog(),
                 definition.getSchema(),
                 definition.getColumns().stream()
@@ -299,14 +294,18 @@ public abstract class AbstractTrinoCatalog
                         .collect(toImmutableList()),
                 definition.getComment(),
                 owner,
-                properties.buildOrThrow());
+                ImmutableMap.<String, Object>builder()
+                        .putAll(getIcebergTableProperties(icebergTable))
+                        .put(STORAGE_SCHEMA, storageTableName.getSchemaName())
+                        .buildOrThrow());
     }
 
-    protected Map<String, String> createMaterializedViewProperties(ConnectorSession session, String storageTableName)
+    protected Map<String, String> createMaterializedViewProperties(ConnectorSession session, SchemaTableName storageTableName)
     {
         return ImmutableMap.<String, String>builder()
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                .put(STORAGE_TABLE, storageTableName)
+                .put(STORAGE_SCHEMA, storageTableName.getSchemaName())
+                .put(STORAGE_TABLE, storageTableName.getTableName())
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
                 .put(TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)

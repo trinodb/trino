@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>381-SNAPSHOT</version>
+        <version>388-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -170,6 +170,12 @@
 
         <!-- used by tests but also needed transitively -->
         <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hadoop-toolkit</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>runtime</scope>
@@ -201,19 +207,6 @@
         </dependency>
 
         <!-- for testing -->
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-exchange-filesystem</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-exchange-filesystem</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-hive</artifactId>
@@ -273,6 +266,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-testing-resources</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-testing-services</artifactId>
             <scope>test</scope>
         </dependency>
@@ -317,31 +316,12 @@
             <artifactId>azure-storage-blob</artifactId>
             <version>12.14.4</version>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- conflicts with newer version of netty coming from AWS S3 cli via trino-exchange-filesystem -->
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-transport-classes-epoll</artifactId>
-                </exclusion>
-                <exclusion>
-                    <!-- conflicts with newer version of netty coming from AWS S3 cli via trino-exchange-filesystem -->
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-transport-native-epoll</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>com.github.docker-java</groupId>
             <artifactId>docker-java-api</artifactId>
             <version>${dep.docker-java.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.minio</groupId>
-            <artifactId>minio</artifactId>
-            <version>7.1.4</version>
             <scope>test</scope>
         </dependency>
 
@@ -406,7 +386,6 @@
                                 <exclude>**/TestDeltaLakeAdlsConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestDeltaLakeGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeCleanUpGlueMetastore.java</exclude>
-                                <exclude>**/TestDelta*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</exclude>
                             </excludes>
                         </configuration>
@@ -459,25 +438,5 @@
                 </plugins>
             </build>
         </profile>
-
-        <profile>
-            <id>test-failure-recovery</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <!-- Failure recovery tests spend most of the time waiting for a retry -->
-                            <threadCount>4</threadCount>
-                            <includes>
-                                <include>**/TestDelta*FailureRecoveryTest.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
     </profiles>
 </project>

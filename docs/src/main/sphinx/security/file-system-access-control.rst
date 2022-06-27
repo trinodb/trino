@@ -75,7 +75,7 @@ all, then access is granted.
 The following table summarizes the permissions required for each SQL command:
 
 ==================================== ========== ======= ==================== ===================================================
-SQL Command                          Catalog    Schema  Table                Note
+SQL command                          Catalog    Schema  Table                Note
 ==================================== ========== ======= ==================== ===================================================
 SHOW CATALOGS                                                                Always allowed
 SHOW SCHEMAS                         read-only  any*    any*                 Allowed if catalog is :ref:`visible<system-file-auth-visibility>`
@@ -274,6 +274,8 @@ Filter and mask environment
 .. note::
 
     These rules do not apply to ``information_schema``.
+
+    ``mask`` can contain conditional expressions such as ``IF`` or ``CASE``, which achieves conditional masking.
 
 The example below defines the following table access policy:
 
@@ -626,6 +628,10 @@ Filter environment and mask environment
 These rules apply to ``filter_environment`` and ``mask_environment``.
 
 * ``user`` (optional): username for checking permission of subqueries in a mask.
+
+.. note::
+
+    ``mask`` can contain conditional expressions such as ``IF`` or ``CASE``, which achieves conditional masking.
 
 Session property rules
 ^^^^^^^^^^^^^^^^^^^^^^

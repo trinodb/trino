@@ -44,6 +44,7 @@ public final class JdbcClientStats
     private final JdbcApiStats getSchemaNames = new JdbcApiStats();
     private final JdbcApiStats getSplits = new JdbcApiStats();
     private final JdbcApiStats getTableHandle = new JdbcApiStats();
+    private final JdbcApiStats getTableHandleForQuery = new JdbcApiStats();
     private final JdbcApiStats getTableNames = new JdbcApiStats();
     private final JdbcApiStats getTableStatistics = new JdbcApiStats();
     private final JdbcApiStats renameColumn = new JdbcApiStats();
@@ -51,7 +52,7 @@ public final class JdbcClientStats
     private final JdbcApiStats setTableProperties = new JdbcApiStats();
     private final JdbcApiStats rollbackCreateTable = new JdbcApiStats();
     private final JdbcApiStats schemaExists = new JdbcApiStats();
-    private final JdbcApiStats toPrestoType = new JdbcApiStats();
+    private final JdbcApiStats toTrinoType = new JdbcApiStats();
     private final JdbcApiStats getColumnMappings = new JdbcApiStats();
     private final JdbcApiStats toWriteMapping = new JdbcApiStats();
     private final JdbcApiStats implementAggregation = new JdbcApiStats();
@@ -244,6 +245,13 @@ public final class JdbcClientStats
 
     @Managed
     @Nested
+    public JdbcApiStats getGetTableHandleForQuery()
+    {
+        return getTableHandleForQuery;
+    }
+
+    @Managed
+    @Nested
     public JdbcApiStats getGetTableNames()
     {
         return getTableNames;
@@ -293,9 +301,9 @@ public final class JdbcClientStats
 
     @Managed
     @Nested
-    public JdbcApiStats getToPrestoType()
+    public JdbcApiStats getToTrinoType()
     {
-        return toPrestoType;
+        return toTrinoType;
     }
 
     @Managed

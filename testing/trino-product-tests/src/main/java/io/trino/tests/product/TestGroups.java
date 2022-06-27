@@ -29,6 +29,7 @@ public final class TestGroups
     public static final String SMOKE = "smoke";
     public static final String JDBC = "jdbc";
     public static final String OAUTH2 = "oauth2";
+    public static final String OAUTH2_REFRESH = "oauth2_refresh";
     public static final String MYSQL = "mysql";
     public static final String TRINO_JDBC = "trino_jdbc";
     public static final String QUERY_ENGINE = "qe";
@@ -72,6 +73,11 @@ public final class TestGroups
     public static final String CLICKHOUSE = "clickhouse";
     public static final String KUDU = "kudu";
     public static final String MARIADB = "mariadb";
+    public static final String DELTA_LAKE_OSS = "delta-lake-oss";
+    public static final String DELTA_LAKE_HDFS = "delta-lake-hdfs";
+    public static final String DELTA_LAKE_MINIO = "delta-lake-minio";
+    public static final String DELTA_LAKE_DATABRICKS = "delta-lake-databricks";
+    public static final String DELTA_LAKE_EXCLUDE_73 = "delta-lake-exclude-73";
 
     private TestGroups() {}
 }

@@ -31,6 +31,7 @@ import org.testng.annotations.BeforeClass;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -100,6 +101,11 @@ public abstract class AbstractTestFunctions
                 statement,
                 createDecimalType(expectedResult.getPrecision(), expectedResult.getScale()),
                 expectedResult);
+    }
+
+    protected void assertAmbiguousFunction(@Language("SQL") String projection, Type expectedType, Set<Object> expected)
+    {
+        functionAssertions.assertAmbiguousFunction(projection, expectedType, expected);
     }
 
     protected void assertInvalidFunction(@Language("SQL") String projection, ErrorCodeSupplier errorCode, String message)

@@ -86,7 +86,9 @@ public class TestOptimizerConfig
                 .setForceSingleNodeOutput(true)
                 .setAdaptivePartialAggregationEnabled(true)
                 .setAdaptivePartialAggregationMinRows(100_000)
-                .setAdaptivePartialAggregationUniqueRowsRatioThreshold(0.8));
+                .setAdaptivePartialAggregationUniqueRowsRatioThreshold(0.8)
+                .setJoinPartitionedBuildMinRowCount(1_000_000)
+                .setUseExactPartitioning(false));
     }
 
     @Test
@@ -141,6 +143,8 @@ public class TestOptimizerConfig
                 .put("adaptive-partial-aggregation.enabled", "false")
                 .put("adaptive-partial-aggregation.min-rows", "1")
                 .put("adaptive-partial-aggregation.unique-rows-ratio-threshold", "0.99")
+                .put("optimizer.join-partitioned-build-min-row-count", "1")
+                .put("optimizer.use-exact-partitioning", "true")
                 .buildOrThrow();
 
         OptimizerConfig expected = new OptimizerConfig()
@@ -191,7 +195,9 @@ public class TestOptimizerConfig
                 .setForceSingleNodeOutput(false)
                 .setAdaptivePartialAggregationEnabled(false)
                 .setAdaptivePartialAggregationMinRows(1)
-                .setAdaptivePartialAggregationUniqueRowsRatioThreshold(0.99);
+                .setAdaptivePartialAggregationUniqueRowsRatioThreshold(0.99)
+                .setJoinPartitionedBuildMinRowCount(1)
+                .setUseExactPartitioning(true);
         assertFullMapping(properties, expected);
     }
 }

@@ -127,7 +127,10 @@ public final class GroupByHashYieldAssertion
                 // free the pool for the next iteration
                 memoryPool.free(anotherTaskId, "test", reservedMemoryInBytes);
                 // this required in case input is blocked
-                operator.getOutput();
+                output = operator.getOutput();
+                if (output != null) {
+                    result.add(output);
+                }
                 continue;
             }
 
@@ -140,7 +143,7 @@ public final class GroupByHashYieldAssertion
                 assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
 
                 // assert the hash capacity is not changed; otherwise, we should have yielded
-                assertTrue(oldCapacity == getHashCapacity.apply(operator));
+                assertEquals((int) getHashCapacity.apply(operator), oldCapacity);
 
                 // We are not going to rehash; therefore, assert the memory increase only comes from the aggregator
                 assertLessThan(actualIncreasedMemory, additionalMemoryInBytes);
@@ -164,8 +167,8 @@ public final class GroupByHashYieldAssertion
                     expectedReservedExtraBytes = oldCapacity * (long) (Long.BYTES * 1.75 + Integer.BYTES) + page.getRetainedSizeInBytes();
                 }
                 else {
-                    // groupAddressByHash, groupIdsByHash, and rawHashByHashPosition double by hashCapacity; while groupAddressByGroupId double by maxFill = hashCapacity / 0.75
-                    expectedReservedExtraBytes = oldCapacity * (long) (Long.BYTES * 1.75 + Integer.BYTES + Byte.BYTES) + page.getRetainedSizeInBytes();
+                    // groupIdsByHash, and rawHashByHashPosition double by hashCapacity
+                    expectedReservedExtraBytes = oldCapacity * (long) (Integer.BYTES + Byte.BYTES);
                 }
                 assertBetweenInclusive(actualIncreasedMemory, expectedReservedExtraBytes, expectedReservedExtraBytes + additionalMemoryInBytes);
 
@@ -187,10 +190,24 @@ public final class GroupByHashYieldAssertion
 
                 // Assert the estimated reserved memory before rehash is very close to the one after rehash
                 long rehashedMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
-                assertBetweenInclusive(rehashedMemoryUsage * 1.0 / newMemoryUsage, 0.99, 1.01);
+                double memoryUsageErrorUpperBound = 1.01;
+                double memoryUsageError = rehashedMemoryUsage * 1.0 / newMemoryUsage;
+                if (memoryUsageError > memoryUsageErrorUpperBound) {
+                    // Usually the error is < 1%, but since MultiChannelGroupByHash.getEstimatedSize
+                    // accounts for changes in completedPagesMemorySize, which is increased if new page is
+                    // added by addNewGroup (an even that cannot be predicted as it depends on the number of unique groups
+                    // in the current page being processed), the difference includes size of the added new page.
+                    // Lower bound is 1% lower than normal because additionalMemoryInBytes includes also aggregator state.
+                    assertBetweenInclusive(rehashedMemoryUsage * 1.0 / (newMemoryUsage + additionalMemoryInBytes), 0.98, memoryUsageErrorUpperBound,
+                            "rehashedMemoryUsage " + rehashedMemoryUsage + ", newMemoryUsage: " + newMemoryUsage);
+                }
+                else {
+                    assertBetweenInclusive(memoryUsageError, 0.99, memoryUsageErrorUpperBound);
+                }
 
                 // unblocked
                 assertTrue(operator.needsInput());
+                assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
             }
         }
 

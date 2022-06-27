@@ -29,6 +29,9 @@ import io.trino.spi.connector.TableNotFoundException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.cloud.bigquery.TableDefinition.Type.SNAPSHOT;
+import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
+import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -96,10 +99,10 @@ public class ReadSessionCreator
     {
         TableDefinition tableDefinition = remoteTable.getDefinition();
         TableDefinition.Type tableType = tableDefinition.getType();
-        if (TableDefinition.Type.TABLE == tableType) {
+        if (tableType == TABLE || tableType == SNAPSHOT) {
             return remoteTable;
         }
-        if (TableDefinition.Type.VIEW == tableType) {
+        if (tableType == VIEW) {
             if (!viewEnabled) {
                 throw new TrinoException(NOT_SUPPORTED, format(
                         "Views are not enabled. You can enable views by setting '%s' to true. Notice additional cost may occur.",

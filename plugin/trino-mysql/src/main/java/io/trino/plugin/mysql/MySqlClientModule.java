@@ -28,10 +28,13 @@ import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.spi.ptf.ConnectorTableFunction;
 
 import java.sql.SQLException;
 import java.util.Properties;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class MySqlClientModule
@@ -46,6 +49,7 @@ public class MySqlClientModule
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         install(new DecimalModule());
         install(new JdbcJoinPushdownSupportModule());
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Provides
@@ -68,6 +72,7 @@ public class MySqlClientModule
         connectionProperties.setProperty("useUnicode", "true");
         connectionProperties.setProperty("characterEncoding", "utf8");
         connectionProperties.setProperty("tinyInt1isBit", "false");
+        connectionProperties.setProperty("rewriteBatchedStatements", "true");
         if (mySqlConfig.isAutoReconnect()) {
             connectionProperties.setProperty("autoReconnect", String.valueOf(mySqlConfig.isAutoReconnect()));
             connectionProperties.setProperty("maxReconnects", String.valueOf(mySqlConfig.getMaxReconnects()));

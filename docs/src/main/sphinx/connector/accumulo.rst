@@ -53,7 +53,7 @@ Configuration variables
 -----------------------
 
 ================================================ ====================== ========== =====================================================================================
-Property Name                                    Default Value          Required   Description
+Property name                                    Default value          Required   Description
 ================================================ ====================== ========== =====================================================================================
 ``accumulo.instance``                            (none)                 Yes        Name of the Accumulo instance
 ``accumulo.zookeepers``                          (none)                 Yes        ZooKeeper connect string
@@ -447,7 +447,7 @@ Table property usage example:
     );
 
 ==================== ================ ======================================================================================================
-Property Name        Default Value    Description
+Property name        Default value    Description
 ==================== ================ ======================================================================================================
 ``column_mapping``   (generated)      Comma-delimited list of column metadata: ``col_name:col_family:col_qualifier,[...]``.
                                       Required for external tables.  Not setting this property results in auto-generated column names.
@@ -473,7 +473,7 @@ Note that session properties are prefixed with the catalog name::
     SET SESSION accumulo.column_filter_optimizations_enabled = false;
 
 ============================================= ============= =======================================================================================================
-Property Name                                 Default Value Description
+Property name                                 Default value Description
 ============================================= ============= =======================================================================================================
 ``optimize_locality_enabled``                 ``true``      Set to true to enable data locality for non-indexed scans
 ``optimize_split_ranges_enabled``             ``true``      Set to true to split non-indexed queries by tablet splits. Should generally be true.

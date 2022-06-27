@@ -20,23 +20,19 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.PartitionStatistics;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.UnimplementedHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.trino.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreStats;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -57,10 +53,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -70,20 +68,22 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
+import static io.trino.plugin.hive.metastore.cache.TestCachingHiveMetastore.PartitionCachingAssertions.assertThatCachingWithDisabledPartitionCache;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_PARTITION;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.PARTITION_COLUMN_NAMES;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_COLUMN;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_DATABASE;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION1;
+import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION1_VALUE;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION2;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION_VALUES1;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_ROLES;
@@ -91,7 +91,7 @@ import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TE
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.TestingConnectorSession.SESSION;
+import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
@@ -107,7 +107,6 @@ public class TestCachingHiveMetastore
 {
     private static final Logger log = Logger.get(TestCachingHiveMetastore.class);
 
-    private static final HiveIdentity IDENTITY = new HiveIdentity(SESSION.getIdentity());
     private static final PartitionStatistics TEST_STATS = PartitionStatistics.builder()
             .setColumnStatistics(ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty())))
             .build();
@@ -121,15 +120,16 @@ public class TestCachingHiveMetastore
     public void setUp()
     {
         mockClient = new MockThriftMetastoreClient();
-        ThriftHiveMetastore thriftHiveMetastore = createThriftHiveMetastore();
+        ThriftMetastore thriftHiveMetastore = createThriftHiveMetastore();
         executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s")));
         metastore = cachingHiveMetastore(
-                new BridgingHiveMetastore(thriftHiveMetastore, IDENTITY),
+                new BridgingHiveMetastore(thriftHiveMetastore),
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
                 Optional.of(new Duration(1, TimeUnit.MINUTES)),
-                1000);
-        stats = thriftHiveMetastore.getStats();
+                1000,
+                true);
+        stats = ((ThriftHiveMetastore) thriftHiveMetastore).getStats();
     }
 
     @AfterClass(alwaysRun = true)
@@ -140,10 +140,50 @@ public class TestCachingHiveMetastore
         metastore = null;
     }
 
-    private ThriftHiveMetastore createThriftHiveMetastore()
+    private ThriftMetastore createThriftHiveMetastore()
     {
-        MetastoreLocator metastoreLocator = new MockMetastoreLocator(mockClient);
-        return new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new MetastoreConfig(), new ThriftMetastoreConfig(), HDFS_ENVIRONMENT, false);
+        return createThriftHiveMetastore(mockClient);
+    }
+
+    private static ThriftMetastore createThriftHiveMetastore(ThriftMetastoreClient client)
+    {
+        return testingThriftHiveMetastoreBuilder()
+                .metastoreClient(client)
+                .build();
+    }
+
+    @Test
+    public void testCachingWithOnlyPartitionsCacheEnabled()
+    {
+        assertThatCachingWithDisabledPartitionCache()
+                .whenExecuting(CachingHiveMetastore::getAllDatabases)
+                .usesCache();
+
+        assertThatCachingWithDisabledPartitionCache()
+                .whenExecuting(testedMetastore -> testedMetastore.getAllTables(TEST_DATABASE))
+                .usesCache();
+
+        assertThatCachingWithDisabledPartitionCache()
+                .whenExecuting(testedMetastore -> testedMetastore.getTable(TEST_DATABASE, TEST_TABLE))
+                .usesCache();
+
+        assertThatCachingWithDisabledPartitionCache()
+                .whenExecuting(testedMetastore -> testedMetastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()))
+                .doesNotUseCache();
+
+        assertThatCachingWithDisabledPartitionCache()
+                .whenExecuting(testedMetastore -> {
+                    Optional<Table> table = testedMetastore.getTable(TEST_DATABASE, TEST_TABLE);
+                    testedMetastore.getPartition(table.get(), TEST_PARTITION_VALUES1);
+                })
+                .omitsCacheForNumberOfOperations(1);
+
+        assertThatCachingWithDisabledPartitionCache()
+                .whenExecuting(testedMetastore -> {
+                    Optional<Table> table = testedMetastore.getTable(TEST_DATABASE, TEST_TABLE);
+                    testedMetastore.getPartitionsByNames(table.get(), TEST_PARTITION_VALUES1);
+                })
+                .omitsCacheForNumberOfOperations(1);
     }
 
     @Test
@@ -248,6 +288,71 @@ public class TestCachingHiveMetastore
 
         assertEquals(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 2);
+    }
+
+    /**
+     * Test {@link CachingHiveMetastore#getPartition(Table, List)} followed by
+     * {@link CachingHiveMetastore#getPartitionsByNames(Table, List)}.
+     * <p>
+     * At the moment of writing, CachingHiveMetastore uses HivePartitionName for keys in partition cache.
+     * HivePartitionName has a peculiar, semi- value-based equality. HivePartitionName may or may not be missing
+     * a name and it matters for bulk load, but it doesn't matter for single-partition load.
+     * Because of equality semantics, the cache keys may gets mixed during bulk load.
+     */
+    @Test
+    public void testGetPartitionThenGetPartitions()
+    {
+        Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
+        Optional<Partition> firstRead = metastore.getPartition(table, List.of(TEST_PARTITION1_VALUE));
+        assertThat(firstRead).isPresent();
+        assertThat(firstRead.get().getValues()).isEqualTo(List.of(TEST_PARTITION1_VALUE));
+
+        Map<String, Optional<Partition>> byName = metastore.getPartitionsByNames(table, List.of(TEST_PARTITION1));
+        assertThat(byName).containsOnlyKeys(TEST_PARTITION1);
+        Optional<Partition> secondRead = byName.get(TEST_PARTITION1);
+        assertThat(secondRead).isPresent();
+        assertThat(secondRead.get().getValues()).isEqualTo(List.of(TEST_PARTITION1_VALUE));
+    }
+
+    /**
+     * A variant of {@link #testGetPartitionThenGetPartitions} where the second get happens concurrently with eviction,
+     * here simulated with an explicit invalidation.
+     */
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @Test(timeOut = 60_000, invocationCount = 20)
+    public void testGetPartitionThenGetPartitionsRacingWithInvalidation()
+            throws Exception
+    {
+        Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
+        Optional<Partition> firstRead = metastore.getPartition(table, List.of(TEST_PARTITION1_VALUE));
+        assertThat(firstRead).isPresent();
+        assertThat(firstRead.get().getValues()).isEqualTo(List.of(TEST_PARTITION1_VALUE));
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            CyclicBarrier barrier = new CyclicBarrier(2);
+            Future<?> invalidation = executor.submit(() -> {
+                barrier.await(10, SECONDS);
+                metastore.flushCache();
+                return null;
+            });
+
+            Future<Map<String, Optional<Partition>>> read = executor.submit(() -> {
+                barrier.await(10, SECONDS);
+                return metastore.getPartitionsByNames(table, List.of(TEST_PARTITION1));
+            });
+
+            Map<String, Optional<Partition>> byName = read.get();
+            assertThat(byName).containsOnlyKeys(TEST_PARTITION1);
+            Optional<Partition> secondRead = byName.get(TEST_PARTITION1);
+            assertThat(secondRead).isPresent();
+            assertThat(secondRead.get().getValues()).isEqualTo(List.of(TEST_PARTITION1_VALUE));
+
+            invalidation.get(); // no exception raised
+        }
+        finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
@@ -477,9 +582,9 @@ public class TestCachingHiveMetastore
     @Test
     public void testCachingHiveMetastoreCreationViaMemoize()
     {
-        ThriftHiveMetastore thriftHiveMetastore = createThriftHiveMetastore();
+        ThriftMetastore thriftHiveMetastore = createThriftHiveMetastore();
         metastore = memoizeMetastore(
-                new BridgingHiveMetastore(thriftHiveMetastore, IDENTITY),
+                new BridgingHiveMetastore(thriftHiveMetastore),
                 1000);
 
         assertEquals(mockClient.getAccessCount(), 0);
@@ -574,7 +679,8 @@ public class TestCachingHiveMetastore
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
                 Optional.of(new Duration(1, TimeUnit.MINUTES)),
-                1000);
+                1000,
+                true);
 
         // The test. Main thread does modifications and verifies subsequent load sees them. Background thread loads the state into the cache.
         ExecutorService executor = Executors.newFixedThreadPool(1);
@@ -660,30 +766,75 @@ public class TestCachingHiveMetastore
         }
     }
 
+    static class PartitionCachingAssertions
+    {
+        private final CachingHiveMetastore cachingHiveMetastore;
+        private final MockThriftMetastoreClient thriftClient;
+        private Consumer<CachingHiveMetastore> metastoreInteractions = hiveMetastore -> {};
+
+        static PartitionCachingAssertions assertThatCachingWithDisabledPartitionCache()
+        {
+            return new PartitionCachingAssertions();
+        }
+
+        private PartitionCachingAssertions()
+        {
+            thriftClient = new MockThriftMetastoreClient();
+            cachingHiveMetastore = (CachingHiveMetastore) cachingHiveMetastore(
+                    new BridgingHiveMetastore(createThriftHiveMetastore(thriftClient)),
+                    listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+                    new Duration(5, TimeUnit.MINUTES),
+                    Optional.of(new Duration(1, TimeUnit.MINUTES)),
+                    1000,
+                    false);
+        }
+
+        PartitionCachingAssertions whenExecuting(Consumer<CachingHiveMetastore> interactions)
+        {
+            this.metastoreInteractions = interactions;
+            return this;
+        }
+
+        void usesCache()
+        {
+            for (int i = 0; i < 5; i++) {
+                metastoreInteractions.accept(cachingHiveMetastore);
+                assertEquals(thriftClient.getAccessCount(), 1, "Metastore is expected to use cache, but it does not.");
+            }
+        }
+
+        void doesNotUseCache()
+        {
+            for (int i = 1; i < 5; i++) {
+                metastoreInteractions.accept(cachingHiveMetastore);
+                assertEquals(thriftClient.getAccessCount(), i, "Metastore is expected to not use cache, but it does.");
+            }
+        }
+
+        void omitsCacheForNumberOfOperations(int expectedCacheOmittingOperations)
+        {
+            //load caches
+            metastoreInteractions.accept(cachingHiveMetastore);
+
+            int startingAccessCount = thriftClient.getAccessCount();
+            for (int i = 1; i < 5; i++) {
+                metastoreInteractions.accept(cachingHiveMetastore);
+                int currentAccessCount = thriftClient.getAccessCount();
+                int timesCacheHasBeenOmited = (currentAccessCount - startingAccessCount) / i;
+                assertEquals(timesCacheHasBeenOmited, expectedCacheOmittingOperations, format("Metastore is expected to not use cache %s times, but it does not use it %s times.",
+                        expectedCacheOmittingOperations, timesCacheHasBeenOmited));
+            }
+        }
+    }
+
     private CachingHiveMetastore createMetastoreWithDirectExecutor(CachingHiveMetastoreConfig config)
     {
         return cachingHiveMetastore(
-                new BridgingHiveMetastore(createThriftHiveMetastore(), IDENTITY),
+                new BridgingHiveMetastore(createThriftHiveMetastore()),
                 directExecutor(),
                 config.getMetastoreCacheTtl(),
                 config.getMetastoreRefreshInterval(),
-                config.getMetastoreCacheMaximumSize());
-    }
-
-    private static class MockMetastoreLocator
-            implements MetastoreLocator
-    {
-        private final ThriftMetastoreClient client;
-
-        private MockMetastoreLocator(ThriftMetastoreClient client)
-        {
-            this.client = client;
-        }
-
-        @Override
-        public ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken)
-        {
-            return client;
-        }
+                config.getMetastoreCacheMaximumSize(),
+                config.isPartitionCacheEnabled());
     }
 }

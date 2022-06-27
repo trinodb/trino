@@ -15,22 +15,14 @@ package io.trino.plugin.hive;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.trino.plugin.hive.metastore.thrift.TestingMetastoreLocator;
-import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -40,10 +32,9 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -76,22 +67,10 @@ public abstract class BaseTestHiveOnDataLake
         this.dockerizedS3DataLake = closeAfterClass(
                 new HiveMinioDataLake(bucketName, ImmutableMap.of(), hiveHadoopImage));
         this.dockerizedS3DataLake.start();
-        this.metastoreClient = new BridgingHiveMetastore(new ThriftHiveMetastore(
-                new TestingMetastoreLocator(
-                        Optional.empty(),
-                        this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint()),
-                new HiveConfig(),
-                new MetastoreConfig(),
-                new ThriftMetastoreConfig(),
-                new HdfsEnvironment(new HiveHdfsConfiguration(
-                        new HdfsConfigurationInitializer(
-                                new HdfsConfig(),
-                                ImmutableSet.of()),
-                        ImmutableSet.of()),
-                        new HdfsConfig(),
-                        new NoHdfsAuthentication()),
-                false),
-                HiveIdentity.none());
+        this.metastoreClient = new BridgingHiveMetastore(
+                testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                        .build());
         return S3HiveQueryRunner.builder(dockerizedS3DataLake)
                 .setHiveProperties(
                         ImmutableMap.<String, String>builder()
@@ -104,8 +83,6 @@ public abstract class BaseTestHiveOnDataLake
                                 // This is required to reduce memory pressure to test writing large files
                                 .put("hive.s3.streaming.part-size", HIVE_S3_STREAMING_PART_SIZE.toString())
                                 .buildOrThrow())
-                // Increased timeout due to occasional slower responses in such setup
-                .setMetastoreTimeout(new Duration(20, TimeUnit.SECONDS))
                 .build();
     }
 

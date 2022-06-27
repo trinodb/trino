@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
@@ -35,6 +36,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.Privilege;
@@ -88,7 +90,7 @@ public class AccessControlManager
     private final List<File> configFiles;
     private final String defaultAccessControlName;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
-    private final Map<CatalogName, CatalogAccessControlEntry> connectorAccessControl = new ConcurrentHashMap<>();
+    private final AtomicReference<CatalogServiceProvider<Optional<ConnectorAccessControl>>> connectorAccessControlProvider = new AtomicReference<>();
 
     private final AtomicReference<List<SystemAccessControl>> systemAccessControls = new AtomicReference<>();
 
@@ -121,17 +123,14 @@ public class AccessControlManager
         }
     }
 
-    public void addCatalogAccessControl(CatalogName catalogName, ConnectorAccessControl accessControl)
+    /**
+     * Lazy registry for connector access controls due to circular dependency between access control and connector creation in ConnectorManager.
+     */
+    public void setConnectorAccessControlProvider(CatalogServiceProvider<Optional<ConnectorAccessControl>> connectorAccessControlProvider)
     {
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(accessControl, "accessControl is null");
-        checkState(connectorAccessControl.putIfAbsent(catalogName, new CatalogAccessControlEntry(catalogName, accessControl)) == null,
-                "Access control for connector '%s' is already registered", catalogName);
-    }
-
-    public void removeCatalogAccessControl(CatalogName catalogName)
-    {
-        connectorAccessControl.remove(catalogName);
+        if (!this.connectorAccessControlProvider.compareAndSet(null, connectorAccessControlProvider)) {
+            throw new IllegalStateException("connectorAccessControlProvider already set");
+        }
     }
 
     public void loadSystemAccessControl()
@@ -383,9 +382,9 @@ public class AccessControlManager
             schemaNames = systemAccessControl.filterSchemas(securityContext.toSystemSecurityContext(), catalogName, schemaNames);
         }
 
-        CatalogAccessControlEntry entry = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
-        if (entry != null) {
-            schemaNames = entry.getAccessControl().filterSchemas(entry.toConnectorSecurityContext(securityContext), schemaNames);
+        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
+        if (connectorAccessControl != null) {
+            schemaNames = connectorAccessControl.filterSchemas(toConnectorSecurityContext(catalogName, securityContext), schemaNames);
         }
         return schemaNames;
     }
@@ -524,9 +523,9 @@ public class AccessControlManager
             tableNames = systemAccessControl.filterTables(securityContext.toSystemSecurityContext(), catalogName, tableNames);
         }
 
-        CatalogAccessControlEntry entry = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
-        if (entry != null) {
-            tableNames = entry.getAccessControl().filterTables(entry.toConnectorSecurityContext(securityContext), tableNames);
+        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
+        if (connectorAccessControl != null) {
+            tableNames = connectorAccessControl.filterTables(toConnectorSecurityContext(catalogName, securityContext), tableNames);
         }
         return tableNames;
     }
@@ -558,9 +557,9 @@ public class AccessControlManager
             columns = systemAccessControl.filterColumns(securityContext.toSystemSecurityContext(), table, columns);
         }
 
-        CatalogAccessControlEntry entry = getConnectorAccessControl(securityContext.getTransactionId(), table.getCatalogName());
-        if (entry != null) {
-            columns = entry.getAccessControl().filterColumns(entry.toConnectorSecurityContext(securityContext), table.getSchemaTableName(), columns);
+        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(securityContext.getTransactionId(), table.getCatalogName());
+        if (connectorAccessControl != null) {
+            columns = connectorAccessControl.filterColumns(toConnectorSecurityContext(table.getCatalogName(), securityContext), table.getSchemaTableName(), columns);
         }
         return columns;
     }
@@ -1135,19 +1134,23 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext securityContext, QualifiedObjectName functionName)
+    public void checkCanExecuteFunction(SecurityContext securityContext, FunctionKind functionKind, QualifiedObjectName functionName)
     {
         requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(functionKind, "functionKind is null");
         requireNonNull(functionName, "functionName is null");
 
         checkCanAccessCatalog(securityContext, functionName.getCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanExecuteFunction(securityContext.toSystemSecurityContext(), functionName.asCatalogSchemaRoutineName()));
+        systemAuthorizationCheck(control -> control.checkCanExecuteFunction(
+                securityContext.toSystemSecurityContext(),
+                functionKind,
+                functionName.asCatalogSchemaRoutineName()));
 
         catalogAuthorizationCheck(
                 functionName.getCatalogName(),
                 securityContext,
-                (control, context) -> control.checkCanExecuteFunction(context, functionName.asSchemaRoutineName()));
+                (control, context) -> control.checkCanExecuteFunction(context, functionKind, functionName.asSchemaRoutineName()));
     }
 
     @Override
@@ -1178,10 +1181,10 @@ public class AccessControlManager
         requireNonNull(tableName, "tableName is null");
 
         ImmutableList.Builder<ViewExpression> filters = ImmutableList.builder();
-        CatalogAccessControlEntry entry = getConnectorAccessControl(context.getTransactionId(), tableName.getCatalogName());
+        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(context.getTransactionId(), tableName.getCatalogName());
 
-        if (entry != null) {
-            entry.getAccessControl().getRowFilters(entry.toConnectorSecurityContext(context), tableName.asSchemaTableName())
+        if (connectorAccessControl != null) {
+            connectorAccessControl.getRowFilters(toConnectorSecurityContext(tableName.getCatalogName(), context), tableName.asSchemaTableName())
                     .forEach(filters::add);
         }
 
@@ -1202,9 +1205,9 @@ public class AccessControlManager
         ImmutableList.Builder<ViewExpression> masks = ImmutableList.builder();
 
         // connector-provided masks take precedence over global masks
-        CatalogAccessControlEntry entry = getConnectorAccessControl(context.getTransactionId(), tableName.getCatalogName());
-        if (entry != null) {
-            entry.getAccessControl().getColumnMasks(entry.toConnectorSecurityContext(context), tableName.asSchemaTableName(), columnName, type)
+        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(context.getTransactionId(), tableName.getCatalogName());
+        if (connectorAccessControl != null) {
+            connectorAccessControl.getColumnMasks(toConnectorSecurityContext(tableName.getCatalogName(), context), tableName.asSchemaTableName(), columnName, type)
                     .forEach(masks::add);
         }
 
@@ -1216,10 +1219,15 @@ public class AccessControlManager
         return masks.build();
     }
 
-    private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
+    private ConnectorAccessControl getConnectorAccessControl(TransactionId transactionId, String catalogName)
     {
+        CatalogServiceProvider<Optional<ConnectorAccessControl>> connectorAccessControlProvider = this.connectorAccessControlProvider.get();
+        if (connectorAccessControlProvider == null) {
+            return null;
+        }
+
         return transactionManager.getCatalogName(transactionId, catalogName)
-                .map(connectorAccessControl::get)
+                .flatMap(connectorAccessControlProvider::getService)
                 .orElse(null);
     }
 
@@ -1267,13 +1275,13 @@ public class AccessControlManager
 
     private void catalogAuthorizationCheck(String catalogName, SecurityContext securityContext, BiConsumer<ConnectorAccessControl, ConnectorSecurityContext> check)
     {
-        CatalogAccessControlEntry entry = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
-        if (entry == null) {
+        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
+        if (connectorAccessControl == null) {
             return;
         }
 
         try {
-            check.accept(entry.getAccessControl(), entry.toConnectorSecurityContext(securityContext));
+            check.accept(connectorAccessControl, toConnectorSecurityContext(catalogName, securityContext));
             authorizationSuccess.update(1);
         }
         catch (TrinoException e) {
@@ -1284,8 +1292,8 @@ public class AccessControlManager
 
     private void checkCatalogRoles(SecurityContext securityContext, String catalogName)
     {
-        CatalogAccessControlEntry entry = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
-        if (entry == null) {
+        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
+        if (connectorAccessControl == null) {
             throw new TrinoException(NOT_SUPPORTED, format("Catalog %s does not support catalog roles", catalogName));
         }
     }
@@ -1296,39 +1304,17 @@ public class AccessControlManager
                 .orElse(ImmutableList.of(new InitializingSystemAccessControl()));
     }
 
-    private class CatalogAccessControlEntry
+    private ConnectorSecurityContext toConnectorSecurityContext(String catalogName, SecurityContext securityContext)
     {
-        private final CatalogName catalogName;
-        private final ConnectorAccessControl accessControl;
+        return toConnectorSecurityContext(catalogName, securityContext.getTransactionId(), securityContext.getIdentity(), securityContext.getQueryId());
+    }
 
-        public CatalogAccessControlEntry(CatalogName catalogName, ConnectorAccessControl accessControl)
-        {
-            this.catalogName = requireNonNull(catalogName, "catalogName is null");
-            this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        }
-
-        public CatalogName getCatalogName()
-        {
-            return catalogName;
-        }
-
-        public ConnectorAccessControl getAccessControl()
-        {
-            return accessControl;
-        }
-
-        public ConnectorSecurityContext toConnectorSecurityContext(SecurityContext securityContext)
-        {
-            return toConnectorSecurityContext(securityContext.getTransactionId(), securityContext.getIdentity(), securityContext.getQueryId());
-        }
-
-        public ConnectorSecurityContext toConnectorSecurityContext(TransactionId requiredTransactionId, Identity identity, QueryId queryId)
-        {
-            return new ConnectorSecurityContext(
-                    transactionManager.getConnectorTransaction(requiredTransactionId, catalogName),
-                    identity.toConnectorIdentity(catalogName.getCatalogName()),
-                    queryId);
-        }
+    private ConnectorSecurityContext toConnectorSecurityContext(String catalogName, TransactionId requiredTransactionId, Identity identity, QueryId queryId)
+    {
+        return new ConnectorSecurityContext(
+                transactionManager.getConnectorTransaction(requiredTransactionId, new CatalogName(catalogName)),
+                identity.toConnectorIdentity(catalogName),
+                queryId);
     }
 
     private static class InitializingSystemAccessControl

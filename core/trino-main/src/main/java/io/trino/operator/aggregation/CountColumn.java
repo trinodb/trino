@@ -13,87 +13,56 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
-import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.operator.aggregation.state.LongState;
-import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.AccumulatorStateFactory;
-import io.trino.spi.function.AccumulatorStateSerializer;
-import io.trino.spi.type.TypeSignature;
-
-import java.lang.invoke.MethodHandle;
-import java.util.Optional;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationState;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.RemoveInputFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.util.Reflection.methodHandle;
 
-public class CountColumn
-        extends SqlAggregationFunction
+@AggregationFunction("count")
+@Description("Counts the non-null values")
+public final class CountColumn
 {
-    public static final CountColumn COUNT_COLUMN = new CountColumn();
-    private static final String NAME = "count";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(CountColumn.class, "input", LongState.class, Block.class, int.class);
-    private static final MethodHandle REMOVE_INPUT_FUNCTION = methodHandle(CountColumn.class, "removeInput", LongState.class, Block.class, int.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(CountColumn.class, "combine", LongState.class, LongState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(CountColumn.class, "output", LongState.class, BlockBuilder.class);
+    private CountColumn() {}
 
-    public CountColumn()
-    {
-        super(
-                FunctionMetadata.aggregateBuilder()
-                        .signature(Signature.builder()
-                                .name(NAME)
-                                .typeVariable("T")
-                                .returnType(BIGINT)
-                                .argumentType(new TypeSignature("T"))
-                                .build())
-                        .description("Counts the non-null values")
-                        .build(),
-                AggregationFunctionMetadata.builder()
-                        .intermediateType(BIGINT)
-                        .build());
-    }
-
-    @Override
-    public AggregationMetadata specialize(BoundSignature boundSignature)
-    {
-        AccumulatorStateSerializer<LongState> stateSerializer = StateCompiler.generateStateSerializer(LongState.class);
-        AccumulatorStateFactory<LongState> stateFactory = StateCompiler.generateStateFactory(LongState.class);
-
-        return new AggregationMetadata(
-                INPUT_FUNCTION,
-                Optional.of(REMOVE_INPUT_FUNCTION),
-                Optional.of(COMBINE_FUNCTION),
-                OUTPUT_FUNCTION,
-                ImmutableList.of(new AccumulatorStateDescriptor<>(
-                        LongState.class,
-                        stateSerializer,
-                        stateFactory)));
-    }
-
-    public static void input(LongState state, Block block, int index)
+    @InputFunction
+    @TypeParameter("T")
+    public static void input(
+            @AggregationState LongState state,
+            @BlockPosition @SqlType("T") Block block,
+            @BlockIndex int position)
     {
         state.setValue(state.getValue() + 1);
     }
 
-    public static void removeInput(LongState state, Block block, int index)
+    @RemoveInputFunction
+    public static void removeInput(
+            @AggregationState LongState state,
+            @BlockPosition @SqlType("T") Block block,
+            @BlockIndex int position)
     {
         state.setValue(state.getValue() - 1);
     }
 
-    public static void combine(LongState state, LongState otherState)
+    @CombineFunction
+    public static void combine(@AggregationState LongState state, LongState otherState)
     {
         state.setValue(state.getValue() + otherState.getValue());
     }
 
-    public static void output(LongState state, BlockBuilder out)
+    @OutputFunction("BIGINT")
+    public static void output(@AggregationState LongState state, BlockBuilder out)
     {
         BIGINT.writeLong(out, state.getValue());
     }

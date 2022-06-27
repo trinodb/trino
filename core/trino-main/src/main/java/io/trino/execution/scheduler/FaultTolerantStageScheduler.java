@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.MoreFutures;
@@ -80,6 +81,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -285,18 +287,29 @@ public class FaultTolerantStageScheduler
 
         while (!pendingPartitions.isEmpty() || !queuedPartitions.isEmpty() || !taskSource.isFinished()) {
             while (queuedPartitions.isEmpty() && pendingPartitions.size() < maxTasksWaitingForNodePerStage && !taskSource.isFinished()) {
-                List<TaskDescriptor> tasks = taskSource.getMoreTasks();
-                for (TaskDescriptor task : tasks) {
-                    queuedPartitions.add(task.getPartitionId());
-                    allPartitions.add(task.getPartitionId());
-                    taskDescriptorStorage.put(stage.getStageId(), task);
-                    sinkExchange.ifPresent(exchange -> {
-                        ExchangeSinkHandle exchangeSinkHandle = exchange.addSink(task.getPartitionId());
-                        partitionToExchangeSinkHandleMap.put(task.getPartitionId(), exchangeSinkHandle);
-                    });
-                }
-                if (taskSource.isFinished()) {
-                    sinkExchange.ifPresent(Exchange::noMoreSinks);
+                ListenableFuture<Void> tasksPopulatedFuture = Futures.transform(
+                        taskSource.getMoreTasks(),
+                        tasks -> {
+                            synchronized (this) {
+                                for (TaskDescriptor task : tasks) {
+                                    queuedPartitions.add(task.getPartitionId());
+                                    allPartitions.add(task.getPartitionId());
+                                    taskDescriptorStorage.put(stage.getStageId(), task);
+                                    sinkExchange.ifPresent(exchange -> {
+                                        ExchangeSinkHandle exchangeSinkHandle = exchange.addSink(task.getPartitionId());
+                                        partitionToExchangeSinkHandleMap.put(task.getPartitionId(), exchangeSinkHandle);
+                                    });
+                                }
+                                if (taskSource.isFinished()) {
+                                    sinkExchange.ifPresent(Exchange::noMoreSinks);
+                                }
+                                return null;
+                            }
+                        },
+                        directExecutor());
+                if (!tasksPopulatedFuture.isDone()) {
+                    blocked = tasksPopulatedFuture;
+                    return;
                 }
             }
 
@@ -614,6 +627,11 @@ public class FaultTolerantStageScheduler
                                 delaySchedulingDuration = Optional.empty();
                                 delaySchedulingFuture = null;
                             }
+
+                            // Remove taskDescriptor for finished partition to conserve memory
+                            // We may revisit the approach when we support volatile exchanges, for which
+                            // it may be needed to restart already finished task to recreate output it produced.
+                            taskDescriptorStorage.remove(stage.getStageId(), partitionId);
 
                             break;
                         case CANCELED:

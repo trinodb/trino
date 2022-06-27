@@ -107,6 +107,32 @@ public class TestRenameTableTask
                 .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
     }
 
+    @Test
+    public void testRenameTableTargetViewExists()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
+        QualifiedName viewName = qualifiedName("existing_view");
+        metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), false);
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(asQualifiedName(tableName), viewName, false)))
+                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasMessage("Target table '%s' does not exist, but a view with that name exists.", viewName);
+    }
+
+    @Test
+    public void testRenameTableTargetMaterializedViewExists()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
+        QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(asQualifiedName(tableName), asQualifiedName(materializedViewName), false)))
+                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasMessage("Target table '%s' does not exist, but a materialized view with that name exists.", materializedViewName);
+    }
+
     private ListenableFuture<Void> executeRenameTable(QualifiedName source, QualifiedName target, boolean exists)
     {
         return new RenameTableTask(metadata, new AllowAllAccessControl())

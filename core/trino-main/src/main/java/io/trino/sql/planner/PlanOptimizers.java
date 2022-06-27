@@ -188,6 +188,7 @@ import io.trino.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
 import io.trino.sql.planner.iterative.rule.RemoveDuplicateConditions;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyDeleteRuleSet;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyExceptBranches;
+import io.trino.sql.planner.iterative.rule.RemoveEmptyGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyTableExecute;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyUnionBranches;
 import io.trino.sql.planner.iterative.rule.RemoveFullSample;
@@ -234,7 +235,7 @@ import io.trino.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
 import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapRowSubscript;
 import io.trino.sql.planner.iterative.rule.UnwrapSingleColumnRowInApply;
-import io.trino.sql.planner.iterative.rule.UnwrapTimestampToDateCastInComparison;
+import io.trino.sql.planner.iterative.rule.UseNonPartitionedJoinLookupSource;
 import io.trino.sql.planner.optimizations.AddExchanges;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.BeginTableWrite;
@@ -363,7 +364,6 @@ public class PlanOptimizers
                 .addAll(new SimplifyExpressions(plannerContext, typeAnalyzer).rules())
                 .addAll(new UnwrapRowSubscript().rules())
                 .addAll(new PushCastIntoRow().rules())
-                .addAll(new UnwrapTimestampToDateCastInComparison(plannerContext, typeAnalyzer).rules())
                 .addAll(new UnwrapCastInComparison(plannerContext, typeAnalyzer).rules())
                 .addAll(new RemoveDuplicateConditions(metadata).rules())
                 .addAll(new CanonicalizeExpressions(plannerContext, typeAnalyzer).rules())
@@ -919,6 +919,13 @@ public class PlanOptimizers
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
         builder.add(new AddLocalExchanges(plannerContext, typeAnalyzer));
+        // UseNonPartitionedJoinLookupSource needs to run after AddLocalExchanges since it operates on ExchangeNodes added by this optimizer.
+        builder.add(new IterativeOptimizer(
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new UseNonPartitionedJoinLookupSource())));
 
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers
@@ -975,6 +982,7 @@ public class PlanOptimizers
     {
         return ImmutableSet.of(
                 new PruneAggregationColumns(),
+                new RemoveEmptyGlobalAggregation(), // aggregation can become empty after pruning its output columns
                 new PruneAggregationSourceColumns(),
                 new PruneApplyColumns(),
                 new PruneApplyCorrelation(),

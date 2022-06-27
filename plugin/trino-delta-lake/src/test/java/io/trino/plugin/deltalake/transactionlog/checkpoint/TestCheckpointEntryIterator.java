@@ -43,13 +43,13 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.io.Resources.getResource;
+import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.COMMIT;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
-import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -87,8 +87,8 @@ public class TestCheckpointEntryIterator
                 .isEqualTo(
                         new MetadataEntry(
                                 "b6aeffad-da73-4dde-b68e-937e468b1fde",
-                                "",
-                                "",
+                                null,
+                                null,
                                 new MetadataEntry.Format("parquet", Map.of()),
                                 "{\"type\":\"struct\",\"fields\":[" +
                                         "{\"name\":\"name\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +

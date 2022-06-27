@@ -84,6 +84,270 @@ Logical plan::
                               Estimates: {rows: 25 (225B), cpu: 225, memory: 0B, network: 0B}
                               regionkey := tpch:regionkey
 
+EXPLAIN (TYPE LOGICAL, FORMAT JSON)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. warning:: The output format is not guaranteed to be backward compatible across Trino versions.
+
+JSON Logical plan::
+
+    EXPLAIN (TYPE LOGICAL, FORMAT JSON) SELECT regionkey, count(*) FROM nation GROUP BY 1;
+
+.. code-block:: json
+
+    {
+       "id": "9",
+       "name": "Output",
+       "descriptor": {
+          "columnNames": "[regionkey, _col1]"
+       },
+       "outputs": [
+          {
+             "symbol": "regionkey",
+             "type": "bigint"
+          },
+          {
+             "symbol": "count",
+             "type": "bigint"
+          }
+       ],
+       "details": [
+          "_col1 := count"
+       ],
+       "estimates": [
+          {
+             "outputRowCount": "NaN",
+             "outputSizeInBytes": "NaN",
+             "cpuCost": "NaN",
+             "memoryCost": "NaN",
+             "networkCost": "NaN"
+          }
+       ],
+       "children": [
+          {
+             "id": "145",
+             "name": "RemoteExchange",
+             "descriptor": {
+                "type": "GATHER",
+                "isReplicateNullsAndAny": "",
+                "hashColumn": ""
+             },
+             "outputs": [
+                {
+                   "symbol": "regionkey",
+                   "type": "bigint"
+                },
+                {
+                   "symbol": "count",
+                   "type": "bigint"
+                }
+             ],
+             "details": [
+
+             ],
+             "estimates": [
+                {
+                   "outputRowCount": "NaN",
+                   "outputSizeInBytes": "NaN",
+                   "cpuCost": "NaN",
+                   "memoryCost": "NaN",
+                   "networkCost": "NaN"
+                }
+             ],
+             "children": [
+                {
+                   "id": "4",
+                   "name": "Aggregate",
+                   "descriptor": {
+                      "type": "FINAL",
+                      "keys": "[regionkey]",
+                      "hash": ""
+                   },
+                   "outputs": [
+                      {
+                         "symbol": "regionkey",
+                         "type": "bigint"
+                      },
+                      {
+                         "symbol": "count",
+                         "type": "bigint"
+                      }
+                   ],
+                   "details": [
+                      "count := count(\"count_0\")"
+                   ],
+                   "estimates": [
+                      {
+                         "outputRowCount": "NaN",
+                         "outputSizeInBytes": "NaN",
+                         "cpuCost": "NaN",
+                         "memoryCost": "NaN",
+                         "networkCost": "NaN"
+                      }
+                   ],
+                   "children": [
+                      {
+                         "id": "194",
+                         "name": "LocalExchange",
+                         "descriptor": {
+                            "partitioning": "HASH",
+                            "isReplicateNullsAndAny": "",
+                            "hashColumn": "[$hashvalue]",
+                            "arguments": "[\"regionkey\"]"
+                         },
+                         "outputs": [
+                            {
+                               "symbol": "regionkey",
+                               "type": "bigint"
+                            },
+                            {
+                               "symbol": "count_0",
+                               "type": "bigint"
+                            },
+                            {
+                               "symbol": "$hashvalue",
+                               "type": "bigint"
+                            }
+                         ],
+                         "details":[],
+                         "estimates": [
+                            {
+                               "outputRowCount": "NaN",
+                               "outputSizeInBytes": "NaN",
+                               "cpuCost": "NaN",
+                               "memoryCost": "NaN",
+                               "networkCost": "NaN"
+                            }
+                         ],
+                         "children": [
+                            {
+                               "id": "200",
+                               "name": "RemoteExchange",
+                               "descriptor": {
+                                  "type": "REPARTITION",
+                                  "isReplicateNullsAndAny": "",
+                                  "hashColumn": "[$hashvalue_1]"
+                               },
+                               "outputs": [
+                                  {
+                                     "symbol": "regionkey",
+                                     "type": "bigint"
+                                  },
+                                  {
+                                     "symbol": "count_0",
+                                     "type": "bigint"
+                                  },
+                                  {
+                                     "symbol": "$hashvalue_1",
+                                     "type": "bigint"
+                                  }
+                               ],
+                               "details":[],
+                               "estimates": [
+                                  {
+                                     "outputRowCount": "NaN",
+                                     "outputSizeInBytes": "NaN",
+                                     "cpuCost": "NaN",
+                                     "memoryCost": "NaN",
+                                     "networkCost": "NaN"
+                                  }
+                               ],
+                               "children": [
+                                  {
+                                     "id": "226",
+                                     "name": "Project",
+                                     "descriptor": {}
+                                     "outputs": [
+                                        {
+                                           "symbol": "regionkey",
+                                           "type": "bigint"
+                                        },
+                                        {
+                                           "symbol": "count_0",
+                                           "type": "bigint"
+                                        },
+                                        {
+                                           "symbol": "$hashvalue_2",
+                                           "type": "bigint"
+                                        }
+                                     ],
+                                     "details": [
+                                        "$hashvalue_2 := combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(\"regionkey\"), 0))"
+                                     ],
+                                     "estimates": [
+                                        {
+                                           "outputRowCount": "NaN",
+                                           "outputSizeInBytes": "NaN",
+                                           "cpuCost": "NaN",
+                                           "memoryCost": "NaN",
+                                           "networkCost": "NaN"
+                                        }
+                                     ],
+                                     "children": [
+                                        {
+                                           "id": "198",
+                                           "name": "Aggregate",
+                                           "descriptor": {
+                                              "type": "PARTIAL",
+                                              "keys": "[regionkey]",
+                                              "hash": ""
+                                           },
+                                           "outputs": [
+                                              {
+                                                 "symbol": "regionkey",
+                                                 "type": "bigint"
+                                              },
+                                              {
+                                                 "symbol": "count_0",
+                                                 "type": "bigint"
+                                              }
+                                           ],
+                                           "details": [
+                                              "count_0 := count(*)"
+                                           ],
+                                           "estimates":[],
+                                           "children": [
+                                              {
+                                                 "id": "0",
+                                                 "name": "TableScan",
+                                                 "descriptor": {
+                                                    "table": "hive:tpch_sf1_orc_part:nation"
+                                                 },
+                                                 "outputs": [
+                                                    {
+                                                       "symbol": "regionkey",
+                                                       "type": "bigint"
+                                                    }
+                                                 ],
+                                                 "details": [
+                                                    "regionkey := regionkey:bigint:REGULAR"
+                                                 ],
+                                                 "estimates": [
+                                                    {
+                                                       "outputRowCount": 25,
+                                                       "outputSizeInBytes": 225,
+                                                       "cpuCost": 225,
+                                                       "memoryCost": 0,
+                                                       "networkCost": 0
+                                                    }
+                                                 ],
+                                                 "children": []
+                                              }
+                                           ]
+                                        }
+                                     ]
+                                  }
+                               ]
+                            }
+                         ]
+                      }
+                   ]
+                }
+             ]
+          }
+       ]
+    }
+
 EXPLAIN (TYPE DISTRIBUTED)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 

@@ -74,9 +74,9 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.metadata.FunctionId.toFunctionId;
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
@@ -116,12 +116,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties)
     {
         throw new UnsupportedOperationException();
     }
@@ -349,7 +343,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    public AnalyzeMetadata getStatisticsCollectionMetadata(Session session, TableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
         throw new UnsupportedOperationException();
     }
@@ -475,7 +469,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Map<String, Catalog> getCatalogs(Session session)
+    public List<CatalogInfo> listCatalogs(Session session)
     {
         throw new UnsupportedOperationException();
     }
@@ -861,12 +855,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isValidTableVersion(Session session, QualifiedObjectName tableName, TableVersion version)
     {
         throw new UnsupportedOperationException();
     }

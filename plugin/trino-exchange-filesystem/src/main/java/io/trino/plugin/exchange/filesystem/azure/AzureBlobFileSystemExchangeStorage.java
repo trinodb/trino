@@ -13,14 +13,11 @@
  */
 package io.trino.plugin.exchange.filesystem.azure;
 
-import com.azure.core.http.rest.PagedFlux;
-import com.azure.core.http.rest.PagedIterable;
 import com.azure.core.http.rest.PagedResponse;
 import com.azure.core.util.BinaryData;
 import com.azure.identity.DefaultAzureCredentialBuilder;
-import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobContainerAsyncClient;
 import com.azure.storage.blob.BlobServiceAsyncClient;
-import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.batch.BlobBatchAsyncClient;
 import com.azure.storage.blob.batch.BlobBatchClientBuilder;
@@ -31,6 +28,9 @@ import com.azure.storage.blob.models.DeleteSnapshotsOptionType;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -77,6 +77,7 @@ import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.trino.plugin.exchange.filesystem.FileSystemExchangeFutures.translateFailures;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -88,7 +89,6 @@ public class AzureBlobFileSystemExchangeStorage
         implements FileSystemExchangeStorage
 {
     private final int blockSize;
-    private final BlobServiceClient blobServiceClient;
     private final BlobServiceAsyncClient blobServiceAsyncClient;
 
     @Inject
@@ -105,8 +105,6 @@ public class AzureBlobFileSystemExchangeStorage
         else {
             blobServiceClientBuilder.credential(new DefaultAzureCredentialBuilder().build());
         }
-
-        this.blobServiceClient = blobServiceClientBuilder.buildClient();
         this.blobServiceAsyncClient = blobServiceClientBuilder.buildAsyncClient();
     }
 
@@ -139,18 +137,11 @@ public class AzureBlobFileSystemExchangeStorage
     }
 
     @Override
-    public boolean exists(URI file)
-            throws IOException
-    {
-        return blobServiceClient.getBlobContainerClient(getContainerName(file)).getBlobClient(getPath(file)).exists();
-    }
-
-    @Override
     public ListenableFuture<Void> createEmptyFile(URI file)
     {
         String containerName = getContainerName(file);
         String blobName = getPath(file);
-        return asVoid(toListenableFuture(blobServiceAsyncClient
+        return translateFailures(toListenableFuture(blobServiceAsyncClient
                 .getBlobContainerAsyncClient(containerName)
                 .getBlobAsyncClient(blobName)
                 .upload(BinaryData.fromString(""))
@@ -158,50 +149,57 @@ public class AzureBlobFileSystemExchangeStorage
     }
 
     @Override
-    public ListenableFuture<Void> deleteRecursively(URI dir)
+    public ListenableFuture<Void> deleteRecursively(List<URI> directories)
     {
-        return asVoid(Futures.transformAsync(
-                toListenableFuture(listObjectsRecursively(dir).byPage().collectList().toFuture()),
-                pagedResponseList -> deleteObjects(getContainerName(dir), pagedResponseList),
-                directExecutor()));
+        ImmutableMultimap.Builder<String, ListenableFuture<List<PagedResponse<BlobItem>>>> containerToListObjectsFuturesBuilder = ImmutableMultimap.builder();
+        directories.forEach(dir -> containerToListObjectsFuturesBuilder.put(
+                getContainerName(dir),
+                listObjectsRecursively(dir)));
+        Multimap<String, ListenableFuture<List<PagedResponse<BlobItem>>>> containerToListObjectsFutures = containerToListObjectsFuturesBuilder.build();
+
+        ImmutableList.Builder<ListenableFuture<List<Void>>> deleteObjectsFutures = ImmutableList.builder();
+        for (String containerName : containerToListObjectsFutures.keySet()) {
+            BlobContainerAsyncClient blobContainerAsyncClient = blobServiceAsyncClient.getBlobContainerAsyncClient(containerName);
+            deleteObjectsFutures.add(Futures.transformAsync(
+                    Futures.allAsList(containerToListObjectsFutures.get(containerName)),
+                    nestedPagedResponseList -> {
+                        ImmutableList.Builder<String> blobUrls = ImmutableList.builder();
+                        for (List<PagedResponse<BlobItem>> pagedResponseList : nestedPagedResponseList) {
+                            for (PagedResponse<BlobItem> pagedResponse : pagedResponseList) {
+                                pagedResponse.getValue().forEach(blobItem -> {
+                                    blobUrls.add(blobContainerAsyncClient.getBlobAsyncClient(blobItem.getName()).getBlobUrl());
+                                });
+                            }
+                        }
+                        return deleteObjects(blobUrls.build());
+                    },
+                    directExecutor()));
+        }
+
+        return translateFailures(Futures.allAsList(deleteObjectsFutures.build()));
     }
 
     @Override
-    public List<FileStatus> listFiles(URI dir)
-            throws IOException
+    public ListenableFuture<List<FileStatus>> listFilesRecursively(URI dir)
     {
-        ImmutableList.Builder<FileStatus> builder = ImmutableList.builder();
-        try {
-            for (BlobItem blobItem : listObjects(dir)) {
-                if (blobItem.isPrefix() != Boolean.TRUE) {
-                    builder.add(new FileStatus(
-                            new URI(dir.getScheme(), dir.getUserInfo(), dir.getHost(), -1, PATH_SEPARATOR + blobItem.getName(), null, dir.getFragment()).toString(),
-                            blobItem.getProperties().getContentLength()));
+        return Futures.transform(listObjectsRecursively(dir), pagedResponseList -> {
+            ImmutableList.Builder<FileStatus> fileStatuses = ImmutableList.builder();
+            for (PagedResponse<BlobItem> pagedResponse : pagedResponseList) {
+                for (BlobItem blobItem : pagedResponse.getValue()) {
+                    if (blobItem.isPrefix() != Boolean.TRUE) {
+                        URI uri;
+                        try {
+                            uri = new URI(dir.getScheme(), dir.getUserInfo(), dir.getHost(), -1, PATH_SEPARATOR + blobItem.getName(), null, dir.getFragment());
+                        }
+                        catch (URISyntaxException e) {
+                            throw new IllegalArgumentException(e);
+                        }
+                        fileStatuses.add(new FileStatus(uri.toString(), blobItem.getProperties().getContentLength()));
+                    }
                 }
             }
-        }
-        catch (URISyntaxException e) {
-            throw new IllegalArgumentException(e);
-        }
-        return builder.build();
-    }
-
-    @Override
-    public List<URI> listDirectories(URI dir)
-            throws IOException
-    {
-        ImmutableList.Builder<URI> builder = ImmutableList.builder();
-        try {
-            for (BlobItem blobItem : listObjects(dir)) {
-                if (blobItem.isPrefix() == Boolean.TRUE) {
-                    builder.add(new URI(dir.getScheme(), dir.getUserInfo(), dir.getHost(), -1, PATH_SEPARATOR + blobItem.getName(), null, dir.getFragment()));
-                }
-            }
-        }
-        catch (URISyntaxException e) {
-            throw new IllegalArgumentException(e);
-        }
-        return builder.build();
+            return fileStatuses.build();
+        }, directExecutor());
     }
 
     @Override
@@ -217,45 +215,28 @@ public class AzureBlobFileSystemExchangeStorage
     {
     }
 
-    private PagedIterable<BlobItem> listObjects(URI dir)
-    {
-        checkArgument(isDirectory(dir), "listObjects called on file uri %s", dir);
-
-        String containerName = getContainerName(dir);
-        String directoryPath = getPath(dir);
-        if (!directoryPath.isEmpty()) {
-            directoryPath += PATH_SEPARATOR;
-        }
-
-        return blobServiceClient.getBlobContainerClient(containerName).listBlobsByHierarchy(PATH_SEPARATOR, (new ListBlobsOptions()).setPrefix(directoryPath), null);
-    }
-
-    private PagedFlux<BlobItem> listObjectsRecursively(URI dir)
+    private ListenableFuture<List<PagedResponse<BlobItem>>> listObjectsRecursively(URI dir)
     {
         checkArgument(isDirectory(dir), "listObjectsRecursively called on file uri %s", dir);
 
         String containerName = getContainerName(dir);
         String directoryPath = getPath(dir);
 
-        return blobServiceAsyncClient
+        return toListenableFuture(blobServiceAsyncClient
                 .getBlobContainerAsyncClient(containerName)
-                // deleteBlobs can delete at most 256 blobs at a time
-                .listBlobsByHierarchy(null, (new ListBlobsOptions()).setPrefix(directoryPath).setMaxResultsPerPage(256));
+                .listBlobsByHierarchy(null, (new ListBlobsOptions()).setPrefix(directoryPath))
+                .byPage()
+                .collectList()
+                .toFuture());
     }
 
-    private ListenableFuture<List<Void>> deleteObjects(String containerName, List<PagedResponse<BlobItem>> pageBlobItems)
+    private ListenableFuture<List<Void>> deleteObjects(List<String> blobUrls)
     {
-        BlobBatchAsyncClient blobBatchAsyncClient = new BlobBatchClientBuilder(blobServiceClient).buildAsyncClient();
-        BlobContainerClient blobContainerClient = blobServiceClient.getBlobContainerClient(containerName);
-
-        return Futures.allAsList(pageBlobItems.stream().map(pageBlobItem -> {
-            if (pageBlobItem.getValue().isEmpty()) {
-                return immediateVoidFuture();
-            }
-            ImmutableList.Builder<String> builder = ImmutableList.builder();
-            pageBlobItem.getValue().forEach(blobItem -> builder.add(blobContainerClient.getBlobClient(blobItem.getName()).getBlobUrl()));
-            return toListenableFuture(blobBatchAsyncClient.deleteBlobs(builder.build(), DeleteSnapshotsOptionType.INCLUDE).then().toFuture());
-        }).collect(toImmutableList()));
+        BlobBatchAsyncClient blobBatchAsyncClient = new BlobBatchClientBuilder(blobServiceAsyncClient).buildAsyncClient();
+        // deleteBlobs can delete at most 256 blobs at a time
+        return Futures.allAsList(Lists.partition(blobUrls, 256).stream()
+                .map(list -> toListenableFuture(blobBatchAsyncClient.deleteBlobs(list, DeleteSnapshotsOptionType.INCLUDE).then().toFuture()))
+                .collect(toImmutableList()));
     }
 
     // URI format: abfs[s]://<container_name>@<account_name>.dfs.core.windows.net/<path>/<file_name>
@@ -503,7 +484,7 @@ public class AzureBlobFileSystemExchangeStorage
 
             // Skip multipart upload if there would only be one part
             if (slice.length() < blockSize && multiPartUploadFutures.isEmpty()) {
-                directUploadFuture = asVoid(toListenableFuture(blockBlobAsyncClient.upload(Flux.just(slice.toByteBuffer()), slice.length()).toFuture()));
+                directUploadFuture = translateFailures(toListenableFuture(blockBlobAsyncClient.upload(Flux.just(slice.toByteBuffer()), slice.length()).toFuture()));
                 return directUploadFuture;
             }
 
@@ -511,7 +492,7 @@ public class AzureBlobFileSystemExchangeStorage
             ListenableFuture<Void> uploadFuture = toListenableFuture(blockBlobAsyncClient.stageBlock(blockId, Flux.just(slice.toByteBuffer()), slice.length()).toFuture());
             multiPartUploadFutures.add(uploadFuture);
             blockIds.add(blockId);
-            return uploadFuture;
+            return translateFailures(uploadFuture);
         }
 
         @Override
@@ -525,10 +506,10 @@ public class AzureBlobFileSystemExchangeStorage
                 return requireNonNullElseGet(directUploadFuture, Futures::immediateVoidFuture);
             }
 
-            ListenableFuture<Void> finishFuture = Futures.transformAsync(
+            ListenableFuture<Void> finishFuture = translateFailures(Futures.transformAsync(
                     Futures.allAsList(multiPartUploadFutures),
-                    ignored -> asVoid(toListenableFuture(blockBlobAsyncClient.commitBlockList(blockIds).toFuture())),
-                    directExecutor());
+                    ignored -> toListenableFuture(blockBlobAsyncClient.commitBlockList(blockIds).toFuture()),
+                    directExecutor()));
             Futures.addCallback(finishFuture, new FutureCallback<>() {
                 @Override
                 public void onSuccess(Void result)

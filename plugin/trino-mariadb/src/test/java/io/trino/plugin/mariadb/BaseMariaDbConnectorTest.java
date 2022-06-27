@@ -29,6 +29,7 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
 
 public abstract class BaseMariaDbConnectorTest
         extends BaseJdbcConnectorTest
@@ -43,6 +44,7 @@ public abstract class BaseMariaDbConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
             case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
                 return true;
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
@@ -114,9 +116,17 @@ public abstract class BaseMariaDbConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("timestamp(3) with time zone")
-                || typeName.equals("timestamp")) {
+        if (typeName.equals("timestamp(3) with time zone") ||
+                typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        // MariaDB can hold values between '1970-01-01 00:00:01' and '2038-01-19 03:14:07' in TIMESTAMP data type https://mariadb.com/kb/en/timestamp/#supported-values
+        if (typeName.equals("timestamp")) {
+            return Optional.of(new DataMappingTestSetup("timestamp", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2038-01-19 03:14:07'"));
+        }
+        if (typeName.equals("timestamp(6)")) {
+            return Optional.of(new DataMappingTestSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2038-01-19 03:14:07.000000'"));
         }
 
         if (typeName.equals("boolean")) {
@@ -252,20 +262,44 @@ public abstract class BaseMariaDbConnectorTest
     }
 
     @Override
+    public void testNativeQueryCreateStatement()
+    {
+        // Override because MariaDB returns a ResultSet metadata with no columns for CREATE statement.
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE tpch.numbers(n INTEGER)'))"))
+                .hasMessageContaining("descriptor has no fields");
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        // MariaDB returns a ResultSet metadata with no columns for INSERT statement.
+        // This is unusual, because other connectors don't produce a ResultSet metadata for INSERT at all.
+        // The query fails because there are no columns, but even if columns were not required, the query would fail
+        // to execute in MariaDB because the connector wraps it in additional syntax, which causes syntax error.
+        try (TestTable testTable = simpleTable()) {
+            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .hasMessageContaining("descriptor has no fields");
+            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
+        }
+    }
+
+    @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Incorrect date value: '%s'.*", date);
+        return format("Failed to insert data: .* \\(conn=.*\\) Incorrect date value: '%s'.*", date);
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Incorrect date value: '%s'.*", date);
+        return format("Failed to insert data: .* \\(conn=.*\\) Incorrect date value: '%s'.*", date);
     }
 
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Field '%s' doesn't have a default value", columnName);
+        return format("Failed to insert data: .* \\(conn=.*\\) Field '%s' doesn't have a default value", columnName);
     }
 }

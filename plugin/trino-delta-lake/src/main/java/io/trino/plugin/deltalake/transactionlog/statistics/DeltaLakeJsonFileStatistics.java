@@ -108,14 +108,14 @@ public class DeltaLakeJsonFileStatistics
     @Override
     public Optional<Object> getMaxColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        Optional<Object> value = getStat(columnHandle.getName(), maxValues);
+        Optional<Object> value = getStat(columnHandle.getPhysicalName(), maxValues);
         return value.flatMap(o -> deserializeStatisticsValue(columnHandle, String.valueOf(o)));
     }
 
     @Override
     public Optional<Object> getMinColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        Optional<Object> value = getStat(columnHandle.getName(), minValues);
+        Optional<Object> value = getStat(columnHandle.getPhysicalName(), minValues);
         return value.flatMap(o -> deserializeStatisticsValue(columnHandle, String.valueOf(o)));
     }
 

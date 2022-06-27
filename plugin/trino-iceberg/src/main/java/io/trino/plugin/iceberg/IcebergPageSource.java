@@ -26,6 +26,7 @@ import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.data.DeleteFilter;
@@ -129,12 +130,7 @@ public class IcebergPageSource
         this.updatedRowPageSinkSupplier = requireNonNull(updatedRowPageSinkSupplier, "updatedRowPageSinkSupplier is null");
         requireNonNull(updatedColumns, "updatedColumnFieldIds is null");
         if (!updatedColumns.isEmpty()) {
-            ImmutableMap.Builder<Integer, Integer> icebergIdToUpdatedColumnIndex = ImmutableMap.builder();
-            for (int columnIndex = 0; columnIndex < updatedColumns.size(); columnIndex++) {
-                IcebergColumnHandle updatedColumn = updatedColumns.get(columnIndex);
-                icebergIdToUpdatedColumnIndex.put(updatedColumn.getId(), columnIndex);
-            }
-            this.icebergIdToUpdatedColumnIndex = icebergIdToUpdatedColumnIndex.buildOrThrow();
+            this.icebergIdToUpdatedColumnIndex = mapFieldIdsToIndex(updatedColumns);
         }
     }
 
@@ -331,6 +327,12 @@ public class IcebergPageSource
             memoryUsage += positionDeleteSink.getMemoryUsage();
         }
         return memoryUsage;
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return delegate.getMetrics();
     }
 
     protected void closeWithSuppression(Throwable throwable)

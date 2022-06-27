@@ -38,7 +38,7 @@ Configuration properties
 The following configuration properties are available:
 
 ============================================= ========== ==============================================================================
-Property Name                                 Required   Description
+Property name                                 Required   Description
 ============================================= ========== ==============================================================================
 ``pinot.controller-urls``                     Yes        A comma separated list of controller hosts. If Pinot is deployed via
                                                          `Kubernetes <https://kubernetes.io/>`_ this needs to point to the controller

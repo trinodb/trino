@@ -53,7 +53,6 @@ public class HiveTableHandle
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
     private final Optional<List<List<String>>> analyzePartitionValues;
-    private final Optional<Set<String>> analyzeColumnNames;
     private final Set<ColumnHandle> constraintColumns;
     private final Set<ColumnHandle> projectedColumns;
     private final AcidTransaction transaction;
@@ -71,7 +70,6 @@ public class HiveTableHandle
             @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle,
             @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter,
             @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues,
-            @JsonProperty("analyzeColumnNames") Optional<Set<String>> analyzeColumnNames,
             @JsonProperty("transaction") AcidTransaction transaction)
     {
         this(
@@ -87,7 +85,6 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                analyzeColumnNames,
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 transaction,
@@ -116,7 +113,6 @@ public class HiveTableHandle
                 bucketHandle,
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 NO_ACID_TRANSACTION,
@@ -137,7 +133,6 @@ public class HiveTableHandle
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter,
             Optional<List<List<String>>> analyzePartitionValues,
-            Optional<Set<String>> analyzeColumnNames,
             Set<ColumnHandle> constraintColumns,
             Set<ColumnHandle> projectedColumns,
             AcidTransaction transaction,
@@ -157,7 +152,6 @@ public class HiveTableHandle
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
         this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null").map(ImmutableList::copyOf);
-        this.analyzeColumnNames = requireNonNull(analyzeColumnNames, "analyzeColumnNames is null").map(ImmutableSet::copyOf);
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
         this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
         this.transaction = requireNonNull(transaction, "transaction is null");
@@ -180,7 +174,6 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 Optional.of(analyzePartitionValues),
-                analyzeColumnNames,
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -188,7 +181,7 @@ public class HiveTableHandle
                 maxScannedFileSize);
     }
 
-    public HiveTableHandle withAnalyzeColumnNames(Set<String> analyzeColumnNames)
+    public HiveTableHandle withAnalyzeColumnNames()
     {
         return new HiveTableHandle(
                 schemaName,
@@ -203,7 +196,6 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                Optional.of(analyzeColumnNames),
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -226,7 +218,6 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                analyzeColumnNames,
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -250,7 +241,6 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                analyzeColumnNames,
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -273,7 +263,6 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                analyzeColumnNames,
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -296,7 +285,6 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                analyzeColumnNames,
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -319,7 +307,6 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                analyzeColumnNames,
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -409,12 +396,6 @@ public class HiveTableHandle
     public Optional<List<List<String>>> getAnalyzePartitionValues()
     {
         return analyzePartitionValues;
-    }
-
-    @JsonProperty
-    public Optional<Set<String>> getAnalyzeColumnNames()
-    {
-        return analyzeColumnNames;
     }
 
     @JsonProperty

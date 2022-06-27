@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
@@ -60,6 +62,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static com.google.common.collect.Streams.findLast;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.getDone;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -94,7 +99,7 @@ public class TestStageTaskSourceFactory
 
         assertFalse(taskSource.isFinished());
 
-        List<TaskDescriptor> tasks = taskSource.getMoreTasks();
+        List<TaskDescriptor> tasks = getFutureValue(taskSource.getMoreTasks());
         assertThat(tasks).hasSize(1);
         assertTrue(taskSource.isFinished());
 
@@ -118,7 +123,7 @@ public class TestStageTaskSourceFactory
                 DataSize.of(3, BYTE),
                 DataSize.of(4, GIGABYTE));
         assertFalse(taskSource.isFinished());
-        List<TaskDescriptor> tasks = taskSource.getMoreTasks();
+        List<TaskDescriptor> tasks = getFutureValue(taskSource.getMoreTasks());
         assertThat(tasks).isEmpty();
         assertTrue(taskSource.isFinished());
 
@@ -136,7 +141,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(),
                 DataSize.of(3, BYTE),
                 DataSize.of(4, GIGABYTE));
-        tasks = taskSource.getMoreTasks();
+        tasks = getFutureValue(taskSource.getMoreTasks());
         assertTrue(taskSource.isFinished());
         assertThat(tasks).hasSize(1);
         assertEquals(tasks, ImmutableList.of(new TaskDescriptor(
@@ -153,7 +158,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(),
                 DataSize.of(3, BYTE),
                 DataSize.of(4, GIGABYTE));
-        tasks = taskSource.getMoreTasks();
+        tasks = getFutureValue(taskSource.getMoreTasks());
         assertEquals(tasks, ImmutableList.of(new TaskDescriptor(
                 0,
                 ImmutableListMultimap.of(),
@@ -172,7 +177,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(),
                 DataSize.of(3, BYTE),
                 DataSize.of(4, GIGABYTE));
-        tasks = taskSource.getMoreTasks();
+        tasks = getFutureValue(taskSource.getMoreTasks());
         assertEquals(tasks, ImmutableList.of(
                 new TaskDescriptor(
                         0,
@@ -199,7 +204,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(),
                 DataSize.of(3, BYTE),
                 DataSize.of(4, GIGABYTE));
-        tasks = taskSource.getMoreTasks();
+        tasks = getFutureValue(taskSource.getMoreTasks());
         assertEquals(tasks, ImmutableList.of(
                 new TaskDescriptor(
                         0,
@@ -233,7 +238,7 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(),
                 DataSize.of(3, BYTE),
                 DataSize.of(4, GIGABYTE));
-        tasks = taskSource.getMoreTasks();
+        tasks = getFutureValue(taskSource.getMoreTasks());
         assertEquals(tasks, ImmutableList.of(
                 new TaskDescriptor(
                         0,
@@ -274,7 +279,7 @@ public class TestStageTaskSourceFactory
                 replicatedSources,
                 DataSize.of(3, BYTE),
                 DataSize.of(4, GIGABYTE));
-        tasks = taskSource.getMoreTasks();
+        tasks = getFutureValue(taskSource.getMoreTasks());
         assertEquals(tasks, ImmutableList.of(
                 new TaskDescriptor(
                         0,
@@ -313,7 +318,7 @@ public class TestStageTaskSourceFactory
                 0,
                 DataSize.of(3, BYTE));
         assertFalse(taskSource.isFinished());
-        assertEquals(taskSource.getMoreTasks(), ImmutableList.of());
+        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of());
         assertTrue(taskSource.isFinished());
 
         taskSource = createHashDistributionTaskSource(
@@ -331,7 +336,7 @@ public class TestStageTaskSourceFactory
                 0,
                 DataSize.of(0, BYTE));
         assertFalse(taskSource.isFinished());
-        assertEquals(taskSource.getMoreTasks(), ImmutableList.of(
+        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(
                 new TaskDescriptor(0, ImmutableListMultimap.of(), ImmutableListMultimap.of(
                         PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
                         PLAN_NODE_2, new TestingExchangeSourceHandle(0, 1),
@@ -362,7 +367,7 @@ public class TestStageTaskSourceFactory
                 0,
                 DataSize.of(0, BYTE));
         assertFalse(taskSource.isFinished());
-        assertEquals(taskSource.getMoreTasks(), ImmutableList.of(
+        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(
                 new TaskDescriptor(
                         0,
                         ImmutableListMultimap.of(
@@ -406,7 +411,7 @@ public class TestStageTaskSourceFactory
                 0,
                 DataSize.of(0, BYTE));
         assertFalse(taskSource.isFinished());
-        assertEquals(taskSource.getMoreTasks(), ImmutableList.of(
+        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(
                 new TaskDescriptor(
                         0,
                         ImmutableListMultimap.of(
@@ -452,7 +457,7 @@ public class TestStageTaskSourceFactory
                 Optional.of(getTestingBucketNodeMap(4)),
                 0, DataSize.of(0, BYTE));
         assertFalse(taskSource.isFinished());
-        assertEquals(taskSource.getMoreTasks(), ImmutableList.of(
+        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(
                 new TaskDescriptor(
                         0,
                         ImmutableListMultimap.of(
@@ -491,7 +496,7 @@ public class TestStageTaskSourceFactory
                 2 * STANDARD_WEIGHT,
                 DataSize.of(100, GIGABYTE));
         assertFalse(taskSource.isFinished());
-        assertEquals(taskSource.getMoreTasks(), ImmutableList.of(
+        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(
                 new TaskDescriptor(
                         0,
                         ImmutableListMultimap.of(
@@ -534,7 +539,7 @@ public class TestStageTaskSourceFactory
                 100 * STANDARD_WEIGHT,
                 DataSize.of(100, BYTE));
         assertFalse(taskSource.isFinished());
-        assertEquals(taskSource.getMoreTasks(), ImmutableList.of(
+        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(
                 new TaskDescriptor(
                         0,
                         ImmutableListMultimap.of(
@@ -593,7 +598,8 @@ public class TestStageTaskSourceFactory
                 Optional.of(CATALOG),
                 targetPartitionSplitWeight,
                 targetPartitionSourceSize,
-                DataSize.of(4, GIGABYTE));
+                DataSize.of(4, GIGABYTE),
+                directExecutor());
     }
 
     @Test
@@ -601,7 +607,7 @@ public class TestStageTaskSourceFactory
     {
         TaskSource taskSource = createSourceDistributionTaskSource(ImmutableList.of(), ImmutableListMultimap.of(), 2, 0, 3 * STANDARD_WEIGHT, 1000);
         assertFalse(taskSource.isFinished());
-        assertEquals(taskSource.getMoreTasks(), ImmutableList.of());
+        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of());
         assertTrue(taskSource.isFinished());
 
         Split split1 = createSplit(1);
@@ -615,7 +621,7 @@ public class TestStageTaskSourceFactory
                 0,
                 2 * STANDARD_WEIGHT,
                 1000);
-        assertEquals(taskSource.getMoreTasks(), ImmutableList.of(new TaskDescriptor(
+        assertEquals(getFutureValue(taskSource.getMoreTasks()), ImmutableList.of(new TaskDescriptor(
                 0,
                 ImmutableListMultimap.of(PLAN_NODE_1, split1),
                 ImmutableListMultimap.of(),
@@ -818,6 +824,67 @@ public class TestStageTaskSourceFactory
         }
     }
 
+    @Test
+    public void testSourceDistributionTaskSourceWithAsyncSplitSource()
+    {
+        SettableFuture<List<Split>> splitsFuture = SettableFuture.create();
+        TaskSource taskSource = createSourceDistributionTaskSource(
+                new TestingSplitSource(CATALOG, splitsFuture, 0),
+                ImmutableListMultimap.of(),
+                2,
+                0,
+                2 * STANDARD_WEIGHT,
+                1000);
+        ListenableFuture<List<TaskDescriptor>> tasksFuture = taskSource.getMoreTasks();
+        assertThat(tasksFuture).isNotDone();
+
+        splitsFuture.set(ImmutableList.of(createSplit(1), createSplit(2), createSplit(3)));
+        List<TaskDescriptor> tasks = getDone(tasksFuture);
+        assertThat(tasks).hasSize(1);
+        assertThat(tasks.get(0).getSplits()).hasSize(2);
+
+        tasksFuture = taskSource.getMoreTasks();
+        assertThat(tasksFuture).isDone();
+        tasks = getDone(tasksFuture);
+        assertThat(tasks).hasSize(1);
+        assertThat(tasks.get(0).getSplits()).hasSize(1);
+        assertThat(taskSource.isFinished()).isTrue();
+    }
+
+    @Test
+    public void testHashDistributionTaskSourceWithAsyncSplitSource()
+    {
+        SettableFuture<List<Split>> splitsFuture1 = SettableFuture.create();
+        SettableFuture<List<Split>> splitsFuture2 = SettableFuture.create();
+        TaskSource taskSource = createHashDistributionTaskSource(
+                ImmutableMap.of(
+                        PLAN_NODE_1, new TestingSplitSource(CATALOG, splitsFuture1, 0),
+                        PLAN_NODE_2, new TestingSplitSource(CATALOG, splitsFuture2, 0)),
+                ImmutableListMultimap.of(),
+                ImmutableListMultimap.of(
+                        PLAN_NODE_3, new TestingExchangeSourceHandle(0, 1)),
+                1,
+                new int[] {0, 1, 2, 3},
+                Optional.of(getTestingBucketNodeMap(4)),
+                0,
+                DataSize.of(0, BYTE));
+        ListenableFuture<List<TaskDescriptor>> tasksFuture = taskSource.getMoreTasks();
+        assertThat(tasksFuture).isNotDone();
+
+        Split bucketedSplit1 = createBucketedSplit(0, 0);
+        Split bucketedSplit2 = createBucketedSplit(0, 2);
+        Split bucketedSplit3 = createBucketedSplit(0, 3);
+        splitsFuture1.set(ImmutableList.of(bucketedSplit1, bucketedSplit2, bucketedSplit3));
+        assertThat(tasksFuture).isNotDone();
+
+        Split bucketedSplit4 = createBucketedSplit(0, 1);
+        splitsFuture2.set(ImmutableList.of(bucketedSplit4));
+        List<TaskDescriptor> tasks = getDone(tasksFuture);
+        assertThat(tasks).hasSize(4);
+        tasks.forEach(task -> assertThat(task.getSplits()).hasSize(1));
+        assertThat(taskSource.isFinished()).isTrue();
+    }
+
     private static SourceDistributionTaskSource createSourceDistributionTaskSource(
             List<Split> splits,
             ListMultimap<PlanNodeId, ExchangeSourceHandle> replicatedSources,
@@ -855,7 +922,8 @@ public class TestStageTaskSourceFactory
                 minSplitsPerTask,
                 splitWeightPerTask,
                 maxSplitsPerTask,
-                DataSize.of(4, GIGABYTE));
+                DataSize.of(4, GIGABYTE),
+                directExecutor());
     }
 
     private static Split createSplit(int id, String... addresses)
@@ -877,7 +945,7 @@ public class TestStageTaskSourceFactory
     {
         ImmutableList.Builder<TaskDescriptor> tasks = ImmutableList.builder();
         while (!taskSource.isFinished()) {
-            tasks.addAll(taskSource.getMoreTasks());
+            tasks.addAll(getFutureValue(taskSource.getMoreTasks()));
         }
         return tasks.build();
     }

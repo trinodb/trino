@@ -15,9 +15,13 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.airlift.node.NodeInfo;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -46,10 +50,12 @@ public class TestSessionPropertyDefaults
     {
         SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO, new AllowAllAccessControlManager());
 
-        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
-        sessionPropertyManager.addConnectorSessionProperties(new CatalogName("testCatalog"), ImmutableList.of(
+        ImmutableList<PropertyMetadata<?>> catalogProperties = ImmutableList.of(
                 PropertyMetadata.stringProperty("explicit_set", "Test property", null, false),
-                PropertyMetadata.stringProperty("catalog_default", "Test property", null, false)));
+                PropertyMetadata.stringProperty("catalog_default", "Test property", null, false));
+        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(
+                ImmutableSet.of(new SystemSessionProperties()),
+                CatalogServiceProvider.singleton(new CatalogName("testCatalog"), Maps.uniqueIndex(catalogProperties, PropertyMetadata::getName)));
 
         SessionPropertyConfigurationManagerFactory factory = new TestingSessionPropertyConfigurationManagerFactory(
                 ImmutableMap.<String, String>builder()

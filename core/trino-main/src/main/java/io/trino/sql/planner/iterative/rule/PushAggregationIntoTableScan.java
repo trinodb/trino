@@ -138,6 +138,11 @@ public class PushAggregationIntoTableScan
         LiteralEncoder literalEncoder = new LiteralEncoder(plannerContext);
         Session session = context.getSession();
 
+        if (groupingKeys.isEmpty() && aggregations.isEmpty()) {
+            // Global aggregation with no aggregate functions. No point to push this down into connector.
+            return Optional.empty();
+        }
+
         Map<String, ColumnHandle> assignments = tableScan.getAssignments()
                 .entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().getName(), Entry::getValue));

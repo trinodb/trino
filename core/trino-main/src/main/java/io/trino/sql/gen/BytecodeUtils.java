@@ -32,6 +32,7 @@ import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.type.Type;
@@ -333,6 +334,16 @@ public final class BytecodeUtils
                         stackTypes.add(int.class);
                         if (!functionNullability.isArgumentNullable(realParameterIndex)) {
                             block.append(scope.getVariable("wasNull").set(inputReferenceNode.blockAndPositionIsNull()));
+                            block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                        }
+                        currentParameterIndex++;
+                        break;
+                    case IN_OUT:
+                        block.append(arguments.get(realParameterIndex));
+                        if (!functionNullability.isArgumentNullable(realParameterIndex)) {
+                            block.append(arguments.get(realParameterIndex));
+                            block.invokeVirtual(InOut.class, "isNull", boolean.class);
+                            block.putVariable(scope.getVariable("wasNull"));
                             block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
                         }
                         currentParameterIndex++;

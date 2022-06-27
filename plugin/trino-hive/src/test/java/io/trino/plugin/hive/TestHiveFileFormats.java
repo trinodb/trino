@@ -69,6 +69,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildColumnMappings;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.CSV;
@@ -445,7 +446,7 @@ public class TestHiveFileFormats
                 .withSession(session)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
-                .withFileWriterFactory(new ParquetFileWriterFactory(HDFS_ENVIRONMENT, new NodeVersion("test-version"), TESTING_TYPE_MANAGER))
+                .withFileWriterFactory(new ParquetFileWriterFactory(HDFS_ENVIRONMENT, new NodeVersion("test-version"), TESTING_TYPE_MANAGER, new HiveConfig()))
                 .isReadableByPageSource(new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderConfig(), new HiveConfig()));
     }
 
@@ -921,7 +922,7 @@ public class TestHiveFileFormats
                 .map(partitionKey -> format("%s=%s", partitionKey.getName(), partitionKey.getValue()))
                 .collect(toImmutableList()));
 
-        Configuration configuration = new Configuration(false);
+        Configuration configuration = newEmptyConfiguration();
         configuration.set("io.compression.codecs", LzoCodec.class.getName() + "," + LzopCodec.class.getName());
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(testReadColumns);
@@ -1017,7 +1018,7 @@ public class TestHiveFileFormats
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(sourceFactory),
                 ImmutableSet.of(),
-                new Configuration(false),
+                newEmptyConfiguration(),
                 session,
                 split.getPath(),
                 OptionalInt.empty(),

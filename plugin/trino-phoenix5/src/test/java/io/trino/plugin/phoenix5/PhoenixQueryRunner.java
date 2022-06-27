@@ -65,14 +65,8 @@ public final class PhoenixQueryRunner
         queryRunner.installPlugin(new PhoenixPlugin());
         queryRunner.createCatalog("phoenix", "phoenix5", properties);
 
-        if (!server.isTpchLoaded()) {
-            createSchema(server, TPCH_SCHEMA);
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-            server.setTpchLoaded();
-        }
-        else {
-            server.waitTpchLoaded();
-        }
+        createSchema(server, TPCH_SCHEMA);
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
         return queryRunner;
     }
@@ -84,7 +78,7 @@ public final class PhoenixQueryRunner
         properties.setProperty("phoenix.schema.isNamespaceMappingEnabled", "true");
         try (Connection connection = DriverManager.getConnection(phoenixServer.getJdbcUrl(), properties);
                 Statement statement = connection.createStatement()) {
-            statement.execute(format("CREATE SCHEMA %s", schema));
+            statement.execute(format("CREATE SCHEMA IF NOT EXISTS %s", schema));
         }
     }
 
@@ -121,7 +115,7 @@ public final class PhoenixQueryRunner
             tableProperties = "WITH (ROWKEYS = 'PARTKEY,SUPPKEY')";
         }
         @Language("SQL")
-        String sql = format("CREATE TABLE %s %s AS SELECT * FROM %s", target, tableProperties, source);
+        String sql = format("CREATE TABLE IF NOT EXISTS %s %s AS SELECT * FROM %s", target, tableProperties, source);
 
         LOG.debug("Running import for %s %s", target, sql);
         long rows = queryRunner.execute(session, sql).getUpdateCount().getAsLong();

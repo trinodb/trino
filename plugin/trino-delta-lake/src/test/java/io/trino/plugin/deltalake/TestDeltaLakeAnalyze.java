@@ -103,8 +103,8 @@ public class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
 
         // reanalyze data (1 split is empty values)
@@ -115,8 +115,8 @@ public class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
 
         // insert one more copy; should not influence stats other than rowcount
@@ -129,24 +129,24 @@ public class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 3714.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 354.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
 
         // insert modified rows
         assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
 
-        // without ANALYZE all stats but NDV should be updated
+        // without ANALYZE all stats but size and NDV should be updated
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 49)," +
                         "('regionkey', null, 5.0, 0.0, null, 0, 9)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 3714.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 354.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
 
-        // with analyze we should get new NDV
+        // with analyze we should get new size and NDV
         runAnalyzeVerifySplitCount(tableName, 1);
 
         assertQuery(
@@ -154,8 +154,8 @@ public class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 50.0, 0.0, null, 0, 49)," +
                         "('regionkey', null, 10.0, 0.0, null, 0, 9)," +
-                        "('comment', null, 50.0, 0.0, null, null, null)," +
-                        "('name', null, 50.0, 0.0, null, null, null)," +
+                        "('comment', 5571.0, 50.0, 0.0, null, null, null)," +
+                        "('name', 531.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
     }
 
@@ -186,8 +186,8 @@ public class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, null, null)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
 
         // insert one more copy; should not influence stats other than rowcount
@@ -200,32 +200,32 @@ public class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, null, null)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 3714.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 354.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
 
         // insert modified rows
         assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
 
-        // without ANALYZE all stats but NDV should be updated
+        // without ANALYZE all stats but size and NDV should be updated
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 49)," +
                         "('regionkey', null, 10.0, 0.0, null, null, null)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 3714.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 354.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
 
-        // with analyze we should get new NDV
+        // with analyze we should get new size and NDV
         runAnalyzeVerifySplitCount(tableName, 5);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
                         "('nationkey', null, 50.0, 0.0, null, 0, 49)," +
                         "('regionkey', null, 10.0, 0.0, null, null, null)," +
-                        "('comment', null, 50.0, 0.0, null, null, null)," +
-                        "('name', null, 50.0, 0.0, null, null, null)," +
+                        "('comment', 5571.0, 50.0, 0.0, null, null, null)," +
+                        "('name', 531.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
     }
 
@@ -269,8 +269,8 @@ public class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
     }
 
@@ -326,8 +326,8 @@ public class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 5.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 3.0, 0.0, null, 0, 4)," +
-                        "('comment', null, 5.0, 0.0, null, null, null)," +
-                        "('name', null, 5.0, 0.0, null, null, null)," +
+                        "('comment', 434.0, 5.0, 0.0, null, null, null)," +
+                        "('name', 33.0, 5.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 30.0, null, null)");
     }
 
@@ -391,8 +391,8 @@ public class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 50.0, 0.0, null, 0, 49)," +
                         "('regionkey', null, 10.0, 0.0, null, 0, 9)," +
-                        "('comment', null, 50.0, 0.0, null, null, null)," +
-                        "('name', null, 50.0, 0.0, null, null, null)," +
+                        "('comment', 3764.0, 50.0, 0.0, null, null, null)," +
+                        "('name', 379.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
 
         // we and we should be able to reanalyze with a subset of columns
@@ -438,8 +438,8 @@ public class TestDeltaLakeAnalyze
             String extendedStats = "VALUES"
                     + "('nationkey', null, 25.0,  0.0, null,    0,   24),"
                     + "('regionkey', null,  5.0,  0.0, null,    0,    4),"
-                    + "('comment',   null, 25.0,  0.0, null, null, null),"
-                    + "('name',      null, 25.0,  0.0, null, null, null),"
+                    + "('comment', 1857.0, 25.0,  0.0, null, null, null),"
+                    + "('name',     177.0, 25.0,  0.0, null, null, null),"
                     + "(null,        null, null, null, 25.0, null, null)";
 
             assertQuery(query, baseStats);

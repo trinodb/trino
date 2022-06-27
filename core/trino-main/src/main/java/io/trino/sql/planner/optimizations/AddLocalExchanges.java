@@ -368,15 +368,10 @@ public class AddLocalExchanges
                 preGroupedSymbols = groupingKeys;
             }
 
-            AggregationNode result = new AggregationNode(
-                    node.getId(),
-                    child.getNode(),
-                    node.getAggregations(),
-                    node.getGroupingSets(),
-                    preGroupedSymbols,
-                    node.getStep(),
-                    node.getHashSymbol(),
-                    node.getGroupIdSymbol());
+            AggregationNode result = AggregationNode.builderFrom(node)
+                    .setSource(child.getNode())
+                    .setPreGroupedSymbols(preGroupedSymbols)
+                    .build();
 
             return deriveProperties(result, child.getProperties());
         }

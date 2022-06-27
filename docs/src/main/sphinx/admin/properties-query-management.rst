@@ -2,6 +2,15 @@
 Query management properties
 ===========================
 
+``query.client.timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Default value:** ``5m``
+
+Configures how long the cluster runs without contact from the client
+application, such as the CLI, before it abandons and cancels its work.
+
 ``query.execution-policy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -33,7 +42,7 @@ The number of partitions to use for processing distributed operations, such as
 joins, aggregations, partitioned window functions and others.
 
 ``query.low-memory-killer.policy``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-string`
 * **Default value:** ``total-reservation-on-blocked-nodes``
@@ -46,6 +55,32 @@ memory availability. Supports the following values:
 * ``total-reservation-on-blocked-nodes`` - Kill the query currently using the
   most memory specifically on nodes that are now out of memory.
 
+.. note::
+
+    Only applies for queries with task level retries disabled (``retry-policy`` set to ``NONE`` or ``QUERY``)
+
+``task.low-memory-killer.policy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-string`
+* **Default value:** ``total-reservation-on-blocked-nodes``
+
+Configures the behavior to handle killing running tasks in the event of low
+memory availability. Supports the following values:
+
+* ``none`` - Do not kill any tasks in the event of low memory.
+* ``total-reservation-on-blocked-nodes`` - Kill the tasks which are part of the queries
+  which has task retries enabled and are currently using the most memory specifically
+  on nodes that are now out of memory.
+* ``least-waste`` - Kill the tasks which are part of the queries
+  which has task retries enabled and use significant amount of memory on nodes
+  which are now out of memory. This policy avoids killing tasks which are already
+  executing for a long time, so significant amount of work is not wasted.
+
+.. note::
+
+    Only applies for queries with task level retries enabled (``retry-policy=TASK``)
+
 ``query.low-memory-killer.delay``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -53,8 +88,8 @@ memory availability. Supports the following values:
 * **Default value:** ``5m``
 
 The amount of time a query is allowed to recover between running out of memory
-and being killed, if ``query.low-memory-killer.policy`` is set to
-``total-reservation`` or ``total-reservation-on-blocked-nodes``.
+and being killed, if ``query.low-memory-killer.policy`` or
+``task.low-memory-killer.policy`` is set to value differnt than ``none``.
 
 ``query.max-execution-time``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

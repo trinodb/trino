@@ -105,6 +105,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
+    {
+        return stats.getGetTableHandleForQuery().wrap(() -> delegate().getTableHandle(session, preparedQuery));
+    }
+
+    @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return stats.getGetColumns().wrap(() -> delegate().getColumns(session, tableHandle));
@@ -113,7 +119,7 @@ public final class StatisticsAwareJdbcClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        return stats.getToPrestoType().wrap(() -> delegate().toColumnMapping(session, connection, typeHandle));
+        return stats.getToTrinoType().wrap(() -> delegate().toColumnMapping(session, connection, typeHandle));
     }
 
     @Override
@@ -312,6 +318,12 @@ public final class StatisticsAwareJdbcClient
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
         return stats.getGetTableStatistics().wrap(() -> delegate().getTableStatistics(session, handle, tupleDomain));
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return stats.getGetTableStatistics().wrap(() -> delegate().getTableStatistics(session, handle));
     }
 
     @Override

@@ -14,6 +14,7 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
@@ -25,15 +26,18 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class TestingSplitSource
         implements SplitSource
 {
     private final CatalogName catalogName;
-    private final Iterator<Split> splits;
+    private final ListenableFuture<List<Split>> splitsFuture;
     private int finishDelayRemainingIterations;
+    private Iterator<Split> splits;
 
     public TestingSplitSource(CatalogName catalogName, List<Split> splits)
     {
@@ -42,8 +46,16 @@ public class TestingSplitSource
 
     public TestingSplitSource(CatalogName catalogName, List<Split> splits, int finishDelayIterations)
     {
+        this(
+                catalogName,
+                immediateFuture(ImmutableList.copyOf(requireNonNull(splits, "splits is null"))),
+                finishDelayIterations);
+    }
+
+    public TestingSplitSource(CatalogName catalogName, ListenableFuture<List<Split>> splitsFuture, int finishDelayIterations)
+    {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.splits = ImmutableList.copyOf(requireNonNull(splits, "splits is null")).iterator();
+        this.splitsFuture = requireNonNull(splitsFuture, "splitsFuture is null");
         this.finishDelayRemainingIterations = finishDelayIterations;
     }
 
@@ -59,14 +71,19 @@ public class TestingSplitSource
         if (isFinished()) {
             return immediateFuture(new SplitBatch(ImmutableList.of(), true));
         }
-        ImmutableList.Builder<Split> result = ImmutableList.builder();
-        for (int i = 0; i < maxSize; i++) {
-            if (!splits.hasNext()) {
-                break;
-            }
-            result.add(splits.next());
+
+        if (splits == null) {
+            return Futures.transform(
+                    splitsFuture,
+                    splits -> {
+                        checkState(this.splits == null, "splits should be null");
+                        this.splits = splits.iterator();
+                        return populateSplitBatch(maxSize);
+                    },
+                    directExecutor());
         }
-        return immediateFuture(new SplitBatch(result.build(), isFinished()));
+        checkState(splitsFuture.isDone(), "splitsFuture should be completed");
+        return immediateFuture(populateSplitBatch(maxSize));
     }
 
     @Override
@@ -77,12 +94,25 @@ public class TestingSplitSource
     @Override
     public boolean isFinished()
     {
-        return !splits.hasNext() && finishDelayRemainingIterations-- <= 0;
+        return (splits != null && !splits.hasNext())
+                && finishDelayRemainingIterations-- <= 0;
     }
 
     @Override
     public Optional<List<Object>> getTableExecuteSplitsInfo()
     {
         return Optional.empty();
+    }
+
+    private SplitBatch populateSplitBatch(int maxSize)
+    {
+        ImmutableList.Builder<Split> result = ImmutableList.builder();
+        for (int i = 0; i < maxSize; i++) {
+            if (!splits.hasNext()) {
+                break;
+            }
+            result.add(splits.next());
+        }
+        return new SplitBatch(result.build(), isFinished());
     }
 }

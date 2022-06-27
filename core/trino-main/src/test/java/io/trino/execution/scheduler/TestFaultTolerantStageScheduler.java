@@ -884,6 +884,51 @@ public class TestFaultTolerantStageScheduler
         }
     }
 
+    @Test
+    public void testAsyncTaskSource()
+            throws Exception
+    {
+        TestingRemoteTaskFactory remoteTaskFactory = new TestingRemoteTaskFactory();
+        SettableFuture<List<Split>> splitsFuture = SettableFuture.create();
+        TestingTaskSourceFactory taskSourceFactory = new TestingTaskSourceFactory(Optional.of(CATALOG), splitsFuture, 1);
+        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(
+                NODE_1, ImmutableList.of(CATALOG),
+                NODE_2, ImmutableList.of(CATALOG)));
+        setupNodeAllocatorService(nodeSupplier);
+
+        TestingExchange sourceExchange1 = new TestingExchange(false);
+        TestingExchange sourceExchange2 = new TestingExchange(false);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
+            FaultTolerantStageScheduler scheduler = createFaultTolerantTaskScheduler(
+                    remoteTaskFactory,
+                    taskSourceFactory,
+                    nodeAllocator,
+                    TaskLifecycleListener.NO_OP,
+                    Optional.empty(),
+                    ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
+                    2,
+                    1);
+
+            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
+            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
+            assertUnblocked(scheduler.isBlocked());
+
+            scheduler.schedule();
+            assertBlocked(scheduler.isBlocked());
+
+            splitsFuture.set(createSplits(2));
+            assertUnblocked(scheduler.isBlocked());
+            scheduler.schedule();
+            assertThat(remoteTaskFactory.getTasks()).hasSize(2);
+            remoteTaskFactory.getTasks().values().forEach(task -> {
+                assertThat(task.getSplits().values()).hasSize(2);
+                task.finish();
+            });
+            assertThat(scheduler.isFinished()).isTrue();
+        }
+    }
+
     private FaultTolerantStageScheduler createFaultTolerantTaskScheduler(
             RemoteTaskFactory remoteTaskFactory,
             TaskSourceFactory taskSourceFactory,

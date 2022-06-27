@@ -95,6 +95,15 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Isolation;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinOn;
+import io.trino.sql.tree.JsonArray;
+import io.trino.sql.tree.JsonArrayElement;
+import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonObject;
+import io.trino.sql.tree.JsonObjectMember;
+import io.trino.sql.tree.JsonPathInvocation;
+import io.trino.sql.tree.JsonPathParameter;
+import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Lateral;
@@ -251,6 +260,10 @@ import static io.trino.sql.tree.DescriptorArgument.descriptorArgument;
 import static io.trino.sql.tree.DescriptorArgument.nullDescriptorArgument;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
+import static io.trino.sql.tree.JsonPathParameter.JsonFormat.JSON;
+import static io.trino.sql.tree.JsonPathParameter.JsonFormat.UTF16;
+import static io.trino.sql.tree.JsonPathParameter.JsonFormat.UTF32;
+import static io.trino.sql.tree.JsonPathParameter.JsonFormat.UTF8;
 import static io.trino.sql.tree.PatternSearchMode.Mode.SEEK;
 import static io.trino.sql.tree.ProcessingMode.Mode.FINAL;
 import static io.trino.sql.tree.ProcessingMode.Mode.RUNNING;
@@ -1950,10 +1963,11 @@ public class TestSqlParser
         Table table = new Table(QualifiedName.of("foo"));
         Identifier procedure = new Identifier("bar");
 
-        assertStatement("ALTER TABLE foo EXECUTE bar", new TableExecute(table, procedure, ImmutableList.of(), Optional.empty()));
+        assertStatement("ALTER TABLE foo EXECUTE bar", new TableExecute(location(1, 1), table, procedure, ImmutableList.of(), Optional.empty()));
         assertStatement(
                 "ALTER TABLE foo EXECUTE bar(bah => 1, wuh => 'clap') WHERE age > 17",
                 new TableExecute(
+                        location(1, 1),
                         table,
                         procedure,
                         ImmutableList.of(
@@ -1967,6 +1981,7 @@ public class TestSqlParser
         assertStatement(
                 "ALTER TABLE foo EXECUTE bar(1, 'clap') WHERE age > 17",
                 new TableExecute(
+                        location(1, 1),
                         table,
                         procedure,
                         ImmutableList.of(
@@ -3960,6 +3975,267 @@ public class TestSqlParser
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    public void testJsonExists()
+    {
+        // test defaults
+        assertThat(expression("JSON_EXISTS(json_column, 'lax $[5]')"))
+                .isEqualTo(new JsonExists(
+                        Optional.of(location(1, 1)),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 13)),
+                                new Identifier(location(1, 13), "json_column", false),
+                                JSON,
+                                new StringLiteral(location(1, 26), "lax $[5]"),
+                                ImmutableList.of()),
+                        JsonExists.ErrorBehavior.FALSE));
+
+        assertThat(expression("JSON_EXISTS(" +
+                "                               json_column FORMAT JSON ENCODING UTF8, " +
+                "                               'lax $[start_parameter TO end_parameter.ceiling()]' " +
+                "                                   PASSING " +
+                "                                           start_column AS start_parameter, " +
+                "                                           end_column FORMAT JSON ENCODING UTF16 AS end_parameter " +
+                "                               UNKNOWN ON ERROR)"))
+                .isEqualTo(new JsonExists(
+                        Optional.of(location(1, 1)),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 44)),
+                                new Identifier(location(1, 44), "json_column", false),
+                                UTF8,
+                                new StringLiteral(location(1, 114), "lax $[start_parameter TO end_parameter.ceiling()]"),
+                                ImmutableList.of(
+                                        new JsonPathParameter(
+                                                Optional.of(location(1, 252)),
+                                                new Identifier(location(1, 268), "start_parameter", false),
+                                                new Identifier(location(1, 252), "start_column", false),
+                                                Optional.empty()),
+                                        new JsonPathParameter(
+                                                Optional.of(location(1, 328)),
+                                                new Identifier(location(1, 369), "end_parameter", false),
+                                                new Identifier(location(1, 328), "end_column", false),
+                                                Optional.of(UTF16)))),
+                        JsonExists.ErrorBehavior.UNKNOWN));
+    }
+
+    @Test
+    public void testJsonValue()
+    {
+        // test defaults
+        assertThat(expression("JSON_VALUE(json_column, 'lax $[5]')"))
+                .isEqualTo(new JsonValue(
+                        Optional.of(location(1, 1)),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 12)),
+                                new Identifier(location(1, 12), "json_column", false),
+                                JSON,
+                                new StringLiteral(location(1, 25), "lax $[5]"),
+                                ImmutableList.of()),
+                        Optional.empty(),
+                        JsonValue.EmptyOrErrorBehavior.NULL,
+                        Optional.empty(),
+                        JsonValue.EmptyOrErrorBehavior.NULL,
+                        Optional.empty()));
+
+        assertThat(expression("JSON_VALUE(" +
+                "                               json_column FORMAT JSON ENCODING UTF8, " +
+                "                               'lax $[start_parameter TO end_parameter.ceiling()]' " +
+                "                                   PASSING " +
+                "                                           start_column AS start_parameter, " +
+                "                                           end_column FORMAT JSON ENCODING UTF16 AS end_parameter " +
+                "                               RETURNING double " +
+                "                               DEFAULT 5e0 ON EMPTY " +
+                "                               ERROR ON ERROR)"))
+                .isEqualTo(new JsonValue(
+                        Optional.of(location(1, 1)),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 43)),
+                                new Identifier(location(1, 43), "json_column", false),
+                                UTF8,
+                                new StringLiteral(location(1, 113), "lax $[start_parameter TO end_parameter.ceiling()]"),
+                                ImmutableList.of(
+                                        new JsonPathParameter(
+                                                Optional.of(location(1, 251)),
+                                                new Identifier(location(1, 267), "start_parameter", false),
+                                                new Identifier(location(1, 251), "start_column", false),
+                                                Optional.empty()),
+                                        new JsonPathParameter(
+                                                Optional.of(location(1, 327)),
+                                                new Identifier(location(1, 368), "end_parameter", false),
+                                                new Identifier(location(1, 327), "end_column", false),
+                                                Optional.of(UTF16)))),
+                        Optional.of(new GenericDataType(location(1, 423), new Identifier(location(1, 423), "double", false), ImmutableList.of())),
+                        JsonValue.EmptyOrErrorBehavior.DEFAULT,
+                        Optional.of(new DoubleLiteral(location(1, 469), "5e0")),
+                        JsonValue.EmptyOrErrorBehavior.ERROR,
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testJsonQuery()
+    {
+        // test defaults
+        assertThat(expression("JSON_QUERY(json_column, 'lax $[5]')"))
+                .isEqualTo(new JsonQuery(
+                        Optional.of(location(1, 1)),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 12)),
+                                new Identifier(location(1, 12), "json_column", false),
+                                JSON,
+                                new StringLiteral(location(1, 25), "lax $[5]"),
+                                ImmutableList.of()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        JsonQuery.ArrayWrapperBehavior.WITHOUT,
+                        Optional.empty(),
+                        JsonQuery.EmptyOrErrorBehavior.NULL,
+                        JsonQuery.EmptyOrErrorBehavior.NULL));
+
+        assertThat(expression("JSON_QUERY(" +
+                "                               json_column FORMAT JSON ENCODING UTF8, " +
+                "                               'lax $[start_parameter TO end_parameter.ceiling()]' " +
+                "                                   PASSING " +
+                "                                           start_column AS start_parameter, " +
+                "                                           end_column FORMAT JSON ENCODING UTF16 AS end_parameter " +
+                "                               RETURNING varchar FORMAT JSON ENCODING UTF32 " +
+                "                               WITH ARRAY WRAPPER " +
+                "                               OMIT QUOTES " +
+                "                               EMPTY ARRAY ON EMPTY " +
+                "                               ERROR ON ERROR)"))
+                .isEqualTo(new JsonQuery(
+                        Optional.of(location(1, 1)),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 43)),
+                                new Identifier(location(1, 43), "json_column", false),
+                                UTF8,
+                                new StringLiteral(location(1, 113), "lax $[start_parameter TO end_parameter.ceiling()]"),
+                                ImmutableList.of(
+                                        new JsonPathParameter(
+                                                Optional.of(location(1, 251)),
+                                                new Identifier(location(1, 267), "start_parameter", false),
+                                                new Identifier(location(1, 251), "start_column", false),
+                                                Optional.empty()),
+                                        new JsonPathParameter(
+                                                Optional.of(location(1, 327)),
+                                                new Identifier(location(1, 368), "end_parameter", false),
+                                                new Identifier(location(1, 327), "end_column", false),
+                                                Optional.of(UTF16)))),
+                        Optional.of(new GenericDataType(location(1, 423), new Identifier(location(1, 423), "varchar", false), ImmutableList.of())),
+                        Optional.of(UTF32),
+                        JsonQuery.ArrayWrapperBehavior.UNCONDITIONAL,
+                        Optional.of(JsonQuery.QuotesBehavior.OMIT),
+                        JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY,
+                        JsonQuery.EmptyOrErrorBehavior.ERROR));
+    }
+
+    @Test
+    public void testJsonObject()
+    {
+        // test create empty JSON object
+        assertThat(expression("JSON_OBJECT()"))
+                .isEqualTo(new JsonObject(
+                        Optional.of(location(1, 1)),
+                        ImmutableList.of(),
+                        true,
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // test defaults
+        assertThat(expression("JSON_OBJECT(key_column : value_column)"))
+                .isEqualTo(new JsonObject(
+                        Optional.of(location(1, 1)),
+                        ImmutableList.of(new JsonObjectMember(
+                                location(1, 13),
+                                new Identifier(location(1, 13), "key_column", false),
+                                new Identifier(location(1, 26), "value_column", false),
+                                Optional.empty())),
+                        true,
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(expression("JSON_OBJECT( " +
+                "                               key_column_1 VALUE value_column FORMAT JSON ENCODING UTF16, " +
+                "                               KEY 'key_literal' VALUE 5, " +
+                "                               key_column_2 : null " +
+                "                               ABSENT ON NULL " +
+                "                               WITH UNIQUE KEYS " +
+                "                               RETURNING varbinary FORMAT JSON ENCODING UTF32 " +
+                "                              )"))
+                .isEqualTo(new JsonObject(
+                        Optional.of(location(1, 1)),
+                        ImmutableList.of(
+                                new JsonObjectMember(
+                                        location(1, 45),
+                                        new Identifier(location(1, 45), "key_column_1", false),
+                                        new Identifier(location(1, 64), "value_column", false),
+                                        Optional.of(UTF16)),
+                                new JsonObjectMember(
+                                        location(1, 136),
+                                        new StringLiteral(location(1, 140), "key_literal"),
+                                        new LongLiteral(location(1, 160), "5"),
+                                        Optional.empty()),
+                                new JsonObjectMember(
+                                        location(1, 194),
+                                        new Identifier(location(1, 194), "key_column_2", false),
+                                        new NullLiteral(location(1, 209)),
+                                        Optional.empty())),
+                        false,
+                        true,
+                        Optional.of(new GenericDataType(location(1, 349), new Identifier(location(1, 349), "varbinary", false), ImmutableList.of())),
+                        Optional.of(UTF32)));
+    }
+
+    @Test
+    public void testJsonArray()
+    {
+        // test create empty JSON array
+        assertThat(expression("JSON_ARRAY()"))
+                .isEqualTo(new JsonArray(
+                        Optional.of(location(1, 1)),
+                        ImmutableList.of(),
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // test defaults
+        assertThat(expression("JSON_ARRAY(value_column)"))
+                .isEqualTo(new JsonArray(
+                        Optional.of(location(1, 1)),
+                        ImmutableList.of(new JsonArrayElement(
+                                location(1, 12),
+                                new Identifier(location(1, 12), "value_column", false),
+                                Optional.empty())),
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(expression("JSON_ARRAY(value_column FORMAT JSON ENCODING UTF16, " +
+                "                               5, " +
+                "                               null " +
+                "                               NULL ON NULL " +
+                "                               RETURNING varbinary FORMAT JSON ENCODING UTF32 " +
+                "                              )"))
+                .isEqualTo(new JsonArray(
+                        Optional.of(location(1, 1)),
+                        ImmutableList.of(
+                                new JsonArrayElement(
+                                        location(1, 12),
+                                        new Identifier(location(1, 12), "value_column", false),
+                                        Optional.of(UTF16)),
+                                new JsonArrayElement(
+                                        location(1, 84),
+                                        new LongLiteral(location(1, 84), "5"),
+                                        Optional.empty()),
+                                new JsonArrayElement(
+                                        location(1, 118),
+                                        new NullLiteral(location(1, 118)),
+                                        Optional.empty())),
+                        true,
+                        Optional.of(new GenericDataType(location(1, 208), new Identifier(location(1, 208), "varbinary", false), ImmutableList.of())),
+                        Optional.of(UTF32)));
     }
 
     private static QualifiedName makeQualifiedName(String tableName)

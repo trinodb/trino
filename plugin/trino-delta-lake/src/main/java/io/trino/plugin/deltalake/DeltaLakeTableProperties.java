@@ -24,7 +24,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -39,11 +38,6 @@ public class DeltaLakeTableProperties
     public static final String LOCATION_PROPERTY = "location";
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String CHECKPOINT_INTERVAL_PROPERTY = "checkpoint_interval";
-    // TODO: This property represents the subset of columns to be analyzed. This exists mainly because there is no way
-    //       to pass the column names to ConnectorMetadata#getStatisticsCollectionMetadata; we should consider passing
-    //       ConnectorTableHandle instead of ConnectorTableMetadata as an argument since it makes more information
-    //       available (including the names of the columns to be analyzed)
-    public static final String ANALYZE_COLUMNS_PROPERTY = "$trino.analyze_columns";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -102,11 +96,5 @@ public class DeltaLakeTableProperties
         });
 
         return checkpointInterval;
-    }
-
-    @SuppressWarnings("unchecked")
-    public static Optional<Set<String>> getAnalyzeColumns(Map<String, Object> tableProperties)
-    {
-        return Optional.ofNullable((Set<String>) tableProperties.get(ANALYZE_COLUMNS_PROPERTY));
     }
 }

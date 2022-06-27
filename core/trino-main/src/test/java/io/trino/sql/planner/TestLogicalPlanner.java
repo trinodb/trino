@@ -966,6 +966,68 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testCorrelatedDistinctAggregationRewriteToLeftOuterJoin()
+    {
+        assertPlan(
+                "SELECT (SELECT count(DISTINCT o.orderkey) FROM orders o WHERE c.custkey = o.custkey), c.custkey FROM customer c",
+                output(
+                        project(join(
+                                INNER,
+                                ImmutableList.of(),
+                                join(
+                                        LEFT,
+                                        ImmutableList.of(equiJoinClause("c_custkey", "o_custkey")),
+                                        anyTree(tableScan("customer", ImmutableMap.of("c_custkey", "custkey"))),
+                                        anyTree(aggregation(
+                                                singleGroupingSet("o_custkey"),
+                                                ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("o_orderkey"))),
+                                                ImmutableList.of(),
+                                                ImmutableList.of("non_null"),
+                                                Optional.empty(),
+                                                SINGLE,
+                                                project(ImmutableMap.of("non_null", expression("true")),
+                                                        aggregation(
+                                                                singleGroupingSet("o_orderkey", "o_custkey"),
+                                                                ImmutableMap.of(),
+                                                                Optional.empty(),
+                                                                FINAL,
+                                                                anyTree(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey")))))))),
+                                anyTree(node(ValuesNode.class))))));
+    }
+
+    @Test
+    public void testCorrelatedDistinctGropuedAggregationRewriteToLeftOuterJoin()
+    {
+        assertPlan(
+                "SELECT (SELECT count(DISTINCT o.orderkey) FROM orders o WHERE c.custkey = o.custkey GROUP BY o.orderstatus), c.custkey FROM customer c",
+                output(
+                        project(filter(
+                                "(CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(28, 'Scalar sub-query has returned multiple rows') AS boolean) END)",
+                                project(markDistinct(
+                                        "is_distinct",
+                                        ImmutableList.of("unique"),
+                                        join(
+                                                LEFT,
+                                                ImmutableList.of(equiJoinClause("c_custkey", "o_custkey")),
+                                                project(assignUniqueId(
+                                                        "unique",
+                                                        tableScan("customer", ImmutableMap.of("c_custkey", "custkey")))),
+                                                project(aggregation(
+                                                        singleGroupingSet("o_orderstatus", "o_custkey"),
+                                                        ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("o_orderkey"))),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        project(aggregation(
+                                                                singleGroupingSet("o_orderstatus", "o_orderkey", "o_custkey"),
+                                                                ImmutableMap.of(),
+                                                                Optional.empty(),
+                                                                FINAL,
+                                                                anyTree(tableScan(
+                                                                        "orders",
+                                                                        ImmutableMap.of("o_orderkey", "orderkey", "o_orderstatus", "orderstatus", "o_custkey", "custkey"))))))))))))));
+    }
+
+    @Test
     public void testRemovesTrivialFilters()
     {
         assertPlan(
@@ -1185,6 +1247,46 @@ public class TestLogicalPlanner
         assertPlanDoesNotContain(
                 "SELECT custkey FROM orders WHERE custkey NOT IN (SELECT distinct custkey FROM customer)",
                 AggregationNode.class);
+    }
+
+    @Test
+    public void testRemoveEmptyGlobalAggregation()
+    {
+        // unused aggregation result over a table
+        assertPlan(
+                "SELECT count(*) FROM (SELECT count(*) FROM nation)",
+                output(
+                        values(List.of("c"), List.of(List.of(new GenericLiteral("BIGINT", "1"))))));
+
+        // unused aggregation result over values
+        assertPlan(
+                "SELECT count(*) FROM (SELECT count(*) FROM (VALUES 1,2,3,4,5,6,7))",
+                output(
+                        values(List.of("c"), List.of(List.of(new GenericLiteral("BIGINT", "1"))))));
+
+        // unused aggregation result over unnest
+        assertPlan(
+                "SELECT count(*) FROM (SELECT count(*) FROM UNNEST(sequence(1, 10)))",
+                output(
+                        values(List.of("c"), List.of(List.of(new GenericLiteral("BIGINT", "1"))))));
+
+        // no aggregate function at all over a table
+        assertPlan(
+                "SELECT 1 FROM nation GROUP BY GROUPING SETS (())",
+                output(
+                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
+
+        // no aggregate function at all over values
+        assertPlan(
+                "SELECT 1 FROM (VALUES 1,2,3,4,5,6,7) GROUP BY GROUPING SETS (())",
+                output(
+                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
+
+        // no aggregate function at all over unnest
+        assertPlan(
+                "SELECT 1 FROM UNNEST(sequence(1, 10)) GROUP BY GROUPING SETS (())",
+                output(
+                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
     }
 
     @Test

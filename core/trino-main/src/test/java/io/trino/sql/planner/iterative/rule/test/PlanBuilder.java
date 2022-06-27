@@ -28,6 +28,7 @@ import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortOrder;
@@ -71,9 +72,11 @@ import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
+import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
@@ -753,6 +756,7 @@ public class PlanBuilder
     {
         OutputTableHandle tableHandle = new OutputTableHandle(
                 catalog,
+                schemaTableName,
                 TestingConnectorTransactionHandle.INSTANCE,
                 TestingHandle.INSTANCE);
         return new CreateTarget(
@@ -1371,6 +1375,16 @@ public class PlanBuilder
         PatternRecognitionBuilder patternRecognitionBuilder = new PatternRecognitionBuilder();
         consumer.accept(patternRecognitionBuilder);
         return patternRecognitionBuilder.build(idAllocator);
+    }
+
+    public RemoteSourceNode remoteSource(
+            List<PlanFragmentId> sourceFragmentIds,
+            List<Symbol> outputs,
+            Optional<OrderingScheme> orderingScheme,
+            ExchangeNode.Type exchangeType,
+            RetryPolicy retryPolicy)
+    {
+        return new RemoteSourceNode(idAllocator.getNextId(), sourceFragmentIds, outputs, orderingScheme, exchangeType, retryPolicy);
     }
 
     public static Expression expression(String sql)

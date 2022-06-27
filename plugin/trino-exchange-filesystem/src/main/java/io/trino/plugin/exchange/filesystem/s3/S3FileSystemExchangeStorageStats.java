@@ -20,11 +20,9 @@ import org.weakref.jmx.Nested;
 
 public class S3FileSystemExchangeStorageStats
 {
-    private final ExecutionStats headObject = new ExecutionStats();
     private final ExecutionStats createEmptyFile = new ExecutionStats();
+    private final ExecutionStats listFilesRecursively = new ExecutionStats();
     private final ExecutionStats deleteRecursively = new ExecutionStats();
-    private final ExecutionStats listFiles = new ExecutionStats();
-    private final ExecutionStats listDirectories = new ExecutionStats();
     private final ExecutionStats deleteObjects = new ExecutionStats();
     private final DistributionStat deleteObjectsEntriesCount = new DistributionStat();
     private final ExecutionStats getObject = new ExecutionStats();
@@ -40,13 +38,6 @@ public class S3FileSystemExchangeStorageStats
 
     @Managed
     @Nested
-    public ExecutionStats getHeadObject()
-    {
-        return headObject;
-    }
-
-    @Managed
-    @Nested
     public ExecutionStats getCreateEmptyFile()
     {
         return createEmptyFile;
@@ -54,23 +45,16 @@ public class S3FileSystemExchangeStorageStats
 
     @Managed
     @Nested
+    public ExecutionStats getListFilesRecursively()
+    {
+        return listFilesRecursively;
+    }
+
+    @Managed
+    @Nested
     public ExecutionStats getDeleteRecursively()
     {
         return deleteRecursively;
-    }
-
-    @Managed
-    @Nested
-    public ExecutionStats getListFiles()
-    {
-        return listFiles;
-    }
-
-    @Managed
-    @Nested
-    public ExecutionStats getListDirectories()
-    {
-        return listDirectories;
     }
 
     @Managed

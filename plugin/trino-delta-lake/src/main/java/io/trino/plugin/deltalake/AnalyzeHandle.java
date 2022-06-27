@@ -25,29 +25,20 @@ import static java.util.Objects.requireNonNull;
 
 public class AnalyzeHandle
 {
-    private final long tableVersion;
     private final boolean initialAnalyze;
     private final Optional<Instant> filesModifiedAfter;
     private final Optional<Set<String>> columns;
 
     @JsonCreator
     public AnalyzeHandle(
-            @JsonProperty("tableVersion") long tableVersion,
             @JsonProperty("initialAnalyze") boolean initialAnalyze,
             @JsonProperty("startTime") Optional<Instant> filesModifiedAfter,
             @JsonProperty("columns") Optional<Set<String>> columns)
     {
-        this.tableVersion = tableVersion;
         this.initialAnalyze = initialAnalyze;
         this.filesModifiedAfter = requireNonNull(filesModifiedAfter, "filesModifiedAfter is null");
         requireNonNull(columns, "columns is null");
         this.columns = columns.map(ImmutableSet::copyOf);
-    }
-
-    @JsonProperty
-    public long getTableVersion()
-    {
-        return tableVersion;
     }
 
     @JsonProperty

@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>123</version>
+        <version>128</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>381-SNAPSHOT</version>
+    <version>388-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -49,7 +49,7 @@
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.9.3</dep.antlr.version>
-        <dep.airlift.version>215</dep.airlift.version>
+        <dep.airlift.version>217</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.12.172</dep.aws-sdk.version>
         <dep.okhttp.version>3.14.9</dep.okhttp.version>
@@ -57,16 +57,18 @@
         <dep.jsonwebtoken.version>0.11.2</dep.jsonwebtoken.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.tempto.version>187</dep.tempto.version>
+        <dep.tempto.version>188</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
-        <dep.errorprone.version>2.12.0</dep.errorprone.version>
+        <dep.errorprone.version>2.14.0</dep.errorprone.version>
         <dep.testcontainers.version>1.16.3</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
-        <dep.coral.version>2.0.55</dep.coral.version>
+        <dep.coral.version>2.0.77</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
+        <dep.casandra.version>4.14.0</dep.casandra.version>
+        <dep.minio.version>7.1.4</dep.minio.version>
 
-        <dep.docker.images.version>56</dep.docker.images.version>
+        <dep.docker.images.version>61</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -98,6 +100,7 @@
         <module>lib/trino-array</module>
         <module>lib/trino-collect</module>
         <module>lib/trino-geospatial-toolkit</module>
+        <module>lib/trino-hadoop-toolkit</module>
         <module>lib/trino-matching</module>
         <module>lib/trino-memory-context</module>
         <module>lib/trino-orc</module>
@@ -136,7 +139,6 @@
         <module>plugin/trino-mysql</module>
         <module>plugin/trino-oracle</module>
         <module>plugin/trino-password-authenticators</module>
-        <module>plugin/trino-phoenix</module>
         <module>plugin/trino-phoenix5</module>
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
@@ -158,6 +160,7 @@
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark</module>
         <module>testing/trino-benchto-benchmarks</module>
+        <module>testing/trino-faulttolerant-tests</module>
         <module>testing/trino-plugin-reader</module>
         <module>testing/trino-product-tests</module>
         <module>testing/trino-product-tests-launcher</module>
@@ -167,6 +170,7 @@
         <module>testing/trino-testing</module>
         <module>testing/trino-testing-containers</module>
         <module>testing/trino-testing-kafka</module>
+        <module>testing/trino-testing-resources</module>
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
     </modules>
@@ -277,6 +281,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-faulttolerant-tests</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-geospatial</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -284,6 +294,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-geospatial-toolkit</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-hadoop-toolkit</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -309,6 +325,13 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-iceberg</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-iceberg</artifactId>
+                <type>test-jar</type>
                 <version>${project.version}</version>
             </dependency>
 
@@ -537,6 +560,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-testing-resources</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-testing-services</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -593,12 +622,6 @@
             </dependency>
 
             <dependency>
-                <groupId>io.trino.cassandra</groupId>
-                <artifactId>cassandra-driver</artifactId>
-                <version>3.1.4-3</version>
-            </dependency>
-
-            <dependency>
                 <groupId>io.trino.hadoop</groupId>
                 <artifactId>hadoop-apache</artifactId>
                 <version>3.2.0-16</version>
@@ -628,10 +651,6 @@
                 <version>${dep.tempto.version}</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                    <exclusion>
                         <groupId>com.google.code.findbugs</groupId>
                         <artifactId>annotations</artifactId>
                     </exclusion>
@@ -644,10 +663,6 @@
                 <version>${dep.tempto.version}</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                    <exclusion>
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-log4j12</artifactId>
                     </exclusion>
@@ -658,24 +673,12 @@
                 <groupId>io.trino.tempto</groupId>
                 <artifactId>tempto-ldap</artifactId>
                 <version>${dep.tempto.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>io.trino.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
                 <version>${dep.tempto.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -1028,6 +1031,24 @@
             </dependency>
 
             <dependency>
+                <groupId>com.databricks</groupId>
+                <artifactId>databricks-jdbc</artifactId>
+                <version>2.6.25-1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.datastax.oss</groupId>
+                <artifactId>java-driver-core</artifactId>
+                <version>${dep.casandra.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-analysis</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
                 <groupId>com.esri.geometry</groupId>
                 <artifactId>esri-geometry-api</artifactId>
                 <version>2.2.4</version>
@@ -1364,6 +1385,12 @@
                 <version>${dep.jsonwebtoken.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>io.minio</groupId>
+                <artifactId>minio</artifactId>
+                <version>${dep.minio.version}</version>
+            </dependency>
+
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
             <dependency>
                 <groupId>io.swagger</groupId>
@@ -1400,13 +1427,6 @@
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
                 <version>8.0.22</version>
-            </dependency>
-
-            <!-- force newer version to be used for dependencies -->
-            <dependency>
-                <groupId>net.bytebuddy</groupId>
-                <artifactId>byte-buddy</artifactId>
-                <version>1.10.22</version>
             </dependency>
 
             <dependency>
@@ -1609,8 +1629,7 @@
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
-                <!-- Client 3.0.3 against MariaDB server 10.2 causes syntax error when accessing metadata-->
-                <version>2.7.5</version>
+                <version>3.0.5</version>
             </dependency>
 
             <dependency>
@@ -1679,7 +1698,7 @@
             <dependency>
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
-                <version>1.28</version>
+                <version>1.30</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -1893,10 +1912,12 @@
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
                                     -Xep:ClassCanBeStatic:ERROR \
                                     -Xep:CompareToZero:ERROR \
+                                    -Xep:DefaultCharset:ERROR \
                                     -Xep:EqualsGetClass:OFF <!-- we would rather want the opposite check --> \
                                     -Xep:EqualsIncompatibleType:ERROR \
                                     -Xep:FallThrough:ERROR \
                                     -Xep:GuardedBy:OFF <!-- needs some careful inspection --> \
+                                    -Xep:HidingField:ERROR \
                                     -Xep:ImmutableEnumChecker:OFF <!-- flags enums with List fields even if initialized with ImmutableList, and other false positives --> \
                                     -Xep:ImmutableSetForContains:ERROR \
                                     -Xep:InconsistentCapitalization:ERROR <!-- fields/variables should not differ only in case --> \
@@ -1958,7 +1979,7 @@
                     <plugin>
                         <groupId>io.github.gitflow-incremental-builder</groupId>
                         <artifactId>gitflow-incremental-builder</artifactId>
-                        <version>4.0.0</version>
+                        <version>4.1.0</version>
                         <extensions>true</extensions>
                         <configuration>
                             <disableIfBranchMatches>master</disableIfBranchMatches>

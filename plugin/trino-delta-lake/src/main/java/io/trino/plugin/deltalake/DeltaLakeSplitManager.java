@@ -19,8 +19,8 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -70,6 +70,7 @@ public class DeltaLakeSplitManager
     private final int maxInitialSplits;
     private final int maxSplitsPerSecond;
     private final int maxOutstandingSplits;
+    private final double minimumAssignedSplitWeight;
 
     @Inject
     public DeltaLakeSplitManager(
@@ -85,6 +86,7 @@ public class DeltaLakeSplitManager
         this.maxInitialSplits = config.getMaxInitialSplits();
         this.maxSplitsPerSecond = config.getMaxSplitsPerSecond();
         this.maxOutstandingSplits = config.getMaxOutstandingSplits();
+        this.minimumAssignedSplitWeight = config.getMinimumAssignedSplitWeight();
     }
 
     @Override
@@ -114,7 +116,7 @@ public class DeltaLakeSplitManager
                 getDynamicFilteringWaitTimeout(session),
                 deltaLakeTableHandle.isRecordScannedFiles());
 
-        return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
+        return new ClassLoaderSafeConnectorSplitSource(splitSource, DeltaLakeSplitManager.class.getClassLoader());
     }
 
     private Stream<DeltaLakeSplit> getSplits(
@@ -144,9 +146,9 @@ public class DeltaLakeSplitManager
                         .map(DeltaLakeColumnHandle.class::cast))
                 .map(column -> column.getName().toLowerCase(ENGLISH)) // TODO is DeltaLakeColumnHandle.name normalized?
                 .collect(toImmutableSet());
-        List<ColumnMetadata> schema = extractSchema(tableHandle.getMetadataEntry(), typeManager);
-        List<ColumnMetadata> predicatedColumns = schema.stream()
-                .filter(column -> predicatedColumnNames.contains(column.getName())) // ColumnMetadata.name is lowercase
+        List<DeltaLakeColumnMetadata> schema = extractSchema(tableHandle.getMetadataEntry(), typeManager);
+        List<DeltaLakeColumnMetadata> predicatedColumns = schema.stream()
+                .filter(column -> predicatedColumnNames.contains(column.getName())) // DeltaLakeColumnMetadata.name is lowercase
                 .collect(toImmutableList());
 
         return validDataFiles.stream()
@@ -235,6 +237,7 @@ public class DeltaLakeSplitManager
                     fileSize,
                     addFileEntry.getModificationTime(),
                     ImmutableList.of(),
+                    SplitWeight.standard(),
                     statisticsPredicate,
                     partitionKeys));
         }
@@ -242,15 +245,14 @@ public class DeltaLakeSplitManager
         ImmutableList.Builder<DeltaLakeSplit> splits = ImmutableList.builder();
         long currentOffset = 0;
         while (currentOffset < fileSize) {
-            long splitSize;
+            long maxSplitSize;
             if (remainingInitialSplits.get() > 0 && remainingInitialSplits.getAndDecrement() > 0) {
-                splitSize = getMaxInitialSplitSize(session).toBytes();
+                maxSplitSize = getMaxInitialSplitSize(session).toBytes();
             }
             else {
-                splitSize = getMaxSplitSize(session).toBytes();
+                maxSplitSize = getMaxSplitSize(session).toBytes();
             }
-
-            splitSize = Math.min(splitSize, fileSize - currentOffset);
+            long splitSize = Math.min(maxSplitSize, fileSize - currentOffset);
 
             splits.add(new DeltaLakeSplit(
                     splitPath,
@@ -259,6 +261,7 @@ public class DeltaLakeSplitManager
                     fileSize,
                     addFileEntry.getModificationTime(),
                     ImmutableList.of(),
+                    SplitWeight.fromProportion(Math.min(Math.max((double) splitSize / maxSplitSize, minimumAssignedSplitWeight), 1.0)),
                     statisticsPredicate,
                     partitionKeys));
 

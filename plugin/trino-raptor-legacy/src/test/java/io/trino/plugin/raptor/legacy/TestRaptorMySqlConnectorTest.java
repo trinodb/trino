@@ -36,7 +36,7 @@ public class TestRaptorMySqlConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mysqlContainer = new MySQLContainer<>("mysql:8.0.12");
+        mysqlContainer = new MySQLContainer<>("mysql:8.0.29-oracle");
         mysqlContainer.start();
         return createRaptorMySqlQueryRunner(getJdbcUrl(mysqlContainer));
     }

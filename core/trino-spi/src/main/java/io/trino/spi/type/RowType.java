@@ -109,11 +109,11 @@ public class RowType
     private final boolean comparable;
     private final boolean orderable;
 
-    private RowType(TypeSignature typeSignature, List<Field> fields)
+    private RowType(TypeSignature typeSignature, List<Field> originalFields)
     {
         super(typeSignature, Block.class);
 
-        this.fields = fields;
+        this.fields = List.copyOf(originalFields);
         this.fieldTypes = fields.stream()
                 .map(Field::getType)
                 .collect(toUnmodifiableList());

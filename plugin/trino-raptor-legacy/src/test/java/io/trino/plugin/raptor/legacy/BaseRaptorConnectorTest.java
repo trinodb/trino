@@ -55,6 +55,7 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -73,6 +74,8 @@ public abstract class BaseRaptorConnectorTest
                 return true;
             case SUPPORTS_CREATE_SCHEMA:
             case SUPPORTS_RENAME_SCHEMA:
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
@@ -132,7 +135,10 @@ public abstract class BaseRaptorConnectorTest
                 || typeName.equals("real")
                 || typeName.startsWith("decimal(")
                 || typeName.equals("time")
+                || typeName.equals("time(6)")
+                || typeName.equals("timestamp(6)")
                 || typeName.equals("timestamp(3) with time zone")
+                || typeName.equals("timestamp(6) with time zone")
                 || typeName.startsWith("char(")) {
             //TODO this should either work or fail cleanly
             return Optional.empty();
@@ -167,6 +173,15 @@ public abstract class BaseRaptorConnectorTest
         assertQuery("SELECT c[1] FROM map_test", "SELECT 'hi'");
         assertQuery("SELECT c[3] FROM map_test", "SELECT NULL");
         assertUpdate("DROP TABLE map_test");
+    }
+
+    @Test
+    @Override
+    public void testCreateViewSchemaNotFound()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/11110) Raptor connector can create new views in a schema where it doesn't exist
+        assertThatThrownBy(super::testCreateViewSchemaNotFound)
+                .hasMessageContaining("Expected query to fail: CREATE VIEW test_schema_");
     }
 
     @Test
@@ -879,5 +894,17 @@ public abstract class BaseRaptorConnectorTest
         assertUpdate("DELETE FROM test_alter_table WHERE c1 = 22", 3);
 
         assertUpdate("DROP TABLE test_alter_table");
+    }
+
+    @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessageContaining("Failed to perform metadata operation")
+                .getCause()
+                .hasMessageMatching(
+                        "(?s).*SQLIntegrityConstraintViolationException.*" +
+                                "|.*Unique index or primary key violation.*" +
+                                "|.*Deadlock found when trying to get lock; try restarting transaction.*");
     }
 }

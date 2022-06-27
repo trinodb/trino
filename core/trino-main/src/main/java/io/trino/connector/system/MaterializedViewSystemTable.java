@@ -39,7 +39,7 @@ import java.util.Optional;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.getMaterializedViews;
-import static io.trino.metadata.MetadataListing.listCatalogs;
+import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -97,7 +97,7 @@ public class MaterializedViewSystemTable
         Optional<String> schemaFilter = tryGetSingleVarcharValue(constraint, 1);
         Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
 
-        listCatalogs(session, metadata, accessControl, catalogFilter).keySet().forEach(catalogName -> {
+        listCatalogNames(session, metadata, accessControl, catalogFilter).forEach(catalogName -> {
             QualifiedTablePrefix tablePrefix = tablePrefix(catalogName, schemaFilter, tableFilter);
 
             getMaterializedViews(session, metadata, accessControl, tablePrefix).forEach((tableName, definition) -> {

@@ -25,6 +25,7 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -50,7 +51,6 @@ import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
-import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
@@ -134,6 +134,7 @@ import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.visibleFields;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.TableWriterNode.CreateReference;
 import static io.trino.sql.planner.plan.TableWriterNode.InsertReference;
@@ -336,7 +337,9 @@ public class LogicalPlanner
 
     private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
     {
-        TableHandle targetTable = analysis.getAnalyzeTarget().orElseThrow();
+        AnalyzeMetadata analyzeMetadata = analysis.getAnalyzeMetadata().orElseThrow();
+        TableHandle targetTable = analyzeMetadata.getTableHandle();
+        TableStatisticsMetadata tableStatisticsMetadata = analyzeMetadata.getStatisticsMetadata();
 
         // Plan table scan
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);
@@ -351,26 +354,17 @@ public class LogicalPlanner
             columnNameToSymbol.put(column.getName(), symbol);
         }
 
-        TableStatisticsMetadata tableStatisticsMetadata = metadata.getStatisticsCollectionMetadata(
-                session,
-                targetTable.getCatalogName().getCatalogName(),
-                tableMetadata.getMetadata());
-
         TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToSymbol.buildOrThrow());
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
         List<Symbol> groupingSymbols = statisticAggregations.getGroupingSymbols();
 
         PlanNode planNode = new StatisticsWriterNode(
                 idAllocator.getNextId(),
-                new AggregationNode(
+                singleAggregation(
                         idAllocator.getNextId(),
                         TableScanNode.newInstance(idAllocator.getNextId(), targetTable, tableScanOutputs.build(), symbolToColumnHandle.buildOrThrow(), false, Optional.empty()),
                         statisticAggregations.getAggregations(),
-                        singleGroupingSet(groupingSymbols),
-                        ImmutableList.of(),
-                        AggregationNode.Step.SINGLE,
-                        Optional.empty(),
-                        Optional.empty()),
+                        singleGroupingSet(groupingSymbols)),
                 new StatisticsWriterNode.WriteStatisticsReference(targetTable),
                 symbolAllocator.newSymbol("rows", BIGINT),
                 tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
@@ -839,7 +833,7 @@ public class LogicalPlanner
 
         TableHandle tableHandle = analysis.getTableHandle(table);
         RelationPlan tableScanPlan = createRelationPlan(analysis, table);
-        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of());
+        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
         if (statement.getWhere().isPresent()) {
             SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, typeCoercion, Optional.empty(), session, ImmutableMap.of());
             Expression whereExpression = statement.getWhere().get();

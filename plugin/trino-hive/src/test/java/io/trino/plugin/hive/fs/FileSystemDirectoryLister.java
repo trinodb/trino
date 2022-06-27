@@ -33,6 +33,13 @@ public class FileSystemDirectoryLister
     }
 
     @Override
+    public RemoteIterator<LocatedFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+            throws IOException
+    {
+        return fs.listFiles(path, true);
+    }
+
+    @Override
     public void invalidate(Partition partition)
     {
     }

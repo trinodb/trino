@@ -40,6 +40,7 @@ import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadataMetastore;
+import io.trino.plugin.hive.util.RetryDriver;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -94,6 +95,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -107,6 +109,7 @@ import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWN
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
+import static io.trino.plugin.hive.util.HiveWriteUtils.checkedDelete;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createDirectory;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
 import static io.trino.plugin.hive.util.HiveWriteUtils.pathExists;
@@ -120,6 +123,7 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.conf.MetastoreConf.ConfVars.TXN_TIMEOUT;
@@ -131,6 +135,10 @@ public class SemiTransactionalHiveMetastore
     private static final Logger log = Logger.get(SemiTransactionalHiveMetastore.class);
     private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
     private static final Pattern DELTA_DIRECTORY_MATCHER = Pattern.compile("(delete_)?delta_[\\d]+_[\\d]+_[\\d]+$");
+
+    private static final RetryDriver DELETE_RETRY = RetryDriver.retry()
+            .maxAttempts(3)
+            .exponentialBackoff(new Duration(1, SECONDS), new Duration(1, SECONDS), new Duration(10, SECONDS), 2.0);
 
     private final HiveMetastoreClosure delegate;
     private final HdfsEnvironment hdfsEnvironment;
@@ -245,7 +253,29 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + tableAction.getType());
+    }
+
+    public synchronized boolean isReadableWithinTransaction(String databaseName, String tableName)
+    {
+        Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
+        if (tableAction == null) {
+            return true;
+        }
+        switch (tableAction.getType()) {
+            case ADD:
+            case ALTER:
+                return true;
+            case INSERT_EXISTING:
+            case DELETE_ROWS:
+            case UPDATE:
+                // Until transaction is committed, the table data may or may not be visible.
+                return false;
+            case DROP:
+            case DROP_PRESERVE_DATA:
+                return false;
+        }
+        throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
 
     public synchronized Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
@@ -273,7 +303,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
 
     public synchronized Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
@@ -344,7 +374,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
 
     public synchronized HivePageSinkMetadata generatePageSinkMetadata(SchemaTableName schemaTableName)
@@ -514,7 +544,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
 
     public synchronized void dropTable(ConnectorSession session, String databaseName, String tableName)
@@ -542,7 +572,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
 
     public synchronized void replaceTable(String databaseName, String tableName, Table table, PrincipalPrivileges principalPrivileges)
@@ -646,7 +676,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
 
     private boolean isAcidTransactionRunning()
@@ -726,7 +756,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
 
     public synchronized void finishUpdate(
@@ -773,7 +803,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
 
     public synchronized Optional<List<String>> getPartitionNames(String databaseName, String tableName)
@@ -859,7 +889,7 @@ public class SemiTransactionalHiveMetastore
                     resultBuilder.add(partitionName);
                     break;
                 default:
-                    throw new IllegalStateException("Unknown action type");
+                    throw new IllegalStateException("Unknown action type: " + partitionAction.getType());
             }
         }
         // add newly-added partitions to the results from underlying metastore.
@@ -926,7 +956,7 @@ public class SemiTransactionalHiveMetastore
             case DROP_PRESERVE_DATA:
                 return Optional.empty();
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + partitionAction.getType());
     }
 
     public synchronized void addPartition(
@@ -967,7 +997,7 @@ public class SemiTransactionalHiveMetastore
             case UPDATE:
                 throw new TrinoException(ALREADY_EXISTS, format("Partition already exists for table '%s.%s': %s", databaseName, tableName, partition.getValues()));
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldPartitionAction.getType());
     }
 
     public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
@@ -998,7 +1028,7 @@ public class SemiTransactionalHiveMetastore
                         NOT_SUPPORTED,
                         format("dropping a partition added in the same transaction is not supported: %s %s %s", databaseName, tableName, partitionValues));
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldPartitionAction.getType());
     }
 
     public synchronized void finishInsertIntoExistingPartition(
@@ -1051,7 +1081,7 @@ public class SemiTransactionalHiveMetastore
             case UPDATE:
                 throw new UnsupportedOperationException("Inserting into a partition that were added, altered, or inserted into in the same transaction is not supported");
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + oldPartitionAction.getType());
     }
 
     private synchronized AcidTransaction getCurrentAcidTransaction()
@@ -1159,7 +1189,7 @@ public class SemiTransactionalHiveMetastore
                 // TODO
                 break;
         }
-        throw new IllegalStateException("Unknown action type");
+        throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
 
     private synchronized String getRequiredTableOwner(String databaseName, String tableName)
@@ -1340,26 +1370,28 @@ public class SemiTransactionalHiveMetastore
     private long getServerExpectedHeartbeatIntervalMillis()
     {
         String hiveServerTransactionTimeout = delegate.getConfigValue(TXN_TIMEOUT.getVarname()).orElseGet(() -> TXN_TIMEOUT.getDefaultVal().toString());
-        Configuration configuration = new Configuration(false);
+        Configuration configuration = newEmptyConfiguration();
         configuration.set(TXN_TIMEOUT.toString(), hiveServerTransactionTimeout);
         return getTimeVar(configuration, TXN_TIMEOUT, MILLISECONDS) / 2;
     }
 
-    public synchronized Optional<ValidTxnWriteIdList> getValidWriteIds(ConnectorSession session, HiveTableHandle tableHandle)
+    public Optional<ValidTxnWriteIdList> getValidWriteIds(ConnectorSession session, HiveTableHandle tableHandle)
     {
-        String queryId = session.getQueryId();
-        checkState(currentQueryId.equals(Optional.of(queryId)), "Invalid query id %s while current query is", queryId, currentQueryId);
-        if (!AcidUtils.isTransactionalTable(tableHandle.getTableParameters().orElseThrow(() -> new IllegalStateException("tableParameters missing")))) {
-            return Optional.empty();
+        HiveTransaction hiveTransaction;
+        synchronized (this) {
+            String queryId = session.getQueryId();
+            checkState(currentQueryId.equals(Optional.of(queryId)), "Invalid query id %s while current query is", queryId, currentQueryId);
+            if (!AcidUtils.isTransactionalTable(tableHandle.getTableParameters().orElseThrow(() -> new IllegalStateException("tableParameters missing")))) {
+                return Optional.empty();
+            }
+            if (currentHiveTransaction.isEmpty()) {
+                currentHiveTransaction = Optional.of(hiveTransactionSupplier
+                        .orElseThrow(() -> new IllegalStateException("hiveTransactionSupplier is not set"))
+                        .get());
+            }
+            hiveTransaction = currentHiveTransaction.get();
         }
-
-        if (currentHiveTransaction.isEmpty()) {
-            currentHiveTransaction = Optional.of(hiveTransactionSupplier
-                    .orElseThrow(() -> new IllegalStateException("hiveTransactionSupplier is not set"))
-                    .get());
-        }
-
-        return Optional.of(currentHiveTransaction.get().getValidWriteIds(new AcidTransactionOwner(session.getUser()), delegate, tableHandle));
+        return Optional.of(hiveTransaction.getValidWriteIds(new AcidTransactionOwner(session.getUser()), delegate, tableHandle));
     }
 
     public synchronized void cleanupQuery(ConnectorSession session)
@@ -1446,7 +1478,7 @@ public class SemiTransactionalHiveMetastore
                         committer.prepareUpdateExistingTable(action.getHdfsContext(), action.getData());
                         break;
                     default:
-                        throw new IllegalStateException("Unknown action type");
+                        throw new IllegalStateException("Unknown action type: " + action.getType());
                 }
             }
             for (Map.Entry<SchemaTableName, Map<List<String>, Action<PartitionAndMore>>> tableEntry : partitionActions.entrySet()) {
@@ -1474,7 +1506,7 @@ public class SemiTransactionalHiveMetastore
                         case DELETE_ROWS:
                             break;
                         default:
-                            throw new IllegalStateException("Unknown action type");
+                            throw new IllegalStateException("Unknown action type: " + action.getType());
                     }
                 }
             }
@@ -3659,8 +3691,12 @@ public class SemiTransactionalHiveMetastore
             Iterator<String> filesToDeleteIterator = filesToDelete.iterator();
             while (filesToDeleteIterator.hasNext()) {
                 String fileName = filesToDeleteIterator.next();
-                log.debug("Deleting failed attempt file %s/%s for query %s", path, fileName, queryId);
-                fileSystem.delete(new Path(path, fileName), false);
+                Path filePath = new Path(path, fileName);
+                log.debug("Deleting failed attempt file %s for query %s", filePath, queryId);
+                DELETE_RETRY.run("delete " + filePath, () -> {
+                    checkedDelete(fileSystem, filePath, false);
+                    return null;
+                });
                 deletedFilesBuilder.add(fileName);
                 filesToDeleteIterator.remove();
             }
@@ -3670,7 +3706,10 @@ public class SemiTransactionalHiveMetastore
                 log.info("Deleted failed attempt files %s from %s for query %s", deletedFiles, path, queryId);
             }
         }
-        catch (IOException e) {
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             // If we fail here query will be rolled back. The optimal outcome would be for rollback to complete successfully and clean up everything for query.
             // Yet if we have problem here, probably rollback will also fail.
             //

@@ -97,6 +97,8 @@ public class TestMemoryConnectorTest
             case SUPPORTS_RENAME_COLUMN:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
@@ -555,7 +557,7 @@ public class TestMemoryConnectorTest
         assertUpdate("CREATE VIEW test_view AS SELECT 123 x");
         assertUpdate("CREATE OR REPLACE VIEW test_view AS " + query);
 
-        assertQueryFails("CREATE TABLE test_view (x date)", "View \\[default.test_view] already exists");
+        assertQueryFails("CREATE TABLE test_view (x date)", ".*Table 'memory.default.test_view' already exists");
         assertQueryFails("CREATE VIEW test_view AS SELECT 123 x", ".*View already exists: 'memory.default.test_view'");
 
         assertQuery("SELECT * FROM test_view", query);

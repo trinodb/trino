@@ -21,6 +21,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import redis.clients.jedis.Jedis;
@@ -61,7 +62,8 @@ public class RedisSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         RedisTableHandle redisTableHandle = (RedisTableHandle) table;
 
@@ -98,6 +100,7 @@ public class RedisSplitManager
                     redisTableHandle.getKeyDataFormat(),
                     redisTableHandle.getValueDataFormat(),
                     redisTableHandle.getKeyName(),
+                    redisTableHandle.getConstraint(),
                     startIndex,
                     endIndex,
                     nodes);

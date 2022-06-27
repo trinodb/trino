@@ -78,14 +78,8 @@ public class PruneOrderByInAggregation
         if (!anyRewritten) {
             return Result.empty();
         }
-        return Result.ofPlanNode(new AggregationNode(
-                node.getId(),
-                node.getSource(),
-                aggregations.buildOrThrow(),
-                node.getGroupingSets(),
-                node.getPreGroupedSymbols(),
-                node.getStep(),
-                node.getHashSymbol(),
-                node.getGroupIdSymbol()));
+        return Result.ofPlanNode(AggregationNode.builderFrom(node)
+                .setAggregations(aggregations.buildOrThrow())
+                .build());
     }
 }

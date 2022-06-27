@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
@@ -49,7 +48,6 @@ import java.util.function.Predicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.failedFuture;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -349,9 +347,9 @@ class HiveSplitSource
         }
 
         OptionalInt bucketNumber = toBucketNumber(partitionHandle);
-        ListenableFuture<List<ConnectorSplit>> future = queues.borrowBatchAsync(bucketNumber, maxSize, internalSplits -> {
+        ListenableFuture<ImmutableList<HiveSplit>> future = queues.borrowBatchAsync(bucketNumber, maxSize, internalSplits -> {
             ImmutableList.Builder<InternalHiveSplit> splitsToInsertBuilder = ImmutableList.builder();
-            ImmutableList.Builder<ConnectorSplit> resultBuilder = ImmutableList.builder();
+            ImmutableList.Builder<HiveSplit> resultBuilder = ImmutableList.builder();
             int removedEstimatedSizeInBytes = 0;
             int removedSplitCount = 0;
             for (InternalHiveSplit internalSplit : internalSplits) {
@@ -425,16 +423,20 @@ class HiveSplitSource
             estimatedSplitSizeInBytes.addAndGet(-removedEstimatedSizeInBytes);
             bufferedInternalSplitCount.addAndGet(-removedSplitCount);
 
-            List<InternalHiveSplit> splitsToInsert = splitsToInsertBuilder.build();
-            List<ConnectorSplit> result = resultBuilder.build();
-            return new AsyncQueue.BorrowResult<>(splitsToInsert, result);
+            return new AsyncQueue.BorrowResult<>(splitsToInsertBuilder.build(), resultBuilder.build());
         });
 
-        ListenableFuture<ConnectorSplitBatch> transform = Futures.transform(future, splits -> {
-            requireNonNull(splits, "splits is null");
+        return toCompletableFuture(future).thenApply(hiveSplits -> {
+            requireNonNull(hiveSplits, "hiveSplits is null");
             if (recordScannedFiles) {
-                splits.forEach(split -> scannedFilePaths.add(((HiveSplit) split).getPath()));
+                hiveSplits.stream()
+                        .filter(split -> split.getStart() == 0)
+                        .map(HiveSplit::getPath)
+                        .forEach(scannedFilePaths::add);
             }
+            // This won't actually initiate a copy since hiveSplits is already an ImmutableList, but it will
+            // let us convert from List<HiveSplit> to List<ConnectorSplit> without casting
+            List<ConnectorSplit> splits = ImmutableList.copyOf(hiveSplits);
             if (noMoreSplits) {
                 // Checking splits.isEmpty() here is required for thread safety.
                 // Let's say there are 10 splits left, and max number of splits per batch is 5.
@@ -451,9 +453,7 @@ class HiveSplitSource
             else {
                 return new ConnectorSplitBatch(splits, false);
             }
-        }, directExecutor());
-
-        return toCompletableFuture(transform);
+        });
     }
 
     @Override

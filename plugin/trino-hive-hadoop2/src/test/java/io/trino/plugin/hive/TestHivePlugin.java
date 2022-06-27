@@ -127,6 +127,20 @@ public class TestHivePlugin
     }
 
     @Test
+    public void testAlluxioMetastore()
+    {
+        ConnectorFactory factory = getHiveConnectorFactory();
+
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "alluxio",
+                        "hive.metastore.alluxio.master.address", "dummy:1234"),
+                new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
     public void testRecordingMetastore()
     {
         ConnectorFactory factory = getHiveConnectorFactory();

@@ -40,6 +40,16 @@ public abstract class ScalarImplementationDependency
         }
     }
 
+    public InvocationConvention getInvocationConvention()
+    {
+        return invocationConvention;
+    }
+
+    public Class<?> getType()
+    {
+        return type;
+    }
+
     protected abstract FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention);
 
     @Override

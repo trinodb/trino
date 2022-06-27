@@ -605,6 +605,9 @@ public class GlueHiveMetastore
     @Override
     public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
+        if (!tableName.equals(newTable.getTableName()) || !databaseName.equals(newTable.getDatabaseName())) {
+            throw new TrinoException(NOT_SUPPORTED, "Table rename is not yet supported by Glue service");
+        }
         try {
             TableInput newTableInput = GlueInputConverter.convertTable(newTable);
             stats.getUpdateTable().call(() ->

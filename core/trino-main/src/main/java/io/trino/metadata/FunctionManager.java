@@ -22,6 +22,7 @@ import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.type.Type;
@@ -196,7 +197,10 @@ public class FunctionManager
                     break;
                 case BLOCK_POSITION:
                     verifyFunctionSignature(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
-                            "Expected BLOCK_POSITION argument have parameters Block and int");
+                            "Expected BLOCK_POSITION argument types to be Block and int");
+                    break;
+                case IN_OUT:
+                    verifyFunctionSignature(parameterType.equals(InOut.class), "Expected IN_OUT argument type to be InOut");
                     break;
                 case FUNCTION:
                     Class<?> lambdaInterface = functionInvoker.getLambdaInterfaces().get(lambdaArgumentIndex);

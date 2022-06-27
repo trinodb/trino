@@ -20,19 +20,13 @@ public class TableArgumentSpecification
     private final boolean pruneWhenEmpty;
     private final boolean passThroughColumns;
 
-    public TableArgumentSpecification(String name, boolean rowSemantics, boolean pruneWhenEmpty, boolean passThroughColumns)
+    private TableArgumentSpecification(String name, boolean rowSemantics, boolean pruneWhenEmpty, boolean passThroughColumns)
     {
         super(name, true, null);
 
         this.rowSemantics = rowSemantics;
         this.pruneWhenEmpty = pruneWhenEmpty;
         this.passThroughColumns = passThroughColumns;
-    }
-
-    public TableArgumentSpecification(String name)
-    {
-        // defaults
-        this(name, false, false, false);
     }
 
     public boolean isRowSemantics()
@@ -48,5 +42,49 @@ public class TableArgumentSpecification
     public boolean isPassThroughColumns()
     {
         return passThroughColumns;
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static final class Builder
+    {
+        private String name;
+        private boolean rowSemantics;
+        private boolean pruneWhenEmpty;
+        private boolean passThroughColumns;
+
+        private Builder() {}
+
+        public Builder name(String name)
+        {
+            this.name = name;
+            return this;
+        }
+
+        public Builder rowSemantics()
+        {
+            this.rowSemantics = true;
+            return this;
+        }
+
+        public Builder pruneWhenEmpty()
+        {
+            this.pruneWhenEmpty = true;
+            return this;
+        }
+
+        public Builder passThroughColumns()
+        {
+            this.passThroughColumns = true;
+            return this;
+        }
+
+        public TableArgumentSpecification build()
+        {
+            return new TableArgumentSpecification(name, rowSemantics, pruneWhenEmpty, passThroughColumns);
+        }
     }
 }

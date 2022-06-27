@@ -27,12 +27,12 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
-import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,7 +40,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -83,9 +82,39 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Returns a table handle for the specified table name and version, or {@code null} if {@code tableName} relation does not exist
+     * or is not a table (e.g. is a view, or a materialized view).
+     *
+     * @throws TrinoException implementation can throw this exception when {@code tableName} refers to a table that
+     * cannot be queried.
+     * @see #getView(ConnectorSession, SchemaTableName)
+     * @see #getMaterializedView(ConnectorSession, SchemaTableName)
+     */
+    @Nullable
+    default ConnectorTableHandle getTableHandle(
+            ConnectorSession session,
+            SchemaTableName tableName,
+            Optional<ConnectorTableVersion> startVersion,
+            Optional<ConnectorTableVersion> endVersion)
+    {
+        ConnectorTableHandle tableHandle = getTableHandle(session, tableName);
+        if (tableHandle == null) {
+            // Not found
+            return null;
+        }
+        if (startVersion.isEmpty() && endVersion.isEmpty()) {
+            return tableHandle;
+        }
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+    }
+
+    /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
      * The returned table handle can contain information in analyzeProperties.
+     *
+     * @deprecated use {@link #getStatisticsCollectionMetadata(ConnectorSession, ConnectorTableHandle, Map)}
      */
+    @Deprecated
     @Nullable
     default ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
     {
@@ -96,21 +125,12 @@ public interface ConnectorMetadata
      * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
      * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
      *
-     * @deprecated Use {@link #getTableHandleForExecute(ConnectorSession, ConnectorTableHandle, String, Map, RetryMode)} instead.
-     */
-    @Deprecated
-    default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
-            ConnectorSession session,
-            ConnectorTableHandle tableHandle,
-            String procedureName,
-            Map<String, Object> executeProperties)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
-    }
-
-    /**
-     * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
-     * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
+     * <p/>
+     * If connector does not support execution with retries, the method should throw:
+     * <pre>
+     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
+     * </pre>
+     * unless {@code retryMode} is set to {@code NO_RETRIES}.
      */
     default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
             ConnectorSession session,
@@ -119,10 +139,7 @@ public interface ConnectorMetadata
             Map<String, Object> executeProperties,
             RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        return getTableHandleForExecute(session, tableHandle, procedureName, executeProperties);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
     }
 
     default Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
@@ -270,21 +287,11 @@ public interface ConnectorMetadata
      * Gets the metadata for all columns that match the specified table prefix. Redirected table names are included, but
      * the column metadata for them is not.
      */
-    default Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    default Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return listTableColumns(session, prefix).entrySet().stream()
-                .map(entry -> TableColumnsMetadata.forTable(entry.getKey(), entry.getValue()));
-    }
-
-    /**
-     * Get statistics for table for given filtering constraint.
-     *
-     * @deprecated Use {@link #getTableStatistics(ConnectorSession, ConnectorTableHandle)}
-     */
-    @Deprecated
-    default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
-    {
-        return TableStatistics.empty();
+                .map(entry -> TableColumnsMetadata.forTable(entry.getKey(), entry.getValue()))
+                .iterator();
     }
 
     /**
@@ -292,7 +299,7 @@ public interface ConnectorMetadata
      */
     default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableStatistics(session, tableHandle, Constraint.alwaysTrue());
+        return TableStatistics.empty();
     }
 
     /**
@@ -459,10 +466,24 @@ public interface ConnectorMetadata
 
     /**
      * Describe statistics that must be collected during a statistics collection
+     *
+     * @deprecated use {@link #getStatisticsCollectionMetadata(ConnectorSession, ConnectorTableHandle, Map)}
      */
+    @Deprecated
     default TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandleForStatisticsCollection() is implemented without getStatisticsCollectionMetadata()");
+    }
+
+    /**
+     * Describe statistics that must be collected during a statistics collection
+     */
+    default ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
+    {
+        SchemaTableName tableName = getTableMetadata(session, tableHandle).getTable();
+        ConnectorTableHandle analyzeHandle = getTableHandleForStatisticsCollection(session, tableName, analyzeProperties);
+        TableStatisticsMetadata statisticsMetadata = getStatisticsCollectionMetadata(session, getTableMetadata(session, analyzeHandle));
+        return new ConnectorAnalyzeMetadata(analyzeHandle, statisticsMetadata);
     }
 
     /**
@@ -484,23 +505,16 @@ public interface ConnectorMetadata
     /**
      * Begin the atomic creation of a table with data.
      *
-     * @deprecated Use {@link #beginCreateTable(ConnectorSession, ConnectorTableMetadata, Optional, RetryMode)}
-     */
-    @Deprecated
-    default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
-    }
-
-    /**
-     * Begin the atomic creation of a table with data.
+     * <p/>
+     * If connector does not support execution with retries, the method should throw:
+     * <pre>
+     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
+     * </pre>
+     * unless {@code retryMode} is set to {@code NO_RETRIES}.
      */
     default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        return beginCreateTable(session, tableMetadata, layout);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
     }
 
     /**
@@ -525,34 +539,16 @@ public interface ConnectorMetadata
     /**
      * Begin insert query.
      *
-     * @deprecated Use {@link #beginInsert(ConnectorSession, ConnectorTableHandle, List, RetryMode)} instead.
-     */
-    @Deprecated
-    default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
-    }
-
-    /**
-     * Begin insert query.
-     *
-     * @deprecated Use {@link #beginInsert(ConnectorSession, ConnectorTableHandle, List, RetryMode)} instead.
-     */
-    @Deprecated
-    default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
-    {
-        return beginInsert(session, tableHandle);
-    }
-
-    /**
-     * Begin insert query.
+     * <p/>
+     * If connector does not support execution with retries, the method should throw:
+     * <pre>
+     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
+     * </pre>
+     * unless {@code retryMode} is set to {@code NO_RETRIES}.
      */
     default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        return beginInsert(session, tableHandle, columns);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
     }
 
     /**
@@ -590,23 +586,16 @@ public interface ConnectorMetadata
     /**
      * Begin materialized view query.
      *
-     * @deprecated Use {@link #beginRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, List, RetryMode)} instead.
-     */
-    @Deprecated
-    default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
-    }
-
-    /**
-     * Begin materialized view query.
+     * <p/>
+     * If connector does not support execution with retries, the method should throw:
+     * <pre>
+     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
+     * </pre>
+     * unless {@code retryMode} is set to {@code NO_RETRIES}.
      */
     default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        return beginRefreshMaterializedView(session, tableHandle, sourceTableHandles);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
 
     /**
@@ -646,23 +635,16 @@ public interface ConnectorMetadata
     /**
      * Begin delete query.
      *
-     * @deprecated Use {@link #beginDelete(ConnectorSession, ConnectorTableHandle, RetryMode)}
-     */
-    @Deprecated
-    default ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
-    }
-
-    /**
-     * Begin delete query.
+     * <p/>
+     * If connector does not support execution with retries, the method should throw:
+     * <pre>
+     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
+     * </pre>
+     * unless {@code retryMode} is set to {@code NO_RETRIES}.
      */
     default ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        return beginDelete(session, tableHandle);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
 
     /**
@@ -679,23 +661,12 @@ public interface ConnectorMetadata
      * Do whatever is necessary to start an UPDATE query, returning the {@link ConnectorTableHandle}
      * instance that will be passed to split generation, and to the {@link #finishUpdate} method.
      *
-     * @param session The session in which to start the update operation.
-     * @param tableHandle A ConnectorTableHandle for the table to be updated.
-     * @param updatedColumns A list of the ColumnHandles of columns that will be updated by this UPDATE
-     * operation, in table column order.
-     * @return a ConnectorTableHandle that will be passed to split generation, and to the
-     * {@link #finishUpdate} method.
-     * @deprecated Use {@link #beginUpdate(ConnectorSession, ConnectorTableHandle, List, RetryMode)} instead.
-     */
-    @Deprecated
-    default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
-    }
-
-    /**
-     * Do whatever is necessary to start an UPDATE query, returning the {@link ConnectorTableHandle}
-     * instance that will be passed to split generation, and to the {@link #finishUpdate} method.
+     * <p/>
+     * If connector does not support execution with retries, the method should throw:
+     * <pre>
+     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
+     * </pre>
+     * unless {@code retryMode} is set to {@code NO_RETRIES}.
      *
      * @param session The session in which to start the update operation.
      * @param tableHandle A ConnectorTableHandle for the table to be updated.
@@ -706,10 +677,7 @@ public interface ConnectorMetadata
      */
     default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        return beginUpdate(session, tableHandle, updatedColumns);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
     }
 
     /**
@@ -1016,9 +984,14 @@ public interface ConnectorMetadata
      * <b>Note</b>: Implementation must not maintain reference to {@code constraint}'s {@link Constraint#predicate()} after the
      * call returns.
      * </p>
+     *
+     * @param constraint constraint to be applied to the table. {@link Constraint#getSummary()} is guaranteed not to be {@link TupleDomain#isNone() none}.
      */
     default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
+        if (constraint.getSummary().getDomains().isEmpty()) {
+            throw new IllegalArgumentException("constraint summary is NONE");
+        }
         return Optional.empty();
     }
 
@@ -1366,22 +1339,6 @@ public interface ConnectorMetadata
     default Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
     {
         return Optional.empty();
-    }
-
-    /**
-     * Returns a table handle representing a versioned table. A versioned table differs by having an additional specifier for version.
-     */
-    default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
-    }
-
-    /**
-     * Returns whether a specified version type is supported by the connector for a given travel type and table name
-     */
-    default boolean isSupportedVersionType(ConnectorSession session, SchemaTableName tableName, PointerType pointerType, Type versioning)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
     }
 
     default boolean supportsReportingWrittenBytes(ConnectorSession session, SchemaTableName schemaTableName, Map<String, Object> tableProperties)

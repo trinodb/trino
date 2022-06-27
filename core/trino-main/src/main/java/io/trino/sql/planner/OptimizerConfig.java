@@ -81,10 +81,12 @@ public class OptimizerConfig
     private double tableScanNodePartitioningMinBucketToTaskRatio = 0.5;
     private boolean mergeProjectWithValues = true;
     private boolean forceSingleNodeOutput = true;
+    private boolean useExactPartitioning;
     // adaptive partial aggregation
     private boolean adaptivePartialAggregationEnabled = true;
     private long adaptivePartialAggregationMinRows = 100_000;
     private double adaptivePartialAggregationUniqueRowsRatioThreshold = 0.8;
+    private long joinPartitionedBuildMinRowCount = 1_000_000L;
 
     public enum JoinReorderingStrategy
     {
@@ -711,6 +713,33 @@ public class OptimizerConfig
     public OptimizerConfig setAdaptivePartialAggregationUniqueRowsRatioThreshold(double adaptivePartialAggregationUniqueRowsRatioThreshold)
     {
         this.adaptivePartialAggregationUniqueRowsRatioThreshold = adaptivePartialAggregationUniqueRowsRatioThreshold;
+        return this;
+    }
+
+    @Min(0)
+    public long getJoinPartitionedBuildMinRowCount()
+    {
+        return joinPartitionedBuildMinRowCount;
+    }
+
+    @Config("optimizer.join-partitioned-build-min-row-count")
+    @ConfigDescription("Minimum number of join build side rows required to use partitioned join lookup")
+    public OptimizerConfig setJoinPartitionedBuildMinRowCount(long joinPartitionedBuildMinRowCount)
+    {
+        this.joinPartitionedBuildMinRowCount = joinPartitionedBuildMinRowCount;
+        return this;
+    }
+
+    public boolean isUseExactPartitioning()
+    {
+        return useExactPartitioning;
+    }
+
+    @Config("optimizer.use-exact-partitioning")
+    @ConfigDescription("When enabled this forces data repartitioning unless the partitioning of upstream stage matches exactly what downstream stage expects")
+    public OptimizerConfig setUseExactPartitioning(boolean useExactPartitioning)
+    {
+        this.useExactPartitioning = useExactPartitioning;
         return this;
     }
 }

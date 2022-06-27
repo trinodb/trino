@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
@@ -34,11 +35,13 @@ import io.trino.testing.QueryRunner;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
@@ -53,6 +56,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.UUID;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -63,9 +67,11 @@ import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.NATION;
+import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergV2
         extends AbstractTestQueryFramework
@@ -193,7 +199,7 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
         assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
         assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 1"))
-                .hasMessage("Failed to commit new table properties")
+                .hasMessage("Failed to set new property values")
                 .getRootCause()
                 .hasMessage("Cannot downgrade v2 table to v1");
     }
@@ -206,6 +212,144 @@ public class TestIcebergV2
         assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
         assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 42"))
                 .hasMessage("Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 2");
+    }
+
+    @Test
+    public void testUpdatingAllTableProperties()
+    {
+        String tableName = "test_updating_all_table_properties_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'ORC') AS SELECT * FROM tpch.tiny.nation", 25);
+        BaseTable table = loadTable(tableName);
+        assertEquals(table.operations().current().formatVersion(), 1);
+        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("ORC"));
+        assertTrue(table.spec().isUnpartitioned());
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2, partitioning = ARRAY['regionkey'], format = 'PARQUET'");
+        table = loadTable(tableName);
+        assertEquals(table.operations().current().formatVersion(), 2);
+        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET"));
+        assertTrue(table.spec().isPartitioned());
+        List<PartitionField> partitionFields = table.spec().fields();
+        assertThat(partitionFields).hasSize(1);
+        assertEquals(partitionFields.get(0).name(), "regionkey");
+        assertTrue(partitionFields.get(0).transform().isIdentity());
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+    }
+
+    @Test
+    public void testUnsettingAllTableProperties()
+    {
+        String tableName = "test_unsetting_all_table_properties_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'PARQUET', partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        BaseTable table = loadTable(tableName);
+        assertEquals(table.operations().current().formatVersion(), 1);
+        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET"));
+        assertTrue(table.spec().isPartitioned());
+        List<PartitionField> partitionFields = table.spec().fields();
+        assertThat(partitionFields).hasSize(1);
+        assertEquals(partitionFields.get(0).name(), "regionkey");
+        assertTrue(partitionFields.get(0).transform().isIdentity());
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = DEFAULT, format = DEFAULT, partitioning = DEFAULT");
+        table = loadTable(tableName);
+        assertEquals(table.operations().current().formatVersion(), 2);
+        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("ORC"));
+        assertTrue(table.spec().isUnpartitioned());
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+    }
+
+    @Test
+    public void testDeletingEntireFile()
+    {
+        String tableName = "test_deleting_entire_file_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation WITH NO DATA", 0);
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey = 1", "SELECT count(*) FROM nation WHERE regionkey = 1");
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey != 1", "SELECT count(*) FROM nation WHERE regionkey != 1");
+
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
+        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey <= 2", "SELECT count(*) FROM nation WHERE regionkey <= 2");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey > 2");
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
+    }
+
+    @Test
+    public void testDeletingEntireFileFromPartitionedTable()
+    {
+        String tableName = "test_deleting_entire_file_from_partitioned_table_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a INT, b INT) WITH (partitioning = ARRAY['a'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1), (1, 3), (1, 5), (2, 1), (2, 3), (2, 5)", 6);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2), (1, 4), (1, 6), (2, 2), (2, 4), (2, 6)", 6);
+
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(4);
+        assertUpdate("DELETE FROM " + tableName + " WHERE b % 2 = 0", 6);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1), (1, 3), (1, 5), (2, 1), (2, 3), (2, 5)");
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
+    }
+
+    @Test
+    public void testDeletingEntireFileWithNonTupleDomainConstraint()
+    {
+        String tableName = "test_deleting_entire_file_with_non_tuple_domain_constraint" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation WITH NO DATA", 0);
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey = 1", "SELECT count(*) FROM nation WHERE regionkey = 1");
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey != 1", "SELECT count(*) FROM nation WHERE regionkey != 1");
+
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
+        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 1", "SELECT count(*) FROM nation WHERE regionkey % 2 = 1");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey % 2 = 0");
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
+    }
+
+    @Test
+    public void testDeletingEntireFileWithMultipleSplits()
+    {
+        String tableName = "test_deleting_entire_file_with_multiple_splits" + randomTableSuffix();
+        assertUpdate(
+                Session.builder(getSession()).setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "5").build(),
+                "CREATE TABLE " + tableName + " WITH (format = 'ORC') AS SELECT * FROM tpch.tiny.nation", 25);
+        // Set the split size to a small number of bytes so each ORC stripe gets its own split
+        this.loadTable(tableName).updateProperties().set(SPLIT_SIZE, "100").commit();
+
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
+        // Ensure only one snapshot is committed to the table
+        Long initialSnapshotId = (Long) computeActual("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1").getOnlyValue();
+        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10", 25);
+        Long parentSnapshotId = (Long) computeActual("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1").getOnlyValue();
+        assertEquals(initialSnapshotId, parentSnapshotId);
+        assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(0);
+    }
+
+    @Test
+    public void testMultipleDeletes()
+    {
+        // Deletes only remove entire data files from the table if the whole file is removed in a single operation
+        String tableName = "test_multiple_deletes_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
+        // Ensure only one snapshot is committed to the table
+        Long initialSnapshotId = (Long) computeActual("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1").getOnlyValue();
+        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 1", "SELECT count(*) FROM nation WHERE regionkey % 2 = 1");
+        Long parentSnapshotId = (Long) computeActual("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1").getOnlyValue();
+        assertEquals(initialSnapshotId, parentSnapshotId);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 0", "SELECT count(*) FROM nation WHERE regionkey % 2 = 0");
+        assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
+    }
+
+    @Test
+    public void testDeletingEntirePartitionedTable()
+    {
+        String tableName = "test_deleting_entire_partitioned_table_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(5);
+        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10", "SELECT count(*) FROM nation WHERE regionkey < 10");
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(0);
+        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10");
+        assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(0);
     }
 
     private void writeEqualityDeleteToNationTable(Table icebergTable)

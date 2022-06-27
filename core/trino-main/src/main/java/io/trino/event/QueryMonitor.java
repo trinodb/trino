@@ -40,6 +40,7 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.operator.OperatorStats;
+import io.trino.operator.RetryPolicy;
 import io.trino.operator.TableFinishInfo;
 import io.trino.operator.TaskStats;
 import io.trino.server.BasicQueryInfo;
@@ -55,6 +56,7 @@ import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryOutputMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.StageCpuDistribution;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.analyzer.Analysis;
@@ -139,7 +141,11 @@ public class QueryMonitor
         eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
                         queryInfo.getQueryStats().getCreateTime().toDate().toInstant(),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
+                        createQueryContext(
+                                queryInfo.getSession(),
+                                queryInfo.getResourceGroupId(),
+                                queryInfo.getQueryType(),
+                                queryInfo.getRetryPolicy()),
                         new QueryMetadata(
                                 queryInfo.getQueryId().toString(),
                                 queryInfo.getSession().getTransactionId().map(TransactionId::toString),
@@ -207,7 +213,11 @@ public class QueryMonitor
                         ImmutableList.of(),
                         ImmutableList.of(),
                         Optional.empty()),
-                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
+                createQueryContext(
+                        queryInfo.getSession(),
+                        queryInfo.getResourceGroupId(),
+                        queryInfo.getQueryType(),
+                        queryInfo.getRetryPolicy()),
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
                 createQueryFailureInfo(failure, Optional.empty()),
                 ImmutableList.of(),
@@ -225,7 +235,11 @@ public class QueryMonitor
                 new QueryCompletedEvent(
                         createQueryMetadata(queryInfo),
                         createQueryStatistics(queryInfo),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
+                        createQueryContext(
+                                queryInfo.getSession(),
+                                queryInfo.getResourceGroupId(),
+                                queryInfo.getQueryType(),
+                                queryInfo.getRetryPolicy()),
                         getQueryIOMetadata(queryInfo),
                         createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getOutputStage()),
                         queryInfo.getWarnings(),
@@ -254,8 +268,9 @@ public class QueryMonitor
 
     private QueryStatistics createQueryStatistics(QueryInfo queryInfo)
     {
-        ImmutableList.Builder<String> operatorSummaries = ImmutableList.builder();
-        for (OperatorStats summary : queryInfo.getQueryStats().getOperatorSummaries()) {
+        List<OperatorStats> operatorStats = queryInfo.getQueryStats().getOperatorSummaries();
+        ImmutableList.Builder<String> operatorSummaries = ImmutableList.builderWithExpectedSize(operatorStats.size());
+        for (OperatorStats summary : operatorStats) {
             operatorSummaries.add(operatorStatsCodec.toJson(summary));
         }
 
@@ -303,7 +318,7 @@ public class QueryMonitor
                 serializedPlanNodeStatsAndCosts);
     }
 
-    private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup, Optional<QueryType> queryType)
+    private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup, Optional<QueryType> queryType, RetryPolicy retryPolicy)
     {
         return new QueryContext(
                 session.getUser(),
@@ -324,7 +339,8 @@ public class QueryMonitor
                 serverAddress,
                 serverVersion,
                 environment,
-                queryType);
+                queryType,
+                retryPolicy.toString());
     }
 
     private Optional<String> createTextQueryPlan(QueryInfo queryInfo)
@@ -350,7 +366,7 @@ public class QueryMonitor
     {
         Multimap<FragmentNode, OperatorStats> planNodeStats = extractPlanNodeStats(queryInfo);
 
-        ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builder();
+        ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builderWithExpectedSize(queryInfo.getInputs().size());
         for (Input input : queryInfo.getInputs()) {
             // Note: input table can be mapped to multiple operators
             Collection<OperatorStats> inputTableOperatorStats = planNodeStats.get(new FragmentNode(input.getFragmentId(), input.getPlanNodeId()));
@@ -366,6 +382,9 @@ public class QueryMonitor
                         .mapToLong(OperatorStats::getPhysicalInputPositions)
                         .sum());
             }
+            Metrics connectorMetrics = inputTableOperatorStats.stream()
+                    .map(OperatorStats::getConnectorMetrics)
+                    .reduce(Metrics.EMPTY, Metrics::mergeWith);
 
             inputs.add(new QueryInputMetadata(
                     input.getCatalogName(),
@@ -374,6 +393,7 @@ public class QueryMonitor
                     input.getColumns().stream()
                             .map(Column::getName).collect(Collectors.toList()),
                     input.getConnectorInfo(),
+                    connectorMetrics,
                     physicalInputBytes,
                     physicalInputPositions));
         }

@@ -33,6 +33,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.function.IsNull;
@@ -77,6 +78,7 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.IN_OUT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -261,6 +263,9 @@ public class ParametricScalarImplementation
                 case BLOCK_POSITION:
                     methodHandleParameterTypes.add(Block.class);
                     methodHandleParameterTypes.add(int.class);
+                    break;
+                case IN_OUT:
+                    methodHandleParameterTypes.add(InOut.class);
                     break;
                 case FUNCTION:
                     methodHandleParameterTypes.add(choice.getLambdaInterfaces().get(lambdaArgumentIndex));
@@ -621,6 +626,9 @@ public class ParametricScalarImplementation
                             argumentConvention = BLOCK_POSITION;
                             Annotation[] parameterAnnotations = method.getParameterAnnotations()[parameterIndex + 1];
                             checkState(Stream.of(parameterAnnotations).anyMatch(BlockIndex.class::isInstance));
+                        }
+                        else if (parameterType.equals(InOut.class)) {
+                            argumentConvention = IN_OUT;
                         }
                         else {
                             // USE_NULL_FLAG or RETURN_NULL_ON_NULL

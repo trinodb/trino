@@ -1502,11 +1502,11 @@ export class QueryDetail extends React.Component {
                                             Cumulative User Memory
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSizeBytes(query.queryStats.cumulativeUserMemory / 1000.0) + " seconds"}
+                                            {formatDataSize(query.queryStats.cumulativeUserMemory / 1000.0) + "*seconds"}
                                         </td>
                                         {taskRetriesEnabled &&
                                         <td className="info-failed">
-                                            {formatDataSizeBytes(query.queryStats.failedCumulativeUserMemory / 1000.0) + " seconds"}
+                                            {formatDataSize(query.queryStats.failedCumulativeUserMemory / 1000.0) + "*seconds"}
                                         </td>
                                         }
                                     </tr>

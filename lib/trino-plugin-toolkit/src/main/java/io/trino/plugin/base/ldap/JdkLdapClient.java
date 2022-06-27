@@ -174,6 +174,7 @@ public class JdkLdapClient
             this.context = requireNonNull(context, "context is null");
         }
 
+        @SuppressWarnings("BanJNDI")
         public NamingEnumeration<SearchResult> search(String name, String filter, SearchControls searchControls)
                 throws NamingException
         {

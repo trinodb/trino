@@ -395,8 +395,8 @@ public class PinotClient
         Map<String, Map<String, List<String>>> routingTable = sendHttpGetToBrokerJson(tableName, format(ROUTING_TABLE_API_TEMPLATE, tableName), ROUTING_TABLE_CODEC);
         ImmutableMap.Builder<String, Map<String, List<String>>> routingTableMap = ImmutableMap.builder();
         for (Map.Entry<String, Map<String, List<String>>> entry : routingTable.entrySet()) {
-            String tablenameWithType = entry.getKey();
-            if (!entry.getValue().isEmpty() && tableName.equals(extractRawTableName(tablenameWithType))) {
+            String tableNameWithType = entry.getKey();
+            if (!entry.getValue().isEmpty() && tableName.equals(extractRawTableName(tableNameWithType))) {
                 ImmutableMap.Builder<String, List<String>> segmentBuilder = ImmutableMap.builder();
                 for (Map.Entry<String, List<String>> segmentEntry : entry.getValue().entrySet()) {
                     if (!segmentEntry.getValue().isEmpty()) {
@@ -405,7 +405,7 @@ public class PinotClient
                 }
                 Map<String, List<String>> segmentMap = segmentBuilder.buildOrThrow();
                 if (!segmentMap.isEmpty()) {
-                    routingTableMap.put(tablenameWithType, segmentMap);
+                    routingTableMap.put(tableNameWithType, segmentMap);
                 }
             }
         }

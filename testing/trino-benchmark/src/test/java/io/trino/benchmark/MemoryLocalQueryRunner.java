@@ -98,7 +98,7 @@ public class MemoryLocalQueryRunner
             boolean processed = false;
             for (Driver driver : drivers) {
                 if (!driver.isFinished()) {
-                    driver.process();
+                    driver.processForNumberOfIterations(1);
                     processed = true;
                 }
             }

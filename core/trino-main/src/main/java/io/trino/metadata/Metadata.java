@@ -87,8 +87,6 @@ public interface Metadata
 
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
-    Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
-
     Optional<TableExecuteHandle> getTableHandleForExecute(
             Session session,
             TableHandle tableHandle,
@@ -273,7 +271,7 @@ public interface Metadata
     /**
      * Describe statistics that must be collected during a statistics collection
      */
-    TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+    AnalyzeMetadata getStatisticsCollectionMetadata(Session session, TableHandle tableHandle, Map<String, Object> analyzeProperties);
 
     /**
      * Begin statistics collection
@@ -379,10 +377,8 @@ public interface Metadata
 
     /**
      * Gets all the loaded catalogs
-     *
-     * @return Map of catalog name to connector
      */
-    Map<String, Catalog> getCatalogs(Session session);
+    List<CatalogInfo> listCatalogs(Session session);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -698,11 +694,6 @@ public interface Metadata
      * Get the target table handle after performing redirection with a table version.
      */
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
-
-    /**
-     * Verifies that a version is valid for a given table
-     */
-    boolean isValidTableVersion(Session session, QualifiedObjectName tableName, TableVersion version);
 
     /**
      * Returns true if the connector reports number of written bytes for an existing table. Otherwise, it returns false.

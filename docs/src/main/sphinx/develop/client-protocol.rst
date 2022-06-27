@@ -58,9 +58,10 @@ query is finished.
 Important ``QueryResults`` attributes
 -------------------------------------
 
-The most important attributes of the ``QueryResults`` JSON document returned by the REST API
-endpoints are listed in this table.  Refer to the class ``io.trino.client.QueryResults`` in
-module ``trino-client`` for more details.
+The most important attributes of the ``QueryResults`` JSON document returned by
+the REST API endpoints are listed in this table. For more details, refer to the
+class ``io.trino.client.QueryResults`` in module ``trino-client`` in the
+``client`` directory of the Trino source code.
 
 .. list-table:: ``QueryResults attributes``
   :widths: 25, 55
@@ -86,11 +87,10 @@ module ``trino-client`` for more details.
       ``CREATE TABLE`` request, the ``updateType`` is
       "CREATE TABLE"; for ``SET SESSION`` it is "SET SESSION"; etc.
   * - ``error``
-    - If query failed, the ``error`` attribute contains a
-      ``QueryError`` object.  That object contains a ``message``, an
-      ``errorCode`` and other information about the error.  See the
-      ``io.trino.client.QueryError`` class in module ``trino-client``
-      for more details.
+    - If query failed, the ``error`` attribute contains a ``QueryError`` object.
+      That object contains a ``message``, an ``errorCode`` and other information
+      about the error.  See the ``io.trino.client.QueryError`` class in module
+      ``trino-client`` in the ``client`` directory for more details.
 
 
 ``QueryResults`` diagnostic attributes
@@ -244,13 +244,13 @@ subsequent requests to be consistent with the response headers received.
       in subsequent client requests.
   * - ``X-Trino-Added-Prepare``
     - Instructs the client to add the name=value pair to the set of
-      prepared statements in the ``X-Trino-Prepared-Statements``
+      prepared statements in the ``X-Trino-Prepared-Statement``
       request header in subsequent client requests.
   * - ``X-Trino-Deallocated-Prepare``
     - Instructs the client to remove the prepared statement whose name
       is the value of the ``X-Trino-Deallocated-Prepare`` header from
       the client's list of prepared statements sent in the
-      ``X-Trino-Prepared-Statements`` request header in subsequent client
+      ``X-Trino-Prepared-Statement`` request header in subsequent client
       requests.
   * - ``X-Trino-Started-Transaction-Id``
     - Provides the transaction ID that the client should pass back in the
@@ -262,6 +262,6 @@ subsequent requests to be consistent with the response headers received.
 ``ProtocolHeaders``
 -------------------
 
-Class ``io.trino.client.ProtocolHeaders``, in module ``trino-client``,
-enumerates all the HTTP request and response headers allowed by the
-Trino client REST API.
+Class ``io.trino.client.ProtocolHeaders`` in module ``trino-client`` in the
+``client`` directory of Trino source enumerates all the HTTP request and
+response headers allowed by the Trino client REST API.

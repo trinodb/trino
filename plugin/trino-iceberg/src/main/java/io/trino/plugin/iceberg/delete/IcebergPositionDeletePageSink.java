@@ -37,6 +37,7 @@ import org.apache.iceberg.io.LocationProvider;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -60,9 +61,11 @@ public class IcebergPositionDeletePageSink
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final IcebergFileWriter writer;
     private final IcebergFileFormat fileFormat;
+    private final long fileRecordCount;
 
     private long validationCpuNanos;
     private boolean writtenData;
+    private long deletedRowCount;
 
     public IcebergPositionDeletePageSink(
             String dataFilePath,
@@ -74,13 +77,16 @@ public class IcebergPositionDeletePageSink
             HdfsContext hdfsContext,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
-            IcebergFileFormat fileFormat)
+            IcebergFileFormat fileFormat,
+            Map<String, String> storageProperties,
+            long fileRecordCount)
     {
         this.dataFilePath = requireNonNull(dataFilePath, "dataFilePath is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.partition = requireNonNull(partition, "partition is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.fileRecordCount = fileRecordCount;
         // prepend query id to a file name so we can determine which files were written by which query. This is needed for opportunistic cleanup of extra files
         // which may be present for successfully completing query in presence of failure recovery mechanisms.
         String fileName = fileFormat.toIceberg().addExtension(session.getQueryId() + "-" + randomUUID());
@@ -88,7 +94,7 @@ public class IcebergPositionDeletePageSink
                 .map(partitionData -> locationProvider.newDataLocation(partitionSpec, partitionData, fileName))
                 .orElseGet(() -> locationProvider.newDataLocation(fileName));
         JobConf jobConf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, new Path(outputPath)));
-        this.writer = fileWriterFactory.createPositionDeleteWriter(new Path(outputPath), jobConf, session, hdfsContext, fileFormat);
+        this.writer = fileWriterFactory.createPositionDeleteWriter(new Path(outputPath), jobConf, session, hdfsContext, fileFormat, storageProperties);
     }
 
     @Override
@@ -120,6 +126,7 @@ public class IcebergPositionDeletePageSink
         writer.appendRows(new Page(blocks));
 
         writtenData = true;
+        deletedRowCount += page.getPositionCount();
         return NOT_BLOCKED;
     }
 
@@ -137,7 +144,9 @@ public class IcebergPositionDeletePageSink
                     PartitionSpecParser.toJson(partitionSpec),
                     partition.map(PartitionData::toJson),
                     FileContent.POSITION_DELETES,
-                    Optional.of(dataFilePath));
+                    Optional.of(dataFilePath),
+                    Optional.of(fileRecordCount),
+                    Optional.of(deletedRowCount));
             Long recordCount = task.getMetrics().recordCount();
             if (recordCount != null && recordCount > 0) {
                 commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));

@@ -29,7 +29,6 @@ import io.trino.spi.type.Type;
 import io.trino.tpch.Nation;
 import io.trino.tpch.NationColumn;
 import io.trino.tpch.NationGenerator;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.assertj.core.api.Assertions;
@@ -50,6 +49,7 @@ import java.util.function.LongPredicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
@@ -230,7 +230,7 @@ public class TestOrcPageSourceFactory
                 .collect(toImmutableList());
 
         Optional<ReaderPageSource> pageSourceWithProjections = PAGE_SOURCE_FACTORY.createPageSource(
-                new JobConf(new Configuration(false)),
+                new JobConf(newEmptyConfiguration()),
                 SESSION,
                 new Path(filePath),
                 0,

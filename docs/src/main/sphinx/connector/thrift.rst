@@ -49,7 +49,7 @@ Configuration properties
 The following configuration properties are available:
 
 =============================================  ==============================================================
-Property Name                                  Description
+Property name                                  Description
 =============================================  ==============================================================
 ``trino.thrift.client.addresses``               Location of Thrift servers
 ``trino-thrift.max-response-size``              Maximum size of data returned from Thrift server

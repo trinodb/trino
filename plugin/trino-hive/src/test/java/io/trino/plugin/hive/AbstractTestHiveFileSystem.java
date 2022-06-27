@@ -15,6 +15,8 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
@@ -25,22 +27,19 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.AbstractTestHive.HiveTransaction;
 import io.trino.plugin.hive.AbstractTestHive.Transaction;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
+import io.trino.plugin.hive.fs.HiveFileIterator;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.ForwardingHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.trino.plugin.hive.metastore.thrift.MetastoreLocator;
-import io.trino.plugin.hive.metastore.thrift.TestingMetastoreLocator;
-import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -69,6 +68,7 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingNodeManager;
 import io.trino.type.BlockTypeOperators;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;
 import org.testng.annotations.AfterClass;
@@ -102,6 +102,8 @@ import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvi
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.trino.plugin.hive.HiveTestUtils.getTypes;
+import static io.trino.plugin.hive.HiveType.HIVE_LONG;
+import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getRawFileSystem;
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
@@ -177,25 +179,16 @@ public abstract class AbstractTestHiveFileSystem
 
         config = new HiveConfig().setS3SelectPushdownEnabled(s3SelectPushdownEnabled);
 
-        Optional<HostAndPort> proxy = Optional.ofNullable(System.getProperty("hive.metastore.thrift.client.socks-proxy"))
-                .map(HostAndPort::fromString);
-
-        MetastoreLocator metastoreLocator = new TestingMetastoreLocator(proxy, HostAndPort.fromParts(host, port));
-
         HivePartitionManager hivePartitionManager = new HivePartitionManager(config);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
-        MetastoreConfig metastoreConfig = new MetastoreConfig();
         metastoreClient = new TestingHiveMetastore(
                 new BridgingHiveMetastore(
-                        new ThriftHiveMetastore(
-                                metastoreLocator,
-                                new HiveConfig(),
-                                metastoreConfig,
-                                new ThriftMetastoreConfig(),
-                                hdfsEnvironment,
-                                false),
-                        new HiveIdentity(getHiveSession(config).getIdentity())),
+                        testingThriftHiveMetastoreBuilder()
+                                .metastoreClient(HostAndPort.fromParts(host, port))
+                                .hiveConfig(config)
+                                .hdfsEnvironment(hdfsEnvironment)
+                                .build()),
                 getBasePath(),
                 hdfsEnvironment);
         locationService = new HiveLocationService(hdfsEnvironment);
@@ -203,7 +196,7 @@ public abstract class AbstractTestHiveFileSystem
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
                 config,
-                metastoreConfig,
+                new HiveMetastoreConfig(),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 hdfsEnvironment,
                 hivePartitionManager,
@@ -398,6 +391,81 @@ public abstract class AbstractTestHiveFileSystem
 
         // cleanup
         fs.delete(basePath, true);
+    }
+
+    @Test
+    public void testFileIteratorListing()
+            throws Exception
+    {
+        Table.Builder tableBuilder = Table.builder()
+                .setDatabaseName(table.getSchemaName())
+                .setTableName(table.getTableName())
+                .setDataColumns(ImmutableList.of(new Column("one", HIVE_LONG, Optional.empty())))
+                .setPartitionColumns(ImmutableList.of())
+                .setOwner(Optional.empty())
+                .setTableType("fake");
+        tableBuilder.getStorageBuilder()
+                .setStorageFormat(StorageFormat.fromHiveStorageFormat(HiveStorageFormat.CSV));
+        Table fakeTable = tableBuilder.build();
+
+        // Expected file system tree:
+        // test-file-iterator-listing/
+        //      .hidden/
+        //          nested-file-in-hidden.txt
+        //      parent/
+        //          _nested-hidden-file.txt
+        //          nested-file.txt
+        //      empty-directory/
+        //      .hidden-in-base.txt
+        //      base-path-file.txt
+        Path basePath = new Path(getBasePath(), "test-file-iterator-listing");
+        FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
+        fs.mkdirs(basePath);
+
+        // create file in hidden folder
+        Path fileInHiddenParent = new Path(new Path(basePath, ".hidden"), "nested-file-in-hidden.txt");
+        fs.createNewFile(fileInHiddenParent);
+        // create hidden file in non-hidden folder
+        Path nestedHiddenFile = new Path(new Path(basePath, "parent"), "_nested-hidden-file.txt");
+        fs.createNewFile(nestedHiddenFile);
+        // create file in non-hidden folder
+        Path nestedFile = new Path(new Path(basePath, "parent"), "nested-file.txt");
+        fs.createNewFile(nestedFile);
+        // create file in base path
+        Path baseFile = new Path(basePath, "base-path-file.txt");
+        fs.createNewFile(baseFile);
+        // create hidden file in base path
+        Path hiddenBase = new Path(basePath, ".hidden-in-base.txt");
+        fs.createNewFile(hiddenBase);
+        // create empty subdirectory
+        Path emptyDirectory = new Path(basePath, "empty-directory");
+        fs.mkdirs(emptyDirectory);
+
+        // List recursively through hive file iterator
+        HiveFileIterator recursiveIterator = new HiveFileIterator(
+                fakeTable,
+                basePath,
+                fs,
+                new FileSystemDirectoryLister(),
+                new NamenodeStats(),
+                HiveFileIterator.NestedDirectoryPolicy.RECURSE,
+                false); // ignoreAbsentPartitions
+
+        List<Path> recursiveListing = Lists.newArrayList(Iterators.transform(recursiveIterator, LocatedFileStatus::getPath));
+        // Should not include directories, or files underneath hidden directories
+        assertEqualsIgnoreOrder(recursiveListing, ImmutableList.of(nestedFile, baseFile));
+
+        HiveFileIterator shallowIterator = new HiveFileIterator(
+                fakeTable,
+                basePath,
+                fs,
+                new FileSystemDirectoryLister(),
+                new NamenodeStats(),
+                HiveFileIterator.NestedDirectoryPolicy.IGNORED,
+                false); // ignoreAbsentPartitions
+        List<Path> shallowListing = Lists.newArrayList(Iterators.transform(shallowIterator, LocatedFileStatus::getPath));
+        // Should not include any hidden files, folders, or nested files
+        assertEqualsIgnoreOrder(shallowListing, ImmutableList.of(baseFile));
     }
 
     @Test

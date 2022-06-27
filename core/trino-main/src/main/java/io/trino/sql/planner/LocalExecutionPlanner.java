@@ -27,7 +27,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.Session;
@@ -45,7 +44,6 @@ import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.index.IndexManager;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionId;
-import io.trino.metadata.FunctionKind;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
@@ -161,6 +159,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.RowType;
@@ -268,6 +267,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -286,7 +286,6 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static com.google.common.collect.Sets.difference;
-import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationMinRows;
 import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationUniqueRowsRatioThreshold;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
@@ -401,7 +400,7 @@ public class LocalExecutionPlanner
     private final BlockTypeOperators blockTypeOperators;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
-    private final PositionsAppenderFactory positionsAppenderFactory = new PositionsAppenderFactory();
+    private final PositionsAppenderFactory positionsAppenderFactory;
 
     private final NonEvictableCache<FunctionKey, AccumulatorFactory> accumulatorFactoryCache = buildNonEvictableCache(CacheBuilder.newBuilder()
             .maximumSize(1000)
@@ -465,6 +464,7 @@ public class LocalExecutionPlanner
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+        this.positionsAppenderFactory = new PositionsAppenderFactory(blockTypeOperators);
     }
 
     public LocalExecutionPlan plan(
@@ -744,9 +744,12 @@ public class LocalExecutionPlanner
                     difference(consumedFilterIds, dynamicFiltersCollector.getRegisteredDynamicFilterIds()));
         }
 
-        private void addCoordinatorDynamicFilters(Map<DynamicFilterId, Domain> dynamicTupleDomain)
+        private Consumer<Map<DynamicFilterId, Domain>> getCoordinatorDynamicFilterDomainsCollector(Set<DynamicFilterId> coordinatorDynamicFilters)
         {
-            taskContext.updateDomains(dynamicTupleDomain);
+            return domains -> taskContext.updateDomains(
+                    domains.entrySet().stream()
+                            .filter(entry -> coordinatorDynamicFilters.contains(entry.getKey()))
+                            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
         }
 
         public Optional<IndexSourceContext> getIndexSourceContext()
@@ -1987,7 +1990,11 @@ public class LocalExecutionPlanner
                 throw e;
             }
             catch (RuntimeException e) {
-                throw new TrinoException(COMPILER_ERROR, "Compiler failed", e);
+                throw new TrinoException(
+                        COMPILER_ERROR,
+                        "Compiler failed. Possible reasons include: the query may have too many or too complex expressions, " +
+                                "or the underlying tables may have too many columns",
+                        e);
             }
         }
 
@@ -2548,9 +2555,17 @@ public class LocalExecutionPlanner
             checkArgument(partitionCount == 1, "Expected local execution to not be parallel");
 
             int operatorId = buildContext.getNextOperatorId();
-            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, partitionCount, localDynamicFilters);
+            boolean isReplicatedJoin = isBuildSideReplicated(node);
+            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, localDynamicFilters, isReplicatedJoin);
             if (localDynamicFilter.isPresent()) {
-                buildSource = createDynamicFilterSourceOperatorFactory(operatorId, localDynamicFilter.get(), node, buildSource, buildContext);
+                buildSource = createDynamicFilterSourceOperatorFactory(
+                        operatorId,
+                        localDynamicFilter.get(),
+                        node,
+                        isReplicatedJoin,
+                        buildContext.getDriverInstanceCount().orElse(1) == 1,
+                        buildSource,
+                        buildContext);
             }
 
             context.addDriverFactory(
@@ -2812,9 +2827,17 @@ public class LocalExecutionPlanner
                     buildOutputTypes);
 
             int operatorId = buildContext.getNextOperatorId();
-            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, partitionCount, localDynamicFilters);
+            boolean isReplicatedJoin = isBuildSideReplicated(node);
+            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, localDynamicFilters, isReplicatedJoin);
             if (localDynamicFilter.isPresent()) {
-                buildSource = createDynamicFilterSourceOperatorFactory(operatorId, localDynamicFilter.get(), node, buildSource, buildContext);
+                buildSource = createDynamicFilterSourceOperatorFactory(
+                        operatorId,
+                        localDynamicFilter.get(),
+                        node,
+                        isReplicatedJoin,
+                        buildContext.getDriverInstanceCount().orElse(1) == 1,
+                        buildSource,
+                        buildContext);
             }
 
             int taskConcurrency = getTaskConcurrency(session);
@@ -2850,7 +2873,9 @@ public class LocalExecutionPlanner
         private PhysicalOperation createDynamicFilterSourceOperatorFactory(
                 int operatorId,
                 LocalDynamicFilterConsumer dynamicFilter,
-                JoinNode node,
+                PlanNode node,
+                boolean isReplicatedJoin,
+                boolean isBuildSideSingle,
                 PhysicalOperation buildSource,
                 LocalExecutionPlanContext context)
         {
@@ -2861,15 +2886,13 @@ public class LocalExecutionPlanner
                         Type type = buildSource.getTypes().get(index);
                         return new DynamicFilterSourceOperator.Channel(filterId, type, index);
                     })
-                    .collect(Collectors.toList());
-            boolean isReplicatedJoin = isBuildSideReplicated(node);
-            boolean isBuildSideSingle = context.getDriverInstanceCount().orElse(1) == 1;
+                    .collect(toImmutableList());
             int taskConcurrency = getTaskConcurrency(session);
             return new PhysicalOperation(
                     new DynamicFilterSourceOperatorFactory(
                             operatorId,
                             node.getId(),
-                            dynamicFilter.getTupleDomainConsumer(),
+                            dynamicFilter,
                             filterBuildChannels,
                             multipleIf(getDynamicFilteringMaxDistinctValuesPerDriver(session, isReplicatedJoin), taskConcurrency, isBuildSideSingle),
                             multipleIf(getDynamicFilteringMaxSizePerDriver(session, isReplicatedJoin), taskConcurrency, isBuildSideSingle),
@@ -2894,8 +2917,8 @@ public class LocalExecutionPlanner
                 PhysicalOperation buildSource,
                 JoinNode node,
                 LocalExecutionPlanContext context,
-                int partitionCount,
-                Set<DynamicFilterId> localDynamicFilters)
+                Set<DynamicFilterId> localDynamicFilters,
+                boolean isReplicatedJoin)
         {
             Set<DynamicFilterId> coordinatorDynamicFilters = getCoordinatorDynamicFilters(node.getDynamicFilters().keySet(), node, context.getTaskId());
             Set<DynamicFilterId> collectedDynamicFilters = ImmutableSet.<DynamicFilterId>builder()
@@ -2909,18 +2932,20 @@ public class LocalExecutionPlanner
                     buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION,
                     "Dynamic filtering cannot be used with grouped execution");
             log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
-            LocalDynamicFilterConsumer filterConsumer = LocalDynamicFilterConsumer.create(node, buildSource.getTypes(), partitionCount, collectedDynamicFilters);
-            ListenableFuture<Map<DynamicFilterId, Domain>> domainsFuture = filterConsumer.getDynamicFilterDomains();
+            ImmutableList.Builder<Consumer<Map<DynamicFilterId, Domain>>> collectors = ImmutableList.builder();
             if (!localDynamicFilters.isEmpty()) {
-                addSuccessCallback(domainsFuture, context::addLocalDynamicFilters);
+                collectors.add(context::addLocalDynamicFilters);
             }
             if (!coordinatorDynamicFilters.isEmpty()) {
-                addSuccessCallback(
-                        domainsFuture,
-                        domains -> context.addCoordinatorDynamicFilters(domains.entrySet().stream()
-                                .filter(entry -> coordinatorDynamicFilters.contains(entry.getKey()))
-                                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue))));
+                collectors.add(context.getCoordinatorDynamicFilterDomainsCollector(coordinatorDynamicFilters));
             }
+            LocalDynamicFilterConsumer filterConsumer = LocalDynamicFilterConsumer.create(
+                    node,
+                    buildSource.getTypes(),
+                    collectedDynamicFilters,
+                    collectors.build(),
+                    getDynamicFilteringMaxSizePerOperator(session, isReplicatedJoin));
+
             return Optional.of(filterConsumer);
         }
 
@@ -3073,23 +3098,24 @@ public class LocalExecutionPlanner
                 // Add a DynamicFilterSourceOperatorFactory to build operator factories
                 DynamicFilterId filterId = node.getDynamicFilterId().get();
                 log.debug("[Semi-join] Dynamic filter: %s", filterId);
+                ImmutableList.Builder<Consumer<Map<DynamicFilterId, Domain>>> collectors = ImmutableList.builder();
+                if (isLocalDynamicFilter) {
+                    collectors.add(context::addLocalDynamicFilters);
+                }
+                if (isCoordinatorDynamicFilter) {
+                    collectors.add(context.getCoordinatorDynamicFilterDomainsCollector(ImmutableSet.of(filterId)));
+                }
+                boolean isReplicatedJoin = isBuildSideReplicated(node);
                 LocalDynamicFilterConsumer filterConsumer = new LocalDynamicFilterConsumer(
                         ImmutableMap.of(filterId, buildChannel),
                         ImmutableMap.of(filterId, buildSource.getTypes().get(buildChannel)),
-                        partitionCount);
-                ListenableFuture<Map<DynamicFilterId, Domain>> domainsFuture = filterConsumer.getDynamicFilterDomains();
-                if (isLocalDynamicFilter) {
-                    addSuccessCallback(domainsFuture, context::addLocalDynamicFilters);
-                }
-                if (isCoordinatorDynamicFilter) {
-                    addSuccessCallback(domainsFuture, context::addCoordinatorDynamicFilters);
-                }
-                boolean isReplicatedJoin = isBuildSideReplicated(node);
+                        collectors.build(),
+                        getDynamicFilteringMaxSizePerOperator(session, isReplicatedJoin));
                 buildSource = new PhysicalOperation(
                         new DynamicFilterSourceOperatorFactory(
                                 operatorId,
                                 node.getId(),
-                                filterConsumer.getTupleDomainConsumer(),
+                                filterConsumer,
                                 ImmutableList.of(new DynamicFilterSourceOperator.Channel(filterId, buildSource.getTypes().get(buildChannel), buildChannel)),
                                 getDynamicFilteringMaxDistinctValuesPerDriver(session, isReplicatedJoin),
                                 getDynamicFilteringMaxSizePerDriver(session, isReplicatedJoin),
@@ -3938,6 +3964,20 @@ public class LocalExecutionPlanner
             return dynamicFilterConfig.getSmallBroadcastRangeRowLimitPerDriver();
         }
         return dynamicFilterConfig.getSmallPartitionedRangeRowLimitPerDriver();
+    }
+
+    private DataSize getDynamicFilteringMaxSizePerOperator(Session session, boolean isReplicatedJoin)
+    {
+        if (isEnableLargeDynamicFilters(session)) {
+            if (isReplicatedJoin) {
+                return dynamicFilterConfig.getLargeBroadcastMaxSizePerOperator();
+            }
+            return dynamicFilterConfig.getLargePartitionedMaxSizePerOperator();
+        }
+        if (isReplicatedJoin) {
+            return dynamicFilterConfig.getSmallBroadcastMaxSizePerOperator();
+        }
+        return dynamicFilterConfig.getSmallPartitionedMaxSizePerOperator();
     }
 
     private static List<Type> getTypes(List<Expression> expressions, Map<NodeRef<Expression>, Type> expressionTypes)

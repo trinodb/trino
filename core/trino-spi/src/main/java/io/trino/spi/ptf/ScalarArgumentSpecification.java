@@ -15,7 +15,7 @@ package io.trino.spi.ptf;
 
 import io.trino.spi.type.Type;
 
-import static io.trino.spi.ptf.ConnectorTableFunction.checkArgument;
+import static io.trino.spi.ptf.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -24,21 +24,56 @@ public class ScalarArgumentSpecification
 {
     private final Type type;
 
-    public ScalarArgumentSpecification(String name, Type type)
+    private ScalarArgumentSpecification(String name, Type type, boolean required, Object defaultValue)
     {
-        super(name, true, null);
+        super(name, required, defaultValue);
         this.type = requireNonNull(type, "type is null");
-    }
-
-    public ScalarArgumentSpecification(String name, Type type, Object defaultValue)
-    {
-        super(name, false, defaultValue);
-        this.type = requireNonNull(type, "type is null");
-        checkArgument(type.getJavaType().equals(defaultValue.getClass()), format("default value %s does not match the declared type: %s", defaultValue, type));
+        if (defaultValue != null) {
+            checkArgument(type.getJavaType().equals(defaultValue.getClass()), format("default value %s does not match the declared type: %s", defaultValue, type));
+        }
     }
 
     public Type getType()
     {
         return type;
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static final class Builder
+    {
+        private String name;
+        private Type type;
+        private boolean required = true;
+        private Object defaultValue;
+
+        private Builder() {}
+
+        public Builder name(String name)
+        {
+            this.name = name;
+            return this;
+        }
+
+        public Builder type(Type type)
+        {
+            this.type = type;
+            return this;
+        }
+
+        public Builder defaultValue(Object defaultValue)
+        {
+            this.required = false;
+            this.defaultValue = defaultValue;
+            return this;
+        }
+
+        public ScalarArgumentSpecification build()
+        {
+            return new ScalarArgumentSpecification(name, type, required, defaultValue);
+        }
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -42,7 +43,6 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronize
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizerManager;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveLocationService;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.HiveTransactionManager;
@@ -53,8 +53,8 @@ import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.procedure.OptimizeTableProcedure;
@@ -90,10 +90,10 @@ public class DeltaLakeModule
         Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
 
         configBinder(binder).bindConfig(DeltaLakeConfig.class);
-        configBinder(binder).bindConfig(HiveConfig.class);
-        binder.bind(MetastoreConfig.class).toInstance(new MetastoreConfig()); // currently not configurable
+        binder.bind(Key.get(boolean.class, TranslateHiveViews.class)).toInstance(false);
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
+        configBinder(binder).bindConfigDefaults(ParquetWriterConfig.class, config -> config.setParquetOptimizedWriterEnabled(true));
 
         install(new ConnectorAccessControlModule());
         newOptionalBinder(binder, DeltaLakeAccessControlMetadataFactory.class)

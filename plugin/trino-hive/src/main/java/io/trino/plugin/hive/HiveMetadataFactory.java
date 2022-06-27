@@ -19,8 +19,8 @@ import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryLister;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
@@ -77,7 +77,7 @@ public class HiveMetadataFactory
     public HiveMetadataFactory(
             CatalogName catalogName,
             HiveConfig hiveConfig,
-            MetastoreConfig metastoreConfig,
+            HiveMetastoreConfig hiveMetastoreConfig,
             HiveMetastoreFactory metastoreFactory,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
@@ -111,7 +111,7 @@ public class HiveMetadataFactory
                 hiveConfig.isHiveViewsRunAsInvoker(),
                 hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 hiveConfig.getHiveTransactionHeartbeatInterval(),
-                metastoreConfig.isHideDeltaLakeTables(),
+                hiveMetastoreConfig.isHideDeltaLakeTables(),
                 typeManager,
                 metadataProvider,
                 locationService,

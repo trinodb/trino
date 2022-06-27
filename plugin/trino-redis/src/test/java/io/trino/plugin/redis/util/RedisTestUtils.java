@@ -76,14 +76,21 @@ public final class RedisTestUtils
         return new AbstractMap.SimpleImmutableEntry<>(schemaTableName, tableDescription);
     }
 
-    public static Map.Entry<SchemaTableName, RedisTableDescription> createEmptyTableDescription(SchemaTableName schemaTableName)
+    public static Map.Entry<SchemaTableName, RedisTableDescription> createTableDescription(RedisTableDescription tableDescription)
     {
-        RedisTableDescription tableDescription = new RedisTableDescription(
-                schemaTableName.getTableName(),
-                schemaTableName.getSchemaName(),
-                null,
-                null);
+        SchemaTableName schemaTableName = new SchemaTableName(
+                tableDescription.getSchemaName(),
+                tableDescription.getTableName());
 
         return new AbstractMap.SimpleImmutableEntry<>(schemaTableName, tableDescription);
+    }
+
+    public static RedisTableDescription loadSimpleTableDescription(QueryRunner queryRunner, String valueDataFormat)
+            throws Exception
+    {
+        JsonCodec<RedisTableDescription> tableDescriptionJsonCodec = new CodecSupplier<>(RedisTableDescription.class, queryRunner.getTypeManager()).get();
+        try (InputStream data = RedisTestUtils.class.getResourceAsStream(format("/simple/%s_value_table.json", valueDataFormat))) {
+            return tableDescriptionJsonCodec.fromJson(ByteStreams.toByteArray(data));
+        }
     }
 }

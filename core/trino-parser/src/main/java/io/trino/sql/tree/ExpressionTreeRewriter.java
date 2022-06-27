@@ -1161,6 +1161,170 @@ public final class ExpressionTreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        protected Expression visitJsonExists(JsonExists node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonExists(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            JsonPathInvocation jsonPathInvocation = rewriteJsonPathInvocation(node.getJsonPathInvocation(), context);
+
+            if (node.getJsonPathInvocation() != jsonPathInvocation) {
+                return new JsonExists(node.getLocation(), jsonPathInvocation, node.getErrorBehavior());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitJsonValue(JsonValue node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonValue(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            JsonPathInvocation jsonPathInvocation = rewriteJsonPathInvocation(node.getJsonPathInvocation(), context);
+
+            Optional<Expression> emptyDefault = node.getEmptyDefault().map(expression -> rewrite(expression, context.get()));
+            Optional<Expression> errorDefault = node.getErrorDefault().map(expression -> rewrite(expression, context.get()));
+
+            if (node.getJsonPathInvocation() != jsonPathInvocation ||
+                    !sameElements(node.getEmptyDefault(), emptyDefault) ||
+                    !sameElements(node.getErrorDefault(), errorDefault)) {
+                return new JsonValue(
+                        node.getLocation(),
+                        jsonPathInvocation,
+                        node.getReturnedType(),
+                        node.getEmptyBehavior(),
+                        emptyDefault,
+                        node.getErrorBehavior(),
+                        errorDefault);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitJsonQuery(JsonQuery node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonQuery(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            JsonPathInvocation jsonPathInvocation = rewriteJsonPathInvocation(node.getJsonPathInvocation(), context);
+
+            if (node.getJsonPathInvocation() != jsonPathInvocation) {
+                return new JsonQuery(
+                        node.getLocation(),
+                        jsonPathInvocation,
+                        node.getReturnedType(),
+                        node.getOutputFormat(),
+                        node.getWrapperBehavior(),
+                        node.getQuotesBehavior(),
+                        node.getEmptyBehavior(),
+                        node.getErrorBehavior());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitJsonObject(JsonObject node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonObject(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<JsonObjectMember> members = node.getMembers().stream()
+                    .map(member -> {
+                        Expression key = rewrite(member.getKey(), context.get());
+                        Expression value = rewrite(member.getValue(), context.get());
+                        if (member.getKey() == key && member.getValue() == value) {
+                            return member;
+                        }
+                        return new JsonObjectMember(key, value, member.getFormat());
+                    })
+                    .collect(toImmutableList());
+
+            if (!sameElements(node.getMembers(), members)) {
+                return new JsonObject(
+                        node.getLocation(),
+                        members,
+                        node.isNullOnNull(),
+                        node.isUniqueKeys(),
+                        node.getReturnedType(),
+                        node.getOutputFormat());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitJsonArray(JsonArray node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonArray(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<JsonArrayElement> elements = node.getElements().stream()
+                    .map(element -> {
+                        Expression value = rewrite(element.getValue(), context.get());
+                        if (element.getValue() == value) {
+                            return element;
+                        }
+                        return new JsonArrayElement(value, element.getFormat());
+                    })
+                    .collect(toImmutableList());
+
+            if (!sameElements(node.getElements(), elements)) {
+                return new JsonArray(
+                        node.getLocation(),
+                        elements,
+                        node.isNullOnNull(),
+                        node.getReturnedType(),
+                        node.getOutputFormat());
+            }
+
+            return node;
+        }
+
+        private JsonPathInvocation rewriteJsonPathInvocation(JsonPathInvocation pathInvocation, Context<C> context)
+        {
+            Expression inputExpression = rewrite(pathInvocation.getInputExpression(), context.get());
+
+            List<JsonPathParameter> pathParameters = pathInvocation.getPathParameters().stream()
+                    .map(pathParameter -> {
+                        Expression expression = rewrite(pathParameter.getParameter(), context.get());
+                        if (pathParameter.getParameter() != expression) {
+                            return new JsonPathParameter(pathParameter.getLocation(), pathParameter.getName(), expression, pathParameter.getFormat());
+                        }
+                        return pathParameter;
+                    })
+                    .collect(toImmutableList());
+
+            if (pathInvocation.getInputExpression() != inputExpression || !sameElements(pathInvocation.getPathParameters(), pathParameters)) {
+                return new JsonPathInvocation(pathInvocation.getLocation(), inputExpression, pathInvocation.getInputFormat(), pathInvocation.getJsonPath(), pathParameters);
+            }
+
+            return pathInvocation;
+        }
     }
 
     public static class Context<C>

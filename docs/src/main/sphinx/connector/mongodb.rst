@@ -47,7 +47,7 @@ Configuration properties
 The following configuration properties are available:
 
 ========================================== ==============================================================
-Property Name                              Description
+Property name                              Description
 ========================================== ==============================================================
 ``mongodb.seeds``                          List of all MongoDB servers
 ``mongodb.connection-url``                 The connection url that the driver uses to connect to a MongoDB deployment

@@ -25,7 +25,7 @@ import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -33,6 +33,8 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
+
+import java.nio.file.Path;
 
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -44,6 +46,7 @@ public class TestSharedHiveMetastore
         extends BaseSharedMetastoreTest
 {
     private static final String HIVE_CATALOG = "hive";
+    private Path dataDirectory;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -89,7 +92,7 @@ public class TestSharedHiveMetastore
         HiveMetastore metastore = new FileHiveMetastore(
                 new NodeVersion("testversion"),
                 hdfsEnvironment,
-                new MetastoreConfig(),
+                new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(dataDirectory.toFile().toURI().toString())
                         .setMetastoreUser("test"));

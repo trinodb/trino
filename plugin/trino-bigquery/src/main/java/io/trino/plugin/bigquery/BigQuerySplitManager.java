@@ -14,6 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.BigQueryException;
+import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
@@ -29,6 +30,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
@@ -40,10 +42,15 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.createDisposition;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.isQueryResultsCacheEnabled;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.isSkipViewMaterialization;
+import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -84,18 +91,19 @@ public class BigQuerySplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         log.debug("getSplits(transaction=%s, session=%s, table=%s, splitSchedulingStrategy=%s)", transaction, session, table, splitSchedulingStrategy);
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) table;
 
         TableId remoteTableId = bigQueryTableHandle.getRemoteTableName().toTableId();
         int actualParallelism = parallelism.orElse(nodeManager.getRequiredWorkerNodes().size());
-        TupleDomain<ColumnHandle> constraint = bigQueryTableHandle.getConstraint();
-        Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(constraint);
+        TupleDomain<ColumnHandle> tableConstraint = bigQueryTableHandle.getConstraint();
+        Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
         List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.getProjectedColumns()) ?
                 createEmptyProjection(session, remoteTableId, actualParallelism, filter) :
-                readFromBigQuery(session, remoteTableId, bigQueryTableHandle.getProjectedColumns(), actualParallelism, filter);
+                readFromBigQuery(session, TableDefinition.Type.valueOf(bigQueryTableHandle.getType()), remoteTableId, bigQueryTableHandle.getProjectedColumns(), actualParallelism, filter);
         return new FixedSplitSource(splits);
     }
 
@@ -104,7 +112,7 @@ public class BigQuerySplitManager
         return projectedColumns.isPresent() && projectedColumns.get().isEmpty();
     }
 
-    private List<BigQuerySplit> readFromBigQuery(ConnectorSession session, TableId remoteTableId, Optional<List<ColumnHandle>> projectedColumns, int actualParallelism, Optional<String> filter)
+    private List<BigQuerySplit> readFromBigQuery(ConnectorSession session, TableDefinition.Type type, TableId remoteTableId, Optional<List<ColumnHandle>> projectedColumns, int actualParallelism, Optional<String> filter)
     {
         log.debug("readFromBigQuery(tableId=%s, projectedColumns=%s, actualParallelism=%s, filter=[%s])", remoteTableId, projectedColumns, actualParallelism, filter);
         List<ColumnHandle> columns = projectedColumns.orElse(ImmutableList.of());
@@ -112,6 +120,17 @@ public class BigQuerySplitManager
                 .map(column -> ((BigQueryColumnHandle) column).getName())
                 .collect(toImmutableList());
 
+        if (isWildcardTable(type, remoteTableId.getTable())) {
+            // Storage API doesn't support reading wildcard tables
+            return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
+        }
+        if (type == MATERIALIZED_VIEW) {
+            // Storage API doesn't support reading materialized views
+            return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
+        }
+        if (isSkipViewMaterialization(session) && type == VIEW) {
+            return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
+        }
         ReadSession readSession = new ReadSessionCreator(bigQueryClientFactory, bigQueryReadClientFactory, viewEnabled, viewExpiration)
                 .create(session, remoteTableId, projectedColumnsNames, filter, actualParallelism);
 
@@ -129,7 +148,7 @@ public class BigQuerySplitManager
             if (filter.isPresent()) {
                 // count the rows based on the filter
                 String sql = client.selectSql(remoteTableId, "COUNT(*)");
-                TableResult result = client.query(sql);
+                TableResult result = client.query(sql, isQueryResultsCacheEnabled(session), createDisposition(session));
                 numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
             }
             else {
@@ -141,7 +160,7 @@ public class BigQuerySplitManager
                 }
                 else if (tableInfo.getDefinition().getType() == VIEW) {
                     String sql = client.selectSql(remoteTableId, "COUNT(*)");
-                    TableResult result = client.query(sql);
+                    TableResult result = client.query(sql, isQueryResultsCacheEnabled(session), createDisposition(session));
                     numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
                 }
                 else {

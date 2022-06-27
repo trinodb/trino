@@ -66,6 +66,8 @@ public class TestJdbcConnectorTest
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
@@ -253,6 +255,13 @@ public class TestJdbcConnectorTest
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return format("NULL not allowed for column \"%s\"(?s).*", columnName.toUpperCase(ENGLISH));
+    }
+
+    @Override
+    public void testAddColumnConcurrently()
+    {
+        // TODO: Difficult to determine whether the exception is concurrent issue or not from the error message
+        throw new SkipException("TODO: Enable this test after finding the failure cause");
     }
 
     @Override

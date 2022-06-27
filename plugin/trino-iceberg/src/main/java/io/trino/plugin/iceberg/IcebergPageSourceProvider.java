@@ -317,7 +317,9 @@ public class IcebergPageSourceProvider
                 hdfsContext,
                 jsonCodec,
                 session,
-                split.getFileFormat());
+                split.getFileFormat(),
+                table.getStorageProperties(),
+                split.getFileRecordCount());
 
         Supplier<IcebergPageSink> updatedRowPageSinkSupplier = () -> new IcebergPageSink(
                 tableSchema,
@@ -550,7 +552,8 @@ public class IcebergPageSourceProvider
                             Optional.empty(),
                             Optional.empty(),
                             memoryUsage,
-                            stats),
+                            stats,
+                            reader.getCompressionKind()),
                     columnProjections);
         }
         catch (Exception e) {

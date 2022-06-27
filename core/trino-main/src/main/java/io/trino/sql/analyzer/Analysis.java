@@ -24,6 +24,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
 import io.trino.connector.CatalogName;
+import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
@@ -45,6 +46,7 @@ import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.Identity;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
+import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
@@ -152,6 +154,11 @@ public class Analysis
 
     private final Set<NodeRef<FunctionCall>> patternAggregations = new LinkedHashSet<>();
 
+    // for JSON features
+    private final Map<NodeRef<Expression>, JsonPathAnalysis> jsonPathAnalyses = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, ResolvedFunction> jsonInputFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, ResolvedFunction> jsonOutputFunctions = new LinkedHashMap<>();
+
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, GroupingSetAnalysis> groupingSets = new LinkedHashMap<>();
@@ -211,7 +218,7 @@ public class Analysis
     private Optional<Insert> insert = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<QualifiedObjectName> delegatedRefreshMaterializedView = Optional.empty();
-    private Optional<TableHandle> analyzeTarget = Optional.empty();
+    private Optional<AnalyzeMetadata> analyzeMetadata = Optional.empty();
     private Optional<List<ColumnSchema>> updatedColumns = Optional.empty();
 
     private final QueryType queryType;
@@ -722,14 +729,14 @@ public class Analysis
         return columns.get(field);
     }
 
-    public Optional<TableHandle> getAnalyzeTarget()
+    public Optional<AnalyzeMetadata> getAnalyzeMetadata()
     {
-        return analyzeTarget;
+        return analyzeMetadata;
     }
 
-    public void setAnalyzeTarget(TableHandle analyzeTarget)
+    public void setAnalyzeMetadata(AnalyzeMetadata analyzeMetadata)
     {
-        this.analyzeTarget = Optional.of(analyzeTarget);
+        this.analyzeMetadata = Optional.of(analyzeMetadata);
     }
 
     public void setCreate(Create create)
@@ -978,6 +985,36 @@ public class Analysis
     public boolean isPatternAggregation(FunctionCall function)
     {
         return patternAggregations.contains(NodeRef.of(function));
+    }
+
+    public void setJsonPathAnalyses(Map<NodeRef<Expression>, JsonPathAnalysis> pathAnalyses)
+    {
+        jsonPathAnalyses.putAll(pathAnalyses);
+    }
+
+    public JsonPathAnalysis getJsonPathAnalysis(Expression expression)
+    {
+        return jsonPathAnalyses.get(NodeRef.of(expression));
+    }
+
+    public void setJsonInputFunctions(Map<NodeRef<Expression>, ResolvedFunction> functions)
+    {
+        jsonInputFunctions.putAll(functions);
+    }
+
+    public ResolvedFunction getJsonInputFunction(Expression expression)
+    {
+        return jsonInputFunctions.get(NodeRef.of(expression));
+    }
+
+    public void setJsonOutputFunctions(Map<NodeRef<Expression>, ResolvedFunction> functions)
+    {
+        jsonOutputFunctions.putAll(functions);
+    }
+
+    public ResolvedFunction getJsonOutputFunction(Expression expression)
+    {
+        return jsonOutputFunctions.get(NodeRef.of(expression));
     }
 
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()

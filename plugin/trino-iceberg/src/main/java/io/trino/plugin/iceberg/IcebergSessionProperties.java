@@ -19,7 +19,6 @@ import io.airlift.units.Duration;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveCompressionCodec;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -74,8 +73,10 @@ public final class IcebergSessionProperties
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
+    private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "expire_snapshots_min_retention";
-    public static final String DELETE_ORPHAN_FILES_MIN_RETENTION = "delete_orphan_files_min_retention";
+    public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "remove_orphan_files_min_retention";
+    private static final String ALLOW_LEGACY_SNAPSHOT_SYNTAX = "allow_legacy_snapshot_syntax";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -85,8 +86,7 @@ public final class IcebergSessionProperties
             OrcReaderConfig orcReaderConfig,
             OrcWriterConfig orcWriterConfig,
             ParquetReaderConfig parquetReaderConfig,
-            ParquetWriterConfig parquetWriterConfig,
-            HiveConfig hiveConfig)
+            ParquetWriterConfig parquetWriterConfig)
     {
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(enumProperty(
@@ -222,7 +222,7 @@ public final class IcebergSessionProperties
                 .add(dataSizeProperty(
                         TARGET_MAX_FILE_SIZE,
                         "Target maximum size of written files; the actual size may be larger",
-                        hiveConfig.getTargetMaxFileSize(),
+                        icebergConfig.getTargetMaxFileSize(),
                         false))
                 .add(stringProperty(
                         HIVE_CATALOG_NAME,
@@ -231,15 +231,25 @@ public final class IcebergSessionProperties
                         // Session-level redirections configuration does not work well with views, as view body is analyzed in context
                         // of a session with properties stripped off. Thus, this property is more of a test-only, or at most POC usefulness.
                         true))
+                .add(doubleProperty(
+                        MINIMUM_ASSIGNED_SPLIT_WEIGHT,
+                        "Minimum assigned split weight",
+                        icebergConfig.getMinimumAssignedSplitWeight(),
+                        false))
                 .add(durationProperty(
                         EXPIRE_SNAPSHOTS_MIN_RETENTION,
                         "Minimal retention period for expire_snapshot procedure",
                         icebergConfig.getExpireSnapshotsMinRetention(),
                         false))
                 .add(durationProperty(
-                        DELETE_ORPHAN_FILES_MIN_RETENTION,
-                        "Minimal retention period for delete_orphan_files procedure",
-                        icebergConfig.getDeleteOrphanFilesMinRetention(),
+                        REMOVE_ORPHAN_FILES_MIN_RETENTION,
+                        "Minimal retention period for remove_orphan_files procedure",
+                        icebergConfig.getRemoveOrphanFilesMinRetention(),
+                        false))
+                .add(booleanProperty(
+                        ALLOW_LEGACY_SNAPSHOT_SYNTAX,
+                        "Allow snapshot access based on timestamp and snapshotid",
+                        icebergConfig.isAllowLegacySnapshotSyntax(),
                         false))
                 .build();
     }
@@ -392,8 +402,18 @@ public final class IcebergSessionProperties
         return session.getProperty(EXPIRE_SNAPSHOTS_MIN_RETENTION, Duration.class);
     }
 
-    public static Duration getDeleteOrphanFilesMinRetention(ConnectorSession session)
+    public static Duration getRemoveOrphanFilesMinRetention(ConnectorSession session)
     {
-        return session.getProperty(DELETE_ORPHAN_FILES_MIN_RETENTION, Duration.class);
+        return session.getProperty(REMOVE_ORPHAN_FILES_MIN_RETENTION, Duration.class);
+    }
+
+    public static double getMinimumAssignedSplitWeight(ConnectorSession session)
+    {
+        return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
+    }
+
+    public static boolean isAllowLegacySnapshotSyntax(ConnectorSession session)
+    {
+        return session.getProperty(ALLOW_LEGACY_SNAPSHOT_SYNTAX, Boolean.class);
     }
 }

@@ -26,7 +26,6 @@ import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.predicate.NullableValue;
@@ -57,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 
 public class PagePartitioner
 {
-    private static final int COLUMNAR_STRATEGY_COEFFICIENT = 4;
+    private static final int COLUMNAR_STRATEGY_COEFFICIENT = 2;
     private final OutputBuffer outputBuffer;
     private final Type[] sourceTypes;
     private final PartitionFunction partitionFunction;
@@ -66,13 +65,12 @@ public class PagePartitioner
     private final Block[] partitionConstantBlocks; // when null, no constants are present. Only non-null elements are constants
     private final PagesSerde serde;
     private final PageBuilder[] pageBuilders;
+    private final PositionsAppenderPageBuilder[] positionsAppenders;
     private final boolean replicatesAnyRow;
     private final int nullChannel; // when >= 0, send the position to every partition if this channel is null
     private final AtomicLong rowsAdded = new AtomicLong();
     private final AtomicLong pagesAdded = new AtomicLong();
     private final OperatorContext operatorContext;
-    private final PositionsAppenderFactory positionsAppenderFactory;
-    private final PositionsAppender[] positionsAppenders;
 
     private boolean hasAnyRowBeenReplicated;
 
@@ -91,7 +89,7 @@ public class PagePartitioner
     {
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitionChannels = Ints.toArray(requireNonNull(partitionChannels, "partitionChannels is null"));
-        this.positionsAppenderFactory = requireNonNull(positionsAppenderFactory, "positionsAppenderFactory is null");
+        requireNonNull(positionsAppenderFactory, "positionsAppenderFactory is null");
         Block[] partitionConstantBlocks = requireNonNull(partitionConstants, "partitionConstants is null").stream()
                 .map(constant -> constant.map(NullableValue::asBlock).orElse(null))
                 .toArray(Block[]::new);
@@ -120,11 +118,14 @@ public class PagePartitioner
         int pageSize = toIntExact(min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, maxMemory.toBytes() / partitionCount));
         pageSize = max(1, pageSize);
 
+        this.positionsAppenders = new PositionsAppenderPageBuilder[partitionCount];
+        for (int i = 0; i < partitionCount; i++) {
+            positionsAppenders[i] = PositionsAppenderPageBuilder.withMaxPageSize(pageSize, sourceTypes, positionsAppenderFactory);
+        }
         this.pageBuilders = new PageBuilder[partitionCount];
         for (int i = 0; i < partitionCount; i++) {
             pageBuilders[i] = PageBuilder.withMaxPageSize(pageSize, sourceTypes);
         }
-        positionsAppenders = new PositionsAppender[sourceTypes.size()];
     }
 
     public ListenableFuture<Void> isFull()
@@ -137,6 +138,9 @@ public class PagePartitioner
         // We use a foreach loop instead of streams
         // as it has much better performance.
         long sizeInBytes = 0;
+        for (PositionsAppenderPageBuilder pageBuilder : positionsAppenders) {
+            sizeInBytes += pageBuilder.getSizeInBytes();
+        }
         for (PageBuilder pageBuilder : pageBuilders) {
             sizeInBytes += pageBuilder.getSizeInBytes();
         }
@@ -149,6 +153,9 @@ public class PagePartitioner
     public long getRetainedSizeInBytes()
     {
         long sizeInBytes = 0;
+        for (PositionsAppenderPageBuilder pageBuilder : positionsAppenders) {
+            sizeInBytes += pageBuilder.getRetainedSizeInBytes();
+        }
         for (PageBuilder pageBuilder : pageBuilders) {
             sizeInBytes += pageBuilder.getRetainedSizeInBytes();
         }
@@ -230,7 +237,7 @@ public class PagePartitioner
             }
         }
 
-        flush(false);
+        flushPageBuilders(false);
     }
 
     private void appendRow(PageBuilder pageBuilder, Page page, int position)
@@ -247,25 +254,15 @@ public class PagePartitioner
     {
         IntArrayList[] partitionedPositions = partitionPositions(page);
 
-        PositionsAppender[] positionsAppenders = getAppenders(page);
-
         for (int i = 0; i < partitionFunction.getPartitionCount(); i++) {
             IntArrayList partitionPositions = partitionedPositions[i];
             if (!partitionPositions.isEmpty()) {
-                appendToOutputPartition(pageBuilders[i], page, partitionPositions, positionsAppenders);
+                positionsAppenders[i].appendToOutputPartition(page, partitionPositions);
                 partitionPositions.clear();
             }
         }
 
-        flush(false);
-    }
-
-    private PositionsAppender[] getAppenders(Page page)
-    {
-        for (int i = 0; i < positionsAppenders.length; i++) {
-            positionsAppenders[i] = positionsAppenderFactory.create(sourceTypes[i], page.getBlock(i).getClass());
-        }
-        return positionsAppenders;
+        flushPositionsAppenders(false);
     }
 
     private IntArrayList[] partitionPositions(Page page)
@@ -299,17 +296,6 @@ public class PagePartitioner
             partitionGeneric(page, position, aPosition -> partitionFunction.getPartition(partitionFunctionArgs, aPosition), partitionPositions);
         }
         return partitionPositions;
-    }
-
-    private void appendToOutputPartition(PageBuilder outputPartition, Page page, IntArrayList positions, PositionsAppender[] positionsAppenders)
-    {
-        outputPartition.declarePositions(positions.size());
-
-        for (int channel = 0; channel < positionsAppenders.length; channel++) {
-            Block partitionBlock = page.getBlock(channel);
-            BlockBuilder target = outputPartition.getBlockBuilder(channel);
-            positionsAppenders[channel].appendTo(positions, partitionBlock, target);
-        }
     }
 
     private IntArrayList[] initPositions(Page page)
@@ -448,9 +434,15 @@ public class PagePartitioner
 
     private IntArrayList[] partitionNotNullPositions(Page page, int startingPosition, IntArrayList[] partitionPositions, IntUnaryOperator partitionFunction)
     {
-        for (int position = startingPosition; position < page.getPositionCount(); position++) {
+        int positionCount = page.getPositionCount();
+        int[] partitionPerPosition = new int[positionCount];
+        for (int position = startingPosition; position < positionCount; position++) {
             int partition = partitionFunction.applyAsInt(position);
-            partitionPositions[partition].add(position);
+            partitionPerPosition[position] = partition;
+        }
+
+        for (int position = startingPosition; position < positionCount; position++) {
+            partitionPositions[partitionPerPosition[position]].add(position);
         }
 
         return partitionPositions;
@@ -476,7 +468,13 @@ public class PagePartitioner
         return new Page(page.getPositionCount(), blocks);
     }
 
-    public void flush(boolean force)
+    public void forceFlush()
+    {
+        flushPositionsAppenders(true);
+        flushPageBuilders(true);
+    }
+
+    private void flushPageBuilders(boolean force)
     {
         try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
             // add all full pages to output buffer
@@ -486,14 +484,33 @@ public class PagePartitioner
                     Page pagePartition = partitionPageBuilder.build();
                     partitionPageBuilder.reset();
 
-                    operatorContext.recordOutput(pagePartition.getSizeInBytes(), pagePartition.getPositionCount());
-
-                    outputBuffer.enqueue(partition, splitAndSerializePage(context, pagePartition));
-                    pagesAdded.incrementAndGet();
-                    rowsAdded.addAndGet(pagePartition.getPositionCount());
+                    enqueuePage(pagePartition, partition, context);
                 }
             }
         }
+    }
+
+    private void flushPositionsAppenders(boolean force)
+    {
+        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
+            // add all full pages to output buffer
+            for (int partition = 0; partition < positionsAppenders.length; partition++) {
+                PositionsAppenderPageBuilder partitionPageBuilder = positionsAppenders[partition];
+                if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
+                    Page pagePartition = partitionPageBuilder.build();
+                    enqueuePage(pagePartition, partition, context);
+                }
+            }
+        }
+    }
+
+    private void enqueuePage(Page pagePartition, int partition, PagesSerde.PagesSerdeContext context)
+    {
+        operatorContext.recordOutput(pagePartition.getSizeInBytes(), pagePartition.getPositionCount());
+
+        outputBuffer.enqueue(partition, splitAndSerializePage(context, pagePartition));
+        pagesAdded.incrementAndGet();
+        rowsAdded.addAndGet(pagePartition.getPositionCount());
     }
 
     private List<Slice> splitAndSerializePage(PagesSerde.PagesSerdeContext context, Page page)

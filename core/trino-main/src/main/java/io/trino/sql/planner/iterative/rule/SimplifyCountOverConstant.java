@@ -98,15 +98,11 @@ public class SimplifyCountOverConstant
             return Result.empty();
         }
 
-        return Result.ofPlanNode(new AggregationNode(
-                parent.getId(),
-                child,
-                aggregations,
-                parent.getGroupingSets(),
-                ImmutableList.of(),
-                parent.getStep(),
-                parent.getHashSymbol(),
-                parent.getGroupIdSymbol()));
+        return Result.ofPlanNode(AggregationNode.builderFrom(parent)
+                .setSource(child)
+                .setAggregations(aggregations)
+                .setPreGroupedSymbols(ImmutableList.of())
+                .build());
     }
 
     private boolean isCountOverConstant(Session session, AggregationNode.Aggregation aggregation, Assignments inputs)

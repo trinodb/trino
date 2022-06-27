@@ -11,37 +11,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.operator.output;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.Type;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-
-import static java.util.Objects.requireNonNull;
 
 public interface PositionsAppender
 {
-    void appendTo(IntArrayList positions, Block source, BlockBuilder target);
+    void append(IntArrayList positions, Block source);
 
-    class TypedPositionsAppender
-            implements PositionsAppender
-    {
-        private final Type type;
+    /**
+     * Appends value from the {@code rleBlock} to this appender {@link RunLengthEncodedBlock#getPositionCount()} times.
+     * The result is the same as with using {@link PositionsAppender#append(IntArrayList, Block)} with
+     * positions list [0...{@link RunLengthEncodedBlock#getPositionCount()} -1]
+     * but with possible performance optimizations for {@link RunLengthEncodedBlock}.
+     */
+    void appendRle(RunLengthEncodedBlock rleBlock);
 
-        public TypedPositionsAppender(Type type)
-        {
-            this.type = requireNonNull(type, "type is null");
-        }
+    /**
+     * Creates the block from the appender data.
+     * After this, appender is reset to the initial state, and it is ready to build a new block.
+     */
+    Block build();
 
-        @Override
-        public void appendTo(IntArrayList positions, Block source, BlockBuilder target)
-        {
-            int[] positionArray = positions.elements();
-            for (int i = 0; i < positions.size(); i++) {
-                type.appendTo(source, positionArray[i], target);
-            }
-        }
-    }
+    /**
+     * Returns number of bytes retained by this instance in memory including over-allocations.
+     */
+    long getRetainedSizeInBytes();
+
+    /**
+     * Returns the size of memory in bytes used by this appender.
+     */
+    long getSizeInBytes();
 }

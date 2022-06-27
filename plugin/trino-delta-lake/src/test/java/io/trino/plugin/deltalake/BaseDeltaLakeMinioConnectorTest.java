@@ -13,29 +13,44 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.trino.Session;
+import io.trino.execution.QueryInfo;
 import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
 import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
+import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Sets.union;
 import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -93,8 +108,6 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
             case SUPPORTS_AGGREGATION_PUSHDOWN:
-            case SUPPORTS_RENAME_TABLE:
-            case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -136,6 +149,20 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessageMatching("Unable to add '.*' column for: .*")
+                .getCause()
+                .hasMessageMatching(
+                        "Transaction log locked.*" +
+                                "|.*/_delta_log/\\d+.json already exists" +
+                                "|Conflicting concurrent writes found..*" +
+                                "|Multiple live locks found for:.*" +
+                                "|Target file .* was created during locking");
+    }
+
+    @Override
     protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
@@ -149,7 +176,12 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("time") || typeName.equals("timestamp") || typeName.equals("char(3)")) {
+        if (typeName.equals("time") ||
+                typeName.equals("time(6)") ||
+                typeName.equals("timestamp") ||
+                typeName.equals("timestamp(6)") ||
+                typeName.equals("timestamp(6) with time zone") ||
+                typeName.equals("char(3)")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
         return Optional.of(dataMappingTestSetup);
@@ -242,6 +274,36 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                         ")", getSession().getCatalog().orElseThrow(), schemaName, bucketName));
     }
 
+    /**
+     * @see io.trino.plugin.deltalake.BaseDeltaLakeConnectorSmokeTest#testRenameExternalTable for more test coverage
+     */
+    @Override
+    public void testRenameTable()
+    {
+        assertThatThrownBy(super::testRenameTable)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+    }
+
+    /**
+     * @see io.trino.plugin.deltalake.BaseDeltaLakeConnectorSmokeTest#testRenameExternalTableAcrossSchemas for more test coverage
+     */
+    @Override
+    public void testRenameTableAcrossSchema()
+    {
+        assertThatThrownBy(super::testRenameTableAcrossSchema)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+    }
+
+    @Override
+    public void testRenameTableToUnqualifiedPreservesSchema()
+    {
+        assertThatThrownBy(super::testRenameTableToUnqualifiedPreservesSchema)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_source_schema_");
+    }
+
     @Override
     public void testDropNonEmptySchemaWithTable()
     {
@@ -265,9 +327,203 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 .hasStackTraceContaining("Unsupported type: char(3)");
     }
 
+    @Test(dataProvider = "timestampValues")
+    public void testTimestampPredicatePushdown(String value)
+    {
+        String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomTableSuffix();
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        assertUpdate("CREATE TABLE " + tableName + " (t TIMESTAMP WITH TIME ZONE)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (TIMESTAMP '" + value + "')", 1);
+
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM " + tableName + " WHERE t < TIMESTAMP '" + value + "'");
+        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+
+        queryResult = queryRunner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM " + tableName + " WHERE t > TIMESTAMP '" + value + "'");
+        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+
+        assertQueryStats(
+                getSession(),
+                "SELECT * FROM " + tableName + " WHERE t = TIMESTAMP '" + value + "'",
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
+                results -> {});
+    }
+
+    @DataProvider
+    public Object[][] timestampValues()
+    {
+        return new Object[][] {
+                {"1965-10-31 01:00:08.123 UTC"},
+                {"1965-10-31 01:00:08.999 UTC"},
+                {"1970-01-01 01:13:42.000 America/Bahia_Banderas"}, // There is a gap in JVM zone
+                {"1970-01-01 00:00:00.000 Asia/Kathmandu"},
+                {"2018-10-28 01:33:17.456 Europe/Vilnius"},
+                {"9999-12-31 23:59:59.999 UTC"}};
+    }
+
+    @Test
+    public void testAddColumnToPartitionedTable()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_partitioned_table_", "(x VARCHAR, part VARCHAR) WITH (partitioned_by = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first', 'part-0001'", 1);
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN x bigint", ".* Column 'x' already exists");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN part bigint", ".* Column 'part' already exists");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN a varchar(50)");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second', 'part-0002', 'xxx'", 1);
+            assertQuery(
+                    "SELECT x, part, a FROM " + table.getName(),
+                    "VALUES ('first', 'part-0001', NULL), ('second', 'part-0002', 'xxx')");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b double");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'third', 'part-0003', 'yyy', 33.3E0", 1);
+            assertQuery(
+                    "SELECT x, part, a, b FROM " + table.getName(),
+                    "VALUES ('first', 'part-0001', NULL, NULL), ('second', 'part-0002', 'xxx', NULL), ('third', 'part-0003', 'yyy', 33.3)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN IF NOT EXISTS c varchar(50)");
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN IF NOT EXISTS part varchar(50)");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'fourth', 'part-0004', 'zzz', 55.3E0, 'newColumn'", 1);
+            assertQuery(
+                    "SELECT x, part, a, b, c FROM " + table.getName(),
+                    "VALUES ('first', 'part-0001', NULL, NULL, NULL), ('second', 'part-0002', 'xxx', NULL, NULL), ('third', 'part-0003', 'yyy', 33.3, NULL), ('fourth', 'part-0004', 'zzz', 55.3, 'newColumn')");
+        }
+    }
+
+    private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
+    {
+        return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
+    }
+
+    @Test
+    public void testAddColumnAndOptimize()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_and_optimize", "(x VARCHAR)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN a varchar(50)");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second', 'xxx'", 1);
+            assertQuery(
+                    "SELECT x, a FROM " + table.getName(),
+                    "VALUES ('first', NULL), ('second', 'xxx')");
+
+            Set<String> beforeActiveFiles = getActiveFiles(table.getName());
+            computeActual("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE");
+
+            // Verify OPTIMIZE happened, but table data didn't change
+            assertThat(beforeActiveFiles).isNotEqualTo(getActiveFiles(table.getName()));
+            assertQuery(
+                    "SELECT x, a FROM " + table.getName(),
+                    "VALUES ('first', NULL), ('second', 'xxx')");
+        }
+    }
+
+    @Test
+    public void testAddColumnAndVacuum()
+            throws Exception
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_and_optimize", "(x VARCHAR)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second'", 1);
+
+            Set<String> initialFiles = getActiveFiles(table.getName());
+            assertThat(initialFiles).hasSize(2);
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN a varchar(50)");
+
+            assertUpdate("UPDATE " + table.getName() + " SET a = 'new column'", 2);
+            Stopwatch timeSinceUpdate = Stopwatch.createStarted();
+            Set<String> updatedFiles = getActiveFiles(table.getName());
+            assertThat(updatedFiles).hasSize(2).doesNotContainAnyElementsOf(initialFiles);
+            assertThat(getAllDataFilesFromTableDirectory(table.getName())).isEqualTo(union(initialFiles, updatedFiles));
+
+            assertQuery(
+                    "SELECT x, a FROM " + table.getName(),
+                    "VALUES ('first', 'new column'), ('second', 'new column')");
+
+            MILLISECONDS.sleep(1_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + table.getName() + "', retention => '1s')");
+
+            // Verify VACUUM happened, but table data didn't change
+            assertThat(getAllDataFilesFromTableDirectory(table.getName())).isEqualTo(updatedFiles);
+            assertQuery(
+                    "SELECT x, a FROM " + table.getName(),
+                    "VALUES ('first', 'new column'), ('second', 'new column')");
+        }
+    }
+
+    @Test
+    public void testTargetMaxFileSize()
+    {
+        String tableName = "test_default_max_file_size" + randomTableSuffix();
+        @Language("SQL") String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 100000", tableName);
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "1")
+                .setCatalogSessionProperty("delta_lake", "experimental_parquet_optimized_writer_enabled", "true")
+                .build();
+        assertUpdate(session, createTableSql, 100000);
+        Set<String> initialFiles = getActiveFiles(tableName);
+        assertThat(initialFiles.size()).isLessThanOrEqualTo(3);
+        assertUpdate(format("DROP TABLE %s", tableName));
+
+        DataSize maxSize = DataSize.of(40, DataSize.Unit.KILOBYTE);
+        session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "1")
+                .setCatalogSessionProperty("delta_lake", "experimental_parquet_optimized_writer_enabled", "true")
+                .setCatalogSessionProperty("delta_lake", "target_max_file_size", maxSize.toString())
+                .build();
+
+        assertUpdate(session, createTableSql, 100000);
+        assertThat(query(format("SELECT count(*) FROM %s", tableName))).matches("VALUES BIGINT '100000'");
+        Set<String> updatedFiles = getActiveFiles(tableName);
+        assertThat(updatedFiles.size()).isGreaterThan(10);
+
+        MaterializedResult result = computeActual("SELECT DISTINCT \"$path\", \"$file_size\" FROM " + tableName);
+        for (MaterializedRow row : result) {
+            // allow up to a larger delta due to the very small max size and the relatively large writer chunk size
+            assertThat((Long) row.getField(1)).isLessThan(maxSize.toBytes() * 5);
+        }
+    }
+
     @Override
     protected String createSchemaSql(String schemaName)
     {
         return "CREATE SCHEMA " + schemaName + " WITH (location = 's3://" + bucketName + "/" + schemaName + "')";
+    }
+
+    private Set<String> getActiveFiles(String tableName)
+    {
+        return getActiveFiles(tableName, getQueryRunner().getDefaultSession());
+    }
+
+    private Set<String> getActiveFiles(String tableName, Session session)
+    {
+        return computeActual(session, "SELECT DISTINCT \"$path\" FROM " + tableName).getOnlyColumnAsSet().stream()
+                .map(String.class::cast)
+                .collect(toImmutableSet());
+    }
+
+    private Set<String> getAllDataFilesFromTableDirectory(String tableName)
+    {
+        return getTableFiles(tableName).stream()
+                .filter(path -> !path.contains("/" + TRANSACTION_LOG_DIRECTORY))
+                .collect(toImmutableSet());
+    }
+
+    private List<String> getTableFiles(String tableName)
+    {
+        return dockerizedMinioDataLake.listFiles(format("%s/%s", SCHEMA, tableName)).stream()
+                .map(path -> format("s3://%s/%s", bucketName, path))
+                .collect(toImmutableList());
     }
 }

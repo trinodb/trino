@@ -78,13 +78,17 @@ import io.trino.execution.scheduler.policy.PhasedExecutionPolicy;
 import io.trino.failuredetector.FailureDetectorModule;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.ForMemoryManager;
+import io.trino.memory.LeastWastedEffortTaskLowMemoryKiller;
 import io.trino.memory.LowMemoryKiller;
+import io.trino.memory.LowMemoryKiller.ForQueryLowMemoryKiller;
+import io.trino.memory.LowMemoryKiller.ForTaskLowMemoryKiller;
 import io.trino.memory.MemoryManagerConfig;
-import io.trino.memory.MemoryManagerConfig.LowMemoryKillerPolicy;
+import io.trino.memory.MemoryManagerConfig.LowMemoryQueryKillerPolicy;
+import io.trino.memory.MemoryManagerConfig.LowMemoryTaskKillerPolicy;
 import io.trino.memory.NoneLowMemoryKiller;
 import io.trino.memory.TotalReservationLowMemoryKiller;
-import io.trino.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
-import io.trino.metadata.CatalogManager;
+import io.trino.memory.TotalReservationOnBlockedNodesQueryLowMemoryKiller;
+import io.trino.memory.TotalReservationOnBlockedNodesTaskLowMemoryKiller;
 import io.trino.operator.ForScheduler;
 import io.trino.operator.OperatorStats;
 import io.trino.server.protocol.ExecutingStatementResource;
@@ -92,7 +96,6 @@ import io.trino.server.protocol.QueryInfoUrlFactory;
 import io.trino.server.remotetask.RemoteTaskStats;
 import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
-import io.trino.spi.VersionEmbedder;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainerFactory;
@@ -109,10 +112,6 @@ import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.ShowStatsRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.rewrite.StatementRewrite.Rewrite;
-import io.trino.transaction.ForTransactionManager;
-import io.trino.transaction.InMemoryTransactionManager;
-import io.trino.transaction.TransactionManager;
-import io.trino.transaction.TransactionManagerConfig;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -213,9 +212,14 @@ public class CoordinatorModule
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 });
-        bindLowMemoryKiller(LowMemoryKillerPolicy.NONE, NoneLowMemoryKiller.class);
-        bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
-        bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesLowMemoryKiller.class);
+
+        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.NONE, NoneLowMemoryKiller.class);
+        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesTaskLowMemoryKiller.class);
+        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.LEAST_WASTE, LeastWastedEffortTaskLowMemoryKiller.class);
+        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.NONE, NoneLowMemoryKiller.class);
+        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
+        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesQueryLowMemoryKiller.class);
+
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
 
         // node allocator
@@ -328,7 +332,7 @@ public class CoordinatorModule
         install(new QueryExecutionFactoryModule());
 
         // cleanup
-        binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
+        binder.bind(ExecutorCleanup.class).asEagerSingleton();
     }
 
     @Provides
@@ -369,40 +373,28 @@ public class CoordinatorModule
         return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("statement-timeout-%s"));
     }
 
-    @Provides
-    @Singleton
-    @ForTransactionManager
-    public static ScheduledExecutorService createTransactionIdleCheckExecutor()
-    {
-        return newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check"));
-    }
-
-    @Provides
-    @Singleton
-    @ForTransactionManager
-    public static ExecutorService createTransactionFinishingExecutor()
-    {
-        return newCachedThreadPool(daemonThreadsNamed("transaction-finishing-%s"));
-    }
-
-    @Provides
-    @Singleton
-    public static TransactionManager createTransactionManager(
-            TransactionManagerConfig config,
-            CatalogManager catalogManager,
-            VersionEmbedder versionEmbedder,
-            @ForTransactionManager ScheduledExecutorService idleCheckExecutor,
-            @ForTransactionManager ExecutorService finishingExecutor)
-    {
-        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, versionEmbedder.embedVersion(finishingExecutor));
-    }
-
-    private void bindLowMemoryKiller(LowMemoryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
+    private void bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
     {
         install(conditionalModule(
                 MemoryManagerConfig.class,
-                config -> policy == config.getLowMemoryKillerPolicy(),
-                binder -> binder.bind(LowMemoryKiller.class).to(clazz).in(Scopes.SINGLETON)));
+                config -> policy == config.getLowMemoryQueryKillerPolicy(),
+                binder -> binder
+                        .bind(LowMemoryKiller.class)
+                        .annotatedWith(ForQueryLowMemoryKiller.class)
+                        .to(clazz)
+                        .in(Scopes.SINGLETON)));
+    }
+
+    private void bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
+    {
+        install(conditionalModule(
+                MemoryManagerConfig.class,
+                config -> policy == config.getLowMemoryTaskKillerPolicy(),
+                binder -> binder
+                        .bind(LowMemoryKiller.class)
+                        .annotatedWith(ForTaskLowMemoryKiller.class)
+                        .to(clazz)
+                        .in(Scopes.SINGLETON)));
     }
 
     public static class ExecutorCleanup
@@ -414,17 +406,13 @@ public class CoordinatorModule
                 @ForStatementResource ExecutorService statementResponseExecutor,
                 @ForStatementResource ScheduledExecutorService statementTimeoutExecutor,
                 @ForQueryExecution ExecutorService queryExecutionExecutor,
-                @ForScheduler ScheduledExecutorService schedulerExecutor,
-                @ForTransactionManager ExecutorService transactionFinishingExecutor,
-                @ForTransactionManager ScheduledExecutorService transactionIdleExecutor)
+                @ForScheduler ScheduledExecutorService schedulerExecutor)
         {
             executors = ImmutableList.<ExecutorService>builder()
                     .add(statementResponseExecutor)
                     .add(statementTimeoutExecutor)
                     .add(queryExecutionExecutor)
                     .add(schedulerExecutor)
-                    .add(transactionFinishingExecutor)
-                    .add(transactionIdleExecutor)
                     .build();
         }
 

@@ -95,6 +95,10 @@ public class TestCassandraConnectorTest
             case SUPPORTS_CREATE_VIEW:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+                return false;
+
             case SUPPORTS_RENAME_TABLE:
                 return false;
 
@@ -152,6 +156,11 @@ public class TestCassandraConnectorTest
                 || typeName.equals("char(3)")) {
             // TODO this should either work or fail cleanly
             return Optional.empty();
+        }
+        if (typeName.equals("time(6)") ||
+                typeName.equals("timestamp(6)") ||
+                typeName.equals("timestamp(6) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
         }
         return Optional.of(dataMappingTestSetup);
     }

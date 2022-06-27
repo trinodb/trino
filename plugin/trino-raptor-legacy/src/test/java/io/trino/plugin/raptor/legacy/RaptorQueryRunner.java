@@ -15,13 +15,18 @@ package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -63,7 +68,6 @@ public final class RaptorQueryRunner
         Map<String, String> raptorProperties = ImmutableMap.<String, String>builder()
                 .putAll(extraRaptorProperties)
                 .put("metadata.db.type", "h2")
-                .put("metadata.db.connections.max", "100")
                 .put("metadata.db.filename", new File(baseDir, "db").getAbsolutePath())
                 .put("storage.data-directory", new File(baseDir, "data").getAbsolutePath())
                 .put("storage.max-shard-rows", "2000")
@@ -147,8 +151,11 @@ public final class RaptorQueryRunner
 
     public static Session createSession(String schema)
     {
-        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
-        sessionPropertyManager.addConnectorSessionProperties(new CatalogName("raptor"), new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
+        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(
+                ImmutableSet.of(new SystemSessionProperties()),
+                CatalogServiceProvider.singleton(
+                        new CatalogName("raptor"),
+                        Maps.uniqueIndex(new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties(), PropertyMetadata::getName)));
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog("raptor")
                 .setSchema(schema)

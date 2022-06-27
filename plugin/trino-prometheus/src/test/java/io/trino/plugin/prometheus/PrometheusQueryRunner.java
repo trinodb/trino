@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.testing.DistributedQueryRunner;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -32,7 +33,7 @@ public final class PrometheusQueryRunner
 {
     private PrometheusQueryRunner() {}
 
-    public static DistributedQueryRunner createPrometheusQueryRunner(PrometheusServer server, Map<String, String> extraProperties)
+    public static DistributedQueryRunner createPrometheusQueryRunner(PrometheusServer server, Map<String, String> extraProperties, Map<String, String> connectorProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -40,9 +41,9 @@ public final class PrometheusQueryRunner
             queryRunner = DistributedQueryRunner.builder(createSession()).setExtraProperties(extraProperties).build();
 
             queryRunner.installPlugin(new PrometheusPlugin());
-            Map<String, String> properties = ImmutableMap.of(
-                    "prometheus.uri", server.getUri().toString());
-            queryRunner.createCatalog("prometheus", "prometheus", properties);
+            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+            connectorProperties.putIfAbsent("prometheus.uri", server.getUri().toString());
+            queryRunner.createCatalog("prometheus", "prometheus", connectorProperties);
             return queryRunner;
         }
         catch (Throwable e) {
@@ -73,7 +74,7 @@ public final class PrometheusQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createPrometheusQueryRunner(new PrometheusServer(), ImmutableMap.of("http-server.http.port", "8080"));
+        DistributedQueryRunner queryRunner = createPrometheusQueryRunner(new PrometheusServer(), ImmutableMap.of("http-server.http.port", "8080"), ImmutableMap.of());
         Thread.sleep(10);
         Logger log = Logger.get(PrometheusQueryRunner.class);
         log.info("======== SERVER STARTED ========");

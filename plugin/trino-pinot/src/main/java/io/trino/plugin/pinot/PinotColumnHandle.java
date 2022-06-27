@@ -75,9 +75,9 @@ public class PinotColumnHandle
         this.aliased = aliased;
         this.aggregate = aggregate;
         this.returnNullOnEmptyGroup = returnNullOnEmptyGroup;
-        requireNonNull(pushedDownAggregateFunctionName, "pushedDownaAggregateFunctionName is null");
-        requireNonNull(pushedDownAggregateFunctionArgument, "pushedDownaAggregateFunctionArgument is null");
-        checkState(pushedDownAggregateFunctionName.isPresent() == pushedDownAggregateFunctionArgument.isPresent(), "Unexpected arguments: Either pushedDownaAggregateFunctionName and pushedDownaAggregateFunctionArgument must both be present or both be empty.");
+        requireNonNull(pushedDownAggregateFunctionName, "pushedDownAggregateFunctionName is null");
+        requireNonNull(pushedDownAggregateFunctionArgument, "pushedDownAggregateFunctionArgument is null");
+        checkState(pushedDownAggregateFunctionName.isPresent() == pushedDownAggregateFunctionArgument.isPresent(), "Unexpected arguments: Either pushedDownAggregateFunctionName and pushedDownAggregateFunctionArgument must both be present or both be empty.");
         checkState((pushedDownAggregateFunctionName.isPresent() && aggregate) || pushedDownAggregateFunctionName.isEmpty(), "Unexpected arguments: aggregate is false but pushed down aggregation is present");
         this.pushedDownAggregateFunctionName = pushedDownAggregateFunctionName;
         this.pushedDownAggregateFunctionArgument = pushedDownAggregateFunctionArgument;
@@ -193,7 +193,7 @@ public class PinotColumnHandle
         return pushedDownAggregateFunctionName;
     }
 
-    // See comment for getPushedDownaAggregateFunctionName()
+    // See comment for getPushedDownAggregateFunctionName()
     @JsonProperty
     public Optional<String> getPushedDownAggregateFunctionArgument()
     {
@@ -242,8 +242,8 @@ public class PinotColumnHandle
                 .add("aliased", aliased)
                 .add("aggregate", aggregate)
                 .add("returnNullOnEmptyGroup", returnNullOnEmptyGroup)
-                .add("pushedDownaAggregateFunctionName", pushedDownAggregateFunctionName)
-                .add("pushedDownaAggregateFunctionArgument", pushedDownAggregateFunctionArgument)
+                .add("pushedDownAggregateFunctionName", pushedDownAggregateFunctionName)
+                .add("pushedDownAggregateFunctionArgument", pushedDownAggregateFunctionArgument)
                 .toString();
     }
 }

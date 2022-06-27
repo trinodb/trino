@@ -29,6 +29,8 @@ import java.net.URI;
 import java.util.List;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.exchange.filesystem.s3.S3FileSystemExchangeStorage.CompatibilityMode.AWS;
+import static io.trino.plugin.exchange.filesystem.s3.S3FileSystemExchangeStorage.CompatibilityMode.GCP;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -53,11 +55,13 @@ public class FileSystemExchangeModule
         if (scheme == null || scheme.equals("file")) {
             binder.bind(FileSystemExchangeStorage.class).to(LocalFileSystemExchangeStorage.class).in(Scopes.SINGLETON);
         }
-        else if (ImmutableSet.of("s3", "s3a", "s3n").contains(scheme)) {
+        else if (ImmutableSet.of("s3", "gs").contains(scheme)) {
             binder.bind(S3FileSystemExchangeStorageStats.class).in(Scopes.SINGLETON);
             newExporter(binder).export(S3FileSystemExchangeStorageStats.class).withGeneratedName();
             binder.bind(FileSystemExchangeStorage.class).to(S3FileSystemExchangeStorage.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(ExchangeS3Config.class);
+            S3FileSystemExchangeStorage.CompatibilityMode compatibilityMode = scheme.equals("gs") ? GCP : AWS;
+            binder.bind(S3FileSystemExchangeStorage.CompatibilityMode.class).toInstance(compatibilityMode);
         }
         else if (ImmutableSet.of("abfs", "abfss").contains(scheme)) {
             binder.bind(FileSystemExchangeStorage.class).to(AzureBlobFileSystemExchangeStorage.class).in(Scopes.SINGLETON);

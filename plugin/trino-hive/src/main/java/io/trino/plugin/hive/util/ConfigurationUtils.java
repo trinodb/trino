@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.hadoop.ConfigurationInstantiator.newConfigurationWithDefaultResources;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 
 public final class ConfigurationUtils
 {
@@ -33,8 +35,8 @@ public final class ConfigurationUtils
 
         // must not be transitively reloaded during the future loading of various Hadoop modules
         // all the required default resources must be declared above
-        INITIAL_CONFIGURATION = new Configuration(false);
-        Configuration defaultConfiguration = new Configuration(true);
+        INITIAL_CONFIGURATION = newEmptyConfiguration();
+        Configuration defaultConfiguration = newConfigurationWithDefaultResources();
         copy(defaultConfiguration, INITIAL_CONFIGURATION);
     }
 
@@ -47,7 +49,7 @@ public final class ConfigurationUtils
 
     public static Configuration copy(Configuration configuration)
     {
-        Configuration copy = new Configuration(false);
+        Configuration copy = newEmptyConfiguration();
         copy(configuration, copy);
         return copy;
     }
@@ -69,12 +71,12 @@ public final class ConfigurationUtils
 
     public static Configuration readConfiguration(List<File> resourcePaths)
     {
-        Configuration result = new Configuration(false);
+        Configuration result = newEmptyConfiguration();
 
         for (File resourcePath : resourcePaths) {
             checkArgument(resourcePath.exists(), "File does not exist: %s", resourcePath);
 
-            Configuration resourceProperties = new Configuration(false);
+            Configuration resourceProperties = newEmptyConfiguration();
             // We need to call `getPath` instead of `toURI` because Hadoop library can not handle a configuration file with relative Xinclude files in case of passing URI.
             // In details, see https://issues.apache.org/jira/browse/HADOOP-17088.
             resourceProperties.addResource(new Path(resourcePath.getPath()));

@@ -40,6 +40,7 @@ import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.NotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.expression.ConnectorExpression;
@@ -70,8 +71,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.kudu.KuduColumnHandle.ROW_ID;
 import static io.trino.plugin.kudu.KuduSessionProperties.isKuduGroupedExecutionEnabled;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static java.util.Objects.requireNonNull;
 
 public class KuduMetadata
@@ -163,7 +167,7 @@ public class KuduMetadata
         Schema schema = table.getSchema();
 
         List<ColumnMetadata> columnsMetaList = schema.getColumns().stream()
-                .filter(column -> !column.isKey() || !column.getName().equals(KuduColumnHandle.ROW_ID))
+                .filter(column -> !column.isKey() || !column.getName().equals(ROW_ID))
                 .map(this::getColumnMetadata)
                 .collect(toImmutableList());
 
@@ -195,7 +199,7 @@ public class KuduMetadata
         KuduColumnHandle kuduColumnHandle = (KuduColumnHandle) columnHandle;
         if (kuduColumnHandle.isVirtualRowId()) {
             return ColumnMetadata.builder()
-                    .setName(KuduColumnHandle.ROW_ID)
+                    .setName(ROW_ID)
                     .setType(VarbinaryType.VARBINARY)
                     .setHidden(true)
                     .build();
@@ -244,6 +248,12 @@ public class KuduMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
+        if (tableMetadata.getColumns().stream().anyMatch(column -> column.getComment() != null)) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+        }
         clientSession.createTable(tableMetadata, ignoreExisting);
     }
 
@@ -285,8 +295,12 @@ public class KuduMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle connectorTableHandle, List<ColumnHandle> insertedColumns, RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
+
         KuduTableHandle tableHandle = (KuduTableHandle) connectorTableHandle;
 
         KuduTable table = tableHandle.getTable(clientSession);
@@ -299,6 +313,8 @@ public class KuduMetadata
         return new KuduInsertTableHandle(
                 tableHandle.getSchemaTableName(),
                 columnTypes,
+                columns.stream()
+                        .anyMatch(column -> column.getName().equals(ROW_ID)),
                 table);
     }
 
@@ -316,13 +332,20 @@ public class KuduMetadata
     public ConnectorOutputTableHandle beginCreateTable(
             ConnectorSession session,
             ConnectorTableMetadata tableMetadata,
-            Optional<ConnectorTableLayout> layout)
+            Optional<ConnectorTableLayout> layout,
+            RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
         PartitionDesign design = KuduTableProperties.getPartitionDesign(tableMetadata.getProperties());
         boolean generateUUID = !design.hasPartitions();
         ConnectorTableMetadata finalTableMetadata = tableMetadata;
         if (generateUUID) {
-            String rowId = KuduColumnHandle.ROW_ID;
+            String rowId = ROW_ID;
             List<ColumnMetadata> copy = new ArrayList<>(tableMetadata.getColumns());
             Map<String, Object> columnProperties = new HashMap<>();
             columnProperties.put(KuduTableProperties.PRIMARY_KEY, true);
@@ -381,8 +404,11 @@ public class KuduMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle table)
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle table, RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
         KuduTableHandle handle = (KuduTableHandle) table;
         return new KuduTableHandle(
                 handle.getSchemaTableName(),

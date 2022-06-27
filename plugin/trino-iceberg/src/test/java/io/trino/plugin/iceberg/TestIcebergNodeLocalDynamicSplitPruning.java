@@ -27,7 +27,6 @@ import io.trino.orc.OrcWriterOptions;
 import io.trino.orc.OrcWriterStats;
 import io.trino.orc.OutputStreamOrcDataSink;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.Column;
@@ -36,6 +35,7 @@ import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.Page;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -105,16 +105,15 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             throws IOException
     {
         IcebergConfig icebergConfig = new IcebergConfig();
-        HiveConfig hiveConfig = new HiveConfig();
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         try (TempFile tempFile = new TempFile()) {
             writeOrcContent(tempFile.file());
 
-            try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, hiveConfig, tempFile.file(), getDynamicFilter(getTupleDomainForSplitPruning()))) {
+            try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, tempFile.file(), getDynamicFilter(getTupleDomainForSplitPruning()))) {
                 assertNull(emptyPageSource.getNextPage());
             }
 
-            try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, icebergConfig, hiveConfig, tempFile.file(), getDynamicFilter(getNonSelectiveTupleDomain()))) {
+            try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, icebergConfig, tempFile.file(), getDynamicFilter(getNonSelectiveTupleDomain()))) {
                 Page page = nonEmptyPageSource.getNextPage();
                 assertNotNull(page);
                 assertEquals(page.getBlock(0).getPositionCount(), 1);
@@ -151,18 +150,20 @@ public class TestIcebergNodeLocalDynamicSplitPruning
         }
     }
 
-    private static ConnectorPageSource createTestingPageSource(HiveTransactionHandle transaction, IcebergConfig icebergConfig, HiveConfig hiveConfig, File outputFile, DynamicFilter dynamicFilter)
+    private static ConnectorPageSource createTestingPageSource(HiveTransactionHandle transaction, IcebergConfig icebergConfig, File outputFile, DynamicFilter dynamicFilter)
     {
         IcebergSplit split = new IcebergSplit(
                 "file:///" + outputFile.getAbsolutePath(),
                 0,
                 outputFile.length(),
                 outputFile.length(),
+                0, // This is incorrect, but the value is only used for delete operations
                 ORC,
                 ImmutableList.of(),
                 PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
                 PartitionData.toJson(new PartitionData(new Object[] {})),
-                ImmutableList.of());
+                ImmutableList.of(),
+                SplitWeight.standard());
 
         TableHandle tableHandle = new TableHandle(
                 new CatalogName(ICEBERG_CATALOG_NAME),
@@ -181,7 +182,9 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         outputFile.getParentFile().getAbsolutePath(),
                         ImmutableMap.of(),
                         RetryMode.NO_RETRIES,
-                        ImmutableList.of()),
+                        ImmutableList.of(),
+                        false,
+                        Optional.empty()),
                 transaction);
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
@@ -199,7 +202,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
 
         return provider.createPageSource(
                 transaction,
-                getSession(icebergConfig, hiveConfig),
+                getSession(icebergConfig),
                 split,
                 tableHandle.getConnectorHandle(),
                 ImmutableList.of(KEY_ICEBERG_COLUMN_HANDLE, DATA_ICEBERG_COLUMN_HANDLE),
@@ -222,10 +225,10 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         Domain.singleValue(INTEGER, (long) KEY_COLUMN_VALUE)));
     }
 
-    private static TestingConnectorSession getSession(IcebergConfig icebergConfig, HiveConfig hiveConfig)
+    private static TestingConnectorSession getSession(IcebergConfig icebergConfig)
     {
         return TestingConnectorSession.builder()
-                .setPropertyMetadata(new IcebergSessionProperties(icebergConfig, ORC_READER_CONFIG, ORC_WRITER_CONFIG, PARQUET_READER_CONFIG, PARQUET_WRITER_CONFIG, hiveConfig).getSessionProperties())
+                .setPropertyMetadata(new IcebergSessionProperties(icebergConfig, ORC_READER_CONFIG, ORC_WRITER_CONFIG, PARQUET_READER_CONFIG, PARQUET_WRITER_CONFIG).getSessionProperties())
                 .build();
     }
 

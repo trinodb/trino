@@ -14,13 +14,17 @@
 package io.trino.sql.planner.planprinter;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.json.JsonCodec;
-import io.trino.sql.planner.plan.PlanFragmentId;
+import io.trino.cost.PlanNodeStatsAndCostSummary;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 import static java.util.Objects.requireNonNull;
 
 public class JsonRenderer
@@ -34,7 +38,8 @@ public class JsonRenderer
         return CODEC.toJson(renderJson(plan, plan.getRoot()));
     }
 
-    private JsonRenderedNode renderJson(PlanRepresentation plan, NodeRepresentation node)
+    @VisibleForTesting
+    JsonRenderedNode renderJson(PlanRepresentation plan, NodeRepresentation node)
     {
         List<JsonRenderedNode> children = node.getChildren().stream()
                 .map(plan::getNode)
@@ -46,31 +51,39 @@ public class JsonRenderer
         return new JsonRenderedNode(
                 node.getId().toString(),
                 node.getName(),
-                node.getIdentifier(),
+                node.getDescriptor(),
+                node.getOutputs(),
                 node.getDetails(),
-                children,
-                node.getRemoteSources().stream()
-                        .map(PlanFragmentId::toString)
-                        .collect(toImmutableList()));
+                node.getEstimates(plan.getTypes()),
+                children);
     }
 
     public static class JsonRenderedNode
     {
         private final String id;
         private final String name;
-        private final String identifier;
-        private final String details;
+        private final Map<String, String> descriptor;
+        private final List<TypedSymbol> outputs;
+        private final List<String> details;
+        private final List<PlanNodeStatsAndCostSummary> estimates;
         private final List<JsonRenderedNode> children;
-        private final List<String> remoteSources;
 
-        public JsonRenderedNode(String id, String name, String identifier, String details, List<JsonRenderedNode> children, List<String> remoteSources)
+        public JsonRenderedNode(
+                String id,
+                String name,
+                Map<String, String> descriptor,
+                List<TypedSymbol> outputs,
+                List<String> details,
+                List<PlanNodeStatsAndCostSummary> estimates,
+                List<JsonRenderedNode> children)
         {
             this.id = requireNonNull(id, "id is null");
             this.name = requireNonNull(name, "name is null");
-            this.identifier = requireNonNull(identifier, "identifier is null");
+            this.descriptor = requireNonNull(descriptor, "descriptor is null");
+            this.outputs = requireNonNull(outputs, "outputs is null");
             this.details = requireNonNull(details, "details is null");
+            this.estimates = requireNonNull(estimates, "estimates is null");
             this.children = requireNonNull(children, "children is null");
-            this.remoteSources = requireNonNull(remoteSources, "remoteSources is null");
         }
 
         @JsonProperty
@@ -86,15 +99,27 @@ public class JsonRenderer
         }
 
         @JsonProperty
-        public String getIdentifier()
+        public Map<String, String> getDescriptor()
         {
-            return identifier;
+            return descriptor;
         }
 
         @JsonProperty
-        public String getDetails()
+        public List<TypedSymbol> getOutputs()
+        {
+            return outputs;
+        }
+
+        @JsonProperty
+        public List<String> getDetails()
         {
             return details;
+        }
+
+        @JsonProperty
+        public List<PlanNodeStatsAndCostSummary> getEstimates()
+        {
+            return estimates;
         }
 
         @JsonProperty
@@ -103,10 +128,29 @@ public class JsonRenderer
             return children;
         }
 
-        @JsonProperty
-        public List<String> getRemoteSources()
+        @Override
+        public boolean equals(Object o)
         {
-            return remoteSources;
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof JsonRenderedNode)) {
+                return false;
+            }
+            JsonRenderedNode that = (JsonRenderedNode) o;
+            return id.equals(that.id)
+                    && name.equals(that.name)
+                    && descriptor.equals(that.descriptor)
+                    && outputs.equals(that.outputs)
+                    && details.equals(that.details)
+                    && estimates.equals(that.estimates)
+                    && children.equals(that.children);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(id, name, descriptor, outputs, details, estimates, children);
         }
     }
 }

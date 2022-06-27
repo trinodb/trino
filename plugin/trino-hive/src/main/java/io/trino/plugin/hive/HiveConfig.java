@@ -63,6 +63,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class HiveConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    public static final String HIVE_VIEWS_ENABLED = "hive.hive-views.enabled";
 
     private boolean singleStatementWritesOnly;
 
@@ -90,7 +91,7 @@ public class HiveConfig
     private long perTransactionMetastoreCacheMaximumSize = 1000;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.ORC;
-    private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
+    private HiveCompressionOption hiveCompressionCodec = HiveCompressionOption.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
     private Optional<InsertExistingPartitionsBehavior> insertExistingPartitionsBehavior = Optional.empty();
@@ -474,13 +475,13 @@ public class HiveConfig
         return this;
     }
 
-    public HiveCompressionCodec getHiveCompressionCodec()
+    public HiveCompressionOption getHiveCompressionCodec()
     {
         return hiveCompressionCodec;
     }
 
     @Config("hive.compression-codec")
-    public HiveConfig setHiveCompressionCodec(HiveCompressionCodec hiveCompressionCodec)
+    public HiveConfig setHiveCompressionCodec(HiveCompressionOption hiveCompressionCodec)
     {
         this.hiveCompressionCodec = hiveCompressionCodec;
         return this;
@@ -771,7 +772,7 @@ public class HiveConfig
     }
 
     @LegacyConfig({"hive.views-execution.enabled", "hive.translate-hive-views"})
-    @Config("hive.hive-views.enabled")
+    @Config(HIVE_VIEWS_ENABLED)
     @ConfigDescription("Experimental: Allow translation of Hive views into Trino views")
     public HiveConfig setTranslateHiveViews(boolean translateHiveViews)
     {

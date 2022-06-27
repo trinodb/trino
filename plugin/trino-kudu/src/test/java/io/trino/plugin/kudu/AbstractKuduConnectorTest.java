@@ -35,6 +35,8 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractKuduConnectorTest
@@ -70,11 +72,13 @@ public abstract class AbstractKuduConnectorTest
             case SUPPORTS_DELETE:
                 return true;
             case SUPPORTS_RENAME_SCHEMA:
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_ARRAY:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
             case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
             case SUPPORTS_ROW_TYPE:
@@ -271,16 +275,105 @@ public abstract class AbstractKuduConnectorTest
     @Override
     public void testCreateTable()
     {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
+        // TODO Remove this overriding test once kudu connector can create tables with default partitions
+        String tableName = "test_create_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (" +
+                "id INT WITH (primary_key=true)," +
+                "a bigint, b double, c varchar(50))" +
+                "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertTableColumnNames(tableName, "id", "a", "b", "c");
+        assertNull(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+
+        assertQueryFails("CREATE TABLE " + tableName + " (" +
+                        "id INT WITH (primary_key=true)," +
+                        "a bad_type, b double, c varchar(50))" +
+                        "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)",
+                ".* Unknown type 'bad_type' for column 'a'");
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+
+        tableName = "test_create_if_not_exists_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (" +
+                "id INT WITH (primary_key=true)," +
+                "a bigint, b varchar(50), c double)" +
+                "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertTableColumnNames(tableName, "id", "a", "b", "c");
+
+        assertUpdate(
+                "CREATE TABLE IF NOT EXISTS " + tableName + " (" +
+                    "id INT WITH (primary_key=true)," +
+                    "d bigint, e varchar(50))" +
+                    "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertTableColumnNames(tableName, "id", "a", "b", "c");
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+
+        // Test CREATE TABLE LIKE
+        tableName = "test_create_origin_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (" +
+                "id INT WITH (primary_key=true)," +
+                "a bigint, b double, c varchar(50))" +
+                "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertTableColumnNames(tableName, "id", "a", "b", "c");
+
+        // TODO: remove assertThatThrownBy and uncomment the commented lines
+        //  and replace finalTableName with tableName
+        //  after (https://github.com/trinodb/trino/issues/12469) is fixed
+        String tableNameLike = "test_create_like_" + randomTableSuffix();
+        final String finalTableName = tableName;
+        assertThatThrownBy(() -> assertUpdate(
+                "CREATE TABLE " + tableNameLike + " (LIKE " + finalTableName + ", " +
+                    "d bigint, e varchar(50))" +
+                    "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)"))
+                .hasMessageContaining("This connector does not support creating tables with column comment");
+        //assertTrue(getQueryRunner().tableExists(getSession(), tableNameLike));
+        //assertTableColumnNames(tableNameLike, "a", "b", "c", "d", "e");
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+
+        //assertUpdate("DROP TABLE " + tableNameLike);
+        //assertFalse(getQueryRunner().tableExists(getSession(), tableNameLike));
+    }
+
+    @Override
+    public void testCreateTableWithColumnComment()
+    {
+        // TODO https://github.com/trinodb/trino/issues/12469 Support column comment when creating tables
+        String tableName = "test_create_" + randomTableSuffix();
+
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(" +
+                        "id INT WITH (primary_key=true)," +
+                        "a VARCHAR COMMENT 'test comment')" +
+                        "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)",
+                "This connector does not support creating tables with column comment");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
     }
 
     @Override
     public void testDropTable()
     {
-        assertThatThrownBy(super::testDropTable)
-                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
-        throw new SkipException("TODO Enable the test once Kudu connector can create tables with default partitions");
+        // TODO Remove this overriding test once kudu connector can create tables with default partitions
+        String tableName = "test_drop_table_" + randomTableSuffix();
+        assertUpdate(
+                "CREATE TABLE " + tableName + "(" +
+                    "id INT WITH (primary_key=true)," +
+                    "col bigint)" +
+                    "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Override
@@ -309,38 +402,94 @@ public abstract class AbstractKuduConnectorTest
     }
 
     @Test
-    @Override
-    public void testInsert()
+    public void testInsertIntoTableHavingRowUuid()
     {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", " AS SELECT * FROM region WITH NO DATA")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM region", 5);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT * FROM region");
+        }
     }
 
     @Test
     @Override
     public void testInsertUnicode()
     {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
+        // TODO Remove this overriding test once kudu connector can create tables with default partitions
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_",
+                "(test varchar(50) WITH (primary_key=true)) " +
+                        "WITH (partition_by_hash_columns = ARRAY['test'], partition_by_hash_buckets = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5world\\7F16\\7801' ", 2);
+            assertThat(computeActual("SELECT test FROM " + table.getName()).getOnlyColumnAsSet())
+                    .containsExactlyInAnyOrder("Hello", "hello测试world编码");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_",
+                "(test varchar(50) WITH (primary_key=true)) " +
+                        "WITH (partition_by_hash_columns = ARRAY['test'], partition_by_hash_buckets = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'aa', 'bé'", 2);
+            assertQuery("SELECT test FROM " + table.getName(), "VALUES 'aa', 'bé'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test = 'aa'", "VALUES 'aa'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test > 'ba'", "VALUES 'bé'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test < 'ba'", "VALUES 'aa'");
+            assertQueryReturnsEmptyResult("SELECT test FROM " + table.getName() + " WHERE test = 'ba'");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_",
+                "(test varchar(50) WITH (primary_key=true)) " +
+                        "WITH (partition_by_hash_columns = ARRAY['test'], partition_by_hash_buckets = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'a', 'é'", 2);
+            assertQuery("SELECT test FROM " + table.getName(), "VALUES 'a', 'é'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test = 'a'", "VALUES 'a'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test > 'b'", "VALUES 'é'");
+            assertQuery("SELECT test FROM " + table.getName() + " WHERE test < 'b'", "VALUES 'a'");
+            assertQueryReturnsEmptyResult("SELECT test FROM " + table.getName() + " WHERE test = 'b'");
+        }
     }
 
     @Test
     @Override
     public void testInsertHighestUnicodeCharacter()
     {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
+        // TODO Remove this overriding test once kudu connector can create tables with default partitions
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_",
+                "(test varchar(50) WITH (primary_key=true)) " +
+                        "WITH (partition_by_hash_columns = ARRAY['test'], partition_by_hash_buckets = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
+            assertThat(computeActual("SELECT test FROM " + table.getName()).getOnlyColumnAsSet())
+                    .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
+        }
     }
 
     @Override
     public void testInsertNegativeDate()
+    {
+        // TODO Remove this overriding test once kudu connector can create tables with default partitions
+        // TODO Update this test once kudu connector supports DATE type: https://github.com/trinodb/trino/issues/11009
+        // DATE type is not supported by Kudu connector
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date",
+                "(dt DATE WITH (primary_key=true)) " +
+                        "WITH (partition_by_hash_columns = ARRAY['dt'], partition_by_hash_buckets = 2)")) {
+            assertQueryFails(format("INSERT INTO %s VALUES (DATE '-0001-01-01')", table.getName()), errorMessageForInsertNegativeDate("-0001-01-01"));
+        }
+    }
+
+    @Override
+    protected String errorMessageForInsertNegativeDate(String date)
+    {
+        return "Insert query has mismatched column types: Table: \\[varchar\\], Query: \\[date\\]";
+    }
+
+    @Override
+    public void testInsertRowConcurrently()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
         throw new SkipException("TODO");
     }
 
     @Override
-    public void testInsertRowConcurrently()
+    public void testAddColumnConcurrently()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
         throw new SkipException("TODO");
@@ -449,7 +598,10 @@ public abstract class AbstractKuduConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("time")
-                || typeName.equals("timestamp(3) with time zone")) {
+                || typeName.equals("time(6)")
+                || typeName.equals("timestamp(6)")
+                || typeName.equals("timestamp(3) with time zone")
+                || typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 

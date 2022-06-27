@@ -43,18 +43,20 @@ public class TestIcebergGlueCatalogMaterializedViewTest
 {
     private final String schemaName = "test_iceberg_materialized_view_" + randomTableSuffix();
 
+    private File schemaDirectory;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        File tempDir = Files.createTempDirectory("test_iceberg").toFile();
-        tempDir.deleteOnExit();
+        this.schemaDirectory = Files.createTempDirectory("test_iceberg").toFile();
+        schemaDirectory.deleteOnExit();
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.of(
                                 "iceberg.catalog.type", "glue",
-                                "hive.metastore.glue.default-warehouse-dir", tempDir.getAbsolutePath()))
+                                "hive.metastore.glue.default-warehouse-dir", schemaDirectory.getAbsolutePath()))
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(ImmutableList.of())
@@ -69,13 +71,25 @@ public class TestIcebergGlueCatalogMaterializedViewTest
         return schemaName;
     }
 
+    @Override
+    protected String getSchemaDirectory()
+    {
+        return new File(schemaDirectory, schemaName + ".db").getPath();
+    }
+
     @AfterClass(alwaysRun = true)
     public void cleanup()
+    {
+        cleanUpSchema(schemaName);
+        cleanUpSchema(storageSchemaName);
+    }
+
+    private static void cleanUpSchema(String schema)
     {
         AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
         Set<String> tableNames = getPaginatedResults(
                 glueClient::getTables,
-                new GetTablesRequest().withDatabaseName(schemaName),
+                new GetTablesRequest().withDatabaseName(schema),
                 GetTablesRequest::setNextToken,
                 GetTablesResult::getNextToken,
                 new GlueMetastoreApiStats())
@@ -84,9 +98,9 @@ public class TestIcebergGlueCatalogMaterializedViewTest
                 .map(Table::getName)
                 .collect(toImmutableSet());
         glueClient.batchDeleteTable(new BatchDeleteTableRequest()
-                .withDatabaseName(schemaName)
+                .withDatabaseName(schema)
                 .withTablesToDelete(tableNames));
         glueClient.deleteDatabase(new DeleteDatabaseRequest()
-                .withName(schemaName));
+                .withName(schema));
     }
 }

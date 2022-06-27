@@ -187,7 +187,7 @@ public class TestTpchMetadata
     private void testNoTableStats(String schema, TpchTable<?> table)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
-        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, alwaysTrue());
+        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle);
         assertTrue(tableStatistics.getRowCount().isUnknown());
     }
 

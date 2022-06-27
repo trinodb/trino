@@ -26,15 +26,11 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.LocationService.WriteInfo;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
-import io.trino.plugin.hive.azure.HiveAzureConfig;
-import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import io.trino.plugin.hive.fs.DirectoryLister;
-import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
-import io.trino.plugin.hive.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -42,7 +38,6 @@ import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -50,16 +45,11 @@ import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.trino.plugin.hive.metastore.thrift.MetastoreLocator;
-import io.trino.plugin.hive.metastore.thrift.TestingMetastoreLocator;
-import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.rcfile.RcFilePageSource;
-import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadata;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -107,6 +97,7 @@ import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
@@ -185,6 +176,7 @@ import static com.google.common.collect.Lists.reverse;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.difference;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -197,6 +189,7 @@ import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.parquet.reader.ParquetReader.PARQUET_CODEC_METRIC_PREFIX;
 import static io.trino.plugin.hive.AbstractTestHive.TransactionDeleteInsertTestTag.COMMIT;
 import static io.trino.plugin.hive.AbstractTestHive.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_APPEND_PAGE;
 import static io.trino.plugin.hive.AbstractTestHive.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_BEGIN_INSERT;
@@ -233,6 +226,8 @@ import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.TRANSACTIONAL;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_CONFIGURATION;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.arrayType;
@@ -249,6 +244,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
+import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
@@ -262,6 +258,7 @@ import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
+import static io.trino.plugin.hive.orc.OrcPageSource.ORC_CODEC_METRIC_PREFIX;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_NAME;
@@ -781,25 +778,18 @@ public abstract class AbstractTestHive
                 .setParquetTimeZone(timeZone)
                 .setRcfileTimeZone(timeZone);
 
-        Optional<HostAndPort> proxy = Optional.ofNullable(System.getProperty("hive.metastore.thrift.client.socks-proxy"))
-                .map(HostAndPort::fromString);
-
-        MetastoreLocator metastoreLocator = new TestingMetastoreLocator(proxy, HostAndPort.fromParts(host, port));
-
-        hdfsEnvironment = new HdfsEnvironment(createTestHdfsConfiguration(), new HdfsConfig(), new NoHdfsAuthentication());
+        hdfsEnvironment = HDFS_ENVIRONMENT;
         HiveMetastore metastore = cachingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(
-                        metastoreLocator,
-                        hiveConfig,
-                        new MetastoreConfig(),
-                        new ThriftMetastoreConfig(),
-                        hdfsEnvironment,
-                        false),
-                        new HiveIdentity(SESSION.getIdentity())),
+                new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(HostAndPort.fromParts(host, port))
+                        .hiveConfig(hiveConfig)
+                        .hdfsEnvironment(hdfsEnvironment)
+                        .build()),
                 executor,
                 new Duration(1, MINUTES),
                 Optional.of(new Duration(15, SECONDS)),
-                10000);
+                10000,
+                new CachingHiveMetastoreConfig().isPartitionCacheEnabled());
 
         setup(databaseName, hiveConfig, metastore, hdfsEnvironment);
     }
@@ -915,21 +905,6 @@ public abstract class AbstractTestHive
         nodePartitioningProvider = new HiveNodePartitioningProvider(
                 new TestingNodeManager("fake-environment"),
                 TESTING_TYPE_MANAGER);
-    }
-
-    protected HdfsConfiguration createTestHdfsConfiguration()
-    {
-        return new HiveHdfsConfiguration(
-                new HdfsConfigurationInitializer(
-                        new HdfsConfig()
-                                .setSocksProxy(Optional.ofNullable(System.getProperty("hive.hdfs.socks-proxy"))
-                                        .map(HostAndPort::fromString)
-                                        .orElse(null)),
-                        ImmutableSet.of(
-                                new TrinoS3ConfigurationInitializer(new HiveS3Config()),
-                                new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
-                                new TrinoAzureConfigurationInitializer(new HiveAzureConfig()))),
-                ImmutableSet.of());
     }
 
     /**
@@ -3239,6 +3214,56 @@ public abstract class AbstractTestHive
         }
     }
 
+    @Test
+    public void testInputInfoWhenTableIsPartitioned()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_input_info_with_partitioned_table");
+        try {
+            createDummyPartitionedTable(tableName, STATISTICS_PARTITIONED_TABLE_COLUMNS);
+            assertInputInfo(tableName, new HiveInputInfo(ImmutableList.of(), true, Optional.of("ORC")));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInputInfoWhenTableIsNotPartitioned()
+    {
+        SchemaTableName tableName = temporaryTable("test_input_info_without_partitioned_table");
+        try {
+            createDummyTable(tableName);
+            assertInputInfo(tableName, new HiveInputInfo(ImmutableList.of(), false, Optional.of("TEXTFILE")));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInputInfoWithParquetTableFormat()
+    {
+        SchemaTableName tableName = temporaryTable("test_input_info_with_parquet_table_format");
+        try {
+            createDummyTable(tableName, PARQUET);
+            assertInputInfo(tableName, new HiveInputInfo(ImmutableList.of(), false, Optional.of("PARQUET")));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    private void assertInputInfo(SchemaTableName tableName, HiveInputInfo expectedInputInfo)
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            HiveTableHandle tableHandle = (HiveTableHandle) metadata.getTableHandle(session, tableName);
+            assertThat(metadata.getInfo(tableHandle)).isEqualTo(Optional.of(expectedInputInfo));
+        }
+    }
+
     /**
      * During table scan, the illegal storage format for some specific table should not fail the whole table scan
      */
@@ -3287,7 +3312,7 @@ public abstract class AbstractTestHive
 
     private static Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorMetadata metadata, ConnectorSession session, SchemaTablePrefix prefix)
     {
-        return metadata.streamTableColumns(session, prefix)
+        return stream(metadata.streamTableColumns(session, prefix))
                 .collect(toImmutableMap(
                         TableColumnsMetadata::getTable,
                         tableColumns -> tableColumns.getColumns().orElseThrow(() -> new IllegalStateException("Table " + tableColumns.getTable() + " reported as redirected"))));
@@ -3295,12 +3320,17 @@ public abstract class AbstractTestHive
 
     private void createDummyTable(SchemaTableName tableName)
     {
+        createDummyTable(tableName, TEXTFILE);
+    }
+
+    private void createDummyTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
+    {
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             ConnectorMetadata metadata = transaction.getMetadata();
 
             List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", createUnboundedVarcharType()));
-            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(TEXTFILE));
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(storageFormat));
             ConnectorOutputTableHandle handle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
             metadata.finishCreateTable(session, handle, ImmutableList.of(), ImmutableList.of());
 
@@ -3721,6 +3751,68 @@ public abstract class AbstractTestHive
         finally {
             dropTable(sourceTableName);
             dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testOrcPageSourceMetrics()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("orc_page_source_metrics");
+        try {
+            assertPageSourceMetrics(tableName, ORC, new Metrics(ImmutableMap.of(ORC_CODEC_METRIC_PREFIX + "SNAPPY", new LongCount(209))));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testParquetPageSourceMetrics()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("parquet_page_source_metrics");
+        try {
+            assertPageSourceMetrics(tableName, PARQUET, new Metrics(ImmutableMap.of(PARQUET_CODEC_METRIC_PREFIX + "SNAPPY", new LongCount(1169))));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    private void assertPageSourceMetrics(SchemaTableName tableName, HiveStorageFormat storageFormat, Metrics expectedMetrics)
+            throws Exception
+    {
+        createEmptyTable(
+                tableName,
+                storageFormat,
+                ImmutableList.of(
+                        new Column("id", HIVE_LONG, Optional.empty()),
+                        new Column("name", HIVE_STRING, Optional.empty())),
+                ImmutableList.of());
+        MaterializedResult.Builder inputDataBuilder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR);
+        IntStream.range(0, 100).forEach(i -> inputDataBuilder.row((long) i, String.valueOf(i)));
+        insertData(tableName, inputDataBuilder.build(), ImmutableMap.of("compression_codec", "SNAPPY"));
+
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+            metadata.beginQuery(session);
+
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+
+            // read entire table
+            List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
+                    .addAll(metadata.getColumnHandles(session, tableHandle).values())
+                    .build();
+
+            List<ConnectorSplit> splits = getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
+            for (ConnectorSplit split : splits) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles, DynamicFilter.EMPTY)) {
+                    materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
+                    assertThat(pageSource.getMetrics()).isEqualTo(expectedMetrics);
+                }
+            }
         }
     }
 
@@ -5630,7 +5722,7 @@ public abstract class AbstractTestHive
             HdfsConfig configWithSkip = new HdfsConfig();
             configWithSkip.setNewDirectoryPermissions(HdfsConfig.SKIP_DIR_PERMISSIONS);
             HdfsEnvironment hdfsEnvironmentWithSkip = new HdfsEnvironment(
-                    createTestHdfsConfiguration(),
+                    HDFS_CONFIGURATION,
                     configWithSkip,
                     new NoHdfsAuthentication());
 
@@ -6042,6 +6134,14 @@ public abstract class AbstractTestHive
         {
             listCount.incrementAndGet();
             return fs.listLocatedStatus(path);
+        }
+
+        @Override
+        public RemoteIterator<LocatedFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+                throws IOException
+        {
+            listCount.incrementAndGet();
+            return fs.listFiles(path, true);
         }
 
         public int getListCount()

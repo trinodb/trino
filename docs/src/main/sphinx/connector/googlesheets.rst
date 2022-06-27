@@ -27,7 +27,7 @@ Configuration properties
 The following configuration properties are available:
 
 =================================== =====================================================================
-Property Name                       Description
+Property name                       Description
 =================================== =====================================================================
 ``credentials-path``                Path to the Google API JSON key file
 ``metadata-sheet-id``               Sheet ID of the spreadsheet, that contains the table mapping

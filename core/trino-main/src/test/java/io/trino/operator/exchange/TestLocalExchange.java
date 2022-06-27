@@ -52,9 +52,12 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.function.ToIntFunction;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
@@ -82,6 +85,7 @@ public class TestLocalExchange
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
     private static final Session SESSION = testSessionBuilder().build();
 
+    private final ConcurrentMap<CatalogName, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
     private NodePartitioningManager nodePartitioningManager;
 
     @BeforeMethod
@@ -91,7 +95,14 @@ public class TestLocalExchange
                 new InMemoryNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(new FinalizerService())));
-        nodePartitioningManager = new NodePartitioningManager(nodeScheduler, new BlockTypeOperators(new TypeOperators()));
+        nodePartitioningManager = new NodePartitioningManager(
+                nodeScheduler,
+                new BlockTypeOperators(new TypeOperators()),
+                catalogName -> {
+                    ConnectorNodePartitioningProvider result = partitionManagers.get(catalogName);
+                    checkArgument(result != null, catalogName + " does not have a partition manager");
+                    return result;
+                });
     }
 
     @DataProvider
@@ -486,7 +497,7 @@ public class TestLocalExchange
             }
         };
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT);
-        nodePartitioningManager.addPartitioningProvider(
+        partitionManagers.put(
                 new CatalogName("foo"),
                 connectorNodePartitioningProvider);
         PartitioningHandle partitioningHandle = new PartitioningHandle(

@@ -129,12 +129,16 @@ Property                                              Description               
 ``bigquery.view-expire-duration``                     Expire duration for the materialized view.                     ``24h``
 ``bigquery.view-materialization-project``             The project where the materialized view is going to be created The view's project
 ``bigquery.view-materialization-dataset``             The dataset where the materialized view is going to be created The view's dataset
+``bigquery.skip-view-materialization``                Use REST API to access views instead of Storage API. BigQuery
+                                                      ``BIGNUMERIC`` and ``TIMESTAMP`` types are unsupported.        ``false``
 ``bigquery.views-cache-ttl``                          Duration for which the materialization of a view will be       ``15m``
                                                       cached and reused. Set to ``0ms`` to disable the cache.
 ``bigquery.max-read-rows-retries``                    The number of retries in case of retryable server issues       ``3``
 ``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See the `requirements <#requirements>`_ section.
 ``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See the `requirements <#requirements>`_ section.
 ``bigquery.case-insensitive-name-matching``           Match dataset and table names case-insensitively               ``false``
+``bigquery.query-results-cache.enabled``              Enable `query results cache
+                                                      <https://cloud.google.com/bigquery/docs/cached-results>`_      ``false``
 ===================================================== ============================================================== ======================================================
 
 Data types
@@ -203,10 +207,11 @@ Retrieve all records stored in the partition ``_PARTITIONDATE = '2022-04-07'``::
 SQL support
 -----------
 
-The connector provides read and write access to data and metadata in
-the BigQuery database. In addition to the :ref:`globally available
-<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
-statements, the connector supports the following features:
+The connector provides read and write access to data and metadata in the
+BigQuery database, though write access is limited. In addition to the
+:ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements, the connector supports
+the following features:
 
 * :doc:`/sql/create-table`
 * :doc:`/sql/drop-table`

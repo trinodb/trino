@@ -37,9 +37,10 @@ public class ExchangeS3Config
 {
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
+    private Optional<String> s3IamRole = Optional.empty();
+    private Optional<String> s3ExternalId = Optional.empty();
     private Optional<Region> s3Region = Optional.empty();
     private Optional<String> s3Endpoint = Optional.empty();
-    private boolean s3UseWebIdentityTokenCredentials;
     private int s3MaxErrorRetries = 10;
     // Default to S3 multi-part upload minimum size to avoid excessive memory consumption from buffering
     private DataSize s3UploadPartSize = DataSize.of(5, MEGABYTE);
@@ -48,6 +49,7 @@ public class ExchangeS3Config
     private int asyncClientConcurrency = 100;
     private int asyncClientMaxPendingConnectionAcquires = 10000;
     private Duration connectionAcquisitionTimeout = new Duration(1, MINUTES);
+    private Optional<String> gcsJsonKeyFilePath = Optional.empty();
 
     public String getS3AwsAccessKey()
     {
@@ -71,6 +73,32 @@ public class ExchangeS3Config
     public ExchangeS3Config setS3AwsSecretKey(String s3AwsSecretKey)
     {
         this.s3AwsSecretKey = s3AwsSecretKey;
+        return this;
+    }
+
+    public Optional<String> getS3IamRole()
+    {
+        return s3IamRole;
+    }
+
+    @Config("exchange.s3.iam-role")
+    @ConfigDescription("ARN of an IAM role to assume when connecting to S3")
+    public ExchangeS3Config setS3IamRole(String s3IamRole)
+    {
+        this.s3IamRole = Optional.ofNullable(s3IamRole);
+        return this;
+    }
+
+    public Optional<String> getS3ExternalId()
+    {
+        return s3ExternalId;
+    }
+
+    @Config("exchange.s3.external-id")
+    @ConfigDescription("External ID for the IAM role trust policy when connecting to S3")
+    public ExchangeS3Config setS3ExternalId(String s3ExternalId)
+    {
+        this.s3ExternalId = Optional.ofNullable(s3ExternalId);
         return this;
     }
 
@@ -98,18 +126,6 @@ public class ExchangeS3Config
     public ExchangeS3Config setS3Endpoint(String s3Endpoint)
     {
         this.s3Endpoint = Optional.ofNullable(s3Endpoint);
-        return this;
-    }
-
-    public boolean isS3UseWebIdentityTokenCredentials()
-    {
-        return s3UseWebIdentityTokenCredentials;
-    }
-
-    @Config("exchange.s3.use-web-identity-token-credentials")
-    public ExchangeS3Config setS3UseWebIdentityTokenCredentials(boolean s3UseWebIdentityTokenCredentials)
-    {
-        this.s3UseWebIdentityTokenCredentials = s3UseWebIdentityTokenCredentials;
         return this;
     }
 
@@ -203,6 +219,18 @@ public class ExchangeS3Config
     public ExchangeS3Config setConnectionAcquisitionTimeout(Duration connectionAcquisitionTimeout)
     {
         this.connectionAcquisitionTimeout = connectionAcquisitionTimeout;
+        return this;
+    }
+
+    public Optional<String> getGcsJsonKeyFilePath()
+    {
+        return gcsJsonKeyFilePath;
+    }
+
+    @Config("exchange.gcs.json-key-file-path")
+    public ExchangeS3Config setGcsJsonKeyFilePath(String gcsJsonKeyFilePath)
+    {
+        this.gcsJsonKeyFilePath = Optional.ofNullable(gcsJsonKeyFilePath);
         return this;
     }
 }

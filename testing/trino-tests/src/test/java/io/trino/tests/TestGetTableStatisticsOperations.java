@@ -43,8 +43,8 @@ public class TestGetTableStatisticsOperations
             throws Exception
     {
         localQueryRunner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .withMetadataProvider((featuresConfig, systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)
-                        -> new CountingAccessMetadata(new MetadataManager(featuresConfig, systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)))
+                .withMetadataProvider((systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)
+                        -> new CountingAccessMetadata(new MetadataManager(systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)))
                 .build();
         metadata = (CountingAccessMetadata) localQueryRunner.getMetadata();
         localQueryRunner.installPlugin(new TpchPlugin());
@@ -66,7 +66,7 @@ public class TestGetTableStatisticsOperations
                 "WHERE o.orderkey = l.orderkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
                 ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 2)
+                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 3)
                         .build());
     }
 
@@ -78,7 +78,7 @@ public class TestGetTableStatisticsOperations
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
                 ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 3)
+                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 5)
                         .build());
     }
 

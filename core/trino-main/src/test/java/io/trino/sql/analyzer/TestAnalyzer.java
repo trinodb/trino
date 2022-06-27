@@ -21,6 +21,7 @@ import com.google.common.io.Closer;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.StaticConnectorFactory;
 import io.trino.execution.DynamicFilterConfig;
@@ -94,6 +95,7 @@ import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_NAMED_QUERY;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_PARAMETER_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_WINDOW_NAME;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
@@ -363,6 +365,127 @@ public class TestAnalyzer
 
         assertFails("SELECT t.a FROM (SELECT t.* FROM (VALUES 1) t(a))")
                 .hasErrorCode(COLUMN_NOT_FOUND);
+    }
+
+    @Test
+    public void testTemporalTableVersion()
+    {
+        // valid temporal version pointer
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF DATE '2022-01-01'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2022-01-01'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2022-01-01 01:02:03.123456789012'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2022-01-01 UTC'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2022-01-01 01:02:03.123456789012 Asia/Kathmandu'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CURRENT_TIMESTAMP(12) - INTERVAL '0.001' SECOND")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF LOCALTIMESTAMP(12) - INTERVAL '0.001' SECOND")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // wrong type
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF '2022-01-01'")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type varchar(10) invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF '2022-01-01 01:02:03'")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type varchar(19) invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF '2022-01-01 01:02:03 UTC'")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type varchar(23) invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF 1654594283421")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type bigint invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+
+        // null value with right type
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS date)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS timestamp(3))")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS timestamp(3) with time zone)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
+
+        // null value with wrong type
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF NULL")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CAST(NULL AS bigint)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: Type bigint invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.");
+
+        // temporal version pointer in the future -- invalid, because future state can change
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF DATE '2999-01-01'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2999-01-01'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01 00:00:00' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2999-01-01 01:02:03.123456789012'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01 01:02:03.123456789012' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2999-01-01 UTC'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01 00:00:00 UTC' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF TIMESTAMP '2999-01-01 01:02:03.123456789012 Asia/Kathmandu'")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value '2999-01-01 01:02:03.123456789012 Asia/Kathmandu' is not in the past");
+
+        // temporal version pointer at "current moment" -- invalid, because due to time granularity, the current time's state may still change
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF CURRENT_TIMESTAMP(12)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageMatching("line 1:18: Pointer value '.*' is not in the past");
+        assertFails("SELECT * FROM t1 FOR TIMESTAMP AS OF LOCALTIMESTAMP(12)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageMatching("line 1:18: Pointer value '.*' is not in the past");
+    }
+
+    @Test
+    public void testRangeIdTableVersion()
+    {
+        // integer
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF 123")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // bigint
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF BIGINT '123'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // varchar
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF '2022-01-01'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // date
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF DATE '2022-01-01'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
+
+        // null value
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF NULL")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF CAST(NULL AS bigint)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
+        assertFails("SELECT * FROM t1 FOR VERSION AS OF CAST(NULL AS varchar)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:18: Pointer value cannot be NULL");
     }
 
     @Test
@@ -699,6 +822,10 @@ public class TestAnalyzer
         assertFails("SELECT * FROM foo.t")
                 .hasErrorCode(SCHEMA_NOT_FOUND);
         assertFails("SELECT * FROM foo")
+                .hasErrorCode(TABLE_NOT_FOUND);
+        assertFails("SELECT * FROM foo FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'")
+                .hasErrorCode(TABLE_NOT_FOUND);
+        assertFails("SELECT * FROM foo FOR VERSION AS OF 'version1'")
                 .hasErrorCode(TABLE_NOT_FOUND);
     }
 
@@ -5296,6 +5423,487 @@ public class TestAnalyzer
                 .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.fresh_materialized_view");
     }
 
+    @Test
+    public void testJsonContextItemType()
+    {
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES X'65683F', X'65683E') t(json_column)");
+
+        assertFails("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES -1, -2) t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:20: Cannot read input of type integer as JSON using formatting JSON");
+    }
+
+    @Test
+    public void testJsonContextItemFormat()
+    {
+        // implicit FORMAT JSON
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $.abs()') FROM (VALUES X'65683F', X'65683E') t(json_column)");
+
+        // explicit input format
+        analyze("SELECT JSON_EXISTS(json_column FORMAT JSON, 'lax $.abs()') FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column FORMAT JSON ENCODING UTF8, 'lax $.abs()') FROM (VALUES X'1A', X'2B') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column FORMAT JSON ENCODING UTF16, 'lax $.abs()') FROM (VALUES X'1A', X'2B') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column FORMAT JSON ENCODING UTF32, 'lax $.abs()') FROM (VALUES X'1A', X'2B') t(json_column)");
+
+        // incorrect format: ENCODING specified for character string input
+        assertFails("SELECT JSON_EXISTS(json_column FORMAT JSON ENCODING UTF8, 'lax $.abs()') FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:20: Cannot read input of type varchar(3) as JSON using formatting JSON ENCODING UTF8");
+    }
+
+    @Test
+    public void testJsonPathParameterNames()
+    {
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING " +
+                "                                                   1 AS parameter_1, " +
+                "                                                   'x' AS parameter_2, " +
+                "                                                   true AS parameter_3) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING " +
+                "                                                   1 AS parameter_1, " +
+                "                                                   'x' AS parameter_2, " +
+                "                                                   true AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(DUPLICATE_PARAMETER_NAME)
+                .hasMessage("line 1:309: PARAMETER_1 JSON path parameter is specified more than once");
+    }
+
+    @Test
+    public void testCaseSensitiveNames()
+    {
+        // JSON path variable names are case-sensitive. Unquoted parameter names in the PASSING clause are upper-cased.
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $some_name' PASSING 1 AS \"some_name\") FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON_EXISTS(json_column, 'lax $SOME_NAME' PASSING 1 AS some_name) FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // no matching parameter, but similar parameter found with different case. provide a hint in the error message
+        assertFails("SELECT JSON_EXISTS(json_column, 'lax $some_name' PASSING 1 AS some_name) FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasMessage("line 1:33: no value passed for parameter some_name. Try quoting \"some_name\" in the PASSING clause to match case");
+
+        assertFails("SELECT JSON_EXISTS(json_column, 'lax $some_NAME' PASSING 1 AS some_name) FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasMessage("line 1:33: no value passed for parameter some_NAME. Try quoting \"some_NAME\" in the PASSING clause to match case");
+
+        // no matching parameter, and it is not the issue with case sensitivity. no hint in the error message
+        assertFails("SELECT JSON_EXISTS(json_column, 'lax $some_name' PASSING 1 AS some_other_name) FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasMessage("line 1:33: no value passed for parameter some_name");
+    }
+
+    @Test
+    public void testJsonPathParameterFormats()
+    {
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING 'x' FORMAT JSON AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING X'65683F' FORMAT JSON ENCODING UTF8 AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING 1 FORMAT JSON AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:110: Cannot read input of type integer as JSON using formatting JSON");
+
+        assertFails("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING 1 FORMAT JSON ENCODING UTF8 AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:110: Cannot read input of type integer as JSON using formatting JSON ENCODING UTF8");
+
+        // FORMAT JSON as the parameter format option is the same as the output format of the JSON_QUERY call
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING JSON_QUERY(json_column, 'lax $.abs()' RETURNING varchar FORMAT JSON) FORMAT JSON AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // FORMAT JSON as the parameter format option is different than the output format of the JSON_QUERY call
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING JSON_QUERY(json_column, 'lax $.abs()' RETURNING varbinary FORMAT JSON) FORMAT JSON ENCODING UTF8 AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // the parameter is a JSON_QUERY call, so the format option FORMAT JSON is implicit for the parameter
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING JSON_QUERY(json_column, 'lax $.abs()' RETURNING varchar FORMAT JSON) AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+    }
+
+    @Test
+    public void testJsonPathParameterTypes()
+    {
+        analyze("SELECT JSON_EXISTS( " +
+                "                           json_column, " +
+                "                           'lax $.abs()' PASSING INTERVAL '2' DAY AS parameter_1) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_EXISTS('[]', 'lax $[2]' PASSING INTERVAL '2' DAY AS parameter_interval)");
+
+        analyze("SELECT JSON_EXISTS('[]', 'lax $[2]' PASSING UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59' AS parameter_uuid)");
+
+        assertFails("SELECT JSON_EXISTS('[]', 'lax $[2]' PASSING approx_set(1) AS parameter_hll)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Unsupported type of JSON path parameter: HyperLogLog");
+    }
+
+    @Test
+    public void testJsonValueReturnedType()
+    {
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING char(30)) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.size()'" +
+                "                   RETURNING bigint) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING tdigest) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Invalid return type of function JSON_VALUE: tdigest");
+
+        assertFails("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING some_type(10)) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: some_type(10)");
+    }
+
+    @Test
+    public void testJsonValueDefaultValues()
+    {
+        // default value has the same type as the declared returned type
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 1e0 ON EMPTY) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // default value can be coerced to the declared returned type
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 1.0 ON EMPTY) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 'text' ON EMPTY) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:149: Function JSON_VALUE default ON EMPTY result must evaluate to a double (actual: varchar(4))");
+
+        // default value has the same type as the declared returned type
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 1e0 ON ERROR) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        // default value can be coerced to the declared returned type
+        analyze("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 1.0 ON ERROR) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_VALUE( " +
+                "                   json_column, " +
+                "                   'lax $.double()'" +
+                "                   RETURNING double" +
+                "                   DEFAULT 'text' ON ERROR) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:149: Function JSON_VALUE default ON ERROR result must evaluate to a double (actual: varchar(4))");
+    }
+
+    @Test
+    public void testJsonQueryOutputTypeAndFormat()
+    {
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING varchar) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING varchar FORMAT JSON) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING char(5) FORMAT JSON) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING varbinary FORMAT JSON ENCODING UTF8) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING some_type(10)) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: some_type(10)");
+
+        assertFails("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING double) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as double using formatting JSON");
+
+        assertFails("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   RETURNING varchar FORMAT JSON ENCODING UTF8) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as varchar using formatting JSON ENCODING UTF8");
+    }
+
+    @Test
+    public void testJsonQueryQuotesBehavior()
+    {
+        analyze("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()'" +
+                "                   OMIT QUOTES ON SCALAR STRING) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("SELECT JSON_QUERY( " +
+                "                   json_column, " +
+                "                   'lax $.type()' " +
+                "                   WITH ARRAY WRAPPER " +
+                "                   OMIT QUOTES ON SCALAR STRING) " +
+                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:8: OMIT QUOTES behavior specified with WITH UNCONDITIONAL ARRAY WRAPPER behavior");
+    }
+
+    @Test
+    public void testJsonExistsInAggregationContext()
+    {
+        analyze("SELECT JSON_EXISTS('-5', 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_EXISTS(a, 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_EXISTS(a, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, 100), ('-2', 20, 200)) t(a, b, c) GROUP BY a, b");
+
+        assertFails("SELECT JSON_EXISTS(c, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, '100'), ('-2', 20, '200')) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_EXISTS(c FORMAT JSON, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" FALSE ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT JSON_EXISTS(b, 'lax $.abs() + $some_number' PASSING c AS \"some_number\") FROM (VALUES (-1, '10', 100), (-2, '20', 200)) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_EXISTS(b FORMAT JSON, 'lax $.abs() + $some_number' PASSING c AS \"some_number\" FALSE ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
+    public void testJsonValueInAggregationContext()
+    {
+        analyze("SELECT JSON_VALUE('-5', 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_VALUE(a, 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_VALUE(a, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, 100), ('-2', 20, 200)) t(a, b, c) GROUP BY a, b");
+        analyze("SELECT JSON_VALUE(a, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" DEFAULT lower(b) ON EMPTY DEFAULT upper(b) ON ERROR) FROM (VALUES ('-1', '10', 100), ('-2', '20', 200)) t(a, b, c) GROUP BY a, b");
+
+        assertFails("SELECT JSON_VALUE(c, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, '100'), ('-2', 20, '200')) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_VALUE(c FORMAT JSON, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" NULL ON EMPTY NULL ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT JSON_VALUE(b, 'lax $.abs() + $some_number' PASSING c AS \"some_number\") FROM (VALUES (-1, '10', 100), (-2, '20', 200)) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_VALUE(b FORMAT JSON, 'lax $.abs() + $some_number' PASSING c AS \"some_number\" NULL ON EMPTY NULL ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT JSON_VALUE(b, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" DEFAULT c ON EMPTY) FROM (VALUES (-1, '10', '100'), (-2, '20', '200')) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_VALUE(b FORMAT JSON, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" DEFAULT c ON EMPTY NULL ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT JSON_VALUE(b, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" DEFAULT c ON ERROR) FROM (VALUES (-1, '10', '100'), (-2, '20', '200')) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_VALUE(b FORMAT JSON, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" NULL ON EMPTY DEFAULT c ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
+    public void testJsonQueryInAggregationContext()
+    {
+        analyze("SELECT JSON_QUERY('-5', 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_QUERY(a, 'lax $.abs()') FROM (VALUES '-1', '-2') t(a) GROUP BY a");
+        analyze("SELECT JSON_QUERY(a, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, 100), ('-2', 20, 200)) t(a, b, c) GROUP BY a, b");
+
+        assertFails("SELECT JSON_QUERY(c, 'lax $.abs() + $some_number' PASSING b AS \"some_number\") FROM (VALUES ('-1', 10, '100'), ('-2', 20, '200')) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_QUERY(c FORMAT JSON, 'lax $.abs() + $some_number' PASSING b AS \"some_number\" WITHOUT ARRAY WRAPPER NULL ON EMPTY NULL ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT JSON_QUERY(b, 'lax $.abs() + $some_number' PASSING c AS \"some_number\") FROM (VALUES (-1, '10', 100), (-2, '20', 200)) t(a, b, c) GROUP BY a, b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_QUERY(b FORMAT JSON, 'lax $.abs() + $some_number' PASSING c AS \"some_number\" WITHOUT ARRAY WRAPPER NULL ON EMPTY NULL ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
+    public void testJsonObjectInputTypes()
+    {
+        analyze("SELECT JSON_OBJECT(VARCHAR 'key' : 1)");
+        analyze("SELECT JSON_OBJECT(CAST('key' AS varchar(100)) : 1)");
+        analyze("SELECT JSON_OBJECT(CAST('key' AS char(100)) : 1)");
+
+        assertFails("SELECT JSON_OBJECT(null : 1)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:20: Invalid type of JSON object key: unknown");
+
+        assertFails("SELECT JSON_OBJECT(0 : 1)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:20: Invalid type of JSON object key: integer");
+
+        analyze("SELECT JSON_OBJECT('key' : 1)");
+        analyze("SELECT JSON_OBJECT('key' : true)");
+        analyze("SELECT JSON_OBJECT('key' : 'value')");
+
+        // date can be cast to varchar
+        analyze("SELECT JSON_OBJECT('key' : DATE '2001-01-31')");
+
+        // HyperLogLog cannot be cast to varchar
+        assertFails("SELECT JSON_OBJECT('key' : approx_set(1))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Unsupported type of value passed to JSON_OBJECT function: HyperLogLog");
+    }
+
+    @Test
+    public void testJsonObjectValueWithFormat()
+    {
+        analyze("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON)");
+
+        assertFails("SELECT JSON_OBJECT('key' : 1e0 FORMAT JSON)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:28: Cannot read input of type double as JSON using formatting JSON");
+
+        analyze("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON WITHOUT UNIQUE KEYS)");
+
+        assertFails("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON WITH UNIQUE KEYS)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: WITH UNIQUE KEYS behavior is not supported for JSON_OBJECT function when input expression has FORMAT");
+    }
+
+    @Test
+    public void testJsonObjectReturnedTypeAndFormat()
+    {
+        analyze("SELECT JSON_OBJECT('key' : 1 RETURNING varchar)");
+
+        assertFails("SELECT JSON_OBJECT('key' : 1 RETURNING some_type)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: some_type");
+
+        assertFails("SELECT JSON_OBJECT('key' : 1 RETURNING integer)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as integer using formatting JSON");
+
+        assertFails("SELECT JSON_OBJECT('key' : 1 RETURNING integer FORMAT JSON ENCODING UTF16)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as integer using formatting JSON ENCODING UTF16");
+    }
+
+    @Test
+    public void testJsonObjectInAggregationContext()
+    {
+        analyze("SELECT JSON_OBJECT('key' : 1) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+        analyze("SELECT JSON_OBJECT(a : 1) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+        analyze("SELECT JSON_OBJECT('key' : a) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+
+        assertFails("SELECT JSON_OBJECT('key' : a) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_OBJECT(KEY 'key' VALUE a NULL ON NULL WITHOUT UNIQUE KEYS)' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT JSON_OBJECT(a : 1) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_OBJECT(KEY a VALUE 1 NULL ON NULL WITHOUT UNIQUE KEYS)' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
+    public void testJsonArrayInputTypes()
+    {
+        analyze("SELECT JSON_ARRAY(1)");
+        analyze("SELECT JSON_ARRAY(true)");
+        analyze("SELECT JSON_ARRAY('element')");
+
+        // date can be cast to varchar
+        analyze("SELECT JSON_ARRAY(DATE '2001-01-31')");
+
+        // HyperLogLog cannot be cast to varchar
+        assertFails("SELECT JSON_ARRAY(approx_set(1))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Unsupported type of value passed to JSON_ARRAY function: HyperLogLog");
+    }
+
+    @Test
+    public void testJsonArrayElementWithFormat()
+    {
+        analyze("SELECT JSON_ARRAY('{\"key\" : 1}' FORMAT JSON)");
+
+        assertFails("SELECT JSON_ARRAY(1e0 FORMAT JSON)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:19: Cannot read input of type double as JSON using formatting JSON");
+    }
+
+    @Test
+    public void testJsonArrayReturnedTypeAndFormat()
+    {
+        analyze("SELECT JSON_ARRAY(true RETURNING varchar)");
+
+        assertFails("SELECT JSON_ARRAY(true RETURNING some_type)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: some_type");
+
+        assertFails("SELECT JSON_ARRAY(true RETURNING integer)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as integer using formatting JSON");
+
+        assertFails("SELECT JSON_ARRAY(true RETURNING integer FORMAT JSON ENCODING UTF16)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as integer using formatting JSON ENCODING UTF16");
+    }
+
+    @Test
+    public void testJsonArrayInAggregationContext()
+    {
+        analyze("SELECT JSON_ARRAY(true) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+        analyze("SELECT JSON_ARRAY(a) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+
+        assertFails("SELECT JSON_ARRAY(b) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_ARRAY(b ABSENT ON NULL)' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
     @BeforeClass
     public void setup()
     {
@@ -5647,14 +6255,13 @@ public class TestAnalyzer
     {
         StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(
                 plannerContext.getMetadata(),
-                plannerContext.getFunctionManager(),
                 SQL_PARSER,
                 accessControl,
                 new SessionPropertyManager(),
-                new SchemaPropertyManager(),
-                new ColumnPropertyManager(),
+                new SchemaPropertyManager(CatalogServiceProvider.fail()),
+                new ColumnPropertyManager(CatalogServiceProvider.fail()),
                 tablePropertyManager,
-                new MaterializedViewPropertyManager())));
+                new MaterializedViewPropertyManager(catalogName -> ImmutableMap.of()))));
         StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(plannerContext, accessControl, tablePropertyManager, analyzePropertyManager);
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, statementRewrite);
         return analyzerFactory.createAnalyzer(

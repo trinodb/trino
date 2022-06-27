@@ -65,6 +65,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -204,6 +205,10 @@ public class UnwrapCastInComparison
 
             Type sourceType = typeAnalyzer.getType(session, types, cast.getExpression());
             Type targetType = typeAnalyzer.getType(session, types, expression.getRight());
+
+            if (sourceType instanceof TimestampType && targetType == DATE) {
+                return unwrapTimestampToDateCast(session, (TimestampType) sourceType, operator, cast.getExpression(), (long) right).orElse(expression);
+            }
 
             if (targetType instanceof TimestampWithTimeZoneType) {
                 // Note: two TIMESTAMP WITH TIME ZONE values differing in zone only (same instant) are considered equal.
@@ -402,6 +407,48 @@ public class UnwrapCastInComparison
             }
 
             return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
+        }
+
+        private Optional<Expression> unwrapTimestampToDateCast(Session session, TimestampType sourceType, ComparisonExpression.Operator operator, Expression timestampExpression, long date)
+        {
+            ResolvedFunction targetToSource;
+            try {
+                targetToSource = plannerContext.getMetadata().getCoercion(session, DATE, sourceType);
+            }
+            catch (OperatorNotFoundException e) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
+            }
+
+            Expression dateTimestamp = literalEncoder.toExpression(session, coerce(date, targetToSource), sourceType);
+            Expression nextDateTimestamp = literalEncoder.toExpression(session, coerce(date + 1, targetToSource), sourceType);
+
+            switch (operator) {
+                case EQUAL:
+                    return Optional.of(
+                            and(
+                                    new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp),
+                                    new ComparisonExpression(LESS_THAN, timestampExpression, nextDateTimestamp)));
+                case NOT_EQUAL:
+                    return Optional.of(
+                            or(
+                                    new ComparisonExpression(LESS_THAN, timestampExpression, dateTimestamp),
+                                    new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp)));
+                case LESS_THAN:
+                    return Optional.of(new ComparisonExpression(LESS_THAN, timestampExpression, dateTimestamp));
+                case LESS_THAN_OR_EQUAL:
+                    return Optional.of(new ComparisonExpression(LESS_THAN, timestampExpression, nextDateTimestamp));
+                case GREATER_THAN:
+                    return Optional.of(new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp));
+                case GREATER_THAN_OR_EQUAL:
+                    return Optional.of(new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp));
+                case IS_DISTINCT_FROM:
+                    return Optional.of(
+                            or(
+                                    new IsNullPredicate(timestampExpression),
+                                    new ComparisonExpression(LESS_THAN, timestampExpression, dateTimestamp),
+                                    new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp)));
+            }
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unsupported operator: " + operator);
         }
 
         private boolean hasInjectiveImplicitCoercion(Type source, Type target, Object value)

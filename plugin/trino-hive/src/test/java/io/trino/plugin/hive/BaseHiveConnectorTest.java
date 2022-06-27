@@ -31,7 +31,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -91,6 +90,7 @@ import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.intersection;
@@ -185,17 +185,12 @@ public abstract class BaseHiveConnectorTest
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
     }
 
-    protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties, Map<String, String> exchangeManagerProperties)
+    protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties, Consumer<QueryRunner> additionalSetup)
             throws Exception
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
-                .setAdditionalSetup(runner -> {
-                    if (!exchangeManagerProperties.isEmpty()) {
-                        runner.installPlugin(new FileSystemExchangePlugin());
-                        runner.loadExchangeManager("filesystem", exchangeManagerProperties);
-                    }
-                })
+                .setAdditionalSetup(additionalSetup)
                 .setHiveProperties(ImmutableMap.of(
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
@@ -239,6 +234,13 @@ public abstract class BaseHiveConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Override
+    protected void verifySelectAfterInsertFailurePermissible(Throwable e)
+    {
+        assertThat(getStackTraceAsString(e))
+                .containsPattern("io.trino.spi.TrinoException: Cannot read from a table tpch.test_insert_select_\\w+ that was modified within transaction, you need to commit the transaction first");
     }
 
     @Override
@@ -816,22 +818,22 @@ public abstract class BaseHiveConnectorTest
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
-        assertUpdate(admin, "CREATE SCHEMA test_table_authorization");
-        assertUpdate(admin, "CREATE TABLE test_table_authorization.foo (col int)");
+        assertUpdate(admin, "CREATE SCHEMA test_table_authorization_role");
+        assertUpdate(admin, "CREATE TABLE test_table_authorization_role.foo (col int)");
 
         // TODO Change assertions once https://github.com/trinodb/trino/issues/5706 is done
         assertAccessDenied(
                 alice,
-                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION ROLE admin",
-                "Cannot set authorization for table test_table_authorization.foo to ROLE admin");
-        assertUpdate(admin, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice");
+                "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION ROLE admin",
+                "Cannot set authorization for table test_table_authorization_role.foo to ROLE admin");
+        assertUpdate(admin, "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION alice");
         assertQueryFails(
                 alice,
-                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION ROLE admin",
+                "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION ROLE admin",
                 "Setting table owner type as a role is not supported");
 
-        assertUpdate(admin, "DROP TABLE test_table_authorization.foo");
-        assertUpdate(admin, "DROP SCHEMA test_table_authorization");
+        assertUpdate(admin, "DROP TABLE test_table_authorization_role.foo");
+        assertUpdate(admin, "DROP SCHEMA test_table_authorization_role");
     }
 
     @Test
@@ -3815,7 +3817,7 @@ public abstract class BaseHiveConnectorTest
                         "   bucketed_by = ARRAY['c1','c 2'],\n" +
                         "   bucketing_version = 1,\n" +
                         "   format = 'ORC',\n" +
-                        "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
+                        "   orc_bloom_filter_columns = ARRAY['c1','c 2'],\n" +
                         "   orc_bloom_filter_fpp = 7E-1,\n" +
                         "   partitioned_by = ARRAY['c5'],\n" +
                         "   sorted_by = ARRAY['c1','c 2 DESC'],\n" +
@@ -4642,16 +4644,16 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testMismatchedBucketWithBucketPredicate()
     {
-        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing8");
-        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing32");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate8");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate32");
 
         assertUpdate(
-                "CREATE TABLE test_mismatch_bucketing8 " +
+                "CREATE TABLE test_mismatch_bucketing_with_bucket_predicate8 " +
                         "WITH (bucket_count = 8, bucketed_by = ARRAY['key8']) AS " +
                         "SELECT nationkey key8, comment value8 FROM nation",
                 25);
         assertUpdate(
-                "CREATE TABLE test_mismatch_bucketing32 " +
+                "CREATE TABLE test_mismatch_bucketing_with_bucket_predicate32 " +
                         "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS " +
                         "SELECT nationkey key32, comment value32 FROM nation",
                 25);
@@ -4666,17 +4668,17 @@ public abstract class BaseHiveConnectorTest
         @Language("SQL") String query = "SELECT count(*) AS count " +
                 "FROM (" +
                 "  SELECT key32" +
-                "  FROM test_mismatch_bucketing32" +
+                "  FROM test_mismatch_bucketing_with_bucket_predicate32" +
                 "  WHERE \"$bucket\" between 16 AND 31" +
                 ") a " +
-                "JOIN test_mismatch_bucketing8 b " +
+                "JOIN test_mismatch_bucketing_with_bucket_predicate8 b " +
                 "ON a.key32 = b.key8";
 
         assertQuery(withMismatchOptimization, query, "SELECT 9");
         assertQuery(withoutMismatchOptimization, query, "SELECT 9");
 
-        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing8");
-        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing32");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate8");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate32");
     }
 
     @DataProvider
@@ -7763,8 +7765,22 @@ public abstract class BaseHiveConnectorTest
                         .hasMessage("Unsupported codec: LZ4");
                 return;
             }
+
+            if (!isSupportedCodec(hiveStorageFormat, compressionCodec)) {
+                assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
+                        .hasMessage("Compression codec " + compressionCodec + " not supported for " + hiveStorageFormat);
+                return;
+            }
             testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec);
         });
+    }
+
+    private boolean isSupportedCodec(HiveStorageFormat storageFormat, HiveCompressionCodec codec)
+    {
+        if (storageFormat == HiveStorageFormat.AVRO && codec == HiveCompressionCodec.LZ4) {
+            return false;
+        }
+        return true;
     }
 
     @DataProvider
@@ -7963,7 +7979,7 @@ public abstract class BaseHiveConnectorTest
         assertThat(getTableFiles(tableName)).hasSameElementsAs(compactedFiles);
 
         // optimize with delimited procedure name
-        assertQueryFails(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Procedure optimize not registered for catalog hive");
+        assertQueryFails(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Table procedure not registered: optimize");
         assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\"");
         // optimize with delimited parameter name (and procedure name)
         assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"file_size_threshold\" => '10B')"); // TODO (https://github.com/trinodb/trino/issues/11326) this should fail
@@ -8328,6 +8344,30 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test(dataProvider = "hiddenColumnNames")
+    public void testHiddenColumnNameConflict(String columnName)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_hidden_column_name_conflict",
+                format("(\"%s\" int, _bucket int, _partition int) WITH (partitioned_by = ARRAY['_partition'], bucketed_by = ARRAY['_bucket'], bucket_count = 10)", columnName))) {
+            assertThatThrownBy(() -> query("SELECT * FROM " + table.getName()))
+                    .hasMessageContaining("Multiple entries with same key: " + columnName);
+        }
+    }
+
+    @DataProvider
+    public Object[][] hiddenColumnNames()
+    {
+        return new Object[][] {
+                {"$path"},
+                {"$bucket"},
+                {"$file_size"},
+                {"$file_modified_time"},
+                {"$partition"},
+        };
+    }
+
     @Test(dataProvider = "legalUseColumnNamesProvider")
     public void testUseColumnAddDrop(HiveStorageFormat format, boolean formatUseColumnNames)
     {
@@ -8610,8 +8650,14 @@ public abstract class BaseHiveConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("time")
-                || typeName.equals("timestamp(3) with time zone")) {
+                || typeName.equals("time(6)")
+                || typeName.equals("timestamp(3) with time zone")
+                || typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+        if (typeName.equals("timestamp(6)")) {
+            // It's supported depending on hive timestamp precision configuration, so the exception message doesn't match the expected for asUnsupported().
+            return Optional.empty();
         }
 
         return Optional.of(dataMappingTestSetup);

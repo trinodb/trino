@@ -54,12 +54,12 @@ public class TransactionScopeCachingDirectoryLister
 {
     //TODO use a cache key based on Path & SchemaTableName and iterate over the cache keys
     // to deal more efficiently with cache invalidation scenarios for partitioned tables.
-    private final Cache<Path, FetchingValueHolder> cache;
+    private final Cache<DirectoryListingCacheKey, FetchingValueHolder> cache;
     private final DirectoryLister delegate;
 
     public TransactionScopeCachingDirectoryLister(DirectoryLister delegate, long maxFileStatuses)
     {
-        EvictableCacheBuilder<Path, FetchingValueHolder> cacheBuilder = EvictableCacheBuilder.newBuilder()
+        EvictableCacheBuilder<DirectoryListingCacheKey, FetchingValueHolder> cacheBuilder = EvictableCacheBuilder.newBuilder()
                 .maximumWeight(maxFileStatuses)
                 .weigher((key, value) -> value.getCachedFilesSize());
         this.cache = cacheBuilder.build();
@@ -70,22 +70,46 @@ public class TransactionScopeCachingDirectoryLister
     public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
             throws IOException
     {
+        return listInternal(fs, table, new DirectoryListingCacheKey(path, false));
+    }
+
+    @Override
+    public RemoteIterator<LocatedFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+            throws IOException
+    {
+        return listInternal(fs, table, new DirectoryListingCacheKey(path, true));
+    }
+
+    private RemoteIterator<LocatedFileStatus> listInternal(FileSystem fs, Table table, DirectoryListingCacheKey cacheKey)
+            throws IOException
+    {
         FetchingValueHolder cachedValueHolder;
         try {
-            cachedValueHolder = cache.get(path, () -> new FetchingValueHolder(delegate.list(fs, table, path)));
+            cachedValueHolder = cache.get(cacheKey, () -> new FetchingValueHolder(createListingRemoteIterator(fs, table, cacheKey)));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             Throwable throwable = e.getCause();
             throwIfInstanceOf(throwable, IOException.class);
             throwIfUnchecked(throwable);
-            throw new RuntimeException("Failed to list directory: " + path, throwable);
+            throw new RuntimeException("Failed to list directory: " + cacheKey.getPath(), throwable);
         }
 
         if (cachedValueHolder.isFullyCached()) {
             return new SimpleRemoteIterator(cachedValueHolder.getCachedFiles());
         }
 
-        return cachingRemoteIterator(cachedValueHolder, path);
+        return cachingRemoteIterator(cachedValueHolder, cacheKey);
+    }
+
+    private RemoteIterator<LocatedFileStatus> createListingRemoteIterator(FileSystem fs, Table table, DirectoryListingCacheKey cacheKey)
+            throws IOException
+    {
+        if (cacheKey.isRecursiveFilesOnly()) {
+            return delegate.listFilesRecursively(fs, table, cacheKey.getPath());
+        }
+        else {
+            return delegate.list(fs, table, cacheKey.getPath());
+        }
     }
 
     @Override
@@ -93,7 +117,7 @@ public class TransactionScopeCachingDirectoryLister
     {
         if (isLocationPresent(table.getStorage())) {
             if (table.getPartitionColumns().isEmpty()) {
-                cache.invalidate(new Path(table.getStorage().getLocation()));
+                cache.invalidateAll(DirectoryListingCacheKey.allKeysWithPath(new Path(table.getStorage().getLocation())));
             }
             else {
                 // a partitioned table can have multiple paths in cache
@@ -107,12 +131,12 @@ public class TransactionScopeCachingDirectoryLister
     public void invalidate(Partition partition)
     {
         if (isLocationPresent(partition.getStorage())) {
-            cache.invalidate(new Path(partition.getStorage().getLocation()));
+            cache.invalidateAll(DirectoryListingCacheKey.allKeysWithPath(new Path(partition.getStorage().getLocation())));
         }
         delegate.invalidate(partition);
     }
 
-    private RemoteIterator<LocatedFileStatus> cachingRemoteIterator(FetchingValueHolder cachedValueHolder, Path path)
+    private RemoteIterator<LocatedFileStatus> cachingRemoteIterator(FetchingValueHolder cachedValueHolder, DirectoryListingCacheKey cacheKey)
     {
         return new RemoteIterator<>()
         {
@@ -127,12 +151,12 @@ public class TransactionScopeCachingDirectoryLister
                     // Update cache weight of cachedValueHolder for a given path.
                     // The cachedValueHolder acts as an invalidation guard. If a cache invalidation happens while this iterator goes over
                     // the files from the specified path, the eventually outdated file listing will not be added anymore to the cache.
-                    cache.asMap().replace(path, cachedValueHolder, cachedValueHolder);
+                    cache.asMap().replace(cacheKey, cachedValueHolder, cachedValueHolder);
                     return hasNext;
                 }
                 catch (Exception exception) {
                     // invalidate cached value to force retry of directory listing
-                    cache.invalidate(path);
+                    cache.invalidate(cacheKey);
                     throw exception;
                 }
             }
@@ -151,7 +175,13 @@ public class TransactionScopeCachingDirectoryLister
     @VisibleForTesting
     boolean isCached(Path path)
     {
-        FetchingValueHolder cached = cache.getIfPresent(path);
+        return isCached(new DirectoryListingCacheKey(path, false));
+    }
+
+    @VisibleForTesting
+    boolean isCached(DirectoryListingCacheKey cacheKey)
+    {
+        FetchingValueHolder cached = cache.getIfPresent(cacheKey);
         return cached != null && cached.isFullyCached();
     }
 

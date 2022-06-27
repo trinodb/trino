@@ -83,6 +83,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.joda.time.DateTimeZone;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -602,6 +603,22 @@ public final class HiveWriteUtils
             catch (IOException e) {
                 throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);
             }
+        }
+    }
+
+    public static void checkedDelete(FileSystem fileSystem, Path file, boolean recursive)
+            throws IOException
+    {
+        try {
+            if (!fileSystem.delete(file, recursive)) {
+                if (fileSystem.exists(file)) {
+                    // only throw exception if file still exists
+                    throw new IOException("Failed to delete " + file);
+                }
+            }
+        }
+        catch (FileNotFoundException ignored) {
+            // ok
         }
     }
 
