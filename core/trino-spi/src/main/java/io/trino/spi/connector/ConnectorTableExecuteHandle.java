@@ -14,13 +14,13 @@
 package io.trino.spi.connector;
 
 /**
- * ConnectorTableExecuteHandle identifies instance of executing a connector provided table procedure o specific table.
+ * ConnectorTableExecuteHandle identifies instance of executing a connector provided table procedure on a specific table.
  *
- * ConnectorTableExecuteHandle for planning is obtained by call to {@link ConnectorMetadata#getTableHandleForExecute} for give
+ * ConnectorTableExecuteHandle for planning is obtained by call to {@link ConnectorMetadata#getTableHandleForExecute} for given
  * procedure name and table.
  *
- * Then after planning, just before execution start,  ConnectorTableExecuteHandle is refreshed via call to
+ * Then after planning, just before execution start, ConnectorTableExecuteHandle is refreshed via call to
  * {@link ConnectorMetadata#beginTableExecute(ConnectorSession, ConnectorTableExecuteHandle, ConnectorTableHandle)}
- * The tableHandle passed to beginTableExecute is one obtained from matching TableScanNode at the of planning.
+ * The tableHandle passed to beginTableExecute is one obtained from matching TableScanNode in the plan.
  */
 public interface ConnectorTableExecuteHandle {}
