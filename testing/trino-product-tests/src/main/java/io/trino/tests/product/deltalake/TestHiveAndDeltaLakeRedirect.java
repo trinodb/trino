@@ -68,19 +68,22 @@ public class TestHiveAndDeltaLakeRedirect
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testHiveToDeltaNonDefaultSchemaRedirect()
     {
+        String schemaName = "extraordinary_" + randomTableSuffix();
         String tableName = "redirect_to_delta_non_default_schema_" + randomTableSuffix();
 
-        onDelta().executeQuery("CREATE SCHEMA IF NOT EXISTS extraordinary");
-        onDelta().executeQuery(createTableInDatabricks("extraordinary", tableName, false));
+        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, schemaName);
+        onDelta().executeQuery(format("CREATE SCHEMA IF NOT EXISTS %s LOCATION \"%s\"", schemaName, schemaLocation));
+        onDelta().executeQuery(createTableInDatabricks(schemaName, tableName, false));
         try {
-            QueryResult databricksResult = onDelta().executeQuery("SELECT * FROM extraordinary." + tableName);
-            QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM hive.extraordinary.\"%s\"", tableName));
+            QueryResult databricksResult = onDelta().executeQuery(format("SELECT * FROM %s.%s", schemaName, tableName));
+            QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM hive.%s.\"%s\"", schemaName, tableName));
             assertThat(databricksResult).containsOnly(hiveResult.rows().stream()
                     .map(Row::new)
                     .collect(toImmutableList()));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE extraordinary." + tableName);
+            onDelta().executeQuery(format("DROP TABLE %s.%s", schemaName, tableName));
+            onDelta().executeQuery("DROP SCHEMA " + schemaName);
         }
     }
 
@@ -185,11 +188,13 @@ public class TestHiveAndDeltaLakeRedirect
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeltaToHiveNonDefaultSchemaRedirect()
     {
+        String schemaName = "extraordinary" + randomTableSuffix();
+        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, schemaName);
         String tableName = "redirect_to_hive_non_default_schema_" + randomTableSuffix();
 
-        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive.extraordinary");
+        onTrino().executeQuery(format("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location='%s')", schemaName, schemaLocation));
 
-        onTrino().executeQuery(createTableInHiveConnector("extraordinary", tableName, false));
+        onTrino().executeQuery(createTableInHiveConnector(schemaName, tableName, false));
 
         try {
             List<Row> expectedResults = ImmutableList.of(
@@ -198,13 +203,14 @@ public class TestHiveAndDeltaLakeRedirect
                     row(3, false, 0),
                     row(4, false, 1),
                     row(5, true, 37));
-            QueryResult deltaResult = onTrino().executeQuery(format("SELECT * FROM delta.extraordinary.\"%s\"", tableName));
-            QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM hive.extraordinary.\"%s\"", tableName));
+            QueryResult deltaResult = onTrino().executeQuery(format("SELECT * FROM delta.%s.\"%s\"", schemaName, tableName));
+            QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM hive.%s.\"%s\"", schemaName, tableName));
             assertThat(deltaResult).containsOnly(expectedResults);
             assertThat(hiveResult).containsOnly(expectedResults);
         }
         finally {
-            onTrino().executeQuery("DROP TABLE hive.extraordinary." + tableName);
+            onTrino().executeQuery(format("DROP TABLE hive.%s.%s", schemaName, tableName));
+            onTrino().executeQuery("DROP SCHEMA " + schemaName);
         }
     }
 
@@ -536,10 +542,11 @@ public class TestHiveAndDeltaLakeRedirect
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testInsertIntoDeltaTableFromHiveNonDefaultSchemaRedirect()
     {
-        String destSchema = "extraordinary";
+        String destSchema = "extraordinary_" + randomTableSuffix();
         String destTableName = "create_delta_table_from_hive_non_default_schema_" + randomTableSuffix();
 
-        onDelta().executeQuery("CREATE SCHEMA IF NOT EXISTS extraordinary");
+        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, destSchema);
+        onDelta().executeQuery(format("CREATE SCHEMA IF NOT EXISTS %s LOCATION \"%s\"", destSchema, schemaLocation));
         onDelta().executeQuery(createTableInDatabricks(destSchema, destTableName, false));
 
         try {
@@ -562,7 +569,8 @@ public class TestHiveAndDeltaLakeRedirect
                     .containsOnly(expectedDestinationTableRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE extraordinary." + destTableName);
+            onDelta().executeQuery(format("DROP TABLE %s.%s", destSchema, destTableName));
+            onTrino().executeQuery("DROP SCHEMA " + destSchema);
         }
     }
 
@@ -571,7 +579,8 @@ public class TestHiveAndDeltaLakeRedirect
     {
         // use dedicated schema so we control the number and shape of tables
         String schemaName = "redirect_to_delta_information_schema_columns_schema_" + randomTableSuffix();
-        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive." + schemaName);
+        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, schemaName);
+        onTrino().executeQuery(format("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location = '%s')", schemaName, schemaLocation));
 
         String tableName = "redirect_to_delta_information_schema_columns_table_" + randomTableSuffix();
         try {
@@ -615,7 +624,8 @@ public class TestHiveAndDeltaLakeRedirect
     {
         // use dedicated schema so we control the number and shape of tables
         String schemaName = "redirect_to_hive_information_schema_columns_schema_" + randomTableSuffix();
-        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive." + schemaName);
+        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, schemaName);
+        onTrino().executeQuery(format("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location='%s')", schemaName, schemaLocation));
 
         String tableName = "redirect_to_hive_information_schema_columns_table_" + randomTableSuffix();
         try {
@@ -656,7 +666,8 @@ public class TestHiveAndDeltaLakeRedirect
     {
         // use dedicated schema so we control the number and shape of tables
         String schemaName = "redirect_to_delta_system_jdbc_columns_schema_" + randomTableSuffix();
-        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive." + schemaName);
+        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, schemaName);
+        onTrino().executeQuery(format("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location='%s')", schemaName, schemaLocation));
 
         String tableName = "redirect_to_delta_system_jdbc_columns_table_" + randomTableSuffix();
         try {
@@ -701,7 +712,8 @@ public class TestHiveAndDeltaLakeRedirect
     {
         // use dedicated schema so we control the number and shape of tables
         String schemaName = "redirect_to_hive_system_jdbc_columns_schema_" + randomTableSuffix();
-        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive." + schemaName);
+        String schemaLocation = format("s3://%s/delta-redirect-test-%s", bucketName, schemaName);
+        onTrino().executeQuery(format("CREATE SCHEMA IF NOT EXISTS hive.%s WITH (location='%s')", schemaName, schemaLocation));
 
         String tableName = "redirect_to_hive_system_jdbc_columns_table_" + randomTableSuffix();
         try {
