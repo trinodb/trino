@@ -56,6 +56,7 @@ import org.roaringbitmap.RoaringBitmap;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +67,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -89,6 +91,7 @@ import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
+import static io.trino.spi.predicate.Domain.union;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.DynamicFilters.extractSourceSymbols;
 import static io.trino.sql.planner.DomainCoercer.applySaturatedCasts;
@@ -666,6 +669,7 @@ public class DynamicFilterService
         @GuardedBy("collectedTasks")
         private final RoaringBitmap collectedTasks = new RoaringBitmap();
         private final Queue<Domain> summaryDomains = new ConcurrentLinkedQueue<>();
+        private final AtomicLong summaryDomainsRetainedSizeInBytes = new AtomicLong();
 
         @GuardedBy("this")
         private volatile Integer expectedTaskCount;
@@ -727,8 +731,9 @@ public class DynamicFilterService
                 }
             }
 
+            summaryDomainsRetainedSizeInBytes.addAndGet(domain.getRetainedSizeInBytes());
             summaryDomains.add(domain);
-            unionSummaryDomains();
+            unionSummaryDomainsIfNecessary(false);
 
             Domain result;
             synchronized (this) {
@@ -739,7 +744,7 @@ public class DynamicFilterService
                 boolean allPartitionsCollected = expectedTaskCount != null && expectedTaskCount == collectedTaskCount;
                 if (allPartitionsCollected) {
                     // run final compaction as previous concurrent compactions may have left more than a single domain
-                    unionSummaryDomains();
+                    unionSummaryDomainsIfNecessary(true);
                 }
 
                 boolean sizeLimitExceeded = false;
@@ -747,14 +752,17 @@ public class DynamicFilterService
                 Domain summary = summaryDomains.poll();
                 // summary can be null as another concurrent summary compaction may be running
                 if (summary != null) {
+                    long originalSize = summary.getRetainedSizeInBytes();
                     if (summary.getRetainedSizeInBytes() > domainSizeLimitInBytes) {
                         summary = summary.simplify(1);
                     }
                     if (summary.getRetainedSizeInBytes() > domainSizeLimitInBytes) {
                         sizeLimitExceeded = true;
                         allDomain = Domain.all(summary.getType());
+                        summaryDomainsRetainedSizeInBytes.addAndGet(-originalSize);
                     }
                     else {
+                        summaryDomainsRetainedSizeInBytes.addAndGet(summary.getRetainedSizeInBytes() - originalSize);
                         summaryDomains.add(summary);
                     }
                 }
@@ -775,30 +783,42 @@ public class DynamicFilterService
                     int summaryDomainsCount = summaryDomains.size();
                     verify(summaryDomainsCount == 1, "summaryDomainsCount is expected to be equal to 1, got: %s", summaryDomainsCount);
                     result = summaryDomains.poll();
+                    verify(result != null);
+                    long currentSize = summaryDomainsRetainedSizeInBytes.addAndGet(-result.getRetainedSizeInBytes());
+                    verify(currentSize == 0, "currentSize is expected to be zero: %s", currentSize);
                 }
             }
 
-            verify(result != null);
             collectionDuration.set(Duration.succinctNanos(System.nanoTime() - start));
             collectedDomainsFuture.set(result);
         }
 
-        private void unionSummaryDomains()
+        private void unionSummaryDomainsIfNecessary(boolean force)
         {
-            while (true) {
-                // This method is called every time a new domain is added to the summaryDomains queue.
-                // In a normal situation (when there's no race) there should be no more than 2 domains in the queue.
-                Domain first = summaryDomains.poll();
-                if (first == null) {
-                    return;
-                }
-                Domain second = summaryDomains.poll();
-                if (second == null) {
-                    summaryDomains.add(first);
-                    return;
-                }
-                summaryDomains.add(first.union(second));
+            if (summaryDomainsRetainedSizeInBytes.get() < domainSizeLimitInBytes && !force) {
+                return;
             }
+
+            List<Domain> domains = new ArrayList<>();
+            long domainsRetainedSizeInBytes = 0;
+            while (true) {
+                Domain domain = summaryDomains.poll();
+                if (domain == null) {
+                    break;
+                }
+                domains.add(domain);
+                domainsRetainedSizeInBytes += domain.getRetainedSizeInBytes();
+            }
+
+            if (domains.isEmpty()) {
+                return;
+            }
+
+            Domain union = union(domains);
+            summaryDomainsRetainedSizeInBytes.addAndGet(union.getRetainedSizeInBytes() - domainsRetainedSizeInBytes);
+            long currentSize = summaryDomainsRetainedSizeInBytes.get();
+            verify(currentSize >= 0, "currentSize is expected to be greater than or equal to zero: %s", currentSize);
+            summaryDomains.add(union);
         }
 
         public void setExpectedTaskCount(int count)
@@ -822,12 +842,15 @@ public class DynamicFilterService
                     return;
                 }
                 // run union one more time
-                unionSummaryDomains();
+                unionSummaryDomainsIfNecessary(true);
 
                 verify(summaryDomains.size() == 1);
                 result = summaryDomains.poll();
+                verify(result != null);
+                long currentSize = summaryDomainsRetainedSizeInBytes.addAndGet(-result.getRetainedSizeInBytes());
+                verify(currentSize == 0, "currentSize is expected to be zero: %s", currentSize);
             }
-            verify(result != null);
+
             collectionDuration.set(Duration.succinctNanos(System.nanoTime() - start));
             collectedDomainsFuture.set(result);
         }
