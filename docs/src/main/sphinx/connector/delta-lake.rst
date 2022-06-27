@@ -32,7 +32,7 @@ metastore configuration properties as the :doc:`Hive connector
 </connector/hive>`. At a minimum, ``hive.metastore.uri`` must be configured.
 
 The connector recognizes Delta tables created in the metastore by the Databricks
-runtime. If non-Delta tables are present in the metastore, as well, they are not
+runtime. If non-Delta tables are present in the metastore as well, they are not
 visible to the connector.
 
 To configure the Delta Lake connector, create a catalog properties file, for
@@ -479,7 +479,7 @@ Table statistics
 
 You can use :doc:`/sql/analyze` statements in Trino to populate the table
 statistics in Delta Lake. Number of distinct values (NDV)
-statistics are supported; while Minimum value, maximum value, and null value
+statistics are supported; whereas minimum value, maximum value, and null value
 count statistics are not supported. The :doc:`cost-based optimizer
 </optimizer/cost-based-optimizations>` then uses these statistics to improve
 query performance.
