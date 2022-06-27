@@ -28,7 +28,6 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
-import io.trino.spi.type.Type;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -538,9 +537,7 @@ public class TestFileBasedAccessControl
     public void testEverythingImplemented()
             throws NoSuchMethodException
     {
-        assertAllMethodsOverridden(ConnectorAccessControl.class, FileBasedAccessControl.class, ImmutableSet.of(
-                FileBasedAccessControl.class.getMethod("getRowFilter", ConnectorSecurityContext.class, SchemaTableName.class),
-                FileBasedAccessControl.class.getMethod("getColumnMask", ConnectorSecurityContext.class, SchemaTableName.class, String.class, Type.class)));
+        assertAllMethodsOverridden(ConnectorAccessControl.class, FileBasedAccessControl.class);
     }
 
     private static ConnectorSecurityContext user(String name, Set<String> groups)

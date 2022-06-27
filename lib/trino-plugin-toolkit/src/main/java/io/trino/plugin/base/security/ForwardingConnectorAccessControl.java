@@ -394,21 +394,9 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        return delegate().getRowFilter(context, tableName);
-    }
-
-    @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return delegate().getRowFilters(context, tableName);
-    }
-
-    @Override
-    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        return delegate().getColumnMask(context, tableName, columnName, type);
     }
 
     @Override
