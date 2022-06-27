@@ -401,7 +401,7 @@ to register them::
   )
 
 Columns listed in the DDL, such as ``dummy`` in the preceeding example, are
-ignored. The table schema is read from the transaction log, instead. If the
+ignored. The table schema is read from the transaction log instead. If the
 schema is changed by an external system, Trino automatically uses the new
 schema.
 
@@ -459,7 +459,7 @@ Write operations are supported for tables stored on the following systems:
 
   Writes to :doc:`Amazon S3 <hive-s3>` and S3-compatible storage must be enabled
   with the ``delta.enable-non-concurrent-writes`` property. Writes to S3 can
-  safely be made from multiple Trino clusters, however write collisions are not
+  safely be made from multiple Trino clusters; however, write collisions are not
   detected when writing concurrently from other Delta Lake engines. You need to
   make sure that no concurrent data modifications are run to avoid data
   corruption.
@@ -479,7 +479,7 @@ Table statistics
 
 You can use :doc:`/sql/analyze` statements in Trino to populate the table
 statistics in Delta Lake. Number of distinct values (NDV)
-statistics are supported, while Minimum value, maximum value, and null value
+statistics are supported; while Minimum value, maximum value, and null value
 count statistics are not supported. The :doc:`cost-based optimizer
 </optimizer/cost-based-optimizations>` then uses these statistics to improve
 query performance.
@@ -538,7 +538,7 @@ disable it for a session, with the :doc:`catalog session property
 </sql/set-session>` ``extended_statistics_enabled`` set to ``false``.
 
 If a table is changed with many delete and update operation, calling ``ANALYZE``
-does not result in accurate statistics. To correct the statistics you have to
+does not result in accurate statistics. To correct the statistics, you have to
 drop the extended stats and analyze table again.
 
 Use the ``system.drop_extended_stats`` procedure in the catalog to drop the
@@ -590,7 +590,7 @@ this property is ``0s``. There is a minimum retention session property as well,
 Memory monitoring
 """""""""""""""""
 
-When using the Delta Lake connector you need to monitor memory usage on the
+When using the Delta Lake connector, you need to monitor memory usage on the
 coordinator. Specifically monitor JVM heap utilization using standard tools as
 part of routine operation of the cluster.
 
@@ -617,5 +617,5 @@ Following is an example result:
   node                                    | trino-master
   object_name                             | io.trino.plugin.deltalake.transactionlog:type=TransactionLogAccess,name=delta
 
-In a healthy system both ``datafilemetadatacachestats.hitrate`` and
+In a healthy system, both ``datafilemetadatacachestats.hitrate`` and
 ``metadatacachestats.hitrate`` are close to ``1.0``.
