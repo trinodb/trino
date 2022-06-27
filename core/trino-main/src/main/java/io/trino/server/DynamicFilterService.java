@@ -738,6 +738,7 @@ public class DynamicFilterService
             Domain result;
             synchronized (this) {
                 if (collected) {
+                    clearSummaryDomains();
                     return;
                 }
                 collectedTaskCount++;
@@ -776,6 +777,7 @@ public class DynamicFilterService
                     result = allDomain;
                 }
                 else if (domain.isAll()) {
+                    clearSummaryDomains();
                     result = domain;
                 }
                 else {
@@ -819,6 +821,21 @@ public class DynamicFilterService
             long currentSize = summaryDomainsRetainedSizeInBytes.get();
             verify(currentSize >= 0, "currentSize is expected to be greater than or equal to zero: %s", currentSize);
             summaryDomains.add(union);
+        }
+
+        private void clearSummaryDomains()
+        {
+            long domainsRetainedSizeInBytes = 0;
+            while (true) {
+                Domain domain = summaryDomains.poll();
+                if (domain == null) {
+                    break;
+                }
+                domainsRetainedSizeInBytes += domain.getRetainedSizeInBytes();
+            }
+            summaryDomainsRetainedSizeInBytes.addAndGet(-domainsRetainedSizeInBytes);
+            long currentSize = summaryDomainsRetainedSizeInBytes.get();
+            verify(currentSize >= 0, "currentSize is expected to be greater than or equal to zero: %s", currentSize);
         }
 
         public void setExpectedTaskCount(int count)
