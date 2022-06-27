@@ -137,9 +137,9 @@ connector.
       - Default
     * - ``delta.domain-compaction-threshold``
       - Minimum size of query predicates above which Trino starts compaction.
-        Some databases perform poorly when a large list of predicates is pushed
-        down to the data source. For optimization in that situation, Trino can
-        compact the large predicates. When necessary, adjust the threshold to
+        Pushing a large list of predicates down to the data source can
+        compromise performance. For optimization in that situation, Trino can
+        compact the large predicates. If necessary, adjust the threshold to
         ensure a balance between performance and pushdown.
       - 100
     * - ``delta.max-outstanding-splits``
