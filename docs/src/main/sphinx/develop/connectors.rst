@@ -22,6 +22,151 @@ instances of the following services:
 
 .. _connector-metadata:
 
+Configuration
+^^^^^^^^^^^^^
+
+The ``create()`` method of the connector factory receives a ``config`` map,
+containing all properties from the catalog properties file. It can be used
+to configure the connector, but because all the values are strings, they
+might require additional processing if they represent other data types.
+It also doesn't validate if all the provided properties are known. This
+can lead to the connector behaving differently than expected when a
+connector ignores a property due to the user making a mistake in
+typing the name of the property.
+
+To make the configuration more robust, define a Configuration class. This
+class describes all the available properties, their types, and additional
+validation rules.
+
+
+.. code-block:: java
+
+  import io.airlift.configuration.Config;
+  import io.airlift.configuration.ConfigDescription;
+  import io.airlift.configuration.ConfigSecuritySensitive;
+  import io.airlift.units.Duration;
+  import io.airlift.units.MaxDuration;
+  import io.airlift.units.MinDuration;
+
+  import javax.validation.constraints.NotNull;
+
+  public class ExampleConfig
+  {
+      private String secret;
+      private Duration timeout = Duration.succinctDuration(10, TimeUnit.SECONDS);
+
+      public String getSecret()
+      {
+          return secret;
+      }
+
+      @Config("secret")
+      @ConfigDescription("Secret required to access the data source")
+      @ConfigSecuritySensitive
+      public ExampleConfig setSecret(String secret)
+      {
+          this.secret = secret;
+          return this;
+      }
+
+      @NotNull
+      @MaxDuration("10m")
+      @MinDuration("1ms")
+      public Duration getTimeout()
+      {
+          return timeout;
+      }
+
+      @Config("timeout")
+      public ExampleConfig setTimeout(Duration timeout)
+      {
+          this.timeout = timeout;
+          return this;
+      }
+  }
+
+The preceding example defines two configuration properties and makes
+the connector more robust by:
+
+* defining all supported properties, which allows detecting spelling mistakes
+  in the configuration on server startup
+* defining a default timeout value, to prevent connections getting stuck
+  indefinitely
+* preventing invalid timeout values, like 0 ms, that would make
+  all requests fail
+* parsing timeout values in different units, detecting invalid values
+* preventing logging the secret value in plain text
+
+The configuration class needs to be bound in a Guice module:
+
+.. code-block:: java
+
+  import com.google.inject.Binder;
+  import com.google.inject.Module;
+
+  import static io.airlift.configuration.ConfigBinder.configBinder;
+
+  public class ExampleModule
+          implements Module
+  {
+      public ExampleModule()
+      {
+      }
+
+      @Override
+      public void configure(Binder binder)
+      {
+          configBinder(binder).bindConfig(ExampleConfig.class);
+      }
+  }
+
+
+And then the module needs to be initialized in the connector factory, when
+creating a new instance of the connector:
+
+.. code-block:: java
+
+  @Override
+  public Connector create(String connectorName, Map<String, String> config, ConnectorContext context)
+  {
+      requireNonNull(config, "config is null");
+      Bootstrap app = new Bootstrap(new ExampleModule());
+      Injector injector = app
+              .doNotInitializeLogging()
+              .setRequiredConfigurationProperties(config)
+              .initialize();
+
+      return injector.getInstance(ExampleConnector.class);
+  }
+
+.. note::
+
+  Environment variables in the catalog properties file
+  (ex. ``secret=${ENV:SECRET}``) are resolved only when using
+  the ``io.airlift.bootstrap.Bootstrap`` class to initialize the module.
+  See :doc:`/security/secrets` for more information.
+
+If you end up needing to define multiple catalogs using the same connector
+just to change one property, consider adding support for schema and/or
+table properties. That would allow a more fine-grained configuration.
+If a connector doesn't support managing the schema, query predicates for
+selected columns could be used as a way of passing the required configuration
+at run time.
+
+For example, when building a connector to read commits from a Git repository,
+the repository URL could be a configuration property. But this would result
+in a catalog being able to return data only from a single repository.
+Alternatively, it can be a column, where every select query would require
+a predicate for it:
+
+.. code-block:: sql
+
+  SELECT *
+  FROM git.default.commits
+  WHERE url = 'https://github.com/trinodb/trino.git'
+
+
+
 ConnectorMetadata
 ^^^^^^^^^^^^^^^^^
 
@@ -40,7 +185,7 @@ A basic read-only connector should implement the following methods:
 
 If you are interested in seeing strategies for implementing more methods,
 look at the :doc:`example-http` and the Cassandra connector. If your underlying
-data source supports schemas, tables and columns, this interface should be
+data source supports schemas, tables, and columns, this interface should be
 straightforward to implement. If you are attempting to adapt something that
 isn't a relational database, as the Example HTTP connector does, you may
 need to get creative about how you map your data source to Trino's schema,
