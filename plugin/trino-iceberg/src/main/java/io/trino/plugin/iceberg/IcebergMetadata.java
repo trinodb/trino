@@ -63,7 +63,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.MaterializedViewFreshness;
-import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
@@ -167,7 +166,6 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
@@ -2144,31 +2142,7 @@ public class IcebergMetadata
     @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName)
     {
-        Map<String, Optional<TableToken>> refreshStateMap = getMaterializedViewToken(session, materializedViewName);
-        if (refreshStateMap.isEmpty()) {
-            return new MaterializedViewFreshness(false);
-        }
-
-        for (Map.Entry<String, Optional<TableToken>> entry : refreshStateMap.entrySet()) {
-            List<String> strings = Splitter.on(".").splitToList(entry.getKey());
-            if (strings.size() == 3) {
-                strings = strings.subList(1, 3);
-            }
-            else if (strings.size() != 2) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid table name in '%s' property: %s'", DEPENDS_ON_TABLES, strings));
-            }
-            String schema = strings.get(0);
-            String name = strings.get(1);
-            SchemaTableName schemaTableName = new SchemaTableName(schema, name);
-            IcebergTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
-
-            if (tableHandle == null) {
-                throw new MaterializedViewNotFoundException(materializedViewName);
-            }
-            if (!isTableCurrent(session, tableHandle, entry.getValue())) {
-                return new MaterializedViewFreshness(false);
-            }
-        }
+        // freshness test is performed by engine
         return new MaterializedViewFreshness(true);
     }
 

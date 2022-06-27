@@ -102,6 +102,7 @@ import io.trino.type.BlockTypeOperators;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -149,10 +150,14 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static io.trino.util.Failures.internalError;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Collections.singletonList;
@@ -1380,15 +1385,68 @@ public final class MetadataManager
     public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName)
     {
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
-        if (catalog.isPresent()) {
-            CatalogMetadata catalogMetadata = catalog.get();
-            CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
-
-            ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-            return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName());
+        if (catalog.isEmpty()) {
+            return new MaterializedViewFreshness(false);
         }
-        return new MaterializedViewFreshness(false);
+
+        // delegate freshness check to connector first
+        CatalogMetadata catalogMetadata = catalog.get();
+        CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
+        if (!metadata.getMaterializedViewFreshness(session.toConnectorSession(catalogName), viewName.asSchemaTableName()).isMaterializedViewFresh()) {
+            return new MaterializedViewFreshness(false);
+        }
+
+        Optional<Map<CatalogSchemaTableName, ConnectorTableVersion>> sourceTableVersions = getMaterializedViewInternal(session, viewName)
+                .flatMap(ConnectorMaterializedViewDefinition::getSourceTableVersions);
+        if (sourceTableVersions.isEmpty()) {
+            // MV was not refreshed yet
+            return new MaterializedViewFreshness(false);
+        }
+
+        for (Map.Entry<CatalogSchemaTableName, ConnectorTableVersion> entry : sourceTableVersions.get().entrySet()) {
+            CatalogSchemaTableName sourceTableName = entry.getKey();
+            // TODO: KS use catalogMetadata to get catalog name
+            CatalogName sourceTableCatalog = new CatalogName(sourceTableName.getCatalogName());
+            Optional<TableHandle> sourceTableHandle = getTableHandle(
+                    session,
+                    new QualifiedObjectName(
+                            sourceTableName.getCatalogName(),
+                            sourceTableName.getSchemaTableName().getSchemaName(),
+                            sourceTableName.getSchemaTableName().getTableName()));
+            if (sourceTableHandle.isEmpty()) {
+                return new MaterializedViewFreshness(false);
+            }
+
+            ConnectorTableVersion sourceTableVersion = entry.getValue();
+            ConnectorMetadata sourceTableMetadata = getMetadata(session, sourceTableCatalog);
+            ConnectorSession sourceConnectorSession = session.toConnectorSession(sourceTableCatalog);
+            Optional<ConnectorTableVersion> currentTableVersion = sourceTableMetadata.getCurrentTableVersion(sourceConnectorSession, sourceTableHandle.get().getConnectorHandle());
+            if (currentTableVersion.isEmpty()
+                    || !currentTableVersion.get().getPointerType().equals(sourceTableVersion.getPointerType())
+                    || !currentTableVersion.get().getVersionType().equals(sourceTableVersion.getVersionType())) {
+                return new MaterializedViewFreshness(false);
+            }
+
+            MethodHandle equalOperator = typeManager.getTypeOperators().getEqualOperator(
+                    sourceTableVersion.getVersionType(),
+                    simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            if (!valuesEqual(equalOperator, currentTableVersion.get().getVersion(), sourceTableVersion.getVersion())) {
+                return new MaterializedViewFreshness(false);
+            }
+        }
+
+        return new MaterializedViewFreshness(true);
+    }
+
+    private static boolean valuesEqual(MethodHandle equalOperator, Object left, Object right)
+    {
+        try {
+            return (boolean) equalOperator.invoke(left, right);
+        }
+        catch (Throwable t) {
+            throw internalError(t);
+        }
     }
 
     @Override
