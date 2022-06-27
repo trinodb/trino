@@ -13,11 +13,7 @@
  */
 package io.trino.plugin.base.security;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ConnectorAccessControl;
-import io.trino.spi.connector.ConnectorSecurityContext;
-import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
@@ -28,8 +24,6 @@ public class TestAllowAllAccessControl
     public void testEverythingImplemented()
             throws NoSuchMethodException
     {
-        assertAllMethodsOverridden(ConnectorAccessControl.class, AllowAllAccessControl.class, ImmutableSet.of(
-                AllowAllAccessControl.class.getMethod("getRowFilter", ConnectorSecurityContext.class, SchemaTableName.class),
-                AllowAllAccessControl.class.getMethod("getColumnMask", ConnectorSecurityContext.class, SchemaTableName.class, String.class, Type.class)));
+        assertAllMethodsOverridden(ConnectorAccessControl.class, AllowAllAccessControl.class);
     }
 }

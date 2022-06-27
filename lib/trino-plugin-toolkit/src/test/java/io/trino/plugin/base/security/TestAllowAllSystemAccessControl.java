@@ -13,11 +13,7 @@
  */
 package io.trino.plugin.base.security;
 
-import com.google.common.collect.ImmutableSet;
-import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.security.SystemAccessControl;
-import io.trino.spi.security.SystemSecurityContext;
-import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
@@ -28,8 +24,6 @@ public class TestAllowAllSystemAccessControl
     public void testEverythingImplemented()
             throws ReflectiveOperationException
     {
-        assertAllMethodsOverridden(SystemAccessControl.class, AllowAllSystemAccessControl.class, ImmutableSet.of(
-                AllowAllSystemAccessControl.class.getMethod("getRowFilter", SystemSecurityContext.class, CatalogSchemaTableName.class),
-                AllowAllSystemAccessControl.class.getMethod("getColumnMask", SystemSecurityContext.class, CatalogSchemaTableName.class, String.class, Type.class)));
+        assertAllMethodsOverridden(SystemAccessControl.class, AllowAllSystemAccessControl.class);
     }
 }

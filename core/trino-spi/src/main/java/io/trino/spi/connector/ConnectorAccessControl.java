@@ -609,20 +609,6 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Get a row filter associated with the given table and identity.
-     * <p>
-     * The filter must be a scalar SQL expression of boolean type over the columns in the table.
-     *
-     * @return the filter, or {@link Optional#empty()} if not applicable
-     * @deprecated use {@link #getRowFilters(ConnectorSecurityContext, SchemaTableName)} instead
-     */
-    @Deprecated
-    default Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        return Optional.empty();
-    }
-
-    /**
      * Get row filters associated with the given table and identity.
      * <p>
      * Each filter must be a scalar SQL expression of boolean type over the columns in the table.
@@ -632,21 +618,6 @@ public interface ConnectorAccessControl
     default List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return emptyList();
-    }
-
-    /**
-     * Get a column mask associated with the given table, column and identity.
-     * <p>
-     * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
-     * must be written in terms of columns in the table.
-     *
-     * @return the mask, or {@link Optional#empty()} if not applicable
-     * @deprecated use {@link #getColumnMasks(ConnectorSecurityContext, SchemaTableName, String, Type)} instead
-     */
-    @Deprecated
-    default Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        return Optional.empty();
     }
 
     /**

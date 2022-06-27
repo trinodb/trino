@@ -13,11 +13,7 @@
  */
 package io.trino.plugin.hive.security;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ConnectorAccessControl;
-import io.trino.spi.connector.ConnectorSecurityContext;
-import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
@@ -28,8 +24,6 @@ public class TestLegacyAccessControl
     public void testEverythingImplemented()
             throws NoSuchMethodException
     {
-        assertAllMethodsOverridden(ConnectorAccessControl.class, LegacyAccessControl.class, ImmutableSet.of(
-                LegacyAccessControl.class.getMethod("getRowFilter", ConnectorSecurityContext.class, SchemaTableName.class),
-                LegacyAccessControl.class.getMethod("getColumnMask", ConnectorSecurityContext.class, SchemaTableName.class, String.class, Type.class)));
+        assertAllMethodsOverridden(ConnectorAccessControl.class, LegacyAccessControl.class);
     }
 }

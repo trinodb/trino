@@ -29,7 +29,6 @@ import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
-import io.trino.spi.type.Type;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -1370,8 +1369,6 @@ public class TestFileBasedSystemAccessControl
             throws NoSuchMethodException
     {
         assertAllMethodsOverridden(SystemAccessControl.class, FileBasedSystemAccessControl.class, ImmutableSet.of(
-                FileBasedSystemAccessControl.class.getMethod("getRowFilter", SystemSecurityContext.class, CatalogSchemaTableName.class),
-                FileBasedSystemAccessControl.class.getMethod("getColumnMask", SystemSecurityContext.class, CatalogSchemaTableName.class, String.class, Type.class),
                 FileBasedSystemAccessControl.class.getMethod("checkCanViewQueryOwnedBy", SystemSecurityContext.class, Identity.class),
                 FileBasedSystemAccessControl.class.getMethod("filterViewQueryOwnedBy", SystemSecurityContext.class, Collection.class),
                 FileBasedSystemAccessControl.class.getMethod("checkCanKillQueryOwnedBy", SystemSecurityContext.class, Identity.class)));
