@@ -41,10 +41,11 @@ public class TrinoOperatorFactories
     public OperatorFactory innerJoin(
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            JoinBridgeManager<?> lookupSourceFactory,
             boolean outputSingleMatch,
             boolean waitForBuild,
             boolean hasFilter,
+            boolean spillingEnabled,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
@@ -64,6 +65,7 @@ public class TrinoOperatorFactories
                 INNER,
                 outputSingleMatch,
                 waitForBuild,
+                spillingEnabled,
                 totalOperatorsCount,
                 partitioningSpillerFactory,
                 blockTypeOperators);
@@ -73,9 +75,10 @@ public class TrinoOperatorFactories
     public OperatorFactory probeOuterJoin(
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            JoinBridgeManager<?> lookupSourceFactory,
             boolean outputSingleMatch,
             boolean hasFilter,
+            boolean spillingEnabled,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
@@ -95,6 +98,7 @@ public class TrinoOperatorFactories
                 PROBE_OUTER,
                 outputSingleMatch,
                 false,
+                spillingEnabled,
                 totalOperatorsCount,
                 partitioningSpillerFactory,
                 blockTypeOperators);
@@ -104,9 +108,10 @@ public class TrinoOperatorFactories
     public OperatorFactory lookupOuterJoin(
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            JoinBridgeManager<?> lookupSourceFactory,
             boolean waitForBuild,
             boolean hasFilter,
+            boolean spillingEnabled,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
@@ -126,6 +131,7 @@ public class TrinoOperatorFactories
                 LOOKUP_OUTER,
                 false,
                 waitForBuild,
+                spillingEnabled,
                 totalOperatorsCount,
                 partitioningSpillerFactory,
                 blockTypeOperators);
@@ -135,8 +141,9 @@ public class TrinoOperatorFactories
     public OperatorFactory fullOuterJoin(
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            JoinBridgeManager<?> lookupSourceFactory,
             boolean hasFilter,
+            boolean spillingEnabled,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
@@ -156,6 +163,7 @@ public class TrinoOperatorFactories
                 FULL_OUTER,
                 false,
                 false,
+                spillingEnabled,
                 totalOperatorsCount,
                 partitioningSpillerFactory,
                 blockTypeOperators);
@@ -171,7 +179,7 @@ public class TrinoOperatorFactories
     private OperatorFactory createJoinOperatorFactory(
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactoryManager,
+            JoinBridgeManager<?> lookupSourceFactoryManager,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
@@ -179,6 +187,7 @@ public class TrinoOperatorFactories
             JoinType joinType,
             boolean outputSingleMatch,
             boolean waitForBuild,
+            boolean spillingEnabled,
             OptionalInt totalOperatorsCount,
             PartitioningSpillerFactory partitioningSpillerFactory,
             BlockTypeOperators blockTypeOperators)
@@ -187,21 +196,41 @@ public class TrinoOperatorFactories
                 .map(probeTypes::get)
                 .collect(toImmutableList());
 
-        return new LookupJoinOperatorFactory(
-                operatorId,
-                planNodeId,
-                lookupSourceFactoryManager,
-                probeTypes,
-                probeOutputChannelTypes,
-                lookupSourceFactoryManager.getBuildOutputTypes(),
-                joinType,
-                outputSingleMatch,
-                waitForBuild,
-                new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
-                blockTypeOperators,
-                totalOperatorsCount,
-                probeJoinChannel,
-                probeHashChannel,
-                partitioningSpillerFactory);
+        if (spillingEnabled) {
+            return new LookupJoinOperatorFactory(
+                    operatorId,
+                    planNodeId,
+                    (JoinBridgeManager<? extends LookupSourceFactory>) lookupSourceFactoryManager,
+                    probeTypes,
+                    probeOutputChannelTypes,
+                    lookupSourceFactoryManager.getBuildOutputTypes(),
+                    joinType,
+                    outputSingleMatch,
+                    waitForBuild,
+                    new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
+                    blockTypeOperators,
+                    totalOperatorsCount,
+                    probeJoinChannel,
+                    probeHashChannel,
+                    partitioningSpillerFactory);
+        }
+        else {
+            return new io.trino.operator.join.unspilled.LookupJoinOperatorFactory(
+                    operatorId,
+                    planNodeId,
+                    (JoinBridgeManager<? extends io.trino.operator.join.unspilled.LookupSourceFactory>) lookupSourceFactoryManager,
+                    probeTypes,
+                    probeOutputChannelTypes,
+                    lookupSourceFactoryManager.getBuildOutputTypes(),
+                    joinType,
+                    outputSingleMatch,
+                    waitForBuild,
+                    new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
+                    blockTypeOperators,
+                    totalOperatorsCount,
+                    probeJoinChannel,
+                    probeHashChannel,
+                    partitioningSpillerFactory);
+        }
     }
 }

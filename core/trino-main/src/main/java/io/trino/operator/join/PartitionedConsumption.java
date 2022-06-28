@@ -46,7 +46,7 @@ public final class PartitionedConsumption<T>
     @Nullable
     private List<Partition<T>> partitions;
 
-    PartitionedConsumption(
+    public PartitionedConsumption(
             int consumersCount,
             Iterable<Integer> partitionNumbers,
             IntFunction<ListenableFuture<T>> loader,
@@ -90,7 +90,7 @@ public final class PartitionedConsumption<T>
         return partitions.build();
     }
 
-    Iterator<Partition<T>> beginConsumption()
+    public Iterator<Partition<T>> beginConsumption()
     {
         Queue<Partition<T>> partitions = new ArrayDeque<>(requireNonNull(this.partitions, "partitions is already null"));
         if (consumed.incrementAndGet() >= consumersCount) {

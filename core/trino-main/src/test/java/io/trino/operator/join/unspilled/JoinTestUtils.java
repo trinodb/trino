@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join;
+package io.trino.operator.join.unspilled;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -31,7 +31,10 @@ import io.trino.operator.ValuesOperator;
 import io.trino.operator.exchange.LocalExchange;
 import io.trino.operator.exchange.LocalExchangeSinkOperator;
 import io.trino.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
-import io.trino.operator.join.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.join.InternalJoinFilterFunction;
+import io.trino.operator.join.JoinBridgeManager;
+import io.trino.operator.join.StandardJoinFilterFunction;
+import io.trino.operator.join.unspilled.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
@@ -99,7 +102,7 @@ public final class JoinTestUtils
                 outputSingleMatch,
                 false,
                 hasFilter,
-                true,
+                false,
                 probePages.getTypes(),
                 probePages.getHashChannels().orElseThrow(),
                 getHashChannelAsInt(probePages),
@@ -170,7 +173,7 @@ public final class JoinTestUtils
 
         // build side operator factories
         LocalExchangeSourceOperatorFactory sourceOperatorFactory = new LocalExchangeSourceOperatorFactory(0, new PlanNodeId("source"), localExchange);
-        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = JoinBridgeManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
+        PartitionedLookupSourceFactory factory = new PartitionedLookupSourceFactory(
                 buildPages.getTypes(),
                 rangeList(buildPages.getTypes().size()).stream()
                         .map(buildPages.getTypes()::get)
@@ -180,7 +183,11 @@ public final class JoinTestUtils
                         .collect(toImmutableList()),
                 partitionCount,
                 false,
-                TYPE_OPERATOR_FACTORY));
+                TYPE_OPERATOR_FACTORY);
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<PartitionedLookupSourceFactory>(
+                false,
+                factory,
+                factory.getOutputTypes());
 
         HashBuilderOperatorFactory buildOperatorFactory = new HashBuilderOperatorFactory(
                 1,
