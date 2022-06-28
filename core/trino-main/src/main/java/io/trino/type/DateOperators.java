@@ -28,6 +28,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.util.DateTimeUtils.parseDate;
 import static io.trino.util.DateTimeUtils.printDate;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class DateOperators
@@ -39,7 +40,7 @@ public final class DateOperators
     @SqlType("varchar(x)")
     public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.DATE) long value)
     {
-        String stringValue = printDate((int) value);
+        String stringValue = printDate(toIntExact(value));
         // String is all-ASCII, so String.length() here returns actual code points count
         if (stringValue.length() <= x) {
             return utf8Slice(stringValue);
