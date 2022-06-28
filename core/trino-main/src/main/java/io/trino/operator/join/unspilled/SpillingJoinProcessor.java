@@ -17,70 +17,36 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.WorkProcessor;
-import io.trino.operator.join.LookupSource;
-import io.trino.operator.join.PartitionedConsumption;
-import io.trino.operator.join.unspilled.DefaultPageJoiner.SavedRow;
 import io.trino.operator.join.unspilled.PageJoiner.PageJoinerFactory;
 import io.trino.spi.Page;
-import io.trino.spiller.PartitioningSpillerFactory;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.Optional;
-import java.util.OptionalInt;
-import java.util.function.Supplier;
 
-import static com.google.common.collect.Iterators.singletonIterator;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.getDone;
-import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 
 public class SpillingJoinProcessor
         implements WorkProcessor.Process<WorkProcessor<Page>>
 {
     private final Runnable afterClose;
-    private final OptionalInt lookupJoinsCount;
     private final boolean waitForBuild;
-    private final LookupSourceFactory lookupSourceFactory;
     private final ListenableFuture<LookupSourceProvider> lookupSourceProvider;
-    private final PageJoinerFactory pageJoinerFactory;
     private final PageJoiner sourcePagesJoiner;
     private final WorkProcessor<Page> joinedSourcePages;
 
     private boolean closed;
 
-    @Nullable
-    private ListenableFuture<PartitionedConsumption<Supplier<LookupSource>>> partitionedConsumption;
-    @Nullable
-    private Iterator<PartitionedConsumption.Partition<Supplier<LookupSource>>> lookupPartitions;
-    @Nullable
-    private PartitionedConsumption.Partition<Supplier<LookupSource>> previousPartition;
-    @Nullable
-    private ListenableFuture<Supplier<LookupSource>> previousPartitionLookupSource;
-
     public SpillingJoinProcessor(
             Runnable afterClose,
-            OptionalInt lookupJoinsCount,
             boolean waitForBuild,
-            LookupSourceFactory lookupSourceFactory,
             ListenableFuture<LookupSourceProvider> lookupSourceProvider,
-            PartitioningSpillerFactory partitioningSpillerFactory,
             PageJoinerFactory pageJoinerFactory,
             WorkProcessor<Page> sourcePages)
     {
         this.afterClose = requireNonNull(afterClose, "afterClose is null");
-        this.lookupJoinsCount = requireNonNull(lookupJoinsCount, "lookupJoinsCount is null");
         this.waitForBuild = waitForBuild;
-        this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
         this.lookupSourceProvider = requireNonNull(lookupSourceProvider, "lookupSourceProvider is null");
-        this.pageJoinerFactory = requireNonNull(pageJoinerFactory, "pageJoinerFactory is null");
-        sourcePagesJoiner = pageJoinerFactory.getPageJoiner(
-                lookupSourceProvider,
-                Optional.of(partitioningSpillerFactory),
-                emptyIterator());
+        sourcePagesJoiner = pageJoinerFactory.getPageJoiner(lookupSourceProvider);
         joinedSourcePages = sourcePages.transform(sourcePagesJoiner);
     }
 
@@ -97,7 +63,6 @@ public class SpillingJoinProcessor
             closer.register(afterClose::run);
 
             closer.register(sourcePagesJoiner);
-            sourcePagesJoiner.getSpiller().ifPresent(closer::register);
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -117,62 +82,12 @@ public class SpillingJoinProcessor
             return WorkProcessor.ProcessState.ofResult(joinedSourcePages);
         }
 
-        if (partitionedConsumption == null) {
-            partitionedConsumption = lookupSourceFactory.finishProbeOperator(lookupJoinsCount);
-            return WorkProcessor.ProcessState.blocked(asVoid(partitionedConsumption));
-        }
-
-        if (lookupPartitions == null) {
-            lookupPartitions = getDone(partitionedConsumption).beginConsumption();
-        }
-
-        if (previousPartition != null) {
-            // If we had no rows for the previous spill partition, we would finish before it is unspilled.
-            // Partition must be loaded before it can be released. // TODO remove this constraint
-            if (!previousPartitionLookupSource.isDone()) {
-                return WorkProcessor.ProcessState.blocked(asVoid(previousPartitionLookupSource));
-            }
-
-            previousPartition.release();
-            previousPartition = null;
-            previousPartitionLookupSource = null;
-        }
-
-        if (!lookupPartitions.hasNext()) {
-            close();
-            return WorkProcessor.ProcessState.finished();
-        }
-
-        PartitionedConsumption.Partition<Supplier<LookupSource>> partition = lookupPartitions.next();
-        previousPartition = partition;
-        previousPartitionLookupSource = partition.load();
-
-        return WorkProcessor.ProcessState.ofResult(joinUnspilledPages(partition));
+        close();
+        return WorkProcessor.ProcessState.finished();
     }
 
     private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
     {
         return Futures.transform(future, v -> null, directExecutor());
-    }
-
-    private WorkProcessor<Page> joinUnspilledPages(PartitionedConsumption.Partition<Supplier<LookupSource>> partition)
-    {
-        int partitionNumber = partition.number();
-        WorkProcessor<Page> unspilledInputPages = WorkProcessor.fromIterator(sourcePagesJoiner.getSpiller()
-                .map(spiller -> spiller.getSpilledPages(partitionNumber))
-                .orElse(emptyIterator()));
-        Iterator<SavedRow> savedRow = Optional.ofNullable(sourcePagesJoiner.getSpilledRows().remove(partitionNumber))
-                .map(row -> (Iterator<SavedRow>) singletonIterator(row))
-                .orElse(emptyIterator());
-
-        ListenableFuture<LookupSourceProvider> unspilledLookupSourceProvider = Futures.transform(
-                partition.load(),
-                supplier -> new StaticLookupSourceProvider(supplier.get()),
-                directExecutor());
-
-        return unspilledInputPages.transform(pageJoinerFactory.getPageJoiner(
-                unspilledLookupSourceProvider,
-                Optional.empty(),
-                savedRow));
     }
 }

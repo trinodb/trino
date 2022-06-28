@@ -34,7 +34,6 @@ import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 import io.trino.operator.join.LookupOuterOperator.LookupOuterOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.type.BlockTypeOperators;
 
@@ -62,9 +61,7 @@ public class LookupJoinOperatorFactory
     private final JoinProbeFactory joinProbeFactory;
     private final Optional<OperatorFactory> outerOperatorFactory;
     private final JoinBridgeManager<? extends LookupSourceFactory> joinBridgeManager;
-    private final OptionalInt totalOperatorsCount;
     private final HashGenerator probeHashGenerator;
-    private final PartitioningSpillerFactory partitioningSpillerFactory;
 
     private boolean closed;
 
@@ -80,10 +77,8 @@ public class LookupJoinOperatorFactory
             boolean waitForBuild,
             JoinProbeFactory joinProbeFactory,
             BlockTypeOperators blockTypeOperators,
-            OptionalInt totalOperatorsCount,
             List<Integer> probeJoinChannels,
-            OptionalInt probeHashChannel,
-            PartitioningSpillerFactory partitioningSpillerFactory)
+            OptionalInt probeHashChannel)
     {
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -108,7 +103,6 @@ public class LookupJoinOperatorFactory
                     buildOutputTypes,
                     lookupSourceFactoryManager));
         }
-        this.totalOperatorsCount = requireNonNull(totalOperatorsCount, "totalOperatorsCount is null");
 
         requireNonNull(probeHashChannel, "probeHashChannel is null");
         if (probeHashChannel.isPresent()) {
@@ -121,8 +115,6 @@ public class LookupJoinOperatorFactory
                     .collect(toImmutableList());
             this.probeHashGenerator = new InterpretedHashGenerator(hashTypes, probeJoinChannels, blockTypeOperators);
         }
-
-        this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");
     }
 
     private LookupJoinOperatorFactory(LookupJoinOperatorFactory other)
@@ -140,9 +132,7 @@ public class LookupJoinOperatorFactory
         joinProbeFactory = other.joinProbeFactory;
         outerOperatorFactory = other.outerOperatorFactory;
         joinBridgeManager = other.joinBridgeManager;
-        totalOperatorsCount = other.totalOperatorsCount;
         probeHashGenerator = other.probeHashGenerator;
-        partitioningSpillerFactory = other.partitioningSpillerFactory;
 
         closed = false;
         joinBridgeManager.incrementProbeFactoryCount();
@@ -197,7 +187,6 @@ public class LookupJoinOperatorFactory
 
         joinBridgeManager.probeOperatorCreated();
         return new LookupJoinOperator(
-                probeTypes,
                 buildOutputTypes,
                 joinType,
                 outputSingleMatch,
@@ -205,9 +194,6 @@ public class LookupJoinOperatorFactory
                 lookupSourceFactory,
                 joinProbeFactory,
                 () -> joinBridgeManager.probeOperatorClosed(),
-                totalOperatorsCount,
-                probeHashGenerator,
-                partitioningSpillerFactory,
                 processorContext,
                 Optional.of(sourcePages));
     }
@@ -220,7 +206,6 @@ public class LookupJoinOperatorFactory
 
         joinBridgeManager.probeOperatorCreated();
         return new LookupJoinOperator(
-                probeTypes,
                 buildOutputTypes,
                 joinType,
                 outputSingleMatch,
@@ -228,9 +213,6 @@ public class LookupJoinOperatorFactory
                 lookupSourceFactory,
                 joinProbeFactory,
                 () -> joinBridgeManager.probeOperatorClosed(),
-                totalOperatorsCount,
-                probeHashGenerator,
-                partitioningSpillerFactory,
                 processorContext,
                 Optional.empty());
     }
