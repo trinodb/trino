@@ -20,6 +20,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.connector.CatalogHandle;
 import io.trino.exchange.DirectExchangeInput;
+import io.trino.exchange.ExchangeInput;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.TaskFailureListener;
@@ -160,7 +161,8 @@ public class ExchangeOperator
         requireNonNull(split, "split is null");
         checkArgument(split.getCatalogHandle().equals(REMOTE_CATALOG_HANDLE), "split is not a remote split");
 
-        exchangeDataSource.addSplit((RemoteSplit) split.getConnectorSplit());
+        RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
+        exchangeDataSource.addInput(remoteSplit.getExchangeInput());
 
         return Optional::empty;
     }
@@ -168,7 +170,7 @@ public class ExchangeOperator
     @Override
     public void noMoreSplits()
     {
-        exchangeDataSource.noMoreSplits();
+        exchangeDataSource.noMoreInputs();
     }
 
     @Override
@@ -244,9 +246,9 @@ public class ExchangeOperator
 
         ListenableFuture<Void> isBlocked();
 
-        void addSplit(RemoteSplit split);
+        void addInput(ExchangeInput input);
 
-        void noMoreSplits();
+        void noMoreInputs();
 
         OperatorInfo getInfo();
 
@@ -325,7 +327,7 @@ public class ExchangeOperator
         }
 
         @Override
-        public void addSplit(RemoteSplit split)
+        public void addInput(ExchangeInput input)
         {
             boolean initialized = false;
             synchronized (this) {
@@ -334,7 +336,7 @@ public class ExchangeOperator
                 }
                 ExchangeDataSource dataSource = delegate.get();
                 if (dataSource == null) {
-                    if (split.getExchangeInput() instanceof DirectExchangeInput) {
+                    if (input instanceof DirectExchangeInput) {
                         DirectExchangeClient client = directExchangeClientSupplier.get(
                                 taskId.getQueryId(),
                                 new ExchangeId(format("direct-exchange-%s-%s", taskId.getStageId().getId(), sourceId)),
@@ -343,20 +345,20 @@ public class ExchangeOperator
                                 retryPolicy);
                         dataSource = new DirectExchangeDataSource(client);
                     }
-                    else if (split.getExchangeInput() instanceof SpoolingExchangeInput) {
-                        SpoolingExchangeInput input = (SpoolingExchangeInput) split.getExchangeInput();
+                    else if (input instanceof SpoolingExchangeInput) {
+                        SpoolingExchangeInput spoolingExchangeInput = (SpoolingExchangeInput) input;
                         ExchangeManager exchangeManager = exchangeManagerRegistry.getExchangeManager();
-                        List<ExchangeSourceHandle> sourceHandles = input.getExchangeSourceHandles();
+                        List<ExchangeSourceHandle> sourceHandles = spoolingExchangeInput.getExchangeSourceHandles();
                         ExchangeSource exchangeSource = exchangeManager.createSource(sourceHandles);
                         dataSource = new SpoolingExchangeDataSource(exchangeSource, sourceHandles, systemMemoryContext);
                     }
                     else {
-                        throw new IllegalArgumentException("Unexpected split: " + split);
+                        throw new IllegalArgumentException("Unexpected input: " + input);
                     }
                     delegate.set(dataSource);
                     initialized = true;
                 }
-                dataSource.addSplit(split);
+                dataSource.addInput(input);
             }
 
             if (initialized) {
@@ -365,14 +367,14 @@ public class ExchangeOperator
         }
 
         @Override
-        public synchronized void noMoreSplits()
+        public synchronized void noMoreInputs()
         {
             if (closed.get()) {
                 return;
             }
             ExchangeDataSource dataSource = delegate.get();
             if (dataSource != null) {
-                dataSource.noMoreSplits();
+                dataSource.noMoreInputs();
             }
             else {
                 // to unblock when no splits are provided (and delegate hasn't been created)
@@ -435,14 +437,14 @@ public class ExchangeOperator
         }
 
         @Override
-        public void addSplit(RemoteSplit split)
+        public void addInput(ExchangeInput input)
         {
-            DirectExchangeInput exchangeInput = (DirectExchangeInput) split.getExchangeInput();
+            DirectExchangeInput exchangeInput = (DirectExchangeInput) input;
             directExchangeClient.addLocation(exchangeInput.getTaskId(), URI.create(exchangeInput.getLocation()));
         }
 
         @Override
-        public void noMoreSplits()
+        public void noMoreInputs()
         {
             directExchangeClient.noMoreLocations();
         }
@@ -523,9 +525,9 @@ public class ExchangeOperator
         }
 
         @Override
-        public void addSplit(RemoteSplit split)
+        public void addInput(ExchangeInput input)
         {
-            SpoolingExchangeInput exchangeInput = (SpoolingExchangeInput) split.getExchangeInput();
+            SpoolingExchangeInput exchangeInput = (SpoolingExchangeInput) input;
             // Only a single split is expected when external exchange is used.
             // The engine adds the same split to every instance of the ExchangeOperator.
             // Since the ExchangeDataSource is shared between ExchangeOperator instances
@@ -538,7 +540,7 @@ public class ExchangeOperator
         }
 
         @Override
-        public void noMoreSplits()
+        public void noMoreInputs()
         {
             // Only a single split is expected when external exchange is used.
             // Thus the assumption of "noMoreSplit" is made on construction.
