@@ -73,6 +73,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.airlift.log.Level.DEBUG;
 import static io.airlift.log.Level.ERROR;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -215,6 +216,7 @@ public class DistributedQueryRunner
         logging.setLevel("Bootstrap", WARN);
         logging.setLevel("org.glassfish", ERROR);
         logging.setLevel("org.eclipse.jetty.server", WARN);
+        logging.setLevel("io.trino.plugin.hive.util.RetryDriver", DEBUG);
     }
 
     private static TestingTrinoServer createTestingTrinoServer(
