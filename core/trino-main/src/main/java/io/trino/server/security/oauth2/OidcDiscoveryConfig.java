@@ -68,7 +68,6 @@ public class OidcDiscoveryConfig
     }
 
     @NotNull
-    @Deprecated
     public Optional<String> getAccessTokenIssuer()
     {
         return accessTokenIssuer;
@@ -76,7 +75,6 @@ public class OidcDiscoveryConfig
 
     @Config(ACCESS_TOKEN_ISSUER)
     @ConfigDescription("The required issuer for access tokens")
-    @Deprecated
     public OidcDiscoveryConfig setAccessTokenIssuer(String accessTokenIssuer)
     {
         this.accessTokenIssuer = Optional.ofNullable(accessTokenIssuer);
@@ -84,7 +82,6 @@ public class OidcDiscoveryConfig
     }
 
     @NotNull
-    @Deprecated
     public Optional<String> getAuthUrl()
     {
         return authUrl;
@@ -92,7 +89,6 @@ public class OidcDiscoveryConfig
 
     @Config(AUTH_URL)
     @ConfigDescription("URL of the authorization server's authorization endpoint")
-    @Deprecated
     public OidcDiscoveryConfig setAuthUrl(String authUrl)
     {
         this.authUrl = Optional.ofNullable(authUrl);
@@ -100,7 +96,6 @@ public class OidcDiscoveryConfig
     }
 
     @NotNull
-    @Deprecated
     public Optional<String> getTokenUrl()
     {
         return tokenUrl;
@@ -108,7 +103,6 @@ public class OidcDiscoveryConfig
 
     @Config(TOKEN_URL)
     @ConfigDescription("URL of the authorization server's token endpoint")
-    @Deprecated
     public OidcDiscoveryConfig setTokenUrl(String tokenUrl)
     {
         this.tokenUrl = Optional.ofNullable(tokenUrl);
@@ -116,7 +110,6 @@ public class OidcDiscoveryConfig
     }
 
     @NotNull
-    @Deprecated
     public Optional<String> getJwksUrl()
     {
         return jwksUrl;
@@ -124,7 +117,6 @@ public class OidcDiscoveryConfig
 
     @Config(JWKS_URL)
     @ConfigDescription("URL of the authorization server's JWKS (JSON Web Key Set) endpoint")
-    @Deprecated
     public OidcDiscoveryConfig setJwksUrl(String jwksUrl)
     {
         this.jwksUrl = Optional.ofNullable(jwksUrl);
@@ -132,7 +124,6 @@ public class OidcDiscoveryConfig
     }
 
     @NotNull
-    @Deprecated
     public Optional<String> getUserinfoUrl()
     {
         return userinfoUrl;
@@ -140,7 +131,6 @@ public class OidcDiscoveryConfig
 
     @Config(USERINFO_URL)
     @ConfigDescription("URL of the userinfo endpoint")
-    @Deprecated
     public OidcDiscoveryConfig setUserinfoUrl(String userinfoUrl)
     {
         this.userinfoUrl = Optional.ofNullable(userinfoUrl);
