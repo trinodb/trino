@@ -35,7 +35,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spiller.SingleStreamSpillerFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
 import io.trino.type.BlockTypeOperators;
@@ -358,8 +357,6 @@ public class BenchmarkHashBuildAndJoinOperators
                 ImmutableList.of(),
                 10_000,
                 new PagesIndex.TestingFactory(false),
-                false,
-                SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory(),
                 incrementalLoadFactorHashArraySizeSupplier(buildContext.getSession()));
 
         Operator[] operators = IntStream.range(0, partitionCount)

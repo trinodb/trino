@@ -2821,8 +2821,6 @@ public class LocalExecutionPlanner
                         searchFunctionFactories,
                         10_000,
                         pagesIndexFactory,
-                        spillEnabled && partitionCount > 1,
-                        singleStreamSpillerFactory,
                         incrementalLoadFactorHashArraySizeSupplier(
                                 session,
                                 // scale load factor in case partition count (and number of hash build operators)

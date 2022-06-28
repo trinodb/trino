@@ -202,8 +202,6 @@ public final class JoinTestUtils
                 ImmutableList.of(),
                 100,
                 new PagesIndex.TestingFactory(false),
-                spillEnabled,
-                singleStreamSpillerFactory,
                 incrementalLoadFactorHashArraySizeSupplier(taskContext.getSession()));
         return new BuildSideSetup(lookupSourceFactoryManager, buildOperatorFactory, sourceOperatorFactory, partitionCount);
     }
