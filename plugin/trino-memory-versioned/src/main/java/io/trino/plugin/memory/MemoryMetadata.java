@@ -34,18 +34,13 @@ import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
-import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.RetryMode;
-import io.trino.spi.connector.SampleApplicationResult;
-import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
-import io.trino.spi.statistics.Estimate;
-import io.trino.spi.statistics.TableStatistics;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -56,10 +51,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalDouble;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -70,7 +64,6 @@ import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
-import static io.trino.spi.connector.SampleType.SYSTEM;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -220,7 +213,7 @@ public class MemoryMetadata
         long tableId = handle.getId();
 
         TableInfo oldInfo = tables.get(tableId);
-        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.getColumns(), oldInfo.getDataFragments()));
+        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.getColumns(), oldInfo.getHostAddress()));
 
         tableIds.remove(oldInfo.getSchemaTableName());
         tableIds.put(newTableName, tableId);
@@ -242,8 +235,6 @@ public class MemoryMetadata
         checkSchemaExists(tableMetadata.getTable().getSchemaName());
         checkTableNotExists(tableMetadata.getTable());
         long tableId = nextTableId.getAndIncrement();
-        Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
-        checkState(!nodes.isEmpty(), "No Memory nodes available");
 
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
@@ -260,7 +251,10 @@ public class MemoryMetadata
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
                 columns.build(),
-                new HashMap<>()));
+                layout.flatMap((Function<ConnectorTableLayout, Optional<?>>) ConnectorTableLayout::getPartitioning)
+                        .map(p -> (MemoryPartitioningHandle) p)
+                        .map(MemoryPartitioningHandle::getHostAddress)
+                        .orElseGet(this::getWorkerAddress)));
 
         return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(tableIds.values()));
     }
@@ -286,9 +280,6 @@ public class MemoryMetadata
     public synchronized Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         requireNonNull(tableHandle, "tableHandle is null");
-        MemoryOutputTableHandle memoryOutputHandle = (MemoryOutputTableHandle) tableHandle;
-
-        updateRowsOnHosts(memoryOutputHandle.getTable(), fragments);
         return Optional.empty();
     }
 
@@ -303,9 +294,6 @@ public class MemoryMetadata
     public synchronized Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         requireNonNull(insertHandle, "insertHandle is null");
-        MemoryInsertTableHandle memoryInsertHandle = (MemoryInsertTableHandle) insertHandle;
-
-        updateRowsOnHosts(memoryInsertHandle.getTable(), fragments);
         return Optional.empty();
     }
 
@@ -377,73 +365,37 @@ public class MemoryMetadata
         return Optional.ofNullable(views.get(viewName));
     }
 
-    private void updateRowsOnHosts(long tableId, Collection<Slice> fragments)
-    {
-        TableInfo info = tables.get(tableId);
-        checkState(
-                info != null,
-                "Uninitialized tableId [%s.%s]",
-                info.getSchemaName(),
-                info.getTableName());
-
-        Map<HostAddress, MemoryDataFragment> dataFragments = new HashMap<>(info.getDataFragments());
-        for (Slice fragment : fragments) {
-            MemoryDataFragment memoryDataFragment = MemoryDataFragment.fromSlice(fragment);
-            dataFragments.merge(memoryDataFragment.getHostAddress(), memoryDataFragment, MemoryDataFragment::merge);
-        }
-
-        tables.put(tableId, new TableInfo(tableId, info.getSchemaName(), info.getTableName(), info.getColumns(), dataFragments));
-    }
-
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         return new ConnectorTableProperties();
     }
 
-    public List<MemoryDataFragment> getDataFragments(long tableId)
+    @Override
+    public Optional<ConnectorTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        return ImmutableList.copyOf(tables.get(tableId).getDataFragments().values());
+        return Optional.of(new ConnectorTableLayout(
+                new MemoryPartitioningHandle(getWorkerAddress()),
+                ImmutableList.of()));
+    }
+
+    private HostAddress getWorkerAddress()
+    {
+        Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
+        checkState(!nodes.isEmpty(), "No Memory nodes available");
+        return nodes.iterator().next().getHostAndPort();
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        List<MemoryDataFragment> dataFragments = getDataFragments(((MemoryTableHandle) tableHandle).getId());
-        long rows = dataFragments.stream()
-                .mapToLong(MemoryDataFragment::getRows)
-                .sum();
-        return TableStatistics.builder()
-                .setRowCount(Estimate.of(rows))
-                .build();
+        return Optional.of(new ConnectorTableLayout(
+                new MemoryPartitioningHandle(getTableHostAddress(((MemoryTableHandle) tableHandle).getId())),
+                ImmutableList.of()));
     }
 
-    @Override
-    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle handle, long limit)
+    public HostAddress getTableHostAddress(long tableId)
     {
-        MemoryTableHandle table = (MemoryTableHandle) handle;
-
-        if (table.getLimit().isPresent() && table.getLimit().getAsLong() <= limit) {
-            return Optional.empty();
-        }
-
-        return Optional.of(new LimitApplicationResult<>(
-                new MemoryTableHandle(table.getId(), OptionalLong.of(limit), OptionalDouble.empty()),
-                true,
-                true));
-    }
-
-    @Override
-    public Optional<SampleApplicationResult<ConnectorTableHandle>> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
-    {
-        MemoryTableHandle table = (MemoryTableHandle) handle;
-
-        if ((table.getSampleRatio().isPresent() && table.getSampleRatio().getAsDouble() == sampleRatio) || sampleType != SYSTEM || table.getLimit().isPresent()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(new SampleApplicationResult<>(
-                new MemoryTableHandle(table.getId(), table.getLimit(), OptionalDouble.of(table.getSampleRatio().orElse(1) * sampleRatio)),
-                true));
+        return tables.get(tableId).getHostAddress();
     }
 }

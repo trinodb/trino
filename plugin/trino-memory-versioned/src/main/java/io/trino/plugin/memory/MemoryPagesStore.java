@@ -27,13 +27,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalDouble;
-import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static io.trino.plugin.memory.MemoryErrorCode.MISSING_DATA;
-import static java.lang.String.format;
 
 @ThreadSafe
 public class MemoryPagesStore
@@ -66,37 +62,16 @@ public class MemoryPagesStore
 
     public synchronized List<Page> getPages(
             Long tableId,
-            int partNumber,
-            int totalParts,
-            List<Integer> columnIndexes,
-            long expectedRows,
-            OptionalLong limit,
-            OptionalDouble sampleRatio)
+            List<Integer> columnIndexes)
     {
         if (!contains(tableId)) {
-            throw new TrinoException(MISSING_DATA, "Failed to find table on a worker.");
+            return ImmutableList.of();
         }
         TableData tableData = tables.get(tableId);
-        if (tableData.getRows() < expectedRows) {
-            throw new TrinoException(MISSING_DATA,
-                    format("Expected to find [%s] rows on a worker, but found [%s].", expectedRows, tableData.getRows()));
-        }
-
         ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();
 
-        boolean done = false;
-        long totalRows = 0;
-        for (int i = partNumber; i < tableData.getPages().size() && !done; i += totalParts) {
-            if (sampleRatio.isPresent() && ThreadLocalRandom.current().nextDouble() >= sampleRatio.getAsDouble()) {
-                continue;
-            }
-
+        for (int i = 0; i < tableData.getPages().size(); i++) {
             Page page = tableData.getPages().get(i);
-            totalRows += page.getPositionCount();
-            if (limit.isPresent() && totalRows > limit.getAsLong()) {
-                page = page.getRegion(0, (int) (page.getPositionCount() - (totalRows - limit.getAsLong())));
-                done = true;
-            }
             partitionedPages.add(getColumns(page, columnIndexes));
         }
 

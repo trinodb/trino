@@ -14,14 +14,12 @@
 package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
@@ -32,15 +30,15 @@ public class TableInfo
     private final String schemaName;
     private final String tableName;
     private final List<ColumnInfo> columns;
-    private final Map<HostAddress, MemoryDataFragment> dataFragments;
+    private final HostAddress hostAddress;
 
-    public TableInfo(long id, String schemaName, String tableName, List<ColumnInfo> columns, Map<HostAddress, MemoryDataFragment> dataFragments)
+    public TableInfo(long id, String schemaName, String tableName, List<ColumnInfo> columns, HostAddress hostAddress)
     {
         this.id = id;
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.columns = ImmutableList.copyOf(columns);
-        this.dataFragments = ImmutableMap.copyOf(dataFragments);
+        this.hostAddress = requireNonNull(hostAddress, "hostAddress is null");
     }
 
     public long getId()
@@ -85,8 +83,8 @@ public class TableInfo
                 .get();
     }
 
-    public Map<HostAddress, MemoryDataFragment> getDataFragments()
+    public HostAddress getHostAddress()
     {
-        return dataFragments;
+        return hostAddress;
     }
 }

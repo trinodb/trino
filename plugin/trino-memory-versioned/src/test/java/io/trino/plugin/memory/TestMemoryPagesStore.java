@@ -15,9 +15,7 @@ package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -25,12 +23,8 @@ import io.trino.spi.connector.ConnectorPageSink;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.OptionalDouble;
-import java.util.OptionalLong;
-
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -47,14 +41,14 @@ public class TestMemoryPagesStore
     public void setUp()
     {
         pagesStore = new MemoryPagesStore();
-        pageSinkProvider = new MemoryPageSinkProvider(pagesStore, HostAddress.fromString("localhost:8080"));
+        pageSinkProvider = new MemoryPageSinkProvider(pagesStore);
     }
 
     @Test
     public void testCreateEmptyTable()
     {
         createTable(0L, 0L);
-        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), 0, OptionalLong.empty(), OptionalDouble.empty()), ImmutableList.of());
+        assertEquals(pagesStore.getPages(0L, ImmutableList.of(0)), ImmutableList.of());
     }
 
     @Test
@@ -62,30 +56,14 @@ public class TestMemoryPagesStore
     {
         createTable(0L, 0L);
         insertToTable(0L, 0L);
-        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), POSITIONS_PER_PAGE, OptionalLong.empty(), OptionalDouble.empty()).size(), 1);
+        assertEquals(pagesStore.getPages(0L, ImmutableList.of(0)).size(), 1);
     }
 
     @Test
     public void testInsertPageWithoutCreate()
     {
         insertToTable(0L, 0L);
-        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), POSITIONS_PER_PAGE, OptionalLong.empty(), OptionalDouble.empty()).size(), 1);
-    }
-
-    @Test(expectedExceptions = TrinoException.class)
-    public void testReadFromUnknownTable()
-    {
-        pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), 0, OptionalLong.empty(), OptionalDouble.empty());
-    }
-
-    @Test
-    public void testTryToReadFromEmptyTable()
-    {
-        createTable(0L, 0L);
-        assertEquals(pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), 0, OptionalLong.empty(), OptionalDouble.empty()), ImmutableList.of());
-        assertThatThrownBy(() -> pagesStore.getPages(0L, 0, 1, ImmutableList.of(0), 42, OptionalLong.empty(), OptionalDouble.empty()))
-                .isInstanceOf(TrinoException.class)
-                .hasMessageMatching("Expected to find.*");
+        assertEquals(pagesStore.getPages(0L, ImmutableList.of(0)).size(), 1);
     }
 
     @Test

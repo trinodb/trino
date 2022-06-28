@@ -27,7 +27,6 @@ import io.trino.spi.connector.FixedPageSource;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.OptionalDouble;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -54,23 +53,11 @@ public final class MemoryPageSourceProvider
     {
         MemorySplit memorySplit = (MemorySplit) split;
         long tableId = memorySplit.getTable();
-        int partNumber = memorySplit.getPartNumber();
-        int totalParts = memorySplit.getTotalPartsPerWorker();
-        long expectedRows = memorySplit.getExpectedRows();
-        MemoryTableHandle memoryTable = (MemoryTableHandle) table;
-        OptionalDouble sampleRatio = memoryTable.getSampleRatio();
 
         List<Integer> columnIndexes = columns.stream()
                 .map(MemoryColumnHandle.class::cast)
                 .map(MemoryColumnHandle::getColumnIndex).collect(toList());
-        List<Page> pages = pagesStore.getPages(
-                tableId,
-                partNumber,
-                totalParts,
-                columnIndexes,
-                expectedRows,
-                memorySplit.getLimit(),
-                sampleRatio);
+        List<Page> pages = pagesStore.getPages(tableId, columnIndexes);
 
         return new FixedPageSource(pages);
     }

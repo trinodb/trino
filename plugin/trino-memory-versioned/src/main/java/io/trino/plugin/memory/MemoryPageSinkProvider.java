@@ -13,11 +13,8 @@
  */
 package io.trino.plugin.memory;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.trino.spi.HostAddress;
-import io.trino.spi.NodeManager;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -41,19 +38,11 @@ public class MemoryPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final MemoryPagesStore pagesStore;
-    private final HostAddress currentHostAddress;
 
     @Inject
-    public MemoryPageSinkProvider(MemoryPagesStore pagesStore, NodeManager nodeManager)
-    {
-        this(pagesStore, requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getHostAndPort());
-    }
-
-    @VisibleForTesting
-    public MemoryPageSinkProvider(MemoryPagesStore pagesStore, HostAddress currentHostAddress)
+    public MemoryPageSinkProvider(MemoryPagesStore pagesStore)
     {
         this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
-        this.currentHostAddress = requireNonNull(currentHostAddress, "currentHostAddress is null");
     }
 
     @Override
@@ -65,7 +54,7 @@ public class MemoryPageSinkProvider
 
         pagesStore.cleanUp(memoryOutputTableHandle.getActiveTableIds());
         pagesStore.initialize(tableId);
-        return new MemoryPageSink(pagesStore, currentHostAddress, tableId);
+        return new MemoryPageSink(pagesStore, tableId);
     }
 
     @Override
@@ -77,21 +66,19 @@ public class MemoryPageSinkProvider
 
         pagesStore.cleanUp(memoryInsertTableHandle.getActiveTableIds());
         pagesStore.initialize(tableId);
-        return new MemoryPageSink(pagesStore, currentHostAddress, tableId);
+        return new MemoryPageSink(pagesStore, tableId);
     }
 
     private static class MemoryPageSink
             implements ConnectorPageSink
     {
         private final MemoryPagesStore pagesStore;
-        private final HostAddress currentHostAddress;
         private final long tableId;
         private final List<Page> appendedPages = new ArrayList<>();
 
-        public MemoryPageSink(MemoryPagesStore pagesStore, HostAddress currentHostAddress, long tableId)
+        public MemoryPageSink(MemoryPagesStore pagesStore, long tableId)
         {
             this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
-            this.currentHostAddress = requireNonNull(currentHostAddress, "currentHostAddress is null");
             this.tableId = tableId;
         }
 
@@ -106,13 +93,11 @@ public class MemoryPageSinkProvider
         public CompletableFuture<Collection<Slice>> finish()
         {
             // add pages to pagesStore
-            long addedRows = 0;
             for (Page page : appendedPages) {
                 pagesStore.add(tableId, page);
-                addedRows += page.getPositionCount();
             }
 
-            return completedFuture(ImmutableList.of(new MemoryDataFragment(currentHostAddress, addedRows).toSlice()));
+            return completedFuture(ImmutableList.of());
         }
 
         @Override
