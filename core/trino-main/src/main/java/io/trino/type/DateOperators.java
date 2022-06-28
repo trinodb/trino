@@ -37,7 +37,7 @@ public final class DateOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToSlice(@LiteralParameter("x") long x, @SqlType(StandardTypes.DATE) long value)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.DATE) long value)
     {
         String stringValue = printDate((int) value);
         // String is all-ASCII, so String.length() here returns actual code points count
@@ -52,7 +52,7 @@ public final class DateOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType(StandardTypes.DATE)
-    public static long castFromSlice(@SqlType("varchar(x)") Slice value)
+    public static long castFromVarchar(@SqlType("varchar(x)") Slice value)
     {
         try {
             return parseDate(trim(value).toStringUtf8());
