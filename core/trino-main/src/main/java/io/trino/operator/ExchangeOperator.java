@@ -19,12 +19,14 @@ import io.trino.connector.CatalogHandle;
 import io.trino.exchange.ExchangeDataSource;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -34,6 +36,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeOperator
@@ -86,9 +89,10 @@ public class ExchangeOperator
                 // The decision of what exchange to use (streaming vs external) is currently made at the scheduling phase. It is more convenient to deliver it as part of a RemoteSplit.
                 // Postponing this decision until scheduling allows to dynamically change the exchange type as part of an adaptive query re-planning.
                 // LazyExchangeDataSource allows to choose an exchange source implementation based on the information received from a split.
+                TaskId taskId = taskContext.getTaskId();
                 exchangeDataSource = new LazyExchangeDataSource(
-                        taskContext.getTaskId(),
-                        sourceId,
+                        taskId.getQueryId(),
+                        new ExchangeId(format("direct-exchange-%s-%s", taskId.getStageId().getId(), sourceId)),
                         directExchangeClientSupplier,
                         memoryContext,
                         taskContext::sourceTaskFailed,
