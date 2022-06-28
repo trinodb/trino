@@ -242,7 +242,7 @@ public class TestIntervalDayTime
     }
 
     @Test
-    public void testCastToSlice()
+    public void testCastToVarchar()
     {
         assertFunction("cast(INTERVAL '12 10:45:32.123' DAY TO SECOND as varchar)", VARCHAR, "12 10:45:32.123");
         assertFunction("cast(INTERVAL '12 10:45:32.123' DAY TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(12, 10, 45, 32, 123).toString());
