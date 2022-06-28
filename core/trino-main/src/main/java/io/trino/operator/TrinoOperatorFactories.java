@@ -227,10 +227,8 @@ public class TrinoOperatorFactories
                     waitForBuild,
                     new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
                     blockTypeOperators,
-                    totalOperatorsCount,
                     probeJoinChannel,
-                    probeHashChannel,
-                    partitioningSpillerFactory);
+                    probeHashChannel);
         }
     }
 }

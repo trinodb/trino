@@ -14,19 +14,12 @@
 package io.trino.operator.join.unspilled;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.operator.TaskContext;
 import io.trino.operator.join.JoinBridge;
 import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.OuterPositionIterator;
-import io.trino.operator.join.PartitionedConsumption;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.OptionalInt;
-import java.util.function.Supplier;
-
-import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Collections.emptyList;
 
 public interface LookupSourceFactory
         extends JoinBridge
@@ -39,28 +32,11 @@ public interface LookupSourceFactory
 
     int partitions();
 
-    default ListenableFuture<PartitionedConsumption<Supplier<LookupSource>>> finishProbeOperator(OptionalInt lookupJoinsCount)
-    {
-        return immediateFuture(new PartitionedConsumption<>(
-                1,
-                emptyList(),
-                i -> {
-                    throw new UnsupportedOperationException();
-                },
-                i -> {},
-                i -> {
-                    throw new UnsupportedOperationException();
-                }));
-    }
-
     /**
      * Can be called only after {@link #createLookupSourceProvider()} is done and all users of {@link LookupSource}-s finished.
      */
     @Override
     OuterPositionIterator getOuterPositionIterator();
-
-    // this is only here for the index lookup source
-    default void setTaskContext(TaskContext taskContext) {}
 
     @Override
     void destroy();

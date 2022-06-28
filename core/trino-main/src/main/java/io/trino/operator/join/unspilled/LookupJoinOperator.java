@@ -14,7 +14,6 @@
 package io.trino.operator.join.unspilled;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.operator.HashGenerator;
 import io.trino.operator.OperatorInfo;
 import io.trino.operator.PageBuffer;
 import io.trino.operator.ProcessorContext;
@@ -26,11 +25,9 @@ import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 import io.trino.operator.join.unspilled.PageJoiner.PageJoinerFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-import io.trino.spiller.PartitioningSpillerFactory;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static io.trino.operator.WorkProcessor.flatten;
 
@@ -45,7 +42,6 @@ public class LookupJoinOperator
     private final JoinStatisticsCounter statisticsCounter;
 
     LookupJoinOperator(
-            List<Type> probeTypes,
             List<Type> buildOutputTypes,
             JoinType joinType,
             boolean outputSingleMatch,
@@ -53,9 +49,6 @@ public class LookupJoinOperator
             LookupSourceFactory lookupSourceFactory,
             JoinProbeFactory joinProbeFactory,
             Runnable afterClose,
-            OptionalInt lookupJoinsCount,
-            HashGenerator hashGenerator,
-            PartitioningSpillerFactory partitioningSpillerFactory,
             ProcessorContext processorContext,
             Optional<WorkProcessor<Page>> sourcePages)
     {
@@ -63,27 +56,19 @@ public class LookupJoinOperator
         this.waitForBuild = waitForBuild;
         lookupSourceProviderFuture = lookupSourceFactory.createLookupSourceProvider();
         pageBuffer = new PageBuffer();
-        PageJoinerFactory pageJoinerFactory = (lookupSourceProvider, joinerPartitioningSpillerFactory, savedRows) ->
+        PageJoinerFactory pageJoinerFactory = lookupSourceProvider ->
                 new DefaultPageJoiner(
                         processorContext,
-                        probeTypes,
                         buildOutputTypes,
                         joinType,
                         outputSingleMatch,
-                        hashGenerator,
                         joinProbeFactory,
-                        lookupSourceFactory,
                         lookupSourceProvider,
-                        joinerPartitioningSpillerFactory,
-                        statisticsCounter,
-                        savedRows);
+                        statisticsCounter);
         joinProcessor = new SpillingJoinProcessor(
                 afterClose,
-                lookupJoinsCount,
                 waitForBuild,
-                lookupSourceFactory,
                 lookupSourceProviderFuture,
-                partitioningSpillerFactory,
                 pageJoinerFactory,
                 sourcePages.orElse(pageBuffer.pages()));
         pages = flatten(WorkProcessor.create(joinProcessor));
