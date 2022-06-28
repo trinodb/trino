@@ -60,14 +60,25 @@ public class TestDeltaLakeDropTableCompatibility
                 {TRINO, DELTA, true},
                 {TRINO, DELTA, false},
                 {DELTA, TRINO, true},
-                {DELTA, TRINO, false},
                 {DELTA, DELTA, true},
                 {DELTA, DELTA, false},
         };
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "engineConfigurations")
-    public void testDatabricksManagedTableDroppedFromTrino(Engine creator, Engine dropper, boolean explicitLocation)
+    public void testDropTable(Engine creator, Engine dropper, boolean explicitLocation)
+    {
+        testDropTableAccuracy(creator, dropper, explicitLocation);
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateManagedTableInDeltaDropTableInTrino()
+    {
+        //TODO Integrate this method into `engineConfigurations()` data provider method after dealing with https://github.com/trinodb/trino/issues/13017
+        testDropTableAccuracy(DELTA, TRINO, false);
+    }
+
+    private void testDropTableAccuracy(Engine creator, Engine dropper, boolean explicitLocation)
     {
         String schemaName = "schema_with_location_" + randomTableSuffix();
         String schemaLocation = format("s3://%s/databricks-compatibility-test-%s", bucketName, schemaName);
