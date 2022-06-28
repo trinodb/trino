@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
-import io.trino.plugin.jdbc.ptf.Query.QueryHandle;
+import io.trino.plugin.jdbc.ptf.Query.QueryFunctionHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -579,11 +579,11 @@ public class DefaultJdbcMetadata
     @Override
     public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
-        if (!(handle instanceof QueryHandle)) {
+        if (!(handle instanceof QueryFunctionHandle)) {
             return Optional.empty();
         }
 
-        ConnectorTableHandle tableHandle = ((QueryHandle) handle).getTableHandle();
+        ConnectorTableHandle tableHandle = ((QueryFunctionHandle) handle).getTableHandle();
         ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
         Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
         List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
