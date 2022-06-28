@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join;
+package io.trino.operator.join.unspilled;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -29,7 +29,8 @@ import io.trino.operator.PartitionFunction;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.exchange.LocalPartitionGenerator;
-import io.trino.operator.join.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.join.JoinBridgeManager;
+import io.trino.operator.join.unspilled.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
@@ -71,7 +72,6 @@ import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
-import static io.trino.operator.join.JoinBridgeManager.lookupAllAtOnce;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
@@ -246,7 +246,7 @@ public class BenchmarkHashBuildAndJoinOperators
                     false,
                     false,
                     false,
-                    true,
+                    false,
                     types,
                     hashChannels,
                     hashChannel,
@@ -327,7 +327,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
     private static JoinBridgeManager<PartitionedLookupSourceFactory> getLookupSourceFactoryManager(BuildContext buildContext, List<Integer> outputChannels, int partitionCount)
     {
-        return lookupAllAtOnce(new PartitionedLookupSourceFactory(
+        PartitionedLookupSourceFactory factory = new PartitionedLookupSourceFactory(
                 buildContext.getTypes(),
                 outputChannels.stream()
                         .map(buildContext.getTypes()::get)
@@ -337,7 +337,11 @@ public class BenchmarkHashBuildAndJoinOperators
                         .collect(toImmutableList()),
                 partitionCount,
                 false,
-                TYPE_OPERATOR_FACTORY));
+                TYPE_OPERATOR_FACTORY);
+        return new JoinBridgeManager<>(
+                false,
+                factory,
+                factory.getOutputTypes());
     }
 
     private static void buildHash(BuildContext buildContext, JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager, List<Integer> outputChannels, int partitionCount)

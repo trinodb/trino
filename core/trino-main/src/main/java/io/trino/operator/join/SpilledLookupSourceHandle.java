@@ -28,7 +28,7 @@ import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-final class SpilledLookupSourceHandle
+public final class SpilledLookupSourceHandle
 {
     private enum State
     {
