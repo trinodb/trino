@@ -1,0 +1,191 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.exchange;
+
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.slice.Slice;
+import io.trino.execution.TaskFailureListener;
+import io.trino.execution.TaskId;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.DirectExchangeClient;
+import io.trino.operator.DirectExchangeClientSupplier;
+import io.trino.operator.OperatorInfo;
+import io.trino.operator.RetryPolicy;
+import io.trino.spi.exchange.ExchangeId;
+import io.trino.spi.exchange.ExchangeManager;
+import io.trino.spi.exchange.ExchangeSource;
+import io.trino.spi.exchange.ExchangeSourceHandle;
+import io.trino.sql.planner.plan.PlanNodeId;
+
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+
+public class LazyExchangeDataSource
+        implements ExchangeDataSource
+{
+    private final TaskId taskId;
+    private final PlanNodeId sourceId;
+    private final DirectExchangeClientSupplier directExchangeClientSupplier;
+    private final LocalMemoryContext systemMemoryContext;
+    private final TaskFailureListener taskFailureListener;
+    private final RetryPolicy retryPolicy;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
+
+    private final SettableFuture<Void> initializationFuture = SettableFuture.create();
+    private final AtomicReference<ExchangeDataSource> delegate = new AtomicReference<>();
+    private final AtomicBoolean closed = new AtomicBoolean();
+
+    public LazyExchangeDataSource(
+            TaskId taskId,
+            PlanNodeId sourceId,
+            DirectExchangeClientSupplier directExchangeClientSupplier,
+            LocalMemoryContext systemMemoryContext,
+            TaskFailureListener taskFailureListener,
+            RetryPolicy retryPolicy,
+            ExchangeManagerRegistry exchangeManagerRegistry)
+    {
+        this.taskId = requireNonNull(taskId, "taskId is null");
+        this.sourceId = requireNonNull(sourceId, "sourceId is null");
+        this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
+        this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+        this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+    }
+
+    @Override
+    public Slice pollPage()
+    {
+        ExchangeDataSource dataSource = delegate.get();
+        if (dataSource == null) {
+            return null;
+        }
+        return dataSource.pollPage();
+    }
+
+    @Override
+    public boolean isFinished()
+    {
+        if (closed.get()) {
+            return true;
+        }
+        ExchangeDataSource dataSource = delegate.get();
+        if (dataSource == null) {
+            return false;
+        }
+        return dataSource.isFinished();
+    }
+
+    @Override
+    public ListenableFuture<Void> isBlocked()
+    {
+        if (closed.get()) {
+            return immediateVoidFuture();
+        }
+        if (!initializationFuture.isDone()) {
+            return initializationFuture;
+        }
+        ExchangeDataSource dataSource = delegate.get();
+        checkState(dataSource != null, "dataSource is expected to be initialized");
+        return dataSource.isBlocked();
+    }
+
+    @Override
+    public void addInput(ExchangeInput input)
+    {
+        boolean initialized = false;
+        synchronized (this) {
+            if (closed.get()) {
+                return;
+            }
+            ExchangeDataSource dataSource = delegate.get();
+            if (dataSource == null) {
+                if (input instanceof DirectExchangeInput) {
+                    DirectExchangeClient client = directExchangeClientSupplier.get(
+                            taskId.getQueryId(),
+                            new ExchangeId(format("direct-exchange-%s-%s", taskId.getStageId().getId(), sourceId)),
+                            systemMemoryContext,
+                            taskFailureListener,
+                            retryPolicy);
+                    dataSource = new DirectExchangeDataSource(client);
+                }
+                else if (input instanceof SpoolingExchangeInput) {
+                    SpoolingExchangeInput spoolingExchangeInput = (SpoolingExchangeInput) input;
+                    ExchangeManager exchangeManager = exchangeManagerRegistry.getExchangeManager();
+                    List<ExchangeSourceHandle> sourceHandles = spoolingExchangeInput.getExchangeSourceHandles();
+                    ExchangeSource exchangeSource = exchangeManager.createSource(sourceHandles);
+                    dataSource = new SpoolingExchangeDataSource(exchangeSource, sourceHandles, systemMemoryContext);
+                }
+                else {
+                    throw new IllegalArgumentException("Unexpected input: " + input);
+                }
+                delegate.set(dataSource);
+                initialized = true;
+            }
+            dataSource.addInput(input);
+        }
+
+        if (initialized) {
+            initializationFuture.set(null);
+        }
+    }
+
+    @Override
+    public synchronized void noMoreInputs()
+    {
+        if (closed.get()) {
+            return;
+        }
+        ExchangeDataSource dataSource = delegate.get();
+        if (dataSource != null) {
+            dataSource.noMoreInputs();
+        }
+        else {
+            // to unblock when no splits are provided (and delegate hasn't been created)
+            close();
+        }
+    }
+
+    @Override
+    public OperatorInfo getInfo()
+    {
+        ExchangeDataSource dataSource = delegate.get();
+        if (dataSource == null) {
+            return null;
+        }
+        return dataSource.getInfo();
+    }
+
+    @Override
+    public void close()
+    {
+        synchronized (this) {
+            if (!closed.compareAndSet(false, true)) {
+                return;
+            }
+            ExchangeDataSource dataSource = delegate.get();
+            if (dataSource != null) {
+                dataSource.close();
+            }
+        }
+        initializationFuture.set(null);
+    }
+}
