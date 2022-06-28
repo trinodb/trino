@@ -11,69 +11,60 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.split;
+package io.trino.exchange;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import io.trino.exchange.ExchangeInput;
-import io.trino.spi.HostAddress;
-import io.trino.spi.connector.ConnectorSplit;
+import io.trino.execution.TaskId;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.List;
-
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
-public class RemoteSplit
-        implements ConnectorSplit
+public class DirectExchangeInput
+        implements ExchangeInput
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RemoteSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DirectExchangeInput.class).instanceSize();
 
-    private final ExchangeInput exchangeInput;
+    private final TaskId taskId;
+    private final String location;
 
     @JsonCreator
-    public RemoteSplit(@JsonProperty("exchangeInput") ExchangeInput exchangeInput)
+    public DirectExchangeInput(
+            @JsonProperty("taskId") TaskId taskId,
+            @JsonProperty("location") String location)
     {
-        this.exchangeInput = requireNonNull(exchangeInput, "remoteSplitInput is null");
+        this.taskId = requireNonNull(taskId, "taskId is null");
+        this.location = requireNonNull(location, "location is null");
     }
 
     @JsonProperty
-    public ExchangeInput getExchangeInput()
+    public TaskId getTaskId()
     {
-        return exchangeInput;
+        return taskId;
     }
 
-    @Override
-    public Object getInfo()
+    @JsonProperty
+    public String getLocation()
     {
-        return this;
-    }
-
-    @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
-    @Override
-    public List<HostAddress> getAddresses()
-    {
-        return ImmutableList.of();
+        return location;
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("exchangeInput", exchangeInput)
+                .add("taskId", taskId)
+                .add("location", location)
                 .toString();
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + exchangeInput.getRetainedSizeInBytes();
+        return INSTANCE_SIZE
+                + taskId.getRetainedSizeInBytes()
+                + estimatedSizeOf(location);
     }
 }
