@@ -343,6 +343,7 @@ statements, the connector supports the following features:
 * :doc:`/sql/drop-schema`
 * :doc:`/sql/show-create-schema`
 * :doc:`/sql/show-create-table`
+* :doc:`/sql/comment`
 
 .. _delta-lake-alter-table-execute:
 
