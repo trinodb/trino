@@ -116,6 +116,7 @@ public class HashJoinBenchmark
                     false,
                     false,
                     false,
+                    true,
                     lineItemTypes,
                     Ints.asList(0),
                     OptionalInt.empty(),

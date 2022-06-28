@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join;
+package io.trino.operator.join.unspilled;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -48,9 +48,11 @@ import io.trino.operator.WorkProcessorOperator;
 import io.trino.operator.WorkProcessorOperatorFactory;
 import io.trino.operator.index.PageBuffer;
 import io.trino.operator.index.PageBufferOperator.PageBufferOperatorFactory;
-import io.trino.operator.join.JoinTestUtils.BuildSideSetup;
-import io.trino.operator.join.JoinTestUtils.DummySpillerFactory;
-import io.trino.operator.join.JoinTestUtils.TestInternalJoinFilterFunction;
+import io.trino.operator.join.InternalJoinFilterFunction;
+import io.trino.operator.join.JoinBridgeManager;
+import io.trino.operator.join.unspilled.JoinTestUtils.BuildSideSetup;
+import io.trino.operator.join.unspilled.JoinTestUtils.DummySpillerFactory;
+import io.trino.operator.join.unspilled.JoinTestUtils.TestInternalJoinFilterFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -95,12 +97,12 @@ import static io.trino.operator.OperatorAssertion.dropChannel;
 import static io.trino.operator.OperatorAssertion.without;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
 import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
-import static io.trino.operator.join.JoinTestUtils.buildLookupSource;
-import static io.trino.operator.join.JoinTestUtils.getHashChannelAsInt;
-import static io.trino.operator.join.JoinTestUtils.innerJoinOperatorFactory;
-import static io.trino.operator.join.JoinTestUtils.instantiateBuildDrivers;
-import static io.trino.operator.join.JoinTestUtils.runDriverInThread;
-import static io.trino.operator.join.JoinTestUtils.setupBuildSide;
+import static io.trino.operator.join.unspilled.JoinTestUtils.buildLookupSource;
+import static io.trino.operator.join.unspilled.JoinTestUtils.getHashChannelAsInt;
+import static io.trino.operator.join.unspilled.JoinTestUtils.innerJoinOperatorFactory;
+import static io.trino.operator.join.unspilled.JoinTestUtils.instantiateBuildDrivers;
+import static io.trino.operator.join.unspilled.JoinTestUtils.runDriverInThread;
+import static io.trino.operator.join.unspilled.JoinTestUtils.setupBuildSide;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -300,7 +302,7 @@ public class TestHashJoinOperator
                 false,
                 false,
                 true,
-                true,
+                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -355,7 +357,7 @@ public class TestHashJoinOperator
                 false,
                 false,
                 true,
-                true,
+                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1242,7 +1244,7 @@ public class TestHashJoinOperator
                 false,
                 false,
                 false,
-                true,
+                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1282,7 +1284,7 @@ public class TestHashJoinOperator
                 lookupSourceFactoryManager,
                 false,
                 false,
-                true,
+                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1328,7 +1330,7 @@ public class TestHashJoinOperator
                 lookupSourceFactoryManager,
                 false,
                 false,
-                true,
+                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1376,7 +1378,7 @@ public class TestHashJoinOperator
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
                 false,
-                true,
+                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1425,7 +1427,7 @@ public class TestHashJoinOperator
                 false,
                 false,
                 false,
-                true,
+                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1619,7 +1621,7 @@ public class TestHashJoinOperator
                 false,
                 waitForBuild,
                 false,
-                true,
+                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1672,7 +1674,7 @@ public class TestHashJoinOperator
                 lookupSourceFactoryManager,
                 false,
                 hasFilter,
-                true,
+                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),

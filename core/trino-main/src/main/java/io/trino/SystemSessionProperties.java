@@ -168,6 +168,7 @@ public final class SystemSessionProperties
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT = "join_partitioned_build_min_row_count";
     public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
+    public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -823,6 +824,11 @@ public final class SystemSessionProperties
                         USE_EXACT_PARTITIONING,
                         "When enabled this forces data repartitioning unless the partitioning of upstream stage matches exactly what downstream stage expects",
                         optimizerConfig.isUseExactPartitioning(),
+                        false),
+                booleanProperty(
+                        FORCE_SPILLING_JOIN,
+                        "Force the usage of spliing join operator in favor of the non-spilling one, even if spill is not enabled",
+                        featuresConfig.isForceSpillingJoin(),
                         false));
     }
 
@@ -1474,5 +1480,10 @@ public final class SystemSessionProperties
     public static boolean isUseExactPartitioning(Session session)
     {
         return session.getSystemProperty(USE_EXACT_PARTITIONING, Boolean.class);
+    }
+
+    public static boolean isForceSpillingOperator(Session session)
+    {
+        return session.getSystemProperty(FORCE_SPILLING_JOIN, Boolean.class);
     }
 }

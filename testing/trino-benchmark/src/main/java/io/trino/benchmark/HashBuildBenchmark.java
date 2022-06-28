@@ -106,6 +106,7 @@ public class HashBuildBenchmark
                 false,
                 false,
                 false,
+                true,
                 ImmutableList.of(BIGINT),
                 Ints.asList(0),
                 OptionalInt.empty(),

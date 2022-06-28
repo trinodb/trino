@@ -147,6 +147,7 @@ public class HashBuildAndJoinBenchmark
                 false,
                 false,
                 false,
+                true,
                 sourceTypes,
                 Ints.asList(0),
                 hashChannel,

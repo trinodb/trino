@@ -100,6 +100,7 @@ public class FeaturesConfig
     private boolean allowSetViewAuthorization;
 
     private boolean hideInaccessibleColumns;
+    private boolean forceSpillingJoin;
 
     public enum DataIntegrityVerification
     {
@@ -475,6 +476,19 @@ public class FeaturesConfig
     public FeaturesConfig setAllowSetViewAuthorization(boolean allowSetViewAuthorization)
     {
         this.allowSetViewAuthorization = allowSetViewAuthorization;
+        return this;
+    }
+
+    public boolean isForceSpillingJoin()
+    {
+        return forceSpillingJoin;
+    }
+
+    @Config("force-spilling-join-operator")
+    @ConfigDescription("Force spilling join operator in favour of the non-spilling one even when there is no spill")
+    public FeaturesConfig setForceSpillingJoin(boolean forceSpillingJoin)
+    {
+        this.forceSpillingJoin = forceSpillingJoin;
         return this;
     }
 }
