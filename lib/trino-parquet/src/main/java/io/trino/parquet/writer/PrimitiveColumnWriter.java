@@ -49,7 +49,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.parquet.writer.ParquetCompressor.getCompressor;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
-import static io.trino.parquet.writer.repdef.RepLevelIterables.getIterator;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.bytes.BytesInput.copy;
@@ -113,22 +112,14 @@ public class PrimitiveColumnWriter
             throws IOException
     {
         checkState(!closed);
-
-        ColumnChunk current = new ColumnChunk(columnChunk.getBlock(),
-                ImmutableList.<DefLevelIterable>builder()
-                        .addAll(columnChunk.getDefLevelIterables())
-                        .add(DefLevelIterables.of(columnChunk.getBlock(), maxDefinitionLevel))
-                        .build(),
-                ImmutableList.<RepLevelIterable>builder()
-                        .addAll(columnChunk.getRepLevelIterables())
-                        .add(RepLevelIterables.of(columnChunk.getBlock()))
-                        .build());
-
         // write values
         primitiveValueWriter.write(columnChunk.getBlock());
 
         // write definition levels
-        Iterator<Integer> defIterator = DefLevelIterables.getIterator(current.getDefLevelIterables());
+        Iterator<Integer> defIterator = DefLevelIterables.getIterator(ImmutableList.<DefLevelIterable>builder()
+                .addAll(columnChunk.getDefLevelIterables())
+                .add(DefLevelIterables.of(columnChunk.getBlock(), maxDefinitionLevel))
+                .build());
         while (defIterator.hasNext()) {
             int next = defIterator.next();
             definitionLevelWriter.writeInteger(next);
@@ -139,7 +130,10 @@ public class PrimitiveColumnWriter
         }
 
         // write repetition levels
-        Iterator<Integer> repIterator = getIterator(current.getRepLevelIterables());
+        Iterator<Integer> repIterator = RepLevelIterables.getIterator(ImmutableList.<RepLevelIterable>builder()
+                .addAll(columnChunk.getRepLevelIterables())
+                .add(RepLevelIterables.of(columnChunk.getBlock()))
+                .build());
         while (repIterator.hasNext()) {
             int next = repIterator.next();
             repetitionLevelWriter.writeInteger(next);
