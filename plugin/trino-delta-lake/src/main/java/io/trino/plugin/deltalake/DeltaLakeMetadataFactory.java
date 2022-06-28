@@ -53,6 +53,7 @@ public class DeltaLakeMetadataFactory
     private final boolean ignoreCheckpointWriteFailures;
     private final long perTransactionMetastoreCacheMaximumSize;
     private final boolean deleteSchemaLocationsFallback;
+    private final boolean useUniqueTableLocation;
 
     @Inject
     public DeltaLakeMetadataFactory(
@@ -89,6 +90,7 @@ public class DeltaLakeMetadataFactory
         this.ignoreCheckpointWriteFailures = deltaLakeConfig.isIgnoreCheckpointWriteFailures();
         this.perTransactionMetastoreCacheMaximumSize = deltaLakeConfig.getPerTransactionMetastoreCacheMaximumSize();
         this.deleteSchemaLocationsFallback = deltaLakeConfig.isDeleteSchemaLocationsFallback();
+        this.useUniqueTableLocation = deltaLakeConfig.isUniqueTableLocation();
     }
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
@@ -101,7 +103,8 @@ public class DeltaLakeMetadataFactory
                 cachingHiveMetastore,
                 transactionLogAccess,
                 typeManager,
-                statisticsAccess);
+                statisticsAccess,
+                hdfsEnvironment);
         return new DeltaLakeMetadata(
                 deltaLakeMetastore,
                 hdfsEnvironment,
@@ -118,6 +121,7 @@ public class DeltaLakeMetadataFactory
                 ignoreCheckpointWriteFailures,
                 deleteSchemaLocationsFallback,
                 deltaLakeRedirectionsProvider,
-                statisticsAccess);
+                statisticsAccess,
+                useUniqueTableLocation);
     }
 }

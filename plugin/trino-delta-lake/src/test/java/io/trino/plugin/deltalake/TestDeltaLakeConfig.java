@@ -62,7 +62,8 @@ public class TestDeltaLakeConfig
                 .setDeleteSchemaLocationsFallback(false)
                 .setParquetTimeZone(TimeZone.getDefault().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
-                .setTargetMaxFileSize(DataSize.of(1, GIGABYTE)));
+                .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
+                .setUniqueTableLocation(true));
     }
 
     @Test
@@ -93,6 +94,7 @@ public class TestDeltaLakeConfig
                 .put("delta.delete-schema-locations-fallback", "true")
                 .put("delta.parquet.time-zone", nonDefaultTimeZone().getID())
                 .put("delta.target-max-file-size", "2 GB")
+                .put("delta.unique-table-location", "false")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -119,7 +121,8 @@ public class TestDeltaLakeConfig
                 .setDeleteSchemaLocationsFallback(true)
                 .setParquetTimeZone(nonDefaultTimeZone().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(500)
-                .setTargetMaxFileSize(DataSize.of(2, GIGABYTE));
+                .setTargetMaxFileSize(DataSize.of(2, GIGABYTE))
+                .setUniqueTableLocation(false);
 
         assertFullMapping(properties, expected);
     }
