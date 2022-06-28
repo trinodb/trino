@@ -66,8 +66,11 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
@@ -97,6 +100,8 @@ public class IcebergSplitSource
     private final TypeManager typeManager;
     private final Closer closer = Closer.create();
     private final double minimumAssignedSplitWeight;
+    private final TupleDomain<IcebergColumnHandle> dataColumnPredicate;
+    private final Domain pathDomain;
 
     private CloseableIterable<FileScanTask> fileScanTaskIterable;
     private CloseableIterator<FileScanTask> fileScanTaskIterator;
@@ -127,6 +132,8 @@ public class IcebergSplitSource
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.recordScannedFiles = recordScannedFiles;
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
+        this.dataColumnPredicate = tableHandle.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
+        this.pathDomain = getPathDomain(tableHandle.getEnforcedPredicate());
     }
 
     @Override
@@ -151,7 +158,7 @@ public class IcebergSplitSource
                 this.pushedDownDynamicFilterPredicate = TupleDomain.all();
             }
 
-            TupleDomain<IcebergColumnHandle> effectivePredicate = tableHandle.getEnforcedPredicate()
+            TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate
                     .intersect(simplifiedPredicate);
 
             if (effectivePredicate.isNone()) {
@@ -184,6 +191,10 @@ public class IcebergSplitSource
             if (scanTask.deletes().isEmpty() &&
                     maxScannedFileSizeInBytes.isPresent() &&
                     scanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
+                continue;
+            }
+
+            if (!pathDomain.includesNullableValue(utf8Slice(scanTask.file().path().toString()))) {
                 continue;
             }
 
@@ -396,5 +407,16 @@ public class IcebergSplitSource
                         .map(DeleteFile::fromIceberg)
                         .collect(toImmutableList()),
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)));
+    }
+
+    private static Domain getPathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
+    {
+        IcebergColumnHandle pathColumn = pathColumnHandle();
+        Domain domain = effectivePredicate.getDomains().orElseThrow(() -> new IllegalArgumentException("Unexpected NONE tuple domain"))
+                .get(pathColumn);
+        if (domain == null) {
+            return Domain.all(pathColumn.getType());
+        }
+        return domain;
     }
 }

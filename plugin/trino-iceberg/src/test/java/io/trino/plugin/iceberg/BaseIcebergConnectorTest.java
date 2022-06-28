@@ -4547,10 +4547,55 @@ public abstract class BaseIcebergConnectorTest
                 .matches("SELECT DISTINCT \"$path\" as file_path FROM " + tableName);
 
         String somePath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE userid = 2");
+        String anotherPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE userid = 3");
         assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$path\" = '" + somePath + "'"))
-                .matches("VALUES 2, 5");
+                .matches("VALUES 2, 5")
+                .isFullyPushedDown();
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$path\" IN ('" + somePath + "', '" + anotherPath + "')"))
+                .matches("VALUES 0, 2, 3, 5, 6")
+                .isFullyPushedDown();
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$path\" <> '" + somePath + "'"))
+                .matches("VALUES 0, 1, 3, 4, 6, 7")
+                .isFullyPushedDown();
         assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$path\" = '" + somePath + "' AND userid > 0"))
                 .matches("VALUES 2, 5");
+
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$path\" IS NOT NULL"))
+                .matches("VALUES 0, 1, 2, 3, 4, 5, 6, 7")
+                .isFullyPushedDown();
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$path\" IS NULL"))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testOptimizeWithPathColumn()
+    {
+        String tableName = "test_optimize_with_path_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id integer)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4)", 1);
+
+        String firstPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 1");
+        String secondPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 2");
+        String thirdPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 3");
+        String forthPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 4");
+
+        List<String> initialFiles = getActiveFiles(tableName);
+        assertThat(initialFiles).hasSize(4);
+
+        assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + firstPath + "' OR \"$path\" = '" + secondPath + "'");
+        assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + thirdPath + "' OR \"$path\" = '" + forthPath + "'");
+
+        List<String> updatedFiles = getActiveFiles(tableName);
+        assertThat(updatedFiles)
+                .hasSize(2)
+                .doesNotContainAnyElementsOf(initialFiles);
 
         assertUpdate("DROP TABLE " + tableName);
     }

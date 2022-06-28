@@ -47,6 +47,8 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.function.BiFunction;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -84,6 +86,7 @@ public final class ExpressionConverter
         List<Expression> conjuncts = new ArrayList<>();
         for (Map.Entry<IcebergColumnHandle, Domain> entry : domainMap.entrySet()) {
             IcebergColumnHandle columnHandle = entry.getKey();
+            checkArgument(!isMetadataColumnId(columnHandle.getId()), "Constraint on an unexpected column %s", columnHandle);
             Domain domain = entry.getValue();
             conjuncts.add(toIcebergExpression(columnHandle.getQualifiedName(), columnHandle.getType(), domain));
         }
