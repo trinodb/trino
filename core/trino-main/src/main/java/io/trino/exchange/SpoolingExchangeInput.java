@@ -11,69 +11,51 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.split;
+package io.trino.exchange;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.exchange.ExchangeInput;
-import io.trino.spi.HostAddress;
-import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.exchange.ExchangeSourceHandle;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
-public class RemoteSplit
-        implements ConnectorSplit
+public class SpoolingExchangeInput
+        implements ExchangeInput
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RemoteSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SpoolingExchangeInput.class).instanceSize();
 
-    private final ExchangeInput exchangeInput;
+    private final List<ExchangeSourceHandle> exchangeSourceHandles;
 
     @JsonCreator
-    public RemoteSplit(@JsonProperty("exchangeInput") ExchangeInput exchangeInput)
+    public SpoolingExchangeInput(@JsonProperty("exchangeSourceHandles") List<ExchangeSourceHandle> exchangeSourceHandles)
     {
-        this.exchangeInput = requireNonNull(exchangeInput, "remoteSplitInput is null");
+        this.exchangeSourceHandles = ImmutableList.copyOf(requireNonNull(exchangeSourceHandles, "exchangeSourceHandles is null"));
     }
 
     @JsonProperty
-    public ExchangeInput getExchangeInput()
+    public List<ExchangeSourceHandle> getExchangeSourceHandles()
     {
-        return exchangeInput;
-    }
-
-    @Override
-    public Object getInfo()
-    {
-        return this;
-    }
-
-    @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
-    @Override
-    public List<HostAddress> getAddresses()
-    {
-        return ImmutableList.of();
+        return exchangeSourceHandles;
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("exchangeInput", exchangeInput)
+                .add("exchangeSourceHandles", exchangeSourceHandles)
                 .toString();
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + exchangeInput.getRetainedSizeInBytes();
+        return INSTANCE_SIZE
+                + estimatedSizeOf(exchangeSourceHandles, ExchangeSourceHandle::getRetainedSizeInBytes);
     }
 }

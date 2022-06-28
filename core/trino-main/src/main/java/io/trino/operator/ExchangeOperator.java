@@ -19,7 +19,9 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.connector.CatalogHandle;
+import io.trino.exchange.DirectExchangeInput;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.TaskFailureListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
@@ -33,8 +35,6 @@ import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSource;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.RemoteSplit;
-import io.trino.split.RemoteSplit.DirectExchangeInput;
-import io.trino.split.RemoteSplit.SpoolingExchangeInput;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.io.Closeable;
