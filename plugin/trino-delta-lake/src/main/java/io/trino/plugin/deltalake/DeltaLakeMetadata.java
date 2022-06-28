@@ -976,7 +976,7 @@ public class DeltaLakeMetadata
             List<String> partitionColumns = getPartitionedBy(tableMetadata.getProperties());
             List<DeltaLakeColumnHandle> columns = tableMetadata.getColumns().stream()
                     .filter(column -> !column.isHidden())
-                    .map(column -> toColumnHandle(column, partitionColumns))
+                    .map(column -> toColumnHandle(column, column.getName(), column.getType(), partitionColumns))
                     .collect(toImmutableList());
 
             Optional<Long> checkpointInterval = DeltaLakeTableProperties.getCheckpointInterval(tableMetadata.getProperties());
@@ -1017,7 +1017,7 @@ public class DeltaLakeMetadata
             List<String> partitionColumns = getPartitionedBy(tableMetadata.getProperties());
             List<DeltaLakeColumnHandle> columns = tableMetadata.getColumns().stream()
                     .filter(columnMetadata -> !columnMetadata.isHidden())
-                    .map(columnMetadata -> toColumnHandle(columnMetadata, partitionColumns))
+                    .map(columnMetadata -> toColumnHandle(columnMetadata, columnMetadata.getName(), columnMetadata.getType(), partitionColumns))
                     .collect(toImmutableList());
 
             ImmutableMap.Builder<String, String> columnComments = ImmutableMap.builder();
