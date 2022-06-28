@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -257,12 +258,26 @@ public class TestDateTimeOperators
         assertFunction("DATE '2013-10-27' IS DISTINCT FROM NULL", BOOLEAN, true);
     }
 
+    /**
+     * @see #testDateCastFromVarchar()
+     */
     @Test
-    public void testDateCastFromVarchar()
+    public void testDateLiteral()
     {
         assertFunction("DATE '2013-02-02'", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
         assertInvalidFunction("DATE '5881580-07-12'", INVALID_LITERAL, "line 1:1: '5881580-07-12' is not a valid date literal");
         assertInvalidFunction("DATE '392251590-07-12'", INVALID_LITERAL, "line 1:1: '392251590-07-12' is not a valid date literal");
+    }
+
+    /**
+     * @see #testDateLiteral()
+     */
+    @Test
+    public void testDateCastFromVarchar()
+    {
+        assertFunction("CAST('2013-02-02' AS date)", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+        assertInvalidFunction("CAST('5881580-07-12' AS date)", INVALID_CAST_ARGUMENT, "Value cannot be cast to date: 5881580-07-12");
+        assertInvalidFunction("CAST('392251590-07-12' AS date)", INVALID_CAST_ARGUMENT, "Value cannot be cast to date: 392251590-07-12");
     }
 
     @Test
