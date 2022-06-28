@@ -387,6 +387,7 @@
                                 <exclude>**/TestDeltaLakeGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeCleanUpGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</exclude>
+                                <exclude>**/TestDeltaLakeTableWithCustomLocationUsingGlueMetastore.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -432,6 +433,7 @@
                                 <include>**/TestDeltaLakeGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeCleanUpGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</include>
+                                <include>**/TestDeltaLakeTableWithCustomLocationUsingGlueMetastore.java</include>
                             </includes>
                         </configuration>
                     </plugin>

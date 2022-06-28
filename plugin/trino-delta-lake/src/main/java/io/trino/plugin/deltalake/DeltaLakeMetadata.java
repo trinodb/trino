@@ -276,6 +276,7 @@ public class DeltaLakeMetadata
     private final DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider;
     private final ExtendedStatisticsAccess statisticsAccess;
     private final boolean deleteSchemaLocationsFallback;
+    private final boolean useUniqueTableLocation;
 
     public DeltaLakeMetadata(
             DeltaLakeMetastore metastore,
@@ -293,7 +294,8 @@ public class DeltaLakeMetadata
             boolean ignoreCheckpointWriteFailures,
             boolean deleteSchemaLocationsFallback,
             DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider,
-            ExtendedStatisticsAccess statisticsAccess)
+            ExtendedStatisticsAccess statisticsAccess,
+            boolean useUniqueTableLocation)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -312,6 +314,7 @@ public class DeltaLakeMetadata
         this.deltaLakeRedirectionsProvider = requireNonNull(deltaLakeRedirectionsProvider, "deltaLakeRedirectionsProvider is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
+        this.useUniqueTableLocation = useUniqueTableLocation;
     }
 
     @Override
@@ -645,7 +648,11 @@ public class DeltaLakeMetadata
             if (schemaLocation.isEmpty()) {
                 throw new TrinoException(NOT_SUPPORTED, "The 'location' property must be specified either for the table or the schema");
             }
-            location = new Path(schemaLocation.get(), tableName).toString();
+            String tableNameForLocation = tableName;
+            if (useUniqueTableLocation) {
+                tableNameForLocation += "-" + randomUUID().toString().replace("-", "");
+            }
+            location = new Path(schemaLocation.get(), tableNameForLocation).toString();
             checkPathContainsNoFiles(session, new Path(location));
             external = false;
         }
@@ -771,7 +778,11 @@ public class DeltaLakeMetadata
             if (schemaLocation.isEmpty()) {
                 throw new TrinoException(NOT_SUPPORTED, "The 'location' property must be specified either for the table or the schema");
             }
-            location = new Path(schemaLocation.get(), tableName).toString();
+            String tableNameForLocation = tableName;
+            if (useUniqueTableLocation) {
+                tableNameForLocation += "-" + randomUUID().toString().replace("-", "");
+            }
+            location = new Path(schemaLocation.get(), tableNameForLocation).toString();
             external = false;
         }
         Path targetPath = new Path(location);
@@ -1605,7 +1616,9 @@ public class DeltaLakeMetadata
 
     private boolean allowWrite(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
-        boolean requiresOptIn = transactionLogWriterFactory.newWriter(session, tableHandle.getLocation()).isUnsafe();
+        String tableLocation = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
+        Path tableMetadataDirectory = new Path(new Path(tableLocation).getParent().toString(), tableHandle.getTableName());
+        boolean requiresOptIn = transactionLogWriterFactory.newWriter(session, tableMetadataDirectory.toString()).isUnsafe();
         return !requiresOptIn || unsafeWritesEnabled;
     }
 
@@ -1789,7 +1802,7 @@ public class DeltaLakeMetadata
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
 
-        metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
+        metastore.dropTable(session, handle.getSchemaName(), handle.getTableName(), table.get().getTableType().equals(EXTERNAL_TABLE.toString()));
     }
 
     @Override

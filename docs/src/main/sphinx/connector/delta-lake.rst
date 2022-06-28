@@ -153,6 +153,9 @@ values. Typical usage does not require you to configure them.
     * - ``delta.target-max-file-size``
       - Target maximum size of written files; the actual size may be larger.
       - ``1GB``
+    * - ``iceberg.unique-table-location``
+      - Use randomized, unique table locations.
+      - ``true``
 
 The following table describes performance tuning catalog properties for the
 connector.

@@ -159,7 +159,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
 
     private List<String> listAllFilesRecursive(String directory)
     {
-        String azurePath = bucketName + "/" + directory + "/";
+        String azurePath = bucketName + "/" + directory;
         Duration timeout = Duration.ofMinutes(5);
         List<String> allPaths = azureContainerClient.listBlobs(new ListBlobsOptions().setPrefix(azurePath), timeout).stream()
                 .map(BlobItem::getName)

@@ -26,6 +26,7 @@ public enum DeltaLakeErrorCode
     DELTA_LAKE_INVALID_TABLE(1, EXTERNAL),
     DELTA_LAKE_BAD_DATA(2, EXTERNAL),
     DELTA_LAKE_BAD_WRITE(3, EXTERNAL),
+    DELTA_LAKE_FILESYSTEM_ERROR(4, EXTERNAL),
     /**/;
 
     private final ErrorCode errorCode;

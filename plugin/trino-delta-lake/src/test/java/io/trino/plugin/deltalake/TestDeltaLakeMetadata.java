@@ -175,7 +175,8 @@ public class TestDeltaLakeMetadata
                                 hiveMetastoreFactory.createMetastore(Optional.empty()),
                                 transactionLogAccess,
                                 typeManager,
-                                statistics);
+                                statistics,
+                                HDFS_ENVIRONMENT);
                     }
                 });
 

@@ -130,7 +130,8 @@ public class TestDeltaLakeMetastoreStatistics
                 hiveMetastore,
                 transactionLogAccess,
                 typeManager,
-                statistics);
+                statistics,
+                hdfsEnvironment);
     }
 
     private DeltaLakeTableHandle registerTable(String tableName)
