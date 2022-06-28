@@ -14,10 +14,11 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.exchange.ExchangeInput;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.QueryTracker.TrackedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -27,9 +28,8 @@ import io.trino.server.protocol.Slug;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Plan;
 
-import java.net.URI;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
@@ -97,15 +97,15 @@ public interface QueryExecution
     {
         private final List<String> columnNames;
         private final List<Type> columnTypes;
-        private final Map<TaskId, URI> bufferLocations;
-        private final boolean noMoreBufferLocations;
+        private final Set<ExchangeInput> inputs;
+        private final boolean noMoreInputs;
 
-        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, Map<TaskId, URI> bufferLocations, boolean noMoreBufferLocations)
+        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, Set<ExchangeInput> inputs, boolean noMoreInputs)
         {
             this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
-            this.bufferLocations = ImmutableMap.copyOf(requireNonNull(bufferLocations, "bufferLocations is null"));
-            this.noMoreBufferLocations = noMoreBufferLocations;
+            this.inputs = ImmutableSet.copyOf(requireNonNull(inputs, "inputs is null"));
+            this.noMoreInputs = noMoreInputs;
         }
 
         public List<String> getColumnNames()
@@ -118,14 +118,14 @@ public interface QueryExecution
             return columnTypes;
         }
 
-        public Map<TaskId, URI> getBufferLocations()
+        public Set<ExchangeInput> getInputs()
         {
-            return bufferLocations;
+            return inputs;
         }
 
-        public boolean isNoMoreBufferLocations()
+        public boolean isNoMoreInputs()
         {
-            return noMoreBufferLocations;
+            return noMoreInputs;
         }
     }
 }

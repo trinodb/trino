@@ -29,6 +29,7 @@ import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
+import io.trino.exchange.DirectExchangeInput;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.ExecutionFailureInfo;
@@ -774,18 +775,17 @@ public class SqlQueryScheduler
         @Override
         public void taskCreated(PlanFragmentId fragmentId, RemoteTask task)
         {
-            Map<TaskId, URI> bufferLocations = ImmutableMap.of(
-                    task.getTaskId(),
-                    uriBuilderFrom(task.getTaskStatus().getSelf())
-                            .appendPath("results")
-                            .appendPath("0").build());
-            queryStateMachine.updateOutputLocations(bufferLocations, false);
+            URI taskUri = uriBuilderFrom(task.getTaskStatus().getSelf())
+                    .appendPath("results")
+                    .appendPath("0").build();
+            DirectExchangeInput input = new DirectExchangeInput(task.getTaskId(), taskUri.toString());
+            queryStateMachine.updateInputsForQueryResults(ImmutableSet.of(input), false);
         }
 
         @Override
         public void noMoreTasks(PlanFragmentId fragmentId)
         {
-            queryStateMachine.updateOutputLocations(ImmutableMap.of(), true);
+            queryStateMachine.updateInputsForQueryResults(ImmutableSet.of(), true);
         }
     }
 

@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.exchange.ExchangeInput;
 import io.trino.execution.QueryExecution.QueryOutputInfo;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.warnings.WarningCollector;
@@ -60,7 +61,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -731,9 +731,9 @@ public class QueryStateMachine
         outputManager.setColumns(columnNames, columnTypes);
     }
 
-    public void updateOutputLocations(Map<TaskId, URI> newExchangeLocations, boolean noMoreExchangeLocations)
+    public void updateInputsForQueryResults(Set<ExchangeInput> inputs, boolean noMoreInputs)
     {
-        outputManager.updateOutputLocations(newExchangeLocations, noMoreExchangeLocations);
+        outputManager.updateInputsForQueryResults(inputs, noMoreInputs);
     }
 
     public void setInputs(List<Input> inputs)
@@ -1294,9 +1294,9 @@ public class QueryStateMachine
         @GuardedBy("this")
         private List<Type> columnTypes;
         @GuardedBy("this")
-        private final Map<TaskId, URI> exchangeLocations = new LinkedHashMap<>();
+        private final Set<ExchangeInput> inputs = new HashSet<>();
         @GuardedBy("this")
-        private boolean noMoreExchangeLocations;
+        private boolean noMoreInputs;
 
         @GuardedBy("this")
         private final Map<TaskId, Throwable> outputTaskFailures = new HashMap<>();
@@ -1339,20 +1339,20 @@ public class QueryStateMachine
             queryOutputInfo.ifPresent(info -> fireStateChanged(info, outputInfoListeners));
         }
 
-        public void updateOutputLocations(Map<TaskId, URI> newExchangeLocations, boolean noMoreExchangeLocations)
+        public void updateInputsForQueryResults(Set<ExchangeInput> newInputs, boolean noMoreInputs)
         {
-            requireNonNull(newExchangeLocations, "newExchangeLocations is null");
+            requireNonNull(newInputs, "newInputs is null");
 
             Optional<QueryOutputInfo> queryOutputInfo;
             List<Consumer<QueryOutputInfo>> outputInfoListeners;
             synchronized (this) {
-                if (this.noMoreExchangeLocations) {
-                    checkArgument(this.exchangeLocations.entrySet().containsAll(newExchangeLocations.entrySet()), "New locations added after no more locations set");
+                if (this.noMoreInputs) {
+                    checkArgument(inputs.containsAll(newInputs), "New inputs added after no more inputs set");
                     return;
                 }
 
-                this.exchangeLocations.putAll(newExchangeLocations);
-                this.noMoreExchangeLocations = noMoreExchangeLocations;
+                inputs.addAll(newInputs);
+                this.noMoreInputs = noMoreInputs;
                 queryOutputInfo = getQueryOutputInfo();
                 outputInfoListeners = ImmutableList.copyOf(this.outputInfoListeners);
             }
@@ -1390,7 +1390,7 @@ public class QueryStateMachine
             if (columnNames == null || columnTypes == null) {
                 return Optional.empty();
             }
-            return Optional.of(new QueryOutputInfo(columnNames, columnTypes, exchangeLocations, noMoreExchangeLocations));
+            return Optional.of(new QueryOutputInfo(columnNames, columnTypes, inputs, noMoreInputs));
         }
 
         private void fireStateChanged(QueryOutputInfo queryOutputInfo, List<Consumer<QueryOutputInfo>> outputInfoListeners)

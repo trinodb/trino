@@ -20,6 +20,7 @@ import io.trino.spi.exchange.ExchangeSourceHandle;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -42,6 +43,25 @@ public class SpoolingExchangeInput
     public List<ExchangeSourceHandle> getExchangeSourceHandles()
     {
         return exchangeSourceHandles;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SpoolingExchangeInput that = (SpoolingExchangeInput) o;
+        return Objects.equals(exchangeSourceHandles, that.exchangeSourceHandles);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(exchangeSourceHandles);
     }
 
     @Override

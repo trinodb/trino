@@ -18,6 +18,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.execution.TaskId;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Objects;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
@@ -49,6 +51,25 @@ public class DirectExchangeInput
     public String getLocation()
     {
         return location;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        DirectExchangeInput that = (DirectExchangeInput) o;
+        return Objects.equals(taskId, that.taskId) && Objects.equals(location, that.location);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(taskId, location);
     }
 
     @Override
