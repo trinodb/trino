@@ -69,6 +69,7 @@ public class DeltaLakeConfig
     private boolean deleteSchemaLocationsFallback;
     private String parquetTimeZone = TimeZone.getDefault().getID();
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
+    private boolean uniqueTableLocation = true;
 
     public Duration getMetadataCacheTtl()
     {
@@ -396,6 +397,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setTargetMaxFileSize(DataSize targetMaxFileSize)
     {
         this.targetMaxFileSize = targetMaxFileSize;
+        return this;
+    }
+
+    public boolean isUniqueTableLocation()
+    {
+        return uniqueTableLocation;
+    }
+
+    @Config("delta.unique-table-location")
+    @ConfigDescription("Use randomized, unique table locations")
+    public DeltaLakeConfig setUniqueTableLocation(boolean uniqueTableLocation)
+    {
+        this.uniqueTableLocation = uniqueTableLocation;
         return this;
     }
 }
