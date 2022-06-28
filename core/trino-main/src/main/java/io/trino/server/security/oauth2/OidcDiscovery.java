@@ -146,6 +146,8 @@ public class OidcDiscovery
             if (!configurationValue.equals(metadataValue)) {
                 LOG.warn("Overriding \"%s=%s\" from OpenID metadata document with value \"%s=%s\" defined in configuration",
                         metadataField, metadataValue.orElse(""), configurationField, configurationValue.orElse(""));
+            } else {
+                LOG.warn("Provided redundant configuration property \"%s\" with the same value as \"%s\" field in OpenID metadata document");
             }
             return configurationValue;
         }
