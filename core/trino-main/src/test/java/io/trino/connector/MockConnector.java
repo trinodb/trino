@@ -55,6 +55,7 @@ import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableVersion;
+import io.trino.spi.connector.ConnectorTableVersioningLayout;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
@@ -143,6 +144,7 @@ public class MockConnector
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final MockConnectorFactory.ListRoleGrants roleGrants;
     private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
+    private final BiFunction<ConnectorSession, ConnectorTableHandle, Optional<ConnectorTableVersioningLayout>> getTableVersioningLayout;
     private final Optional<ConnectorAccessControl> accessControl;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Function<SchemaTableName, Metrics> metrics;
@@ -181,6 +183,7 @@ public class MockConnector
             Supplier<Iterable<EventListener>> eventListeners,
             ListRoleGrants roleGrants,
             Optional<ConnectorNodePartitioningProvider> partitioningProvider,
+            BiFunction<ConnectorSession, ConnectorTableHandle, Optional<ConnectorTableVersioningLayout>> getTableVersioningLayout,
             Optional<ConnectorAccessControl> accessControl,
             Function<SchemaTableName, List<List<?>>> data,
             Function<SchemaTableName, Metrics> metrics,
@@ -217,6 +220,7 @@ public class MockConnector
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
+        this.getTableVersioningLayout = requireNonNull(getTableVersioningLayout, "getTableVersioningLayout is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
         this.metrics = requireNonNull(metrics, "metrics is null");
@@ -759,6 +763,12 @@ public class MockConnector
         public boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle tableHandle)
         {
             return supportsReportingWrittenBytes;
+        }
+
+        @Override
+        public Optional<ConnectorTableVersioningLayout> getTableVersioningLayout(ConnectorSession session, ConnectorTableHandle handle)
+        {
+            return getTableVersioningLayout.apply(session, handle);
         }
 
         private MockConnectorAccessControl getMockAccessControl()

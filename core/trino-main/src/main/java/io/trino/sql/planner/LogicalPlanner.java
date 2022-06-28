@@ -219,7 +219,12 @@ public class LogicalPlanner
 
     public Plan plan(Analysis analysis, Stage stage, boolean collectPlanStatistics)
     {
-        PlanNode root = planStatement(analysis, analysis.getStatement());
+        return plan(analysis, analysis.getStatement(), stage, collectPlanStatistics);
+    }
+
+    public Plan plan(Analysis analysis, Statement statement, Stage stage, boolean collectPlanStatistics)
+    {
+        PlanNode root = planStatement(analysis, statement);
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Initial plan:\n%s", PlanPrinter.textLogicalPlan(
@@ -278,7 +283,7 @@ public class LogicalPlanner
             PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(new GenericLiteral("BIGINT", "0")))));
             return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
         }
-        return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);
+        return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis, statement);
     }
 
     private RelationPlan planStatementWithoutOutput(Analysis analysis, Statement statement)
@@ -753,13 +758,13 @@ public class LogicalPlanner
         return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputSymbols(), Optional.empty());
     }
 
-    private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
+    private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis, Statement statement)
     {
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
         ImmutableList.Builder<String> names = ImmutableList.builder();
 
         int columnNumber = 0;
-        RelationType outputDescriptor = analysis.getOutputDescriptor();
+        RelationType outputDescriptor = analysis.getOutputDescriptor(statement);
         for (Field field : outputDescriptor.getVisibleFields()) {
             String name = field.getName().orElse("_col" + columnNumber);
             names.add(name);

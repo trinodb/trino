@@ -54,6 +54,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTableVersion;
+import io.trino.spi.connector.ConnectorTableVersioningLayout;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
@@ -2475,6 +2476,13 @@ public final class MetadataManager
     {
         ConnectorMetadata metadata = getMetadata(session, tableHandle.getCatalogName());
         return metadata.supportsReportingWrittenBytes(session.toConnectorSession(tableHandle.getCatalogName()), tableHandle.getConnectorHandle());
+    }
+
+    @Override
+    public Optional<ConnectorTableVersioningLayout> getTableVersioningLayout(Session session, TableHandle tableHandle)
+    {
+        ConnectorMetadata metadata = getMetadata(session, tableHandle.getCatalogName());
+        return metadata.getTableVersioningLayout(session.toConnectorSession(tableHandle.getCatalogName()), tableHandle.getConnectorHandle());
     }
 
     private Optional<ConnectorTableVersion> toConnectorVersion(Optional<TableVersion> version)

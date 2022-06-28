@@ -82,6 +82,16 @@ public class MaterializedViewDefinition
         return properties;
     }
 
+    public Optional<VersioningLayout> getVersioningLayout()
+    {
+        return versioningLayout;
+    }
+
+    public Optional<Map<CatalogSchemaTableName, ConnectorTableVersion>> getSourceTableVersions()
+    {
+        return sourceTableVersions;
+    }
+
     public ConnectorMaterializedViewDefinition toConnectorMaterializedViewDefinition()
     {
         return new ConnectorMaterializedViewDefinition(

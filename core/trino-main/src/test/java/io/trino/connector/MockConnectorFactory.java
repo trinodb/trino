@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersioningLayout;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -111,6 +112,7 @@ public class MockConnectorFactory
     private final Supplier<List<PropertyMetadata<?>>> schemaProperties;
     private final Supplier<List<PropertyMetadata<?>>> tableProperties;
     private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
+    private final BiFunction<ConnectorSession, ConnectorTableHandle, Optional<ConnectorTableVersioningLayout>> getTableVersioningLayout;
 
     // access control
     private final ListRoleGrants roleGrants;
@@ -150,6 +152,7 @@ public class MockConnectorFactory
             Supplier<List<PropertyMetadata<?>>> schemaProperties,
             Supplier<List<PropertyMetadata<?>>> tableProperties,
             Optional<ConnectorNodePartitioningProvider> partitioningProvider,
+            BiFunction<ConnectorSession, ConnectorTableHandle, Optional<ConnectorTableVersioningLayout>> getTableVersioningLayout,
             ListRoleGrants roleGrants,
             boolean supportsReportingWrittenBytes,
             Optional<ConnectorAccessControl> accessControl,
@@ -182,6 +185,7 @@ public class MockConnectorFactory
         this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
+        this.getTableVersioningLayout = requireNonNull(getTableVersioningLayout, "getTableVersioningLayout is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
@@ -228,6 +232,7 @@ public class MockConnectorFactory
                 eventListeners,
                 roleGrants,
                 partitioningProvider,
+                getTableVersioningLayout,
                 accessControl,
                 data,
                 metrics,
@@ -358,6 +363,7 @@ public class MockConnectorFactory
         private Supplier<List<PropertyMetadata<?>>> schemaProperties = ImmutableList::of;
         private Supplier<List<PropertyMetadata<?>>> tableProperties = ImmutableList::of;
         private Optional<ConnectorNodePartitioningProvider> partitioningProvider = Optional.empty();
+        private BiFunction<ConnectorSession, ConnectorTableHandle, Optional<ConnectorTableVersioningLayout>> getTableVersioningLayout = (session, handle) -> Optional.empty();
 
         // access control
         private boolean provideAccessControl;
@@ -581,6 +587,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withGetTableVersioningLayout(BiFunction<ConnectorSession, ConnectorTableHandle, Optional<ConnectorTableVersioningLayout>> getTableVersioningLayout)
+        {
+            this.getTableVersioningLayout = requireNonNull(getTableVersioningLayout, "getTableVersioningLayout is null");
+            return this;
+        }
+
         public Builder withListRoleGrants(ListRoleGrants roleGrants)
         {
             provideAccessControl = true;
@@ -667,6 +679,7 @@ public class MockConnectorFactory
                     schemaProperties,
                     tableProperties,
                     partitioningProvider,
+                    getTableVersioningLayout,
                     roleGrants,
                     supportsReportingWrittenBytes,
                     accessControl,
