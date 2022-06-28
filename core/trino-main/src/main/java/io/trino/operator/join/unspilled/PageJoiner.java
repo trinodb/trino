@@ -15,28 +15,15 @@ package io.trino.operator.join.unspilled;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.WorkProcessor;
-import io.trino.operator.join.unspilled.DefaultPageJoiner.SavedRow;
 import io.trino.spi.Page;
-import io.trino.spiller.PartitioningSpiller;
-import io.trino.spiller.PartitioningSpillerFactory;
 
 import java.io.Closeable;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Optional;
 
 public interface PageJoiner
         extends WorkProcessor.Transformation<Page, Page>, Closeable
 {
     interface PageJoinerFactory
     {
-        PageJoiner getPageJoiner(
-                ListenableFuture<LookupSourceProvider> lookupSourceProvider,
-                Optional<PartitioningSpillerFactory> partitioningSpillerFactory,
-                Iterator<SavedRow> savedRows);
+        PageJoiner getPageJoiner(ListenableFuture<LookupSourceProvider> lookupSourceProvider);
     }
-
-    Map<Integer, SavedRow> getSpilledRows();
-
-    Optional<PartitioningSpiller> getSpiller();
 }
