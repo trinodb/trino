@@ -168,7 +168,7 @@ a predicate for it:
 
 
 ConnectorMetadata
-^^^^^^^^^^^^^^^^^
+-----------------
 
 The connector metadata interface allows Trino to get a lists of schemas,
 tables, columns, and other metadata about a particular data source.
@@ -211,22 +211,97 @@ features, like:
 * Role and grant management.
 * Pushing down:
 
-  * Limit
+  * :ref:`Limit and Top N - limit with sort items <connector-limit-pushdown>`
   * Predicates
   * Projections
   * Sampling
   * Aggregations
   * Joins
-  * Top N - limit with sort items
   * Table function invocation
 
 Note that data modification also requires implementing
 a :ref:`connector-page-sink-provider`.
 
+When Trino receives a ``SELECT`` query, it parses it into an Intermediate
+Representation (IR). Then, during optimization, it checks if connectors
+can handle operations related to SQL clauses by calling one of the following
+methods of the ``ConnectorMetadata`` service:
+
+* ``applyLimit``
+* ``applyTopN``
+* ``applyFilter``
+* ``applyProjection``
+* ``applySample``
+* ``applyAggregation``
+* ``applyJoin``
+* ``applyTableFunction``
+* ``applyTableScanRedirect``
+
+Connectors can indicate that they don't support a particular pushdown or that
+the action had no effect by returning ``Optional.empty()``. Connectors should
+expect these methods to be called multiple times during the optimization of
+a given query.
+
+.. warning::
+
+  It's critical for connectors to return ``Optional.empty()`` if calling
+  this method has no effect for that invocation, even if the connector generally
+  supports a particular pushdown. Doing otherwise can cause the optimizer
+  to loop indefinitely.
+
+Otherwise, these methods return a result object containing a new table handle.
+
+The new table handle represents the virtual table derived from applying the
+operation (filter, project, limit, etc.) to the table produced by the table
+scan node.
+
+The returned table handle is later passed to other services that the connector
+implements, like the ``ConnectorRecordSetProvider`` or
+``ConnectorPageSourceProvider``.
+
+.. _connector-limit-pushdown:
+
+Limit and top-N pushdown
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+When executing a ``SELECT`` query with ``LIMIT`` or ``ORDER BY`` clauses,
+the query plan may contain a ``Sort`` or ``Limit`` operations.
+
+When the plan contains a ``Sort`` and ``Limit`` operations, the engine
+tries to push down the limit into the connector by calling the ``applyTopN``
+method of the connector metadata service. If there's no ``Sort`` operation, but
+only a ``Limit``, the ``applyLimit`` method is called, and the connector can
+return results in an arbitrary order.
+
+If the connector could benefit from the information passed to these methods but
+can't guarantee that it's be able to produce fewer rows than the provided
+limit, it should return a non-empty result containing a new handle for the
+derived table and the ``limitGuaranteed`` (in ``LimitApplicationResult``) or
+``topNGuaranteed`` (in ``TopNApplicationResult``) flag set to false.
+
+If the connector can guarantee to produce fewer rows than the provided
+limit, it should return a non-empty result with the "limit guaranteed" or
+"topN guaranteed" flag set to true.
+
+.. note::
+
+  The ``applyTopN`` is the only method that receives sort items from the
+  ``Sort`` operation.
+
+In an SQL query, the ``ORDER BY`` section can include any column with any order.
+But the data source for the connector might only support limited combinations.
+Plugin authors have to decide if the connector should ignore the pushdown,
+return all the data and let the engine sort it, or throw an exception
+to inform the user that particular order isn't supported, if fetching all
+the data would be too expensive or time consuming. When throwing
+an exception, use the ``TrinoException`` class with the ``INVALID_ORDER_BY``
+error code and an actionable message, to let users know how to write a valid
+query.
+
 .. _connector-split-manager:
 
 ConnectorSplitManager
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
 The split manager partitions the data for a table into the individual chunks
 that Trino distributes to workers for processing. For example, the Hive
@@ -238,30 +313,39 @@ the strategy employed by the Example HTTP connector.
 .. _connector-record-set-provider:
 
 ConnectorRecordSetProvider
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
-Given a split and a list of columns, the record set provider is
-responsible for delivering data to the Trino execution engine.
-It creates a ``RecordSet``, which in turn creates a ``RecordCursor``
+Given a split, a table handle, and a list of columns, the record set provider
+is responsible for delivering data to the Trino execution engine.
+
+The table and column handles represent a virtual table. They're created by the
+connector's metadata service, called by Trino during query planning and
+optimization. Such a virtual table doesn't have to map directly to a single
+collection in the connector's data source. If the connector supports pushdowns,
+there can be multiple virtual tables derived from others, presenting a different
+view of the underlying data.
+
+The provider creates a ``RecordSet``, which in turn creates a ``RecordCursor``
 that's used by Trino to read the column values for each row.
 
 .. _connector-page-source-provider:
 
 ConnectorPageSourceProvider
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------
 
-Given a split and a list of columns, the page source provider is
-responsible for delivering data to the Trino execution engine.
-It creates a ``ConnectorPageSource``, which in turn creates ``Page`` objects
-that are used by Trino to read the column values.
+Given a split, a table handle, and a list of columns, the page source provider
+is responsible for delivering data to the Trino execution engine. It creates
+a ``ConnectorPageSource``, which in turn creates ``Page`` objects that are used
+by Trino to read the column values.
 
 If not implemented, a default ``RecordPageSourceProvider`` is used.
 Given a record set provider, it returns an instance of ``RecordPageSource``
 that builds ``Page`` objects from records in a record set.
 
 A connector should implement a page source provider instead of a record set
-provider when it's possible to create pages directly. The conversion of individual
-records from a record set provider into pages adds overheads during query execution.
+provider when it's possible to create pages directly. The conversion of
+individual records from a record set provider into pages adds overheads during
+query execution.
 
 To add support for updating and/or deleting rows in a connector, it needs
 to implement a ``ConnectorPageSourceProvider`` that returns
@@ -270,7 +354,7 @@ an ``UpdatablePageSource``. See :doc:`delete-and-update` for more.
 .. _connector-page-sink-provider:
 
 ConnectorPageSinkProvider
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------
 
 Given an insert table handle, the page sink provider is responsible for
 consuming data from the Trino execution engine.
