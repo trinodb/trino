@@ -17,17 +17,16 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.Slice;
 import io.trino.execution.TaskFailureListener;
-import io.trino.execution.TaskId;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DirectExchangeClient;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.operator.OperatorInfo;
 import io.trino.operator.RetryPolicy;
+import io.trino.spi.QueryId;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSource;
 import io.trino.spi.exchange.ExchangeSourceHandle;
-import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -35,14 +34,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class LazyExchangeDataSource
         implements ExchangeDataSource
 {
-    private final TaskId taskId;
-    private final PlanNodeId sourceId;
+    private final QueryId queryId;
+    private final ExchangeId exchangeId;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
     private final LocalMemoryContext systemMemoryContext;
     private final TaskFailureListener taskFailureListener;
@@ -54,16 +52,16 @@ public class LazyExchangeDataSource
     private final AtomicBoolean closed = new AtomicBoolean();
 
     public LazyExchangeDataSource(
-            TaskId taskId,
-            PlanNodeId sourceId,
+            QueryId queryId,
+            ExchangeId exchangeId,
             DirectExchangeClientSupplier directExchangeClientSupplier,
             LocalMemoryContext systemMemoryContext,
             TaskFailureListener taskFailureListener,
             RetryPolicy retryPolicy,
             ExchangeManagerRegistry exchangeManagerRegistry)
     {
-        this.taskId = requireNonNull(taskId, "taskId is null");
-        this.sourceId = requireNonNull(sourceId, "sourceId is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
+        this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
@@ -119,12 +117,7 @@ public class LazyExchangeDataSource
             ExchangeDataSource dataSource = delegate.get();
             if (dataSource == null) {
                 if (input instanceof DirectExchangeInput) {
-                    DirectExchangeClient client = directExchangeClientSupplier.get(
-                            taskId.getQueryId(),
-                            new ExchangeId(format("direct-exchange-%s-%s", taskId.getStageId().getId(), sourceId)),
-                            systemMemoryContext,
-                            taskFailureListener,
-                            retryPolicy);
+                    DirectExchangeClient client = directExchangeClientSupplier.get(queryId, exchangeId, systemMemoryContext, taskFailureListener, retryPolicy);
                     dataSource = new DirectExchangeDataSource(client);
                 }
                 else if (input instanceof SpoolingExchangeInput) {
