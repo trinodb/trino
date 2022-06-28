@@ -16,7 +16,6 @@ package io.trino.operator.join.unspilled;
 import io.trino.operator.join.LookupSource;
 
 import java.util.function.Function;
-import java.util.function.IntPredicate;
 
 public interface LookupSourceProvider
         extends AutoCloseable
@@ -29,9 +28,5 @@ public interface LookupSourceProvider
     interface LookupSourceLease
     {
         LookupSource getLookupSource();
-
-        long spillEpoch();
-
-        IntPredicate getSpillMask();
     }
 }
