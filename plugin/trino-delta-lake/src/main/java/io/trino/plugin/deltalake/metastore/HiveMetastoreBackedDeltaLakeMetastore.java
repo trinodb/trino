@@ -26,6 +26,7 @@ import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
+import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -40,6 +41,7 @@ import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TypeManager;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
@@ -55,6 +57,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
@@ -79,17 +82,20 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     private final TransactionLogAccess transactionLogAccess;
     private final TypeManager typeManager;
     private final CachingExtendedStatisticsAccess statisticsAccess;
+    private final HdfsEnvironment hdfsEnvironment;
 
     public HiveMetastoreBackedDeltaLakeMetastore(
             HiveMetastore delegate,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
-            CachingExtendedStatisticsAccess statisticsAccess)
+            CachingExtendedStatisticsAccess statisticsAccess,
+            HdfsEnvironment hdfsEnvironment)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogSupport is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
@@ -161,12 +167,22 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public void dropTable(ConnectorSession session, String databaseName, String tableName)
+    public void dropTable(ConnectorSession session, String databaseName, String tableName, boolean externalTable)
     {
         String tableLocation = getTableLocation(new SchemaTableName(databaseName, tableName), session);
         delegate.dropTable(databaseName, tableName, true);
         statisticsAccess.invalidateCache(tableLocation);
         transactionLogAccess.invalidateCaches(tableLocation);
+        if (!externalTable) {
+            try {
+                Path path = new Path(tableLocation);
+                FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), path);
+                fileSystem.delete(path, true);
+            }
+            catch (IOException e) {
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", tableLocation, tableName), e);
+            }
+        }
     }
 
     @Override

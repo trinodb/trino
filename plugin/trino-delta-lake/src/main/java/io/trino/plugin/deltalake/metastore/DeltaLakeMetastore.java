@@ -45,7 +45,7 @@ public interface DeltaLakeMetastore
 
     void createTable(ConnectorSession session, Table table, PrincipalPrivileges principalPrivileges);
 
-    void dropTable(ConnectorSession session, String databaseName, String tableName);
+    void dropTable(ConnectorSession session, String databaseName, String tableName, boolean externalTable);
 
     void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
 

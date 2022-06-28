@@ -31,6 +31,7 @@ import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.tpch.TpchTable;
@@ -574,12 +575,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertUpdate(format("CREATE TABLE %s.%s AS SELECT name FROM nation", schemaName, tableName2), "SELECT count(*) FROM nation");
         assertQuery(format("SELECT * FROM %s.%s", schemaName, tableName), "SELECT name FROM nation");
         assertQuery(format("SELECT * FROM %s.%s", schemaName, tableName2), "SELECT name FROM nation");
-        assertQuery(
-                "SELECT DISTINCT regexp_replace(\"$path\", '(.*[/][^/]*)[/][^/]*$', '$1') FROM " + schemaName + "." + tableName,
-                format("VALUES '%s/%s'", schemaLocation, tableName));
-        assertQuery(
-                "SELECT DISTINCT regexp_replace(\"$path\", '(.*[/][^/]*)[/][^/]*$', '$1') FROM " + schemaName + "." + tableName2,
-                format("VALUES '%s/%s'", schemaLocation, tableName2));
+        validatePath(schemaLocation, schemaName, tableName);
+        validatePath(schemaLocation, schemaName, tableName2);
     }
 
     @Test
@@ -599,12 +596,17 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertUpdate(format("INSERT INTO %s.%s SELECT name FROM nation", schemaName, tableName2), "SELECT count(*) FROM nation");
         assertQuery(format("SELECT * FROM %s.%s", schemaName, tableName), "SELECT name FROM nation");
         assertQuery(format("SELECT * FROM %s.%s", schemaName, tableName2), "SELECT name FROM nation");
-        assertQuery(
-                "SELECT DISTINCT regexp_replace(\"$path\", '(.*[/][^/]*)[/][^/]*$', '$1') FROM " + schemaName + "." + tableName,
-                format("VALUES '%s/%s'", schemaLocation, tableName));
-        assertQuery(
-                "SELECT DISTINCT regexp_replace(\"$path\", '(.*[/][^/]*)[/][^/]*$', '$1') FROM " + schemaName + "." + tableName2,
-                format("VALUES '%s/%s'", schemaLocation, tableName2));
+        validatePath(schemaLocation, schemaName, tableName);
+        validatePath(schemaLocation, schemaName, tableName2);
+    }
+
+    private void validatePath(String schemaLocation, String schemaName, String tableName)
+    {
+        List<MaterializedRow> materializedRows = getQueryRunner()
+                .execute("SELECT DISTINCT regexp_replace(\"$path\", '(.*[/][^/]*)[/][^/]*$', '$1') FROM " + schemaName + "." + tableName)
+                .getMaterializedRows();
+        assertThat(materializedRows.size()).isEqualTo(1);
+        assertThat((String) materializedRows.get(0).getField(0)).matches(format("%s/%s.*", schemaLocation, tableName));
     }
 
     @Override
