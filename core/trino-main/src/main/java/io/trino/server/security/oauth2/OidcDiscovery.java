@@ -142,16 +142,23 @@ public class OidcDiscovery
 
     private static Optional<String> getOptionalField(String metadataField, Optional<String> metadataValue, String configurationField, Optional<String> configurationValue)
     {
-        if (configurationValue.isPresent()) {
-            if (!configurationValue.equals(metadataValue)) {
-                LOG.warn("Overriding \"%s=%s\" from OpenID metadata document with value \"%s=%s\" defined in configuration",
-                        metadataField, metadataValue.orElse(""), configurationField, configurationValue.orElse(""));
-            } else {
-                LOG.warn("Provided redundant configuration property \"%s\" with the same value as \"%s\" field in OpenID metadata document");
-            }
+        if (configurationValue.isEmpty()) {
+            return metadataValue;
+        }
+
+        if (metadataValue.isEmpty()) {
             return configurationValue;
         }
-        return metadataValue;
+
+        if (!configurationValue.equals(metadataValue)) {
+            LOG.warn("Overriding \"%s=%s\" from OpenID metadata document with value \"%s=%s\" defined in configuration",
+                    metadataField, metadataValue.orElse(""), configurationField, configurationValue.orElse(""));
+        }
+        else {
+            LOG.warn("Provided redundant configuration property \"%s\" with the same value as \"%s\" field in OpenID metadata document",
+                    configurationField, metadataField);
+        }
+        return configurationValue;
     }
 
     private static void checkMetadataState(boolean expression, String additionalMessage, String... additionalMessageArgs)
