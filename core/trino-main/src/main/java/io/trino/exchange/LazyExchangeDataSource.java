@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.util.Objects.requireNonNull;
 
@@ -102,7 +101,9 @@ public class LazyExchangeDataSource
             return initializationFuture;
         }
         ExchangeDataSource dataSource = delegate.get();
-        checkState(dataSource != null, "dataSource is expected to be initialized");
+        if (dataSource == null) {
+            return immediateVoidFuture();
+        }
         return dataSource.isBlocked();
     }
 
