@@ -503,51 +503,48 @@ Property Name                              Description
 
 .. _hive-thrift-metastore:
 
-Thrift metastore configuration properties
------------------------------------------
+.. list-table:: Thrift metastore configuration properties
+   :widths: 50 50
+   :header-rows: 1
 
-=============================================================== =============================================================
-Property Name                                                   Description
-=============================================================== =============================================================
-``hive.metastore.uri``                                          The URIs of the Hive metastore to connect to using the
-                                                                Thrift protocol. If a comma-separated list of URIs is
-                                                                provided, the first URI is used by default, and the rest
-                                                                of the URIs are fallback metastores. This property is required.
-                                                                Example: ``thrift://192.0.2.3:9083`` or
-                                                                ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
-
-``hive.metastore.username``                                     The username Trino uses to access the Hive metastore.
-
-``hive.metastore.authentication.type``                          Hive metastore authentication type.
-                                                                Possible values are ``NONE`` or ``KERBEROS``.
-                                                                Default is ``NONE``.
-
-``hive.metastore.thrift.impersonation.enabled``                 Enable Hive metastore end user impersonation.
-
-``hive.metastore.thrift.delegation-token.cache-ttl``            Time to live delegation token cache for metastore.
-                                                                Default is ``1h``.
-
-``hive.metastore.thrift.delegation-token.cache-maximum-size``   Delegation token cache maximum size. Default is ``1000``.
-
-``hive.metastore.thrift.client.ssl.enabled``                    Use SSL when connecting to metastore. Default is ``false``.
-
-``hive.metastore.thrift.client.ssl.key``                        Path to private key and client certificate (key store).
-
-``hive.metastore.thrift.client.ssl.key-password``               Password for the private key.
-
-``hive.metastore.thrift.client.ssl.trust-certificate``          Path to the server certificate chain (trust store).
-                                                                Required when SSL is enabled.
-
-``hive.metastore.thrift.client.ssl.trust-certificate-password`` Password for the trust store
-
-``hive.metastore.service.principal``                            The Kerberos principal of the Hive metastore service.
-
-``hive.metastore.client.principal``                             The Kerberos principal that Trino uses when connecting
-                                                                to the Hive metastore service.
-
-``hive.metastore.client.keytab``                                Hive metastore client keytab location.
-
-=============================================================== =============================================================
+   * - Property Name
+     - Description
+   * - ``hive.metastore.uri``
+     - The URIs of the Hive metastore to connect to using the Thrift protocol.
+       If a comma-separated list of URIs is provided, the first URI is used by
+       default, and the rest of the URIs are fallback metastores. This property
+       is required. Example: ``thrift://192.0.2.3:9083`` or
+       ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
+   * - ``hive.metastore.username``
+     - The username Trino uses to access the Hive metastore.
+   * - ``hive.metastore.authentication.type``
+     - Hive metastore authentication type. Possivel values are ``NONE`` or
+       ``KERBEROS``. Default is ``NONE``.
+   * - ``hive.metastore.thrift.impersonation.enabled``
+     - Enable Hive metastore end user impersonation.
+   * - ``hive.metastore.thrift.delegation-token.cache-ttl``
+     - Time to live delegation token cache for metastore. Default is ``1h``.
+   * - ``hive.metastore.thrift.delegation-token.cache-maximum-size``
+     - Delegation token cache maximum size. Default is ``1000``.
+   * - ``hive.metastore.thrift.client.ssl.enabled``
+     - Use SSL when connecting to metastore. Default is ``false``.
+   * - ``hive.metastore.thrift.client.ssl.key``
+     - Path to private key and client certification (key store).
+   * - ``hive.metastore.thrift.client.ssl.key-password``
+     - Password for the private key.
+   * - ``hive.metastore.thrift.client.ssl.trust-certificate``
+     - Path to the server certificate chain (trust store). Required when SSL is
+       enabled.
+   * - ``hive.metastore.thrift.client.ssl.trust-certificate-password``
+     - Password for the trust store.
+   * - ``hive.metastore.service.principal``
+     - The Kerberos principal of the Hive metastore service.
+   * - ``hive.metastore.client.principal``
+     - The Kerberos principal that Trino uses when connecting to the Hive
+       metastore service.
+   * - ``hive.metastore.client.keytab``
+     - Hive metastore client keytab location.
+   * - ``hive.metastore.thrift.delete-files-on-drop``
 
 .. _hive-glue-metastore:
 
