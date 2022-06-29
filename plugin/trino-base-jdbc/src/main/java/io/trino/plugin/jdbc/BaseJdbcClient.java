@@ -609,13 +609,16 @@ public abstract class BaseJdbcClient
     @Override
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
+        RemoteTableName remoteTableName = tableHandle.asPlainTable().getRemoteTableName();
         SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
         ConnectorIdentity identity = session.getIdentity();
 
         try (Connection connection = connectionFactory.openConnection(session)) {
-            String remoteSchema = identifierMapping.toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = identifierMapping.toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
-            String catalog = connection.getCatalog();
+            String catalog = remoteTableName.getCatalogName()
+                    .orElse(connection.getCatalog());
+            String remoteSchema = remoteTableName.getSchemaName()
+                    .orElseGet(() -> identifierMapping.toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName()));
+            String remoteTable = remoteTableName.getTableName();
 
             ImmutableList.Builder<String> columnNames = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
