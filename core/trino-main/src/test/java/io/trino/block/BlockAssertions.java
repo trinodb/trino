@@ -126,8 +126,9 @@ public final class BlockAssertions
     {
         checkArgument(dictionary.getPositionCount() > 0, "dictionary position count %s is less than or equal to 0", dictionary.getPositionCount());
 
+        Random random = random();
         int[] ids = IntStream.range(0, positionCount)
-                .map(i -> random().nextInt(dictionary.getPositionCount()))
+                .map(i -> random.nextInt(dictionary.getPositionCount()))
                 .toArray();
         return new DictionaryBlock(0, positionCount, dictionary, ids, false, randomDictionaryId());
     }
@@ -204,6 +205,7 @@ public final class BlockAssertions
         }
         int[] offsets = new int[positionCount + 1];
 
+        Random random = random();
         for (int position = 0; position < positionCount; position++) {
             if (nullRate > 0 && nullPositions.contains(position)) {
                 isNull[position] = true;
@@ -212,7 +214,7 @@ public final class BlockAssertions
             else {
                 // RowType doesn't need offsets, so we just use 1,
                 // for ArrayType and MapType we choose randomly either array length or map size at the current position
-                offsets[position + 1] = offsets[position] + (type instanceof RowType ? 1 : random().nextInt(ENTRY_SIZE) + 1);
+                offsets[position + 1] = offsets[position] + (type instanceof RowType ? 1 : random.nextInt(ENTRY_SIZE) + 1);
             }
         }
 
@@ -256,30 +258,33 @@ public final class BlockAssertions
 
     public static Block createRandomLongDecimalsBlock(int positionCount, float nullRate)
     {
+        Random random = random();
         return createLongDecimalsBlock(generateListWithNulls(
                 positionCount,
                 nullRate,
-                () -> String.valueOf(random().nextLong())));
+                () -> String.valueOf(random.nextLong())));
     }
 
     public static Block createRandomShortTimestampBlock(TimestampType type, int positionCount, float nullRate)
     {
+        Random random = random();
         return createLongsBlock(
                 generateListWithNulls(
                         positionCount,
                         nullRate,
-                        () -> SqlTimestamp.fromMillis(type.getPrecision(), random().nextLong()).getEpochMicros()));
+                        () -> SqlTimestamp.fromMillis(type.getPrecision(), random.nextLong()).getEpochMicros()));
     }
 
     public static Block createRandomLongTimestampBlock(TimestampType type, int positionCount, float nullRate)
     {
+        Random random = random();
         return createLongTimestampBlock(
                 type,
                 generateListWithNulls(
                         positionCount,
                         nullRate,
                         () -> {
-                            SqlTimestamp sqlTimestamp = SqlTimestamp.fromMillis(type.getPrecision(), random().nextLong());
+                            SqlTimestamp sqlTimestamp = SqlTimestamp.fromMillis(type.getPrecision(), random.nextLong());
                             return new LongTimestamp(sqlTimestamp.getEpochMicros(), sqlTimestamp.getPicosOfMicros());
                         }));
     }
@@ -290,8 +295,9 @@ public final class BlockAssertions
         int[] uniqueValues = chooseRandomUnique(positionCount, numberOfUniqueValues).stream()
                 .mapToInt(Integer::intValue)
                 .toArray();
+        Random random = random();
         return createLongsBlock(IntStream.range(0, positionCount)
-                .mapToLong(position -> uniqueValues[random().nextInt(numberOfUniqueValues)])
+                .mapToLong(position -> uniqueValues[random.nextInt(numberOfUniqueValues)])
                 .boxed()
                 .collect(toImmutableList()));
     }
@@ -304,9 +310,10 @@ public final class BlockAssertions
 
     public static Block createRandomSmallintsBlock(int positionCount, float nullRate)
     {
+        Random random = random();
         return createTypedLongsBlock(
                 SMALLINT,
-                generateListWithNulls(positionCount, nullRate, () -> (long) (short) random().nextLong()));
+                generateListWithNulls(positionCount, nullRate, () -> (long) (short) random.nextLong()));
     }
 
     public static Block createRandomStringBlock(int positionCount, float nullRate, int maxStringLength)
@@ -317,22 +324,26 @@ public final class BlockAssertions
 
     private static Block createRandomVarbinariesBlock(int positionCount, float nullRate)
     {
-        return createSlicesBlock(VARBINARY, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(random().nextLong(), random().nextLong())));
+        Random random = random();
+        return createSlicesBlock(VARBINARY, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(random.nextLong(), random.nextLong())));
     }
 
     private static Block createRandomUUIDsBlock(int positionCount, float nullRate)
     {
-        return createSlicesBlock(UUID, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(random().nextLong(), random().nextLong())));
+        Random random = random();
+        return createSlicesBlock(UUID, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(random.nextLong(), random.nextLong())));
     }
 
     private static Block createRandomIpAddressesBlock(int positionCount, float nullRate)
     {
-        return createSlicesBlock(IPADDRESS, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(random().nextLong(), random().nextLong())));
+        Random random = random();
+        return createSlicesBlock(IPADDRESS, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(random.nextLong(), random.nextLong())));
     }
 
     private static Block createRandomTinyintsBlock(int positionCount, float nullRate)
     {
-        return createTypedLongsBlock(TINYINT, generateListWithNulls(positionCount, nullRate, () -> (long) (byte) random().nextLong()));
+        Random random = random();
+        return createTypedLongsBlock(TINYINT, generateListWithNulls(positionCount, nullRate, () -> (long) (byte) random.nextLong()));
     }
 
     public static Block createRandomDoublesBlock(int positionCount, float nullRate)
@@ -915,26 +926,28 @@ public final class BlockAssertions
 
     private static Set<Integer> chooseRandomUnique(int bound, int count)
     {
+        Random random = random();
         if (count < bound / 10) {
             // it's an order of bound/count faster to use this method for small enough count/bound ratio
             Set<Integer> values = new HashSet<>(count);
             while (values.size() < count) {
-                values.add(random().nextInt(bound));
+                values.add(random.nextInt(bound));
             }
             return ImmutableSet.copyOf(values);
         }
 
         List<Integer> allNumbers = IntStream.range(0, bound).boxed().collect(toList());
-        Collections.shuffle(allNumbers, random());
+        Collections.shuffle(allNumbers, random);
         return allNumbers.stream().limit(count).collect(toImmutableSet());
     }
 
     private static String generateRandomStringWithLength(int length)
     {
         String symbols = "abcdefghijklmnopqrstuvwxyz";
+        Random random = random();
         char[] chars = new char[length];
         for (int i = 0; i < length; i++) {
-            chars[i] = symbols.charAt(random().nextInt(symbols.length()));
+            chars[i] = symbols.charAt(random.nextInt(symbols.length()));
         }
         return new String(chars);
     }
