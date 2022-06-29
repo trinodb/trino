@@ -34,6 +34,7 @@ import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockReset
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 
 public class SlicePositionsAppender
         implements PositionsAppender
@@ -194,7 +195,7 @@ public class SlicePositionsAppender
     private void duplicateBytes(Block block, int position, int count, int startOffset)
     {
         int length = block.getSliceLength(position);
-        int newByteCount = count * length;
+        int newByteCount = toIntExact((long) count * length);
         ensureBytesCapacity(currentOffset + newByteCount);
 
         Slice slice = block.getSlice(position, 0, length);
