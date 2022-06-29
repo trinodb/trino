@@ -694,6 +694,7 @@ features:
 
 * :ref:`sql-write-operations`:
 
+  * :doc:`/sql/comment`
   * :ref:`sql-data-management`, see also :ref:`hive-data-management`
   * :ref:`sql-schema-table-management`
   * :ref:`sql-view-management`
