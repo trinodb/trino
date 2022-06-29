@@ -78,9 +78,9 @@ public class TestTaskExecutor
             assertEquals(driver1.getCompletedPhases(), 0);
             assertEquals(driver2.getCompletedPhases(), 0);
             ticker.increment(60, SECONDS);
-            assertEquals(taskExecutor.getRunAwaySplitCount(), 0);
+            assertEquals(taskExecutor.getStuckSplitsCount(), 0);
             ticker.increment(600, SECONDS);
-            assertEquals(taskExecutor.getRunAwaySplitCount(), 2);
+            assertEquals(taskExecutor.getStuckSplitsCount(), 2);
             verificationComplete.arriveAndAwaitAdvance();
 
             // advance one phase and verify
@@ -135,7 +135,7 @@ public class TestTaskExecutor
 
             // no splits remaining
             ticker.increment(610, SECONDS);
-            assertEquals(taskExecutor.getRunAwaySplitCount(), 0);
+            assertEquals(taskExecutor.getStuckSplitsCount(), 0);
         }
         finally {
             taskExecutor.stop();

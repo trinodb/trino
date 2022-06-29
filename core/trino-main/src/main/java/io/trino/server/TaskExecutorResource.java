@@ -25,7 +25,7 @@ import javax.ws.rs.core.MediaType;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static java.util.Objects.requireNonNull;
 
-@Path("/v1/maxActiveSplits")
+@Path("/v1/stuckSplits")
 public class TaskExecutorResource
 {
     private final TaskExecutor taskExecutor;
@@ -40,8 +40,8 @@ public class TaskExecutorResource
     @ResourceSecurity(MANAGEMENT_READ)
     @GET
     @Produces(MediaType.TEXT_PLAIN)
-    public String getMaxActiveSplit()
+    public String getStuckSplits()
     {
-        return taskExecutor.getMaxActiveSplitsInfo();
+        return taskExecutor.getStuckSplitsInfo();
     }
 }
