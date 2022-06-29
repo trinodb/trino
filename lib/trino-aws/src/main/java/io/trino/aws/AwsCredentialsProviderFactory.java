@@ -154,9 +154,16 @@ public class AwsCredentialsProviderFactory
     private static Optional<AWSCredentials> getFixedAwsCredentials(AwsCredentialsProviderConfig config)
     {
         return config.getAccessKey()
-                .flatMap(accessKey -> config.getSecretKey()
+                .map(accessKey -> config.getSecretKey()
                         .map(secretKey -> config.getSessionToken()
                                 .<AWSCredentials>map(sessionToken -> new BasicSessionCredentials(accessKey, secretKey, sessionToken))
-                                .orElseGet(() -> new BasicAWSCredentials(accessKey, secretKey))));
+                                .orElseGet(() -> new BasicAWSCredentials(accessKey, secretKey)))
+                        .orElseThrow(() -> new IllegalArgumentException("AWS Secret Key is required when access key is present")))
+                .or(() -> {
+                    if (config.getSecretKey().isPresent()) {
+                        throw new IllegalArgumentException("AWS Access Key is required when secret key is present");
+                    }
+                    return Optional.empty();
+                });
     }
 }

@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import java.net.URI;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestAwsCredentialsProviderFactory
 {
@@ -129,6 +130,26 @@ class TestAwsCredentialsProviderFactory
                 .extracting(AWSSessionCredentials.class::cast)
                 .extracting(AWSCredentials::getAWSAccessKeyId, AWSCredentials::getAWSSecretKey, AWSSessionCredentials::getSessionToken)
                 .containsExactly("access key", "secret key", "session token");
+    }
+
+    @Test
+    void fixedCredentialsMissingSecret()
+    {
+        assertThatThrownBy(() -> new AwsCredentialsProviderFactory().createAwsCredentialsProvider(
+                new AwsCredentialsProviderConfig()
+                        .setAccessKey("access key")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("AWS Secret Key");
+    }
+
+    @Test
+    void fixedCredentialsMissingAccess()
+    {
+        assertThatThrownBy(() -> new AwsCredentialsProviderFactory().createAwsCredentialsProvider(
+                new AwsCredentialsProviderConfig()
+                        .setSecretKey("secret key")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("AWS Access Key");
     }
 
     @Test
