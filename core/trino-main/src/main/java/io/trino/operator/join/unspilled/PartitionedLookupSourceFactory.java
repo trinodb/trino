@@ -27,7 +27,6 @@ import javax.annotation.concurrent.GuardedBy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -50,23 +49,21 @@ public final class PartitionedLookupSourceFactory
     private final boolean outer;
     private final BlockTypeOperators blockTypeOperators;
 
-    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-
-    @GuardedBy("lock")
+    @GuardedBy("this")
     private final Supplier<LookupSource>[] partitions;
 
     private final SettableFuture<Void> partitionsNoLongerNeeded = SettableFuture.create();
 
-    @GuardedBy("lock")
+    @GuardedBy("this")
     private final SettableFuture<Void> destroyed = SettableFuture.create();
 
-    @GuardedBy("lock")
+    @GuardedBy("this")
     private int partitionsSet;
 
-    @GuardedBy("lock")
+    @GuardedBy("this")
     private TrackingLookupSourceSupplier lookupSourceSupplier;
 
-    @GuardedBy("lock")
+    @GuardedBy("this")
     private final List<SettableFuture<LookupSource>> lookupSourceFutures = new ArrayList<>();
 
     public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, boolean outer, BlockTypeOperators blockTypeOperators)
@@ -104,22 +101,16 @@ public final class PartitionedLookupSourceFactory
     }
 
     @Override
-    public ListenableFuture<LookupSource> createLookupSource()
+    public synchronized ListenableFuture<LookupSource> createLookupSource()
     {
-        lock.writeLock().lock();
-        try {
-            checkState(!destroyed.isDone(), "already destroyed");
-            if (lookupSourceSupplier != null) {
-                return immediateFuture(lookupSourceSupplier.getLookupSource());
-            }
+        checkState(!destroyed.isDone(), "already destroyed");
+        if (lookupSourceSupplier != null) {
+            return immediateFuture(lookupSourceSupplier.getLookupSource());
+        }
 
-            SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
-            lookupSourceFutures.add(lookupSourceFuture);
-            return lookupSourceFuture;
-        }
-        finally {
-            lock.writeLock().unlock();
-        }
+        SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
+        lookupSourceFutures.add(lookupSourceFuture);
+        return lookupSourceFuture;
     }
 
     @Override
@@ -142,8 +133,7 @@ public final class PartitionedLookupSourceFactory
 
         boolean completed;
 
-        lock.writeLock().lock();
-        try {
+        synchronized (this) {
             if (destroyed.isDone()) {
                 return immediateVoidFuture();
             }
@@ -152,9 +142,6 @@ public final class PartitionedLookupSourceFactory
             partitions[partitionIndex] = partitionLookupSource;
             partitionsSet++;
             completed = (partitionsSet == partitions.length);
-        }
-        finally {
-            lock.writeLock().unlock();
         }
 
         if (completed) {
@@ -166,13 +153,10 @@ public final class PartitionedLookupSourceFactory
 
     private void supplyLookupSources()
     {
-        checkState(!lock.isWriteLockedByCurrentThread());
-
         List<SettableFuture<LookupSource>> lookupSourceFutures;
         TrackingLookupSourceSupplier lookupSourceSupplier;
 
-        lock.writeLock().lock();
-        try {
+        synchronized (this) {
             checkState(partitionsSet == partitions.length, "Not all set yet");
             checkState(this.lookupSourceSupplier == null, "Already supplied");
 
@@ -195,9 +179,6 @@ public final class PartitionedLookupSourceFactory
             // store futures into local variables so they can be used outside of the lock
             lookupSourceFutures = ImmutableList.copyOf(this.lookupSourceFutures);
         }
-        finally {
-            lock.writeLock().unlock();
-        }
 
         for (SettableFuture<LookupSource> lookupSourceFuture : lookupSourceFutures) {
             lookupSourceFuture.set(lookupSourceSupplier.getLookupSource());
@@ -209,31 +190,21 @@ public final class PartitionedLookupSourceFactory
     {
         TrackingLookupSourceSupplier lookupSourceSupplier;
 
-        lock.writeLock().lock();
-        try {
+        synchronized (this) {
             checkState(this.lookupSourceSupplier != null, "lookup source not ready yet");
             lookupSourceSupplier = this.lookupSourceSupplier;
-        }
-        finally {
-            lock.writeLock().unlock();
         }
 
         return lookupSourceSupplier.getOuterPositionIterator();
     }
 
     @Override
-    public void destroy()
+    public synchronized void destroy()
     {
-        lock.writeLock().lock();
-        try {
-            freePartitions();
+        freePartitions();
 
-            // Setting destroyed must be last because it's a part of the state exposed by isDestroyed() without synchronization.
-            destroyed.set(null);
-        }
-        finally {
-            lock.writeLock().unlock();
-        }
+        // Setting destroyed must be last because it's a part of the state exposed by isDestroyed() without synchronization.
+        destroyed.set(null);
     }
 
     private void freePartitions()
@@ -241,14 +212,10 @@ public final class PartitionedLookupSourceFactory
         // Let the HashBuilderOperators reduce their accounted memory
         partitionsNoLongerNeeded.set(null);
 
-        lock.writeLock().lock();
-        try {
+        synchronized (this) {
             // Remove out references to partitions to actually free memory
             Arrays.fill(partitions, null);
             lookupSourceSupplier = null;
-        }
-        finally {
-            lock.writeLock().unlock();
         }
     }
 
