@@ -18,6 +18,7 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -48,6 +49,7 @@ public class TestClassLoaderSafeWrappers
         testClassLoaderSafe(ConnectorPageSink.class, ClassLoaderSafeConnectorPageSink.class);
         testClassLoaderSafe(ConnectorPageSinkProvider.class, ClassLoaderSafeConnectorPageSinkProvider.class);
         testClassLoaderSafe(ConnectorPageSourceProvider.class, ClassLoaderSafeConnectorPageSourceProvider.class);
+        testClassLoaderSafe(ConnectorPageSource.class, ClassLoaderSafeConnectorPageSource.class);
         testClassLoaderSafe(ConnectorSplitManager.class, ClassLoaderSafeConnectorSplitManager.class);
         testClassLoaderSafe(ConnectorNodePartitioningProvider.class, ClassLoaderSafeNodePartitioningProvider.class);
         testClassLoaderSafe(ConnectorSplitSource.class, ClassLoaderSafeConnectorSplitSource.class);

@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.UpdatablePageSource;
 
 import javax.inject.Inject;
 
@@ -46,7 +47,13 @@ public class ClassLoaderSafeConnectorPageSourceProvider
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.createPageSource(transaction, session, split, table, columns, dynamicFilter);
+            ConnectorPageSource pageSource = delegate.createPageSource(transaction, session, split, table, columns, dynamicFilter);
+            if (pageSource instanceof UpdatablePageSource) {
+                return new ClassLoaderSafeUpdatablePageSource((UpdatablePageSource) pageSource, classLoader);
+            }
+            else {
+                return new ClassLoaderSafeConnectorPageSource(pageSource, classLoader);
+            }
         }
     }
 }
