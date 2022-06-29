@@ -282,7 +282,7 @@ public class TestSqlTask
         sqlTask.cancel();
         assertEquals(sqlTask.getTaskInfo().getTaskStatus().getState(), TaskState.CANCELED);
 
-        // buffer future will complete.. the event is async so wait a bit for event to propagate
+        // buffer future will complete, the event is async so wait a bit for event to propagate
         bufferResult.get(1, SECONDS);
 
         bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
@@ -332,7 +332,7 @@ public class TestSqlTask
         ListenableFuture<?> future = sqlTask.getTaskStatus(STARTING_VERSION);
         assertFalse(future.isDone());
 
-        // make sure future gets unblocked when dynamic filters version is updated
+        // make sure future gets unblocked when dynamic filters' version is updated
         taskContext.updateDomains(ImmutableMap.of(new DynamicFilterId("filter"), Domain.none(BIGINT)));
         assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION + 1);
         assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION + 1);
