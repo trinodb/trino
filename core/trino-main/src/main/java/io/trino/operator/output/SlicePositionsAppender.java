@@ -123,9 +123,8 @@ public class SlicePositionsAppender
         if (rlePositionCount == 0) {
             return;
         }
-        int sourcePosition = 0;
         ensurePositionCapacity(positionCount + rlePositionCount);
-        if (block.isNull(sourcePosition)) {
+        if (block.isNull(0)) {
             int offset = offsets[positionCount];
             Arrays.fill(valueIsNull, positionCount, positionCount + rlePositionCount, true);
             Arrays.fill(offsets, positionCount + 1, positionCount + rlePositionCount + 1, offset);
@@ -137,7 +136,7 @@ public class SlicePositionsAppender
         else {
             int startOffset = offsets[positionCount];
             hasNonNullValue = true;
-            duplicateBytes(block.getValue(), sourcePosition, rlePositionCount, startOffset);
+            duplicateBytes(block.getValue(), 0, rlePositionCount, startOffset);
         }
     }
 
