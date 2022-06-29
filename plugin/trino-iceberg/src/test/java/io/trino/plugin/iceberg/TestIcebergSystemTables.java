@@ -13,10 +13,15 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.TypeOperators;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -27,9 +32,13 @@ import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergSystemTables
         extends AbstractTestQueryFramework
@@ -236,5 +245,80 @@ public class TestIcebergSystemTables
                         "('split_offsets', 'array(bigint)', '', '')," +
                         "('equality_ids', 'array(integer)', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
+
+        MaterializedResult result = computeActual("SELECT file_format, record_count, lower_bounds, upper_bounds FROM test_schema.\"test_table$files\" order by file_path");
+
+        MaterializedResult expectedStatistics =
+                MaterializedResult.resultBuilder(getSession(), VARCHAR, BIGINT, new MapType(INTEGER, VARCHAR, new TypeOperators()),
+                                new MapType(IntegerType.INTEGER, VARCHAR, new TypeOperators()))
+                        .row("ORC", 1L, Map.of(1, "0", 2, "2019-09-08"), Map.of(1, "0", 2, "2019-09-08"))
+                        .row("ORC", 2L, Map.of(1, "1", 2, "2019-09-09"), Map.of(1, "2", 2, "2019-09-09"))
+                        .row("ORC", 1L, Map.of(1, "3", 2, "2019-09-09"), Map.of(1, "3", 2, "2019-09-09"))
+                        .row("ORC", 2L, Map.of(1, "4", 2, "2019-09-10"), Map.of(1, "5", 2, "2019-09-10"))
+                        .build();
+
+        assertEquals(result, expectedStatistics);
+    }
+
+    @Test
+    public void testAllFilesTable()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "all_files_table", "(a int, b VARCHAR)", ImmutableList.of("(1, 'a')"))) {
+            assertQuery("SHOW COLUMNS FROM \"" + table.getName() + "$all_files\"",
+                    "VALUES ('content', 'integer', '', '')," +
+                            "('file_path', 'varchar', '', '')," +
+                            "('file_format', 'varchar', '', '')," +
+                            "('record_count', 'bigint', '', '')," +
+                            "('file_size_in_bytes', 'bigint', '', '')," +
+                            "('column_sizes', 'map(integer, bigint)', '', '')," +
+                            "('value_counts', 'map(integer, bigint)', '', '')," +
+                            "('null_value_counts', 'map(integer, bigint)', '', '')," +
+                            "('nan_value_counts', 'map(integer, bigint)', '', '')," +
+                            "('lower_bounds', 'map(integer, varchar)', '', '')," +
+                            "('upper_bounds', 'map(integer, varchar)', '', '')," +
+                            "('key_metadata', 'varbinary', '', '')," +
+                            "('split_offsets', 'array(bigint)', '', '')," +
+                            "('equality_ids', 'array(integer)', '', '')");
+
+            assertQuerySucceeds("SELECT * FROM \"" + table.getName() + "$all_files\"");
+
+            MaterializedResult filesAfterSingleRow = computeActual("SELECT file_format, record_count, lower_bounds, upper_bounds FROM \"" + table.getName() + "$files\"");
+            MaterializedResult allFilesAfterSingleRow = computeActual("SELECT file_format, record_count, lower_bounds, upper_bounds FROM \"" + table.getName() + "$all_files\"");
+            assertEquals(filesAfterSingleRow, allFilesAfterSingleRow);
+
+            MaterializedResult expectedFilesStatsAfterSingleRow =
+                    MaterializedResult.resultBuilder(getSession(), VARCHAR, BIGINT, new MapType(INTEGER, VARCHAR, new TypeOperators()), new MapType(IntegerType.INTEGER, VARCHAR, new TypeOperators()))
+                            .row("ORC", 1L, Map.of(1, "1", 2, "a"), Map.of(1, "1", 2, "a"))
+                            .build();
+
+            assertEquals(filesAfterSingleRow, expectedFilesStatsAfterSingleRow);
+
+            Long snapshotAfterSingleRow = (Long) computeScalar("SELECT snapshot_id FROM \"" + table.getName() + "$snapshots\" ORDER BY committed_at DESC LIMIT 1");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'b')", 1);
+
+            MaterializedResult filesAfterTwoRows = computeActual("SELECT file_format, record_count, lower_bounds, upper_bounds FROM \"" + table.getName() + "$files\" order by file_path");
+            MaterializedResult allFilesAfterTwoRows = computeActual("SELECT file_format, record_count, lower_bounds, upper_bounds FROM \"" + table.getName() + "$all_files\" order by file_path");
+
+            MaterializedResult expectedAllFilesStatsAfterTwoRows =
+                    MaterializedResult.resultBuilder(getSession(), VARCHAR, BIGINT, new MapType(INTEGER, VARCHAR, new TypeOperators()), new MapType(IntegerType.INTEGER, VARCHAR, new TypeOperators()))
+                            .row("ORC", 1L, Map.of(1, "1", 2, "a"), Map.of(1, "1", 2, "a"))
+                            .row("ORC", 1L, Map.of(1, "2", 2, "b"), Map.of(1, "2", 2, "b"))
+                            .build();
+            assertEquals(filesAfterTwoRows, allFilesAfterTwoRows);
+
+            assertEquals(filesAfterTwoRows, expectedAllFilesStatsAfterTwoRows);
+
+            assertUpdate("CALL iceberg.system.rollback_to_snapshot('tpch', '" + table.getName() + "' , " + snapshotAfterSingleRow + ")");
+
+            MaterializedResult filesAfterRollback = computeActual("SELECT file_format, record_count, lower_bounds, upper_bounds FROM \"" + table.getName() + "$files\" order by file_path");
+            MaterializedResult allFilesAfterRollback = computeActual("SELECT file_format, record_count, lower_bounds, upper_bounds FROM \"" + table.getName() + "$all_files\" order by file_path");
+
+            assertEquals(filesAfterSingleRow, filesAfterRollback);
+            assertEquals(allFilesAfterTwoRows, allFilesAfterRollback);
+            assertTrue(allFilesAfterRollback.getMaterializedRows().containsAll(filesAfterRollback.getMaterializedRows()));
+            assertTrue(allFilesAfterRollback.getMaterializedRows().size() > filesAfterRollback.getMaterializedRows().size());
+            assertEquals(filesAfterRollback, expectedFilesStatsAfterSingleRow);
+        }
     }
 }

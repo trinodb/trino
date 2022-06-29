@@ -416,6 +416,8 @@ public class IcebergMetadata
                 return Optional.of(new ManifestsTable(systemTableName, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
             case FILES:
                 return Optional.of(new FilesTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
+            case ALL_FILES:
+                return Optional.of(new AllFilesTable(systemTableName, typeManager, table));
             case PROPERTIES:
                 return Optional.of(new PropertiesTable(systemTableName, table));
         }

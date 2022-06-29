@@ -30,7 +30,9 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataTask;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.transforms.Transforms;
@@ -65,6 +67,12 @@ public abstract class AbstractFilesTable
     }
 
     @Override
+    public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+    {
+        return new FixedPageSource(buildPages());
+    }
+
+    @Override
     public Distribution getDistribution()
     {
         return Distribution.SINGLE_COORDINATOR;
@@ -76,17 +84,32 @@ public abstract class AbstractFilesTable
         return tableMetadata;
     }
 
-    @Override
-    public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
-    {
-        return new FixedPageSource(buildPages());
-    }
-
     protected abstract TableScan buildTableScan();
 
     protected Table getIcebergTable()
     {
         return icebergTable;
+    }
+
+    private ConnectorTableMetadata tableMetadata(SchemaTableName tableName, TypeManager typeManager)
+    {
+        return new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
+                ImmutableList.<ColumnMetadata>builder()
+                        .add(new ColumnMetadata("content", INTEGER))
+                        .add(new ColumnMetadata("file_path", VARCHAR))
+                        .add(new ColumnMetadata("file_format", VARCHAR))
+                        .add(new ColumnMetadata("record_count", BIGINT))
+                        .add(new ColumnMetadata("file_size_in_bytes", BIGINT))
+                        .add(new ColumnMetadata("column_sizes", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata("value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata("null_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata("nan_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata("lower_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
+                        .add(new ColumnMetadata("upper_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
+                        .add(new ColumnMetadata("key_metadata", VARBINARY))
+                        .add(new ColumnMetadata("split_offsets", new ArrayType(BIGINT)))
+                        .add(new ColumnMetadata("equality_ids", new ArrayType(INTEGER)))
+                        .build());
     }
 
     private List<Page> buildPages()
@@ -96,15 +119,19 @@ public abstract class AbstractFilesTable
         TableScan tableScan = buildTableScan();
 
         tableScan.planFiles().forEach(fileScanTask -> {
-            addRow(pagesBuilder, idToTypeMapping, fileScanTask.file());
+            DataTask dataTask = (DataTask) fileScanTask;
+            dataTask.rows().forEach(structLike -> addRow(pagesBuilder, idToTypeMapping, structLike));
         });
 
         return pagesBuilder.build();
     }
 
-    private void addRow(PageListBuilder pagesBuilder, Map<Integer, Type> idToTypeMapping, DataFile dataFile)
+    private static void addRow(PageListBuilder pagesBuilder, Map<Integer, Type> idToTypeMapping, StructLike structLike)
     {
+        DataFile dataFile = (DataFile) structLike;
+
         pagesBuilder.beginRow();
+
         pagesBuilder.appendInteger(dataFile.content().id());
         pagesBuilder.appendVarchar(dataFile.path().toString());
         pagesBuilder.appendVarchar(dataFile.format().name());
@@ -148,27 +175,6 @@ public abstract class AbstractFilesTable
             pagesBuilder.appendIntegerArray(dataFile.equalityFieldIds());
         }
         pagesBuilder.endRow();
-    }
-
-    private ConnectorTableMetadata tableMetadata(SchemaTableName tableName, TypeManager typeManager)
-    {
-        return new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
-                ImmutableList.<ColumnMetadata>builder()
-                        .add(new ColumnMetadata("content", INTEGER))
-                        .add(new ColumnMetadata("file_path", VARCHAR))
-                        .add(new ColumnMetadata("file_format", VARCHAR))
-                        .add(new ColumnMetadata("record_count", BIGINT))
-                        .add(new ColumnMetadata("file_size_in_bytes", BIGINT))
-                        .add(new ColumnMetadata("column_sizes", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("null_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("nan_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("lower_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
-                        .add(new ColumnMetadata("upper_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
-                        .add(new ColumnMetadata("key_metadata", VARBINARY))
-                        .add(new ColumnMetadata("split_offsets", new ArrayType(BIGINT)))
-                        .add(new ColumnMetadata("equality_ids", new ArrayType(INTEGER)))
-                        .build());
     }
 
     private static boolean checkNonNull(Object object, PageListBuilder pagesBuilder)

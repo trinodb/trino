@@ -27,6 +27,8 @@ import org.apache.iceberg.TableScan;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataTableType.FILES;
+import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
 
 public class FilesTable
         extends AbstractFilesTable
@@ -51,8 +53,12 @@ public class FilesTable
     @Override
     protected TableScan buildTableScan()
     {
-        return getIcebergTable().newScan()
+        Table filesTable = createMetadataTableInstance(getIcebergTable(), FILES);
+
+        TableScan tableScan = filesTable
+                .newScan()
                 .useSnapshot(snapshotId.get())
                 .includeColumnStats();
+        return tableScan;
     }
 }
