@@ -15,6 +15,7 @@ package io.trino.tests.product.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.assertions.QueryAssert.Row;
+import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryResult;
 import org.assertj.core.api.AbstractStringAssert;
 import org.assertj.core.api.Assertions;
@@ -428,6 +429,13 @@ public class TestHiveAndDeltaLakeRedirect
         String newTableName = tableName + "_new";
         try {
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME TO " + newTableName);
+        }
+        catch (QueryExecutionException e) {
+            onTrino().executeQuery("DROP TABLE hive.default." + tableName);
+            throw e;
+        }
+
+        try {
             assertResultsEqual(
                     onTrino().executeQuery("TABLE hive.default." + newTableName),
                     onTrino().executeQuery("TABLE delta.default." + newTableName));
@@ -447,9 +455,11 @@ public class TestHiveAndDeltaLakeRedirect
 
         try {
             onTrino().executeQuery("ALTER TABLE hive.default.\"" + tableName + "\" RENAME TO \"" + newTableName + "\"");
-        }
-        finally {
             onDelta().executeQuery("DROP TABLE " + newTableName);
+        }
+        catch (QueryExecutionException e) {
+            onDelta().executeQuery("DROP TABLE " + tableName);
+            throw e;
         }
     }
 
