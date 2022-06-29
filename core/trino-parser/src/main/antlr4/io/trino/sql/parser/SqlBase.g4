@@ -377,11 +377,11 @@ emptyMatchHandling
     ;
 
 skipTo
-    : 'SKIP' TO NEXT ROW
-    | 'SKIP' PAST LAST ROW
-    | 'SKIP' TO FIRST identifier
-    | 'SKIP' TO LAST identifier
-    | 'SKIP' TO identifier
+    : SKIP TO NEXT ROW
+    | SKIP PAST LAST ROW
+    | SKIP TO FIRST identifier
+    | SKIP TO LAST identifier
+    | SKIP TO identifier
     ;
 
 subsetDefinition
@@ -1070,6 +1070,7 @@ SESSION: 'SESSION';
 SET: 'SET';
 SETS: 'SETS';
 SHOW: 'SHOW';
+SKIP: 'SKIP';
 SOME: 'SOME';
 START: 'START';
 STATS: 'STATS';
