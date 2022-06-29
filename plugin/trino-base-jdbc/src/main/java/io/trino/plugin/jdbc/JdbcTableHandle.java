@@ -55,8 +55,9 @@ public final class JdbcTableHandle
 
     /**
      * Remote tables referenced by the query other than {@code this.relationHandle.schemaTableName}.
+     * {@link Optional#empty()} when unknown.
      */
-    private final Set<SchemaTableName> otherReferencedTables;
+    private final Optional<Set<SchemaTableName>> otherReferencedTables;
 
     private final int nextSyntheticColumnId;
 
@@ -75,7 +76,7 @@ public final class JdbcTableHandle
                 Optional.empty(),
                 OptionalLong.empty(),
                 Optional.empty(),
-                ImmutableSet.of(),
+                Optional.of(ImmutableSet.of()),
                 0);
     }
 
@@ -87,7 +88,7 @@ public final class JdbcTableHandle
             @JsonProperty("sortOrder") Optional<List<JdbcSortItem>> sortOrder,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns,
-            @JsonProperty("otherReferencedTables") Set<SchemaTableName> otherReferencedTables,
+            @JsonProperty("otherReferencedTables") Optional<Set<SchemaTableName>> otherReferencedTables,
             @JsonProperty("nextSyntheticColumnId") int nextSyntheticColumnId)
     {
         this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
@@ -99,7 +100,7 @@ public final class JdbcTableHandle
 
         requireNonNull(columns, "columns is null");
         this.columns = columns.map(ImmutableList::copyOf);
-        this.otherReferencedTables = ImmutableSet.copyOf(requireNonNull(otherReferencedTables, "otherReferencedTables is null"));
+        this.otherReferencedTables = requireNonNull(otherReferencedTables, "otherReferencedTables is null").map(ImmutableSet::copyOf);
         this.nextSyntheticColumnId = nextSyntheticColumnId;
     }
 
@@ -210,29 +211,36 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
-    public Set<SchemaTableName> getOtherReferencedTables()
+    public Optional<Set<SchemaTableName>> getOtherReferencedTables()
     {
         return otherReferencedTables;
     }
 
+    /**
+     * Remote tables referenced by the query. {@link Optional#empty()} when unknown.
+     */
     @JsonIgnore // not a getter
-    public Set<SchemaTableName> getAllReferencedTables()
+    public Optional<Set<SchemaTableName>> getAllReferencedTables()
     {
-        if (!isNamedRelation()) {
-            return getOtherReferencedTables();
-        }
-        return ImmutableSet.<SchemaTableName>builder()
-                .addAll(getOtherReferencedTables())
-                .add(getRequiredNamedRelation().getSchemaTableName())
-                .build();
+        return getOtherReferencedTables().map(otherReferencedTables -> {
+            if (!isNamedRelation()) {
+                return otherReferencedTables;
+            }
+            return ImmutableSet.<SchemaTableName>builder()
+                    .addAll(otherReferencedTables)
+                    .add(getRequiredNamedRelation().getSchemaTableName())
+                    .build();
+        });
     }
 
-    boolean references(SchemaTableName schemaTableName)
+    boolean mayReference(SchemaTableName schemaTableName)
     {
         if (isNamedRelation() && getRequiredNamedRelation().getSchemaTableName().equals(schemaTableName)) {
             return true;
         }
-        return getOtherReferencedTables().contains(schemaTableName);
+        return getOtherReferencedTables()
+                .map(otherReferencedTables -> otherReferencedTables.contains(schemaTableName))
+                .orElse(true);
     }
 
     @JsonProperty
