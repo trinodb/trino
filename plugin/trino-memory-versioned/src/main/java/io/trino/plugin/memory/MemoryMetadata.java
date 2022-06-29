@@ -60,6 +60,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
@@ -213,7 +214,7 @@ public class MemoryMetadata
         long tableId = handle.getId();
 
         TableInfo oldInfo = tables.get(tableId);
-        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.getColumns(), oldInfo.getHostAddress()));
+        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.getColumns(), oldInfo.getKeyColumnIndex(), oldInfo.getHostAddress()));
 
         tableIds.remove(oldInfo.getSchemaTableName());
         tableIds.put(newTableName, tableId);
@@ -236,21 +237,30 @@ public class MemoryMetadata
         checkTableNotExists(tableMetadata.getTable());
         long tableId = nextTableId.getAndIncrement();
 
-        ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
+        ImmutableList.Builder<ColumnInfo> columnsBuilder = ImmutableList.builder();
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
             if (column.getComment() != null) {
                 throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
             }
-            columns.add(new ColumnInfo(new MemoryColumnHandle(i), column.getName(), column.getType()));
+            columnsBuilder.add(new ColumnInfo(new MemoryColumnHandle(i), column.getName(), column.getType()));
         }
+
+        List<ColumnInfo> columns = columnsBuilder.build();
+        Optional<Integer> keyColumnIndex = MemoryTableProperties.getKeyColumn(tableMetadata.getProperties())
+                .map(keyColumnName -> columns.stream()
+                        .filter(column -> column.getName().equals(keyColumnName))
+                        .map(columns::indexOf)
+                        .findFirst()
+                        .orElseThrow(() -> new TrinoException(INVALID_TABLE_PROPERTY, format("Key column '%s' not present", keyColumnName))));
 
         tableIds.put(tableMetadata.getTable(), tableId);
         tables.put(tableId, new TableInfo(
                 tableId,
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
-                columns.build(),
+                columns,
+                keyColumnIndex,
                 layout.flatMap((Function<ConnectorTableLayout, Optional<?>>) ConnectorTableLayout::getPartitioning)
                         .map(p -> (MemoryPartitioningHandle) p)
                         .map(MemoryPartitioningHandle::getHostAddress)

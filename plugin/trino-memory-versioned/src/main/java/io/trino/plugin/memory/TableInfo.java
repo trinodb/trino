@@ -14,14 +14,17 @@
 package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static io.trino.plugin.memory.MemoryTableProperties.KEY_COLUMN;
 import static java.util.Objects.requireNonNull;
 
 public class TableInfo
@@ -30,14 +33,16 @@ public class TableInfo
     private final String schemaName;
     private final String tableName;
     private final List<ColumnInfo> columns;
+    private final Optional<Integer> keyColumnIndex;
     private final HostAddress hostAddress;
 
-    public TableInfo(long id, String schemaName, String tableName, List<ColumnInfo> columns, HostAddress hostAddress)
+    public TableInfo(long id, String schemaName, String tableName, List<ColumnInfo> columns, Optional<Integer> keyColumnIndex, HostAddress hostAddress)
     {
         this.id = id;
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.columns = ImmutableList.copyOf(columns);
+        this.keyColumnIndex = requireNonNull(keyColumnIndex, "keyColumnIndex is null");
         this.hostAddress = requireNonNull(hostAddress, "hostAddress is null");
     }
 
@@ -63,11 +68,15 @@ public class TableInfo
 
     public ConnectorTableMetadata getMetadata()
     {
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        keyColumnIndex.map(columns::get).map(ColumnInfo::getName)
+                .ifPresent(name -> properties.put(KEY_COLUMN, name));
         return new ConnectorTableMetadata(
                 new SchemaTableName(schemaName, tableName),
                 columns.stream()
                         .map(ColumnInfo::getMetadata)
-                        .collect(Collectors.toList()));
+                        .collect(Collectors.toList()),
+                properties.buildOrThrow());
     }
 
     public List<ColumnInfo> getColumns()
@@ -81,6 +90,11 @@ public class TableInfo
                 .filter(column -> column.getHandle().equals(handle))
                 .findFirst()
                 .get();
+    }
+
+    public Optional<Integer> getKeyColumnIndex()
+    {
+        return keyColumnIndex;
     }
 
     public HostAddress getHostAddress()
