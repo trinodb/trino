@@ -113,12 +113,13 @@ public class SnowflakeJdbcClientModule
     @Singleton
     public SnowflakeClient getSnowflakeClient(
             BaseJdbcConfig config,
+            SnowflakeConfig snowflakeConfig,
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
-        return new SnowflakeClient(config, statisticsConfig, connectionFactory, distributedConnector, queryBuilder, identifierMapping);
+        return new SnowflakeClient(config, snowflakeConfig, statisticsConfig, connectionFactory, distributedConnector, queryBuilder, identifierMapping);
     }
 
     @Provides

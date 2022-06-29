@@ -26,7 +26,8 @@ public class TestSnowflakeConfig
         assertRecordedDefaults(recordDefaults(SnowflakeConfig.class)
                 .setWarehouse(null)
                 .setDatabase(null)
-                .setRole(null));
+                .setRole(null)
+                .setDatabasePrefixForSchemaEnabled(false));
     }
 
     @Test
@@ -36,12 +37,14 @@ public class TestSnowflakeConfig
                 .put("snowflake.warehouse", "warehouse")
                 .put("snowflake.database", "database")
                 .put("snowflake.role", "role")
+                .put("snowflake.database-prefix-for-schema.enabled", "true")
                 .buildOrThrow();
 
         SnowflakeConfig expected = new SnowflakeConfig()
                 .setWarehouse("warehouse")
                 .setDatabase("database")
-                .setRole("role");
+                .setRole("role")
+                .setDatabasePrefixForSchemaEnabled(true);
 
         assertFullMapping(properties, expected);
     }

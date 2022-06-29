@@ -12,6 +12,7 @@ package com.starburstdata.trino.plugins.snowflake.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.starburstdata.trino.plugins.snowflake.SnowflakeConfig;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -19,6 +20,7 @@ import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
@@ -32,6 +34,7 @@ import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -83,6 +86,7 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
@@ -95,6 +99,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
@@ -107,6 +112,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.getRootCause;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.starburstdata.trino.plugins.snowflake.jdbc.DatabaseSchemaName.parseDatabaseSchemaName;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
@@ -185,6 +191,7 @@ public class SnowflakeClient
 {
     public static final String IDENTIFIER_QUOTE = "\"";
 
+    public static final String DATABASE_SEPARATOR = ".";
     private static final DateTimeFormatter SNOWFLAKE_DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
     private static final DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
     private static final DateTimeFormatter SNOWFLAKE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSS");
@@ -209,9 +216,11 @@ public class SnowflakeClient
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final boolean distributedConnector;
+    private final boolean databasePrefixForSchemaEnabled;
 
     public SnowflakeClient(
             BaseJdbcConfig config,
+            SnowflakeConfig snowflakeConfig,
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             boolean distributedConnector,
@@ -221,6 +230,7 @@ public class SnowflakeClient
         super(config, IDENTIFIER_QUOTE, connectionFactory, queryBuilder, identifierMapping);
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.distributedConnector = distributedConnector;
+        this.databasePrefixForSchemaEnabled = requireNonNull(snowflakeConfig, "snowflakeConfig is null").getDatabasePrefixForSchemaEnabled();
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .build();
@@ -245,6 +255,103 @@ public class SnowflakeClient
                         .add(new ImplementRegrIntercept())
                         .add(new ImplementRegrSlope())
                         .build());
+    }
+
+    @Override
+    public Collection<String> listSchemas(Connection connection)
+    {
+        if (!databasePrefixForSchemaEnabled) {
+            return super.listSchemas(connection);
+        }
+        try (ResultSet resultSet = connection.getMetaData().getSchemas(null, null)) {
+            ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
+            while (resultSet.next()) {
+                String schemaName = resultSet.getString("TABLE_SCHEM");
+                // skip internal schemas
+                if (filterSchema(schemaName)) {
+                    schemaNames.add(format("%s%s%s", resultSet.getString("TABLE_CATALOG"), DATABASE_SEPARATOR, schemaName));
+                }
+            }
+            return schemaNames.build();
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    protected String createSchemaSql(String schemaName)
+    {
+        if (!databasePrefixForSchemaEnabled) {
+            return super.createSchemaSql(schemaName);
+        }
+        DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(schemaName);
+        return format("CREATE SCHEMA %s%s%s", quoted(databaseSchema.getDatabaseName()), DATABASE_SEPARATOR, quoted(databaseSchema.getSchemaName()));
+    }
+
+    @Override
+    protected String dropSchemaSql(String schemaName)
+    {
+        if (!databasePrefixForSchemaEnabled) {
+            return super.dropSchemaSql(schemaName);
+        }
+        DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(schemaName);
+        return format("DROP SCHEMA %s%s%s", quoted(databaseSchema.getDatabaseName()), DATABASE_SEPARATOR, quoted(databaseSchema.getSchemaName()));
+    }
+
+    @Override
+    protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    {
+        RemoteTableName remappedRemoteTableName = remoteTableName;
+        if (databasePrefixForSchemaEnabled) {
+            DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(remoteTableName.getSchemaName().orElseThrow());
+            remappedRemoteTableName = new RemoteTableName(
+                    Optional.of(databaseSchema.getDatabaseName()),
+                    Optional.of(databaseSchema.getSchemaName()),
+                    remoteTableName.getTableName());
+        }
+        return super.createTableSql(remappedRemoteTableName, columns, tableMetadata);
+    }
+
+    @Override
+    public void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    {
+        String catalog = catalogName;
+        String schema = schemaName;
+        if (databasePrefixForSchemaEnabled) {
+            DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(schemaName);
+            catalog = databaseSchema.getDatabaseName();
+            schema = databaseSchema.getSchemaName();
+        }
+        super.copyTableSchema(connection, catalog, schema, tableName, newTableName, columnNames);
+    }
+
+    @Override
+    public ResultSet getTables(Connection connection, Optional<String> remoteSchemaName, Optional<String> remoteTableName)
+            throws SQLException
+    {
+        if (!databasePrefixForSchemaEnabled) {
+            return super.getTables(connection, remoteSchemaName, remoteTableName);
+        }
+        Optional<DatabaseSchemaName> databaseSchema = remoteSchemaName.map(DatabaseSchemaName::parseDatabaseSchemaName);
+
+        DatabaseMetaData metadata = connection.getMetaData();
+
+        return metadata.getTables(
+                databaseSchema.map(DatabaseSchemaName::getDatabaseName).orElse(null),
+                escapeNamePattern(databaseSchema.map(DatabaseSchemaName::getSchemaName), metadata.getSearchStringEscape()).orElse(null),
+                escapeNamePattern(remoteTableName, metadata.getSearchStringEscape()).orElse(null),
+                getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
+    }
+
+    @Override
+    public String getTableSchemaName(ResultSet resultSet)
+            throws SQLException
+    {
+        if (databasePrefixForSchemaEnabled) {
+            return resultSet.getString("TABLE_CAT") + "." + resultSet.getString("TABLE_SCHEM");
+        }
+        return super.getTableSchemaName(resultSet);
     }
 
     private static Optional<JdbcTypeHandle> decimalTypeHandle(DecimalType decimalType)
@@ -493,7 +600,37 @@ public class SnowflakeClient
             throws SQLException
     {
         checkColumnsForInvalidCharacters(tableMetadata.getColumns());
-        return super.createTable(session, tableMetadata, tableName);
+        JdbcOutputTableHandle outputTableHandle = super.createTable(session, tableMetadata, tableName);
+        if (databasePrefixForSchemaEnabled) {
+            DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(outputTableHandle.getSchemaName());
+            return new JdbcOutputTableHandle(
+                    databaseSchema.getDatabaseName(),
+                    databaseSchema.getSchemaName(),
+                    outputTableHandle.getTableName(),
+                    outputTableHandle.getColumnNames(),
+                    outputTableHandle.getColumnTypes(),
+                    outputTableHandle.getJdbcColumnTypes(),
+                    outputTableHandle.getTemporaryTableName());
+        }
+        return outputTableHandle;
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
+    {
+        JdbcOutputTableHandle outputTableHandle = super.beginInsertTable(session, tableHandle, columns);
+        if (databasePrefixForSchemaEnabled) {
+            DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(outputTableHandle.getSchemaName());
+            return new JdbcOutputTableHandle(
+                    databaseSchema.getDatabaseName(),
+                    databaseSchema.getSchemaName(),
+                    outputTableHandle.getTableName(),
+                    outputTableHandle.getColumnNames(),
+                    outputTableHandle.getColumnTypes(),
+                    outputTableHandle.getJdbcColumnTypes(),
+                    outputTableHandle.getTemporaryTableName());
+        }
+        return outputTableHandle;
     }
 
     @Override

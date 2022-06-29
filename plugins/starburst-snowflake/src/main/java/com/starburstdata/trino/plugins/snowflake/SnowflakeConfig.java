@@ -19,6 +19,7 @@ public class SnowflakeConfig
     private Optional<String> warehouse = Optional.empty();
     private Optional<String> database = Optional.empty();
     private Optional<String> role = Optional.empty();
+    private boolean databasePrefixForSchemaEnabled;
 
     public Optional<String> getWarehouse()
     {
@@ -56,6 +57,19 @@ public class SnowflakeConfig
     public SnowflakeConfig setRole(String role)
     {
         this.role = Optional.ofNullable(role);
+        return this;
+    }
+
+    public boolean getDatabasePrefixForSchemaEnabled()
+    {
+        return databasePrefixForSchemaEnabled;
+    }
+
+    @Config("snowflake.database-prefix-for-schema.enabled")
+    @ConfigDescription("Allow accessing other databases by prefixing schema name with the database name in queries")
+    public SnowflakeConfig setDatabasePrefixForSchemaEnabled(boolean databasePrefixForSchemaEnabled)
+    {
+        this.databasePrefixForSchemaEnabled = databasePrefixForSchemaEnabled;
         return this;
     }
 }
