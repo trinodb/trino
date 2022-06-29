@@ -20,6 +20,7 @@ import io.trino.parquet.writer.repdef.DefLevelIterables;
 import io.trino.parquet.writer.repdef.RepLevelIterable;
 import io.trino.parquet.writer.repdef.RepLevelIterables;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
+import io.trino.spi.block.Block;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
@@ -115,18 +116,37 @@ public class PrimitiveColumnWriter
         // write values
         primitiveValueWriter.write(columnChunk.getBlock());
 
-        // write definition levels
-        Iterator<Integer> defIterator = DefLevelIterables.getIterator(ImmutableList.<DefLevelIterable>builder()
-                .addAll(columnChunk.getDefLevelIterables())
-                .add(DefLevelIterables.of(columnChunk.getBlock(), maxDefinitionLevel))
-                .build());
-        while (defIterator.hasNext()) {
-            int next = defIterator.next();
-            definitionLevelWriter.writeInteger(next);
-            if (next != maxDefinitionLevel) {
-                currentPageNullCounts++;
+        if (columnChunk.getDefLevelIterables().isEmpty()) {
+            // write definition levels for flat data types
+            Block block = columnChunk.getBlock();
+            if (!block.mayHaveNull()) {
+                for (int position = 0; position < block.getPositionCount(); position++) {
+                    definitionLevelWriter.writeInteger(maxDefinitionLevel);
+                }
             }
-            valueCount++;
+            else {
+                for (int position = 0; position < block.getPositionCount(); position++) {
+                    byte isNull = (byte) (block.isNull(position) ? 1 : 0);
+                    definitionLevelWriter.writeInteger(maxDefinitionLevel - isNull);
+                    currentPageNullCounts += isNull;
+                }
+            }
+            valueCount += block.getPositionCount();
+        }
+        else {
+            // write definition levels for nested data types
+            Iterator<Integer> defIterator = DefLevelIterables.getIterator(ImmutableList.<DefLevelIterable>builder()
+                    .addAll(columnChunk.getDefLevelIterables())
+                    .add(DefLevelIterables.of(columnChunk.getBlock(), maxDefinitionLevel))
+                    .build());
+            while (defIterator.hasNext()) {
+                int next = defIterator.next();
+                definitionLevelWriter.writeInteger(next);
+                if (next != maxDefinitionLevel) {
+                    currentPageNullCounts++;
+                }
+                valueCount++;
+            }
         }
 
         if (columnDescriptor.getMaxRepetitionLevel() > 0) {
