@@ -15,6 +15,7 @@ package io.trino.operator.join.unspilled;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.WorkProcessor;
+import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 
 import java.io.Closeable;
@@ -24,6 +25,6 @@ public interface PageJoiner
 {
     interface PageJoinerFactory
     {
-        PageJoiner getPageJoiner(ListenableFuture<LookupSourceProvider> lookupSourceProvider);
+        PageJoiner getPageJoiner(ListenableFuture<LookupSource> lookupSource);
     }
 }

@@ -22,6 +22,7 @@ import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperat
 import io.trino.operator.join.JoinProbe.JoinProbeFactory;
 import io.trino.operator.join.JoinStatisticsCounter;
 import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
+import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.unspilled.PageJoiner.PageJoinerFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
@@ -34,7 +35,7 @@ import static io.trino.operator.WorkProcessor.flatten;
 public class LookupJoinOperator
         implements AdapterWorkProcessorOperator
 {
-    private final ListenableFuture<LookupSourceProvider> lookupSourceProviderFuture;
+    private final ListenableFuture<LookupSource> lookupSourceFuture;
     private final boolean waitForBuild;
     private final PageBuffer pageBuffer;
     private final WorkProcessor<Page> pages;
@@ -54,7 +55,7 @@ public class LookupJoinOperator
     {
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         this.waitForBuild = waitForBuild;
-        lookupSourceProviderFuture = lookupSourceFactory.createLookupSourceProvider();
+        lookupSourceFuture = lookupSourceFactory.createLookupSource();
         pageBuffer = new PageBuffer();
         PageJoinerFactory pageJoinerFactory = lookupSourceProvider ->
                 new DefaultPageJoiner(
@@ -68,7 +69,7 @@ public class LookupJoinOperator
         joinProcessor = new SpillingJoinProcessor(
                 afterClose,
                 waitForBuild,
-                lookupSourceProviderFuture,
+                lookupSourceFuture,
                 pageJoinerFactory,
                 sourcePages.orElse(pageBuffer.pages()));
         pages = flatten(WorkProcessor.create(joinProcessor));
@@ -83,7 +84,7 @@ public class LookupJoinOperator
     @Override
     public boolean needsInput()
     {
-        return (!waitForBuild || lookupSourceProviderFuture.isDone()) && pageBuffer.isEmpty() && !pageBuffer.isFinished();
+        return (!waitForBuild || lookupSourceFuture.isDone()) && pageBuffer.isEmpty() && !pageBuffer.isFinished();
     }
 
     @Override

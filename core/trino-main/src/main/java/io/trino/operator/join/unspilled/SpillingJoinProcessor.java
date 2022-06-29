@@ -17,6 +17,7 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.WorkProcessor;
+import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.unspilled.PageJoiner.PageJoinerFactory;
 import io.trino.spi.Page;
 
@@ -30,7 +31,7 @@ public class SpillingJoinProcessor
 {
     private final Runnable afterClose;
     private final boolean waitForBuild;
-    private final ListenableFuture<LookupSourceProvider> lookupSourceProvider;
+    private final ListenableFuture<LookupSource> lookupSource;
     private final PageJoiner sourcePagesJoiner;
     private final WorkProcessor<Page> joinedSourcePages;
 
@@ -39,14 +40,14 @@ public class SpillingJoinProcessor
     public SpillingJoinProcessor(
             Runnable afterClose,
             boolean waitForBuild,
-            ListenableFuture<LookupSourceProvider> lookupSourceProvider,
+            ListenableFuture<LookupSource> lookupSource,
             PageJoinerFactory pageJoinerFactory,
             WorkProcessor<Page> sourcePages)
     {
         this.afterClose = requireNonNull(afterClose, "afterClose is null");
         this.waitForBuild = waitForBuild;
-        this.lookupSourceProvider = requireNonNull(lookupSourceProvider, "lookupSourceProvider is null");
-        sourcePagesJoiner = pageJoinerFactory.getPageJoiner(lookupSourceProvider);
+        this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
+        sourcePagesJoiner = pageJoinerFactory.getPageJoiner(lookupSource);
         joinedSourcePages = sourcePages.transform(sourcePagesJoiner);
     }
 
@@ -74,8 +75,8 @@ public class SpillingJoinProcessor
     {
         // wait for build side to be completed before fetching any probe data
         // TODO: fix support for probe short-circuit: https://github.com/trinodb/trino/issues/3957
-        if (waitForBuild && !lookupSourceProvider.isDone()) {
-            return WorkProcessor.ProcessState.blocked(asVoid(lookupSourceProvider));
+        if (waitForBuild && !lookupSource.isDone()) {
+            return WorkProcessor.ProcessState.blocked(asVoid(lookupSource));
         }
 
         if (!joinedSourcePages.isFinished()) {

@@ -28,12 +28,12 @@ public interface LookupSourceFactory
 
     List<Type> getOutputTypes();
 
-    ListenableFuture<LookupSourceProvider> createLookupSourceProvider();
+    ListenableFuture<LookupSource> createLookupSource();
 
     int partitions();
 
     /**
-     * Can be called only after {@link #createLookupSourceProvider()} is done and all users of {@link LookupSource}-s finished.
+     * Can be called only after {@link #createLookupSource()} is done and all users of {@link LookupSource}-s finished.
      */
     @Override
     OuterPositionIterator getOuterPositionIterator();

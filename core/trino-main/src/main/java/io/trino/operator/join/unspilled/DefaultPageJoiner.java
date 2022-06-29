@@ -48,7 +48,7 @@ public class DefaultPageJoiner
         implements PageJoiner
 {
     private final JoinProbeFactory joinProbeFactory;
-    private final ListenableFuture<LookupSourceProvider> lookupSourceProviderFuture;
+    private final ListenableFuture<LookupSource> lookupSourceFuture;
     private final JoinStatisticsCounter statisticsCounter;
     private final DriverYieldSignal yieldSignal;
     private final LookupJoinPageBuilder pageBuilder;
@@ -56,7 +56,7 @@ public class DefaultPageJoiner
     private final boolean outputSingleMatch;
 
     @Nullable
-    private LookupSourceProvider lookupSourceProvider;
+    private LookupSource lookupSource;
     @Nullable
     private JoinProbe probe;
     private long joinPosition = -1;
@@ -69,12 +69,12 @@ public class DefaultPageJoiner
             JoinType joinType,
             boolean outputSingleMatch,
             JoinProbeFactory joinProbeFactory,
-            ListenableFuture<LookupSourceProvider> lookupSourceProvider,
+            ListenableFuture<LookupSource> lookupSource,
             JoinStatisticsCounter statisticsCounter)
     {
         requireNonNull(processorContext, "processorContext is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
-        this.lookupSourceProviderFuture = requireNonNull(lookupSourceProvider, "lookupSourceProvider is null");
+        this.lookupSourceFuture = requireNonNull(lookupSource, "lookupSource is null");
         this.statisticsCounter = requireNonNull(statisticsCounter, "statisticsCounter is null");
         this.yieldSignal = processorContext.getDriverYieldSignal();
         this.pageBuilder = new LookupJoinPageBuilder(buildOutputTypes);
@@ -88,7 +88,7 @@ public class DefaultPageJoiner
     public void close()
     {
         pageBuilder.reset();
-        addSuccessCallback(lookupSourceProviderFuture, LookupSourceProvider::close);
+        addSuccessCallback(lookupSourceFuture, LookupSource::close);
     }
 
     @Override
@@ -108,17 +108,16 @@ public class DefaultPageJoiner
         }
         verify(probe != null, "no probe to work with");
 
-        if (lookupSourceProvider == null) {
-            if (!lookupSourceProviderFuture.isDone()) {
-                return blocked(asVoid(lookupSourceProviderFuture));
+        if (lookupSource == null) {
+            if (!lookupSourceFuture.isDone()) {
+                return blocked(asVoid(lookupSourceFuture));
             }
 
-            lookupSourceProvider = requireNonNull(getDone(lookupSourceProviderFuture));
-            statisticsCounter.updateLookupSourcePositions(lookupSourceProvider.withLease(
-                    lookupSourceLease -> lookupSourceLease.getLookupSource().getJoinPositionCount()));
+            lookupSource = requireNonNull(getDone(lookupSourceFuture));
+            statisticsCounter.updateLookupSourcePositions(lookupSource.getJoinPositionCount());
         }
 
-        processProbe();
+        processProbe(lookupSource);
 
         if (!probe.isFinished()) {
             // processProbe() returns when pageBuilder is full or yield signal is triggered.
@@ -139,14 +138,6 @@ public class DefaultPageJoiner
 
         probe = null;
         return needsMoreData();
-    }
-
-    private void processProbe()
-    {
-        lookupSourceProvider.withLease(lookupSourceLease -> {
-            processProbe(lookupSourceLease.getLookupSource());
-            return null;
-        });
     }
 
     private void processProbe(LookupSource lookupSource)

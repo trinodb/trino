@@ -30,6 +30,7 @@ import io.trino.operator.TaskContext;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.exchange.LocalPartitionGenerator;
 import io.trino.operator.join.JoinBridgeManager;
+import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.unspilled.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -391,14 +392,14 @@ public class BenchmarkHashBuildAndJoinOperators
         }
 
         LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge();
-        ListenableFuture<LookupSourceProvider> lookupSourceProvider = lookupSourceFactory.createLookupSourceProvider();
+        ListenableFuture<LookupSource> lookupSource = lookupSourceFactory.createLookupSource();
         for (Operator operator : operators) {
             operator.finish();
         }
-        if (!lookupSourceProvider.isDone()) {
+        if (!lookupSource.isDone()) {
             throw new AssertionError("Expected lookup source provider to be ready");
         }
-        getFutureValue(lookupSourceProvider).close();
+        getFutureValue(lookupSource).close();
     }
 
     private static Page[] partitionPages(Page page, List<Type> types, int partitionCount, PartitionFunction partitionGenerator)
