@@ -129,14 +129,16 @@ public class PrimitiveColumnWriter
             valueCount++;
         }
 
-        // write repetition levels
-        Iterator<Integer> repIterator = RepLevelIterables.getIterator(ImmutableList.<RepLevelIterable>builder()
-                .addAll(columnChunk.getRepLevelIterables())
-                .add(RepLevelIterables.of(columnChunk.getBlock()))
-                .build());
-        while (repIterator.hasNext()) {
-            int next = repIterator.next();
-            repetitionLevelWriter.writeInteger(next);
+        if (columnDescriptor.getMaxRepetitionLevel() > 0) {
+            // write repetition levels for nested types
+            Iterator<Integer> repIterator = RepLevelIterables.getIterator(ImmutableList.<RepLevelIterable>builder()
+                    .addAll(columnChunk.getRepLevelIterables())
+                    .add(RepLevelIterables.of(columnChunk.getBlock()))
+                    .build());
+            while (repIterator.hasNext()) {
+                int next = repIterator.next();
+                repetitionLevelWriter.writeInteger(next);
+            }
         }
 
         updateBufferedBytes();
