@@ -33,6 +33,7 @@ import io.trino.operator.exchange.LocalExchangeSinkOperator;
 import io.trino.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
 import io.trino.operator.join.InternalJoinFilterFunction;
 import io.trino.operator.join.JoinBridgeManager;
+import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.StandardJoinFilterFunction;
 import io.trino.operator.join.unspilled.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.spi.Page;
@@ -211,15 +212,15 @@ public final class JoinTestUtils
         requireNonNull(buildSideSetup, "buildSideSetup is null");
 
         LookupSourceFactory lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager().getJoinBridge();
-        Future<LookupSourceProvider> lookupSourceProvider = lookupSourceFactory.createLookupSourceProvider();
+        Future<LookupSource> lookupSource = lookupSourceFactory.createLookupSource();
         List<Driver> buildDrivers = buildSideSetup.getBuildDrivers();
 
-        while (!lookupSourceProvider.isDone()) {
+        while (!lookupSource.isDone()) {
             for (Driver buildDriver : buildDrivers) {
                 buildDriver.processForNumberOfIterations(1);
             }
         }
-        getFutureValue(lookupSourceProvider).close();
+        getFutureValue(lookupSource).close();
 
         for (Driver buildDriver : buildDrivers) {
             runDriverInThread(executor, buildDriver);
