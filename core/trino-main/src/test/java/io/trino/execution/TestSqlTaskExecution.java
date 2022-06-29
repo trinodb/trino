@@ -50,7 +50,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.UpdatablePageSource;
-import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -82,7 +81,6 @@ import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -122,7 +120,7 @@ public class TestSqlTaskExecution
             //      |
             //    Scan
             //
-            TestingScanOperatorFactory testingScanOperatorFactory = new TestingScanOperatorFactory(0, TABLE_SCAN_NODE_ID, ImmutableList.of(VARCHAR));
+            TestingScanOperatorFactory testingScanOperatorFactory = new TestingScanOperatorFactory(0, TABLE_SCAN_NODE_ID);
             TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(
                     1,
                     TABLE_SCAN_NODE_ID,
@@ -337,8 +335,7 @@ public class TestSqlTaskExecution
 
         public TestingScanOperatorFactory(
                 int operatorId,
-                PlanNodeId sourceId,
-                List<Type> types)
+                PlanNodeId sourceId)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
