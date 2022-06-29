@@ -13,23 +13,38 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.TypeOperators;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
+import static io.trino.testing.assertions.Assert.assertEquals;
+import static java.nio.file.Files.size;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergSystemTables
         extends AbstractTestQueryFramework
@@ -251,23 +266,162 @@ public class TestIcebergSystemTables
     }
 
     @Test
-    public void testFilesTable()
+    public void testFilesTable() throws IOException
     {
-        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$files\"",
-                "VALUES ('content', 'integer', '', '')," +
-                        "('file_path', 'varchar', '', '')," +
-                        "('file_format', 'varchar', '', '')," +
-                        "('record_count', 'bigint', '', '')," +
-                        "('file_size_in_bytes', 'bigint', '', '')," +
-                        "('column_sizes', 'map(integer, bigint)', '', '')," +
-                        "('value_counts', 'map(integer, bigint)', '', '')," +
-                        "('null_value_counts', 'map(integer, bigint)', '', '')," +
-                        "('nan_value_counts', 'map(integer, bigint)', '', '')," +
-                        "('lower_bounds', 'map(integer, varchar)', '', '')," +
-                        "('upper_bounds', 'map(integer, varchar)', '', '')," +
-                        "('key_metadata', 'varbinary', '', '')," +
-                        "('split_offsets', 'array(bigint)', '', '')," +
-                        "('equality_ids', 'array(integer)', '', '')");
-        assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "files_table", "(_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])")) {
+            assertQuery("SHOW COLUMNS FROM \"" + table.getName() + "$files\"",
+                    "VALUES ('content', 'integer', '', '')," +
+                            "('file_path', 'varchar', '', '')," +
+                            "('file_format', 'varchar', '', '')," +
+                            "('record_count', 'bigint', '', '')," +
+                            "('file_size_in_bytes', 'bigint', '', '')," +
+                            "('column_sizes', 'map(integer, bigint)', '', '')," +
+                            "('value_counts', 'map(integer, bigint)', '', '')," +
+                            "('null_value_counts', 'map(integer, bigint)', '', '')," +
+                            "('nan_value_counts', 'map(integer, bigint)', '', '')," +
+                            "('lower_bounds', 'map(integer, varchar)', '', '')," +
+                            "('upper_bounds', 'map(integer, varchar)', '', '')," +
+                            "('key_metadata', 'varbinary', '', '')," +
+                            "('split_offsets', 'array(bigint)', '', '')," +
+                            "('equality_ids', 'array(integer)', '', '')");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+
+            assertQuerySucceeds("SELECT * FROM \"" + table.getName() + "$files\" ");
+
+            assertQuerySucceeds("DELETE FROM " + table.getName() + " WHERE _bigint = 0");
+
+            MaterializedResult filePathResult = computeActual("SELECT file_path FROM \"" + table.getName() + "$files\" ORDER BY file_path");
+            long[] fileSizes = getFileSizes(filePathResult.getMaterializedRows());
+
+            MaterializedResult result = computeActual("SELECT content, file_format, file_size_in_bytes, record_count, column_sizes, value_counts, null_value_counts," +
+                    " nan_value_counts, key_metadata, split_offsets, equality_ids, lower_bounds, upper_bounds FROM \"" + table.getName() + "$files\" ORDER BY file_path");
+
+            MaterializedResult expectedStatistics =
+                    MaterializedResult.resultBuilder(
+                                    getSession(),
+                                    INTEGER,
+                                    VARCHAR,
+                                    BIGINT,
+                                    BIGINT,
+                                    new MapType(INTEGER, BIGINT, new TypeOperators()),
+                                    new MapType(INTEGER, BIGINT, new TypeOperators()),
+                                    new MapType(INTEGER, BIGINT, new TypeOperators()),
+                                    new MapType(INTEGER, BIGINT, new TypeOperators()),
+                                    VARBINARY,
+                                    new ArrayType(BIGINT),
+                                    new ArrayType(INTEGER),
+                                    new MapType(INTEGER, VARCHAR, new TypeOperators()),
+                                    new MapType(INTEGER, VARCHAR, new TypeOperators()))
+                            .row(0, "ORC", fileSizes[0], 2L, null, Map.of(1, Long.valueOf(2), 2, Long.valueOf(2)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0)), null, null, null, null, Map.of(1, "1", 2, "2019-09-09"), Map.of(1, "2", 2, "2019-09-09"))
+                            .row(0, "ORC", fileSizes[1], 1L, null, Map.of(1, Long.valueOf(1), 2, Long.valueOf(1)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0)), null, null, null, null, Map.of(1, "3", 2, "2019-09-09"), Map.of(1, "3", 2, "2019-09-09"))
+                            .row(0, "ORC", fileSizes[2], 2L, null, Map.of(1, Long.valueOf(2), 2, Long.valueOf(2)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0)), null, null, null, null, Map.of(1, "4", 2, "2019-09-10"), Map.of(1, "5", 2, "2019-09-10"))
+                            .build();
+
+            assertEquals(result, expectedStatistics);
+        }
+    }
+
+    @Test
+    public void testAllFilesTable() throws IOException
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "all_files_table", "(a INT, b VARCHAR)", ImmutableList.of("(1, 'a')"))) {
+            assertQuery("SHOW COLUMNS FROM \"" + table.getName() + "$all_files\"",
+                    "VALUES ('content', 'integer', '', '')," +
+                            "('file_path', 'varchar', '', '')," +
+                            "('file_format', 'varchar', '', '')," +
+                            "('record_count', 'bigint', '', '')," +
+                            "('file_size_in_bytes', 'bigint', '', '')," +
+                            "('column_sizes', 'map(integer, bigint)', '', '')," +
+                            "('value_counts', 'map(integer, bigint)', '', '')," +
+                            "('null_value_counts', 'map(integer, bigint)', '', '')," +
+                            "('nan_value_counts', 'map(integer, bigint)', '', '')," +
+                            "('lower_bounds', 'map(integer, varchar)', '', '')," +
+                            "('upper_bounds', 'map(integer, varchar)', '', '')," +
+                            "('key_metadata', 'varbinary', '', '')," +
+                            "('split_offsets', 'array(bigint)', '', '')," +
+                            "('equality_ids', 'array(integer)', '', '')");
+
+            assertQuerySucceeds("SELECT * FROM \"" + table.getName() + "$all_files\"");
+
+            MaterializedResult filesAfterSingleRow = computeActual("SELECT file_format, record_count, lower_bounds, upper_bounds FROM \"" + table.getName() + "$files\"");
+            MaterializedResult allFilesAfterSingleRow = computeActual("SELECT file_format, record_count, lower_bounds, upper_bounds FROM \"" + table.getName() + "$all_files\"");
+            assertEquals(filesAfterSingleRow, allFilesAfterSingleRow);
+
+            MaterializedResult expectedFilesStatsAfterSingleRow =
+                    MaterializedResult.resultBuilder(getSession(), VARCHAR, BIGINT, new MapType(INTEGER, VARCHAR, new TypeOperators()), new MapType(IntegerType.INTEGER, VARCHAR, new TypeOperators()))
+                            .row("ORC", 1L, Map.of(1, "1", 2, "a"), Map.of(1, "1", 2, "a"))
+                            .build();
+
+            assertEquals(filesAfterSingleRow, expectedFilesStatsAfterSingleRow);
+
+            Long snapshotAfterSingleRow = (Long) computeScalar("SELECT snapshot_id FROM \"" + table.getName() + "$snapshots\" ORDER BY committed_at DESC LIMIT 1");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'b')", 1);
+
+            MaterializedResult filesAfterTwoRows = computeActual("SELECT file_format, record_count, lower_bounds, upper_bounds FROM \"" + table.getName() + "$files\" ORDER BY file_path");
+            MaterializedResult allFilesAfterTwoRows = computeActual("SELECT file_format, record_count, lower_bounds, upper_bounds FROM \"" + table.getName() + "$all_files\" ORDER BY file_path");
+
+            MaterializedResult expectedAllFilesStatsAfterTwoRows =
+                    MaterializedResult.resultBuilder(getSession(), VARCHAR, BIGINT, new MapType(INTEGER, VARCHAR, new TypeOperators()), new MapType(IntegerType.INTEGER, VARCHAR, new TypeOperators()))
+                            .row("ORC", 1L, Map.of(1, "1", 2, "a"), Map.of(1, "1", 2, "a"))
+                            .row("ORC", 1L, Map.of(1, "2", 2, "b"), Map.of(1, "2", 2, "b"))
+                            .build();
+            assertEquals(filesAfterTwoRows, allFilesAfterTwoRows);
+
+            assertEquals(filesAfterTwoRows, expectedAllFilesStatsAfterTwoRows);
+
+            assertUpdate("CALL iceberg.system.rollback_to_snapshot('tpch', '" + table.getName() + "', " + snapshotAfterSingleRow + ")");
+
+            MaterializedResult filesAfterRollback = computeActual("SELECT file_format, record_count, lower_bounds, upper_bounds FROM \"" + table.getName() + "$files\" ORDER BY file_path");
+            MaterializedResult allFilesAfterRollback = computeActual("SELECT file_format, record_count, lower_bounds, upper_bounds FROM \"" + table.getName() + "$all_files\" ORDER BY file_path");
+
+            assertEquals(filesAfterSingleRow, filesAfterRollback);
+            assertEquals(allFilesAfterTwoRows, allFilesAfterRollback);
+            assertTrue(allFilesAfterRollback.getMaterializedRows().containsAll(filesAfterRollback.getMaterializedRows()));
+            assertTrue(allFilesAfterRollback.getMaterializedRows().size() > filesAfterRollback.getMaterializedRows().size());
+            assertEquals(filesAfterRollback, expectedFilesStatsAfterSingleRow);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE a = 1", 1);
+
+            MaterializedResult filePathResult = computeActual("SELECT file_path FROM \"" + table.getName() + "$all_files\" ORDER BY file_path");
+            long[] fileSizes = getFileSizes(filePathResult.getMaterializedRows());
+
+            MaterializedResult allFilesAfterSingleDelete = computeActual("SELECT content, file_format, file_size_in_bytes, record_count, column_sizes, value_counts," +
+                    "null_value_counts, nan_value_counts, key_metadata, split_offsets, equality_ids, lower_bounds, upper_bounds FROM \"" + table.getName() + "$all_files\" ORDER BY file_path");
+
+            MaterializedResult expectedAllFilesStatsAfterSingleDelete =
+                    MaterializedResult.resultBuilder(
+                                    getSession(),
+                                    INTEGER,
+                                    VARCHAR,
+                                    BIGINT,
+                                    BIGINT,
+                                    new MapType(INTEGER, BIGINT, new TypeOperators()),
+                                    new MapType(INTEGER, BIGINT, new TypeOperators()),
+                                    new MapType(INTEGER, BIGINT, new TypeOperators()),
+                                    new MapType(INTEGER, BIGINT, new TypeOperators()),
+                                    VARBINARY,
+                                    new ArrayType(BIGINT),
+                                    new ArrayType(INTEGER),
+                                    new MapType(INTEGER, VARCHAR, new TypeOperators()),
+                                    new MapType(INTEGER, VARCHAR, new TypeOperators()))
+                            .row(0, "ORC", fileSizes[0], 1L, null, Map.of(1, Long.valueOf(1), 2, Long.valueOf(1)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0)), null, null, null, null, Map.of(1, "1", 2, "a"), Map.of(1, "1", 2, "a"))
+                            .row(0, "ORC", fileSizes[1], 1L, null, Map.of(1, Long.valueOf(1), 2, Long.valueOf(1)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0)), null, null, null, null, Map.of(1, "2", 2, "b"), Map.of(1, "2", 2, "b"))
+                            .build();
+
+            assertEquals(allFilesAfterSingleDelete, expectedAllFilesStatsAfterSingleDelete);
+        }
+    }
+
+    private long[] getFileSizes(List<MaterializedRow> materializedRows) throws IOException
+    {
+        long[] fileSizes = new long[materializedRows.size()];
+        for (int i = 0; i < materializedRows.size(); i++) {
+            String path = (String) materializedRows.get(i).getField(0);
+            fileSizes[i] = size(Path.of(path));
+        }
+        return fileSizes;
     }
 }

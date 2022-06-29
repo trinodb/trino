@@ -45,6 +45,7 @@ import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.REPLACE_TABLE;
+import static io.trino.plugin.iceberg.TableType.ALL_FILES;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TableType.FILES;
 import static io.trino.plugin.iceberg.TableType.HISTORY;
@@ -297,9 +298,15 @@ public class TestIcebergMetastoreAccessOperations
                         .addCopies(GET_TABLE, 1)
                         .build());
 
+        // select from $all_files
+        assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$all_files\"",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 1)
+                        .build());
+
         // This test should get updated if a new system table is added.
         assertThat(TableType.values())
-                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES);
+                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, ALL_FILES, PROPERTIES);
     }
 
     private void assertMetastoreInvocations(String query, Multiset<?> expectedInvocations)

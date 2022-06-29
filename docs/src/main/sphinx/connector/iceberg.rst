@@ -923,11 +923,87 @@ To retrieve the information about the data files of the Iceberg table ``test_tab
 
 .. code-block:: text
 
-     content  | file_path                                                                                                                     | record_count    | file_format   | file_size_in_bytes   |  column_sizes        |  value_counts     |  null_value_counts | nan_value_counts  | lower_bounds                |  upper_bounds               |  key_metadata  | split_offsets  |  equality_ids
-    ----------+-------------------------------------------------------------------------------------------------------------------------------+-----------------+---------------+----------------------+----------------------+-------------------+--------------------+-------------------+-----------------------------+-----------------------------+----------------+----------------+---------------
-     0        | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/data/c1=3/c2=2021-01-14/af9872b2-40f3-428f-9c87-186d2750d84e.parquet |  1              |  PARQUET      |  442                 | {1=40, 2=40, 3=44}   |  {1=1, 2=1, 3=1}  |  {1=0, 2=0, 3=0}   | <null>            |  {1=3, 2=2021-01-14, 3=1.3} |  {1=3, 2=2021-01-14, 3=1.3} |  <null>        | <null>         |   <null>
+     content  | file_path                                                                                                                     | file_format     | record_count   | file_size_in_bytes   |  column_sizes        |  value_counts     |  null_value_counts | nan_value_counts  | lower_bounds                |  upper_bounds               |  key_metadata  | split_offsets  |  equality_ids
+    ----------+-------------------------------------------------------------------------------------------------------------------------------+-----------------+----------------+----------------------+----------------------+-------------------+--------------------+-------------------+-----------------------------+-----------------------------+----------------+----------------+---------------
+     0        | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/data/c1=3/c2=2021-01-14/af9872b2-40f3-428f-9c87-186d2750d84e.parquet |  PARQUET        |  1             |  442                 | {1=40, 2=40, 3=44}   |  {1=1, 2=1, 3=1}  |  {1=0, 2=0, 3=0}   | <null>            |  {1=3, 2=2021-01-14, 3=1.3} |  {1=3, 2=2021-01-14, 3=1.3} |  <null>        | <null>         |   <null>
 
 
+
+The output of the query has the following columns:
+
+.. list-table:: Files columns
+  :widths: 25, 30, 45
+  :header-rows: 1
+
+  * - Name
+    - Type
+    - Description
+  * - ``content``
+    - ``integer``
+    - Type of content stored in the file.
+      The supported content types in Iceberg are:
+
+      * ``DATA(0)``
+      * ``POSITION_DELETES(1)``
+      * ``EQUALITY_DELETES(2)``
+  * - ``file_path``
+    - ``varchar``
+    - The data file location
+  * - ``file_format``
+    - ``varchar``
+    - The format of the data file
+  * - ``record_count``
+    - ``bigint``
+    - The number of entries contained in the data file
+  * - ``file_size_in_bytes``
+    - ``bigint``
+    - The data file size
+  * - ``column_sizes``
+    - ``map(integer, bigint)``
+    - Mapping between the Iceberg column ID and its corresponding size in the file
+  * - ``value_counts``
+    - ``map(integer, bigint)``
+    - Mapping between the Iceberg column ID and its corresponding count of entries in the file
+  * - ``null_value_counts``
+    - ``map(integer, bigint)``
+    - Mapping between the Iceberg column ID and its corresponding count of ``NULL`` values in the file
+  * - ``nan_value_counts``
+    - ``map(integer, bigint)``
+    - Mapping between the Iceberg column ID and its corresponding count of non numerical values in the file
+  * - ``lower_bounds``
+    - ``map(integer, bigint)``
+    - Mapping between the Iceberg column ID and its corresponding lower bound in the file
+  * - ``upper_bounds``
+    - ``map(integer, bigint)``
+    - Mapping between the Iceberg column ID and its corresponding upper bound in the file
+  * - ``key_metadata``
+    - ``varbinary``
+    - Metadata about the encryption key used to encrypt this file, if applicable
+  * - ``split_offsets``
+    - ``array(bigint)``
+    - List of recommended split locations.
+  * - ``equality_ids``
+    - ``array(integer)``
+    - The set of field IDs used for equality comparison in equality delete files
+
+``$all_files`` table
+^^^^^^^^^^^^^^^^^^^^
+
+The ``$all_files`` table exposes the valid data files of the Iceberg table.
+A valid data file is one that is readable from any snapshot currently tracked by the table.
+
+To retrieve the information about the data files from all the snapshots of the Iceberg table ``test_table`` use the following query::
+
+    SELECT * FROM "test_table$all_files"
+
+The output of the query has the columns, which is similar to the ``$files`` metadata table.
+
+.. code-block:: text
+
+     content  | file_path                                                                                                                     | file_format     | record_count   | file_size_in_bytes   |  column_sizes        |  value_counts     |  null_value_counts | nan_value_counts  | lower_bounds                |  upper_bounds               |  key_metadata  | split_offsets  |  equality_ids
+    ----------+-------------------------------------------------------------------------------------------------------------------------------+-----------------+----------------+----------------------+----------------------+-------------------+--------------------+-------------------+-----------------------------+-----------------------------+----------------+----------------+---------------
+     0        | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/data/c1=3/c2=2021-01-14/af9872b2-40f3-428f-9c87-186d2750d84e.parquet |  PARQUET        |  1             |  442                 | {1=40, 2=40, 3=44}   |  {1=1, 2=1, 3=1}  |  {1=0, 2=0, 3=0}   | <null>            |  {1=3, 2=2021-01-14, 3=1.3} |  {1=3, 2=2021-01-14, 3=1.3} |  <null>        | <null>         |   <null>
+     0        | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/data/c1=3/c2=2021-01-15/af9872b2-40f3-428f-9c87-186d2718d90f.parquet |  PARQUET        |  1             |  256                 | {1=40, 2=40, 3=40}   |  {1=1, 2=0, 3=1}  |  {1=0, 2=0, 3=0}   | <null>            |  {1=3, 2=2021-01-15, 3=1.3} |  {1=3, 2=2021-01-14, 3=1.3} |  <null>        | <null>         |   <null>
 
 The output of the query has the following columns:
 

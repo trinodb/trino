@@ -21,5 +21,6 @@ public enum TableType
     MANIFESTS,
     PARTITIONS,
     FILES,
+    ALL_FILES,
     PROPERTIES,
 }

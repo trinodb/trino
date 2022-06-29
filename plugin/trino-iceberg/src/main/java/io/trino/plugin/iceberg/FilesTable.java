@@ -53,12 +53,9 @@ public class FilesTable
     @Override
     protected TableScan buildTableScan()
     {
-        Table filesTable = createMetadataTableInstance(getIcebergTable(), DATA_FILES);
-
-        TableScan tableScan = filesTable
+        return createMetadataTableInstance(getIcebergTable(), DATA_FILES)
                 .newScan()
                 .useSnapshot(snapshotId.get())
                 .includeColumnStats();
-        return tableScan;
     }
 }
