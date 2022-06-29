@@ -71,7 +71,7 @@ public class TestJdbcTableHandle
                 Optional.empty(),
                 OptionalLong.of(1),
                 Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),
-                ImmutableSet.of(),
+                Optional.of(ImmutableSet.of()),
                 0);
     }
 
@@ -88,7 +88,7 @@ public class TestJdbcTableHandle
                 Optional.empty(),
                 OptionalLong.of(1),
                 Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),
-                ImmutableSet.of(),
+                Optional.of(ImmutableSet.of()),
                 0);
     }
 }

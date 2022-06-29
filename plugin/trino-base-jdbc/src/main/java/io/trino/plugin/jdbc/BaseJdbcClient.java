@@ -261,7 +261,8 @@ public abstract class BaseJdbcClient
                 Optional.empty(),
                 OptionalLong.empty(),
                 Optional.of(columns.build()),
-                ImmutableSet.of(), // Note: the query is opaque, so we cannot return other referenced tables // TODO https://github.com/trinodb/trino/issues/12526
+                // The query is opaque, so we don't know referenced tables
+                Optional.empty(),
                 0);
     }
 

@@ -222,6 +222,55 @@ public class TestCachingJdbcClient
                 .afterRunning(() -> {
                     cachingJdbcClient.getTableStatistics(SESSION, cachedTable);
                 });
+
+        cachingJdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, emptyList()));
+
+        assertCacheStats(cachingJdbcClient, TABLE_HANDLES_BY_QUERY_CACHE)
+                .misses(1)
+                .loads(1)
+                .afterRunning(() -> {
+                    assertThat(cachingJdbcClient.getTableHandle(SESSION, query))
+                            .isEqualTo(cachedTable);
+                    assertThat(cachingJdbcClient.getColumns(SESSION, cachedTable))
+                            .hasSize(0); // phantom_table has no columns
+                });
+        assertCacheStats(cachingJdbcClient)
+                // cache is not used, as the table handle has the columns list embedded
+                .afterRunning(() -> {
+                    assertThat(cachingJdbcClient.getColumns(SESSION, cachedTable))
+                            .hasSize(0); // phantom_table has no columns
+                });
+        assertStatisticsCacheStats(cachingJdbcClient)
+                .misses(1)
+                .loads(1)
+                .afterRunning(() -> {
+                    cachingJdbcClient.getTableStatistics(SESSION, cachedTable);
+                });
+
+        cachingJdbcClient.onDataChanged(phantomTable);
+
+        assertCacheStats(cachingJdbcClient, TABLE_HANDLES_BY_QUERY_CACHE)
+                .hits(1)
+                .afterRunning(() -> {
+                    assertThat(cachingJdbcClient.getTableHandle(SESSION, query))
+                            .isEqualTo(cachedTable);
+                    assertThat(cachingJdbcClient.getColumns(SESSION, cachedTable))
+                            .hasSize(0); // phantom_table has no columns
+                });
+        assertCacheStats(cachingJdbcClient)
+                // cache is not used, as the table handle has the columns list embedded
+                .afterRunning(() -> {
+                    assertThat(cachingJdbcClient.getColumns(SESSION, cachedTable))
+                            .hasSize(0); // phantom_table has no columns
+                });
+        assertStatisticsCacheStats(cachingJdbcClient)
+                .misses(1)
+                .loads(1)
+                .afterRunning(() -> {
+                    cachingJdbcClient.getTableStatistics(SESSION, cachedTable);
+                });
+
+        dropTable(phantomTable);
     }
 
     @Test
@@ -473,7 +522,7 @@ public class TestCachingJdbcClient
                 Optional.empty(),
                 OptionalLong.empty(),
                 Optional.empty(),
-                Set.of(new SchemaTableName(schema, "first")),
+                Optional.of(Set.of(new SchemaTableName(schema, "first"))),
                 0);
 
         // load

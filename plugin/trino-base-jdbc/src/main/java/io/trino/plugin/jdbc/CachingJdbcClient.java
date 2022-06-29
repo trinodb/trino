@@ -496,7 +496,7 @@ public class CachingJdbcClient
 
     public void onDataChanged(SchemaTableName table)
     {
-        invalidateCache(statisticsCache, key -> key.references(table));
+        invalidateCache(statisticsCache, key -> key.mayReference(table));
     }
 
     /**
@@ -560,12 +560,11 @@ public class CachingJdbcClient
 
     private void invalidateTableCaches(SchemaTableName schemaTableName)
     {
-        // TODO https://github.com/trinodb/trino/issues/12526: invalidate tableHandlesByNameCache for handles derived from opaque queries
         invalidateColumnsCache(schemaTableName);
         invalidateCache(tableHandlesByNameCache, key -> key.tableName.equals(schemaTableName));
         tableHandlesByQueryCache.invalidateAll();
         invalidateCache(tableNamesCache, key -> key.schemaName.equals(Optional.of(schemaTableName.getSchemaName())));
-        invalidateCache(statisticsCache, key -> key.references(schemaTableName));
+        invalidateCache(statisticsCache, key -> key.mayReference(schemaTableName));
     }
 
     private void invalidateColumnsCache(SchemaTableName table)
