@@ -68,7 +68,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestMemoryRevokingScheduler
 {
-    private final AtomicInteger idGeneator = new AtomicInteger();
+    private final AtomicInteger idGenerator = new AtomicInteger();
     private final SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(10, GIGABYTE));
     private final Map<QueryId, QueryContext> queryContexts = new HashMap<>();
 
@@ -219,9 +219,8 @@ public class TestMemoryRevokingScheduler
         TaskContext taskContext = getOrCreateTaskContext(sqlTask);
         PipelineContext pipelineContext = taskContext.addPipelineContext(0, false, false, false);
         DriverContext driverContext = pipelineContext.addDriverContext();
-        OperatorContext operatorContext = driverContext.addOperatorContext(1, new PlanNodeId("na"), "na");
 
-        return operatorContext;
+        return driverContext.addOperatorContext(1, new PlanNodeId("na"), "na");
     }
 
     private void requestMemoryRevoking(MemoryRevokingScheduler scheduler)
@@ -256,7 +255,7 @@ public class TestMemoryRevokingScheduler
     {
         QueryContext queryContext = getOrCreateQueryContext(queryId);
 
-        TaskId taskId = new TaskId(new StageId(queryId.getId(), 0), idGeneator.incrementAndGet(), 0);
+        TaskId taskId = new TaskId(new StageId(queryId.getId(), 0), idGenerator.incrementAndGet(), 0);
         URI location = URI.create("fake://task/" + taskId);
 
         return createSqlTask(
