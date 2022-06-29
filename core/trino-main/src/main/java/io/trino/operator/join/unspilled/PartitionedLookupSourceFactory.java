@@ -19,19 +19,15 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.OuterPositionIterator;
 import io.trino.operator.join.TrackingLookupSourceSupplier;
-import io.trino.operator.join.unspilled.LookupSourceProvider.LookupSourceLease;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
 
 import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -71,16 +67,7 @@ public final class PartitionedLookupSourceFactory
     private TrackingLookupSourceSupplier lookupSourceSupplier;
 
     @GuardedBy("lock")
-    private final List<SettableFuture<LookupSourceProvider>> lookupSourceFutures = new ArrayList<>();
-
-    /**
-     * Cached LookupSource on behalf of LookupJoinOperator (represented by SpillAwareLookupSourceProvider). LookupSource instantiation has non-negligible cost.
-     * <p>
-     * Whole-sale modifications guarded by rwLock.writeLock(). Modifications (addition, update, removal) of entry for key K is confined to object K.
-     * Important note: this cannot be replaced with regular map guarded by the read-write lock. This is because read lock is held in {@code withLease} for
-     * the prolong time, and other threads would not be able to insert new (cached) lookup sources in this map, harming work concurrency.
-     */
-    private final ConcurrentHashMap<SpillAwareLookupSourceProvider, LookupSource> suppliedLookupSources = new ConcurrentHashMap<>();
+    private final List<SettableFuture<LookupSource>> lookupSourceFutures = new ArrayList<>();
 
     public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, boolean outer, BlockTypeOperators blockTypeOperators)
     {
@@ -117,16 +104,16 @@ public final class PartitionedLookupSourceFactory
     }
 
     @Override
-    public ListenableFuture<LookupSourceProvider> createLookupSourceProvider()
+    public ListenableFuture<LookupSource> createLookupSource()
     {
         lock.writeLock().lock();
         try {
             checkState(!destroyed.isDone(), "already destroyed");
             if (lookupSourceSupplier != null) {
-                return immediateFuture(new SpillAwareLookupSourceProvider());
+                return immediateFuture(lookupSourceSupplier.getLookupSource());
             }
 
-            SettableFuture<LookupSourceProvider> lookupSourceFuture = SettableFuture.create();
+            SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
             lookupSourceFutures.add(lookupSourceFuture);
             return lookupSourceFuture;
         }
@@ -139,7 +126,7 @@ public final class PartitionedLookupSourceFactory
     public ListenableFuture<Void> whenBuildFinishes()
     {
         return transform(
-                this.createLookupSourceProvider(),
+                this.createLookupSource(),
                 lookupSourceProvider -> {
                     // Close the lookupSourceProvider we just created.
                     // The only reason we created it is to wait until lookup source is ready.
@@ -181,7 +168,8 @@ public final class PartitionedLookupSourceFactory
     {
         checkState(!lock.isWriteLockedByCurrentThread());
 
-        List<SettableFuture<LookupSourceProvider>> lookupSourceFutures;
+        List<SettableFuture<LookupSource>> lookupSourceFutures;
+        TrackingLookupSourceSupplier lookupSourceSupplier;
 
         lock.writeLock().lock();
         try {
@@ -194,14 +182,15 @@ public final class PartitionedLookupSourceFactory
 
             if (partitionsSet != 1) {
                 List<Supplier<LookupSource>> partitions = ImmutableList.copyOf(this.partitions);
-                this.lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer, blockTypeOperators);
+                lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer, blockTypeOperators);
             }
             else if (outer) {
-                this.lookupSourceSupplier = createOuterLookupSourceSupplier(partitions[0]);
+                lookupSourceSupplier = createOuterLookupSourceSupplier(partitions[0]);
             }
             else {
-                this.lookupSourceSupplier = TrackingLookupSourceSupplier.nonTracking(partitions[0]);
+                lookupSourceSupplier = TrackingLookupSourceSupplier.nonTracking(partitions[0]);
             }
+            this.lookupSourceSupplier = lookupSourceSupplier;
 
             // store futures into local variables so they can be used outside of the lock
             lookupSourceFutures = ImmutableList.copyOf(this.lookupSourceFutures);
@@ -210,8 +199,8 @@ public final class PartitionedLookupSourceFactory
             lock.writeLock().unlock();
         }
 
-        for (SettableFuture<LookupSourceProvider> lookupSourceFuture : lookupSourceFutures) {
-            lookupSourceFuture.set(new SpillAwareLookupSourceProvider());
+        for (SettableFuture<LookupSource> lookupSourceFuture : lookupSourceFutures) {
+            lookupSourceFuture.set(lookupSourceSupplier.getLookupSource());
         }
     }
 
@@ -257,19 +246,6 @@ public final class PartitionedLookupSourceFactory
             // Remove out references to partitions to actually free memory
             Arrays.fill(partitions, null);
             lookupSourceSupplier = null;
-            closeCachedLookupSources();
-        }
-        finally {
-            lock.writeLock().unlock();
-        }
-    }
-
-    private void closeCachedLookupSources()
-    {
-        lock.writeLock().lock();
-        try {
-            suppliedLookupSources.values().forEach(LookupSource::close);
-            suppliedLookupSources.clear();
         }
         finally {
             lock.writeLock().unlock();
@@ -281,57 +257,5 @@ public final class PartitionedLookupSourceFactory
     public ListenableFuture<Void> isDestroyed()
     {
         return nonCancellationPropagating(destroyed);
-    }
-
-    @NotThreadSafe
-    private class SpillAwareLookupSourceProvider
-            implements LookupSourceProvider
-    {
-        @Override
-        public <R> R withLease(Function<LookupSourceLease, R> action)
-        {
-            lock.readLock().lock();
-            try {
-                LookupSource lookupSource = suppliedLookupSources.computeIfAbsent(this, k -> lookupSourceSupplier.getLookupSource());
-                LookupSourceLease lease = new SpillAwareLookupSourceLease(lookupSource);
-                return action.apply(lease);
-            }
-            finally {
-                lock.readLock().unlock();
-            }
-        }
-
-        @Override
-        public void close()
-        {
-            LookupSource lookupSource;
-            lock.readLock().lock();
-            try {
-                lookupSource = suppliedLookupSources.remove(this);
-            }
-            finally {
-                lock.readLock().unlock();
-            }
-            if (lookupSource != null) {
-                lookupSource.close();
-            }
-        }
-    }
-
-    private static class SpillAwareLookupSourceLease
-            implements LookupSourceLease
-    {
-        private final LookupSource lookupSource;
-
-        public SpillAwareLookupSourceLease(LookupSource lookupSource)
-        {
-            this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
-        }
-
-        @Override
-        public LookupSource getLookupSource()
-        {
-            return lookupSource;
-        }
     }
 }
