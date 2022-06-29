@@ -21,6 +21,7 @@ import com.google.common.collect.Sets;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.MemoryPool;
@@ -61,6 +62,7 @@ import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -84,7 +86,7 @@ public class TestMemoryRevokingScheduler
     {
         memoryPool = new MemoryPool(DataSize.ofBytes(10));
 
-        TaskExecutor taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
+        TaskExecutor taskExecutor = new TaskExecutor(8, 16, 3, 4, new Duration(10, MINUTES), Ticker.systemTicker());
         taskExecutor.start();
 
         // Must be single threaded

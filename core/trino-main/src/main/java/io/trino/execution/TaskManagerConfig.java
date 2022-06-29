@@ -81,6 +81,8 @@ public class TaskManagerConfig
 
     private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
 
+    private Duration longRunningSplitWarningThreshold = new Duration(10, TimeUnit.MINUTES);
+
     @MinDuration("1ms")
     @MaxDuration("10s")
     @NotNull
@@ -461,6 +463,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskYieldThreads(int taskYieldThreads)
     {
         this.taskYieldThreads = taskYieldThreads;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getLongRunningSplitWarningThreshold()
+    {
+        return longRunningSplitWarningThreshold;
+    }
+
+    @Config("task.long-running-split-warning-threshold")
+    @ConfigDescription("Print out split call stack when it runs longer than this threshold")
+    public TaskManagerConfig setLongRunningSplitWarningThreshold(Duration longRunningSplitWarningThreshold)
+    {
+        this.longRunningSplitWarningThreshold = longRunningSplitWarningThreshold;
         return this;
     }
 }

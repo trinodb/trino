@@ -124,3 +124,13 @@ of additional CPU for parallel writes. Some connectors can be bottlenecked on CP
 writing due to compression or other factors. Setting this too high may cause the cluster
 to become overloaded due to excessive resource utilization. This can also be specified on
 a per-query basis using the ``task_writer_count`` session property.
+
+``task.long-running-split-warning-threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Minimum value:** ``1ms``
+* **Default value:** ``10m``
+
+When split runs longer than this threshold, we can get the call stack via
+``/v1/stuckSplits`` endpoint on coordinator.

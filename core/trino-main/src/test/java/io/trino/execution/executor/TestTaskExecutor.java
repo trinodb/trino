@@ -52,7 +52,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, new Duration(10, MINUTES), ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -146,7 +146,7 @@ public class TestTaskExecutor
     public void testQuantaFairness()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 2, 3, 4, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 2, 3, 4, new Duration(10, MINUTES), ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -180,7 +180,7 @@ public class TestTaskExecutor
     public void testLevelMovement()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(2, 2, 3, 4, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(2, 2, 3, 4, new Duration(10, MINUTES), ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -219,7 +219,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(6, 3, 3, 4, new MultilevelSplitQueue(2), ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(6, 3, 3, 4, new Duration(10, MINUTES), new MultilevelSplitQueue(2), ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -297,7 +297,7 @@ public class TestTaskExecutor
     public void testTaskHandle()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, new Duration(10, MINUTES), ticker);
         taskExecutor.start();
 
         try {
@@ -372,7 +372,7 @@ public class TestTaskExecutor
         int maxDriversPerTask = 2;
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 1, maxDriversPerTask, splitQueue, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 1, maxDriversPerTask, new Duration(10, MINUTES), splitQueue, ticker);
         taskExecutor.start();
         try {
             TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
@@ -412,7 +412,7 @@ public class TestTaskExecutor
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TestingTicker ticker = new TestingTicker();
         // create a task executor with min/max drivers per task to be 2 and 4
-        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 2, 4, splitQueue, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 2, 4, new Duration(10, MINUTES), splitQueue, ticker);
         taskExecutor.start();
         try {
             // overwrite the max drivers per task to be 1
@@ -451,7 +451,7 @@ public class TestTaskExecutor
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TestingTicker ticker = new TestingTicker();
         // create a task executor with min/max drivers per task to be 2
-        TaskExecutor taskExecutor = new TaskExecutor(4, 1, 2, 2, splitQueue, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 1, 2, 2, new Duration(10, MINUTES), splitQueue, ticker);
         taskExecutor.start();
 
         try {

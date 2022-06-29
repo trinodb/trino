@@ -54,7 +54,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.function.DoubleSupplier;
@@ -80,9 +79,6 @@ public class TaskExecutor
 {
     private static final Logger log = Logger.get(TaskExecutor.class);
 
-    // print out split call stack if it has been running for a certain amount of time
-    private static final Duration LONG_RUNNING_SPLIT_WARNING_THRESHOLD = new Duration(600, TimeUnit.SECONDS);
-
     private static final AtomicLong NEXT_RUNNER_ID = new AtomicLong();
 
     private final ExecutorService executor;
@@ -92,6 +88,7 @@ public class TaskExecutor
     private final int minimumNumberOfDrivers;
     private final int guaranteedNumberOfDriversPerTask;
     private final int maximumNumberOfDriversPerTask;
+    private final Duration longRunningSplitWarningThreshold;
     private final VersionEmbedder versionEmbedder;
 
     private final Ticker ticker;
@@ -163,21 +160,22 @@ public class TaskExecutor
                 config.getMinDrivers(),
                 config.getMinDriversPerTask(),
                 config.getMaxDriversPerTask(),
+                config.getLongRunningSplitWarningThreshold(),
                 versionEmbedder,
                 splitQueue,
                 Ticker.systemTicker());
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Ticker ticker)
+    public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Duration longRunningSplitWarningThreshold, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, testingVersionEmbedder(), new MultilevelSplitQueue(2), ticker);
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, longRunningSplitWarningThreshold, testingVersionEmbedder(), new MultilevelSplitQueue(2), ticker);
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, MultilevelSplitQueue splitQueue, Ticker ticker)
+    public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Duration longRunningSplitWarningThreshold, MultilevelSplitQueue splitQueue, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, testingVersionEmbedder(), splitQueue, ticker);
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, longRunningSplitWarningThreshold, testingVersionEmbedder(), splitQueue, ticker);
     }
 
     @VisibleForTesting
@@ -186,6 +184,7 @@ public class TaskExecutor
             int minDrivers,
             int guaranteedNumberOfDriversPerTask,
             int maximumNumberOfDriversPerTask,
+            Duration longRunningSplitWarningThreshold,
             VersionEmbedder versionEmbedder,
             MultilevelSplitQueue splitQueue,
             Ticker ticker)
@@ -206,6 +205,7 @@ public class TaskExecutor
         this.minimumNumberOfDrivers = minDrivers;
         this.guaranteedNumberOfDriversPerTask = guaranteedNumberOfDriversPerTask;
         this.maximumNumberOfDriversPerTask = maximumNumberOfDriversPerTask;
+        this.longRunningSplitWarningThreshold = requireNonNull(longRunningSplitWarningThreshold, "longRunningSplitWarningThreshold is null");
         this.waitingSplits = requireNonNull(splitQueue, "splitQueue is null");
         this.tasks = new LinkedList<>();
     }
@@ -808,7 +808,7 @@ public class TaskExecutor
         String message = "%s splits have been continuously active for more than %s seconds\n";
         for (RunningSplitInfo splitInfo : runningSplitInfos) {
             Duration duration = Duration.succinctNanos(ticker.read() - splitInfo.getStartTime());
-            if (duration.compareTo(LONG_RUNNING_SPLIT_WARNING_THRESHOLD) >= 0) {
+            if (duration.compareTo(longRunningSplitWarningThreshold) >= 0) {
                 stuckSplitsCount++;
                 stackTrace.append("\n");
                 stackTrace.append(format("\"%s\" tid=%s", splitInfo.getThreadId(), splitInfo.getThread().getId())).append("\n");
@@ -818,7 +818,7 @@ public class TaskExecutor
             }
         }
 
-        return format(message, stuckSplitsCount, LONG_RUNNING_SPLIT_WARNING_THRESHOLD).concat(stackTrace.toString());
+        return format(message, stuckSplitsCount, longRunningSplitWarningThreshold).concat(stackTrace.toString());
     }
 
     @Managed
@@ -827,7 +827,7 @@ public class TaskExecutor
         int count = 0;
         for (RunningSplitInfo splitInfo : runningSplitInfos) {
             Duration duration = Duration.succinctNanos(ticker.read() - splitInfo.getStartTime());
-            if (duration.compareTo(LONG_RUNNING_SPLIT_WARNING_THRESHOLD) > 0) {
+            if (duration.compareTo(longRunningSplitWarningThreshold) > 0) {
                 count++;
             }
         }
