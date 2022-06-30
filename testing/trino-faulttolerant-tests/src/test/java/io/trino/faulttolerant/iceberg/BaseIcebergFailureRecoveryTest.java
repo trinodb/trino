@@ -125,26 +125,28 @@ public abstract class BaseIcebergFailureRecoveryTest
         assertThatQuery(deleteQuery)
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
-                .finishesSuccessfully();
-
-        assertThatQuery(deleteQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
 
-        assertThatQuery(deleteQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
-                .finishesSuccessfully();
+        if (getRetryPolicy() == RetryPolicy.QUERY) {
+            assertThatQuery(deleteQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
+                    .finishesSuccessfully();
+
+            assertThatQuery(deleteQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
+                    .finishesSuccessfully();
+        }
     }
 
     // Copied from BaseDeltaFailureRecoveryTest
@@ -209,26 +211,28 @@ public abstract class BaseIcebergFailureRecoveryTest
         assertThatQuery(updateQuery)
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
-                .finishesSuccessfully();
-
-        assertThatQuery(updateQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
 
-        assertThatQuery(updateQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
-                .finishesSuccessfully();
+        if (getRetryPolicy() == RetryPolicy.QUERY) {
+            assertThatQuery(updateQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
+                    .finishesSuccessfully();
+
+            assertThatQuery(updateQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
+                    .finishesSuccessfully();
+        }
     }
 
     @Test(invocationCount = INVOCATION_COUNT)

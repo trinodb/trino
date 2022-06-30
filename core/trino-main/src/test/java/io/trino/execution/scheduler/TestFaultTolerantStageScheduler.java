@@ -183,8 +183,7 @@ public class TestFaultTolerantStageScheduler
                     remoteTaskFactory,
                     taskSourceFactory,
                     nodeAllocator,
-                    TaskLifecycleListener.NO_OP,
-                    Optional.of(sinkExchange),
+                    sinkExchange,
                     ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
                     2,
                     1);
@@ -333,8 +332,7 @@ public class TestFaultTolerantStageScheduler
                     remoteTaskFactory,
                     taskSourceFactory,
                     nodeAllocator,
-                    TaskLifecycleListener.NO_OP,
-                    Optional.of(sinkExchange),
+                    sinkExchange,
                     ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
                     2,
                     3); // allow for 3 tasks waiting for nodes before blocking
@@ -394,53 +392,6 @@ public class TestFaultTolerantStageScheduler
     }
 
     @Test
-    public void testTaskLifecycleListener()
-            throws Exception
-    {
-        TestingRemoteTaskFactory remoteTaskFactory = new TestingRemoteTaskFactory();
-        TestingTaskSourceFactory taskSourceFactory = createTaskSourceFactory(2, 1);
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(
-                NODE_1, ImmutableList.of(TEST_CATALOG_HANDLE),
-                NODE_2, ImmutableList.of(TEST_CATALOG_HANDLE)));
-        setupNodeAllocatorService(nodeSupplier);
-
-        TestingTaskLifecycleListener taskLifecycleListener = new TestingTaskLifecycleListener();
-
-        TestingExchange sourceExchange1 = new TestingExchange(false);
-        TestingExchange sourceExchange2 = new TestingExchange(false);
-
-        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
-            FaultTolerantStageScheduler scheduler = createFaultTolerantTaskScheduler(
-                    remoteTaskFactory,
-                    taskSourceFactory,
-                    nodeAllocator,
-                    taskLifecycleListener,
-                    Optional.empty(),
-                    ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
-                    2,
-                    1);
-
-            sourceExchange1.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
-            sourceExchange2.setSourceHandles(ImmutableList.of(new TestingExchangeSourceHandle(0, 1)));
-            assertUnblocked(scheduler.isBlocked());
-
-            scheduler.schedule();
-            assertBlocked(scheduler.isBlocked());
-
-            assertThat(taskLifecycleListener.getTasks().get(FRAGMENT_ID)).contains(getTaskId(0, 0), getTaskId(1, 0));
-
-            remoteTaskFactory.getTasks().get(getTaskId(0, 0)).fail(new RuntimeException("some exception"));
-
-            assertUnblocked(scheduler.isBlocked());
-            moveTime(10, SECONDS); // skip retry delay
-            scheduler.schedule();
-            assertBlocked(scheduler.isBlocked());
-
-            assertThat(taskLifecycleListener.getTasks().get(FRAGMENT_ID)).contains(getTaskId(0, 0), getTaskId(1, 0), getTaskId(0, 1));
-        }
-    }
-
-    @Test
     public void testTaskFailure()
             throws Exception
     {
@@ -459,8 +410,7 @@ public class TestFaultTolerantStageScheduler
                     remoteTaskFactory,
                     taskSourceFactory,
                     nodeAllocator,
-                    TaskLifecycleListener.NO_OP,
-                    Optional.empty(),
+                    new TestingExchange(false),
                     ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
                     0,
                     1);
@@ -511,8 +461,7 @@ public class TestFaultTolerantStageScheduler
                     remoteTaskFactory,
                     taskSourceFactory,
                     nodeAllocator,
-                    TaskLifecycleListener.NO_OP,
-                    Optional.empty(),
+                    new TestingExchange(false),
                     ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
                     1,
                     1);
@@ -572,8 +521,7 @@ public class TestFaultTolerantStageScheduler
                     remoteTaskFactory,
                     taskSourceFactory,
                     nodeAllocator,
-                    TaskLifecycleListener.NO_OP,
-                    Optional.empty(),
+                    new TestingExchange(false),
                     ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
                     6,
                     1);
@@ -848,8 +796,7 @@ public class TestFaultTolerantStageScheduler
                     remoteTaskFactory,
                     taskSourceFactory,
                     nodeAllocator,
-                    TaskLifecycleListener.NO_OP,
-                    Optional.empty(),
+                    new TestingExchange(false),
                     ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
                     0,
                     1);
@@ -905,8 +852,7 @@ public class TestFaultTolerantStageScheduler
                     remoteTaskFactory,
                     taskSourceFactory,
                     nodeAllocator,
-                    TaskLifecycleListener.NO_OP,
-                    Optional.empty(),
+                    new TestingExchange(false),
                     ImmutableMap.of(SOURCE_FRAGMENT_ID_1, sourceExchange1, SOURCE_FRAGMENT_ID_2, sourceExchange2),
                     2,
                     1);
@@ -934,8 +880,7 @@ public class TestFaultTolerantStageScheduler
             RemoteTaskFactory remoteTaskFactory,
             TaskSourceFactory taskSourceFactory,
             NodeAllocator nodeAllocator,
-            TaskLifecycleListener taskLifecycleListener,
-            Optional<Exchange> sinkExchange,
+            Exchange sinkExchange,
             Map<PlanFragmentId, Exchange> sourceExchanges,
             int retryAttempts,
             int maxTasksWaitingForNodePerStage)
@@ -945,7 +890,6 @@ public class TestFaultTolerantStageScheduler
                 remoteTaskFactory,
                 taskSourceFactory,
                 nodeAllocator,
-                taskLifecycleListener,
                 sinkExchange,
                 sourceExchanges,
                 retryAttempts,
@@ -957,8 +901,7 @@ public class TestFaultTolerantStageScheduler
             RemoteTaskFactory remoteTaskFactory,
             TaskSourceFactory taskSourceFactory,
             NodeAllocator nodeAllocator,
-            TaskLifecycleListener taskLifecycleListener,
-            Optional<Exchange> sinkExchange,
+            Exchange sinkExchange,
             Map<PlanFragmentId, Exchange> sourceExchanges,
             int retryAttempts,
             int maxTasksWaitingForNodePerStage)
@@ -974,7 +917,6 @@ public class TestFaultTolerantStageScheduler
                 taskDescriptorStorage,
                 new ConstantPartitionMemoryEstimator(),
                 new TaskExecutionStats(),
-                taskLifecycleListener,
                 futureCompletor,
                 ticker,
                 sinkExchange,
