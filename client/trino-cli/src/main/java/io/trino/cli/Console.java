@@ -21,6 +21,9 @@ import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.cli.Trino.VersionProvider;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
+import io.trino.sql.parser.ParsingException;
+import io.trino.sql.parser.ParsingOptions;
+import io.trino.sql.parser.SqlParser;
 import io.trino.sql.parser.StatementSplitter;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.History;
@@ -62,6 +65,7 @@ import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static io.trino.cli.TerminalUtils.terminalEncoding;
 import static io.trino.client.ClientSession.stripTransactionId;
+import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.parser.StatementSplitter.Statement;
 import static io.trino.sql.parser.StatementSplitter.isEmptyStatement;
 import static java.lang.String.format;
@@ -83,6 +87,7 @@ public class Console
         implements Callable<Integer>
 {
     public static final Set<String> STATEMENT_DELIMITERS = ImmutableSet.of(";", "\\G");
+    private static final SqlParser SQL_PARSER = new SqlParser();
 
     private static final String PROMPT_NAME = "trino";
     private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
@@ -182,6 +187,10 @@ public class Console
                 clientOptions.externalAuthentication,
                 clientOptions.externalAuthenticationRedirectHandler)) {
             if (hasQuery) {
+                if (clientOptions.format) {
+                    System.out.println(formatQueries(query));
+                    return true;
+                }
                 return executeCommand(
                         queryRunner,
                         exiting,
@@ -227,6 +236,7 @@ public class Console
                 InputReader reader = new InputReader(editingMode, getHistoryFile(), disableAutoSuggestion, commandCompleter(), tableNameCompleter)) {
             tableNameCompleter.populateCache();
             String remaining = "";
+            String previous = "";
             while (!exiting.get()) {
                 // setup prompt
                 String prompt = PROMPT_NAME;
@@ -275,6 +285,9 @@ public class Console
                                     .toAnsi(reader.getTerminal()));
                         }
                         continue;
+                    case "format":
+                        remaining = formatQueries(previous);
+                        continue;
                     case "help":
                         System.out.println();
                         System.out.println(getHelpText());
@@ -282,23 +295,74 @@ public class Console
                 }
 
                 // execute any complete statements
-                StatementSplitter splitter = new StatementSplitter(line, STATEMENT_DELIMITERS);
-                for (Statement split : splitter.getCompleteStatements()) {
-                    OutputFormat outputFormat = OutputFormat.ALIGNED;
-                    if (split.terminator().equals("\\G")) {
-                        outputFormat = OutputFormat.VERTICAL;
-                    }
-
-                    process(queryRunner, split.statement(), outputFormat, tableNameCompleter::populateCache, true, progress, reader.getTerminal(), System.out, System.out);
-                }
+                String partial = executeInteractive(queryRunner, line, tableNameCompleter, progress, reader.getTerminal());
+                previous = line;
 
                 // replace remaining with trailing partial statement
-                remaining = whitespace().trimTrailingFrom(splitter.getPartialStatement());
+                remaining = whitespace().trimTrailingFrom(partial);
             }
         }
         catch (IOException e) {
             e.printStackTrace(System.err);
         }
+    }
+
+    private static String formatQueries(String queries)
+    {
+        StringBuilder result = new StringBuilder();
+        ParsingOptions parsingOptions = new ParsingOptions(ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE);
+        StatementSplitter splitter = new StatementSplitter(queries, STATEMENT_DELIMITERS);
+        for (Statement split : splitter.getCompleteStatements()) {
+            io.trino.sql.tree.Statement statement;
+            try {
+                statement = SQL_PARSER.createStatement(split.statement(), parsingOptions);
+            }
+            catch (ParsingException e) {
+                System.err.println("ERROR: Failed to parse the query: " + e.getMessage());
+                return "";
+            }
+            String formattedSql = "";
+            try {
+                formattedSql = formatSql(statement);
+            }
+            catch (UnsupportedOperationException e) {
+                System.err.println("ERROR: Failed to format the query: " + e.getMessage());
+                return "";
+            }
+            if (!statement.equals(SQL_PARSER.createStatement(formattedSql, parsingOptions))) {
+                System.err.println("ERROR: Formatted SQL is different than original");
+            }
+            result.append(formattedSql);
+            result.append(split.terminator());
+        }
+        return result.toString();
+    }
+
+    private static String executeInteractive(
+            QueryRunner queryRunner,
+            String query,
+            TableNameCompleter tableNameCompleter,
+            boolean showProgress,
+            Terminal terminal)
+    {
+        StatementSplitter splitter = new StatementSplitter(query, STATEMENT_DELIMITERS);
+        for (Statement split : splitter.getCompleteStatements()) {
+            OutputFormat outputFormat = OutputFormat.ALIGNED;
+            if (split.terminator().equals("\\G")) {
+                outputFormat = OutputFormat.VERTICAL;
+            }
+
+            process(queryRunner,
+                    split.statement(),
+                    outputFormat,
+                    tableNameCompleter::populateCache,
+                    true,
+                    showProgress,
+                    terminal,
+                    System.out,
+                    System.out);
+        }
+        return splitter.getPartialStatement();
     }
 
     private static boolean executeCommand(

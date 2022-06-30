@@ -146,6 +146,9 @@ public class ClientOptions
     @Option(names = "--execute", paramLabel = "<execute>", description = "Execute specified statements and exit")
     public String execute;
 
+    @Option(names = "--format", paramLabel = "<format>", description = "Format specified statements, instead of executing them")
+    public boolean format;
+
     @Option(names = "--output-format", paramLabel = "<format>", defaultValue = "CSV", description = "Output format for batch mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
     public OutputFormat outputFormat;
 
