@@ -64,7 +64,9 @@ import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -141,7 +143,8 @@ public class MemoryMetadata
             return null;
         }
 
-        return new MemoryTableHandle(id);
+        TableInfo info = requireNonNull(tables.get(id), "tableInfo is null");
+        return new MemoryTableHandle(id, info.getKeyColumnIndex().map(ignored -> info.getCommittedVersions()), Optional.empty());
     }
 
     @Override
@@ -182,7 +185,7 @@ public class MemoryMetadata
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
         return tables.get(handle.getId())
-                .getColumn(columnHandle)
+                .getColumn((MemoryColumnHandle) columnHandle)
                 .getMetadata();
     }
 
@@ -243,7 +246,7 @@ public class MemoryMetadata
             if (column.getComment() != null) {
                 throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
             }
-            columnsBuilder.add(new ColumnInfo(new MemoryColumnHandle(i), column.getName(), column.getType()));
+            columnsBuilder.add(new ColumnInfo(new MemoryColumnHandle(i, false), column.getName(), column.getType()));
         }
 
         List<ColumnInfo> columns = columnsBuilder.build();
@@ -253,6 +256,11 @@ public class MemoryMetadata
                         .map(columns::indexOf)
                         .findFirst()
                         .orElseThrow(() -> new TrinoException(INVALID_TABLE_PROPERTY, format("Key column '%s' not present", keyColumnName))));
+        keyColumnIndex.ifPresent(index -> {
+            if (!columns.get(index).getMetadata().getType().equals(BIGINT)) {
+                throw new TrinoException(TYPE_MISMATCH, "Only BIGINT key columns are supported");
+            }
+        });
 
         tableIds.put(tableMetadata.getTable(), tableId);
         tables.put(tableId, new TableInfo(
@@ -266,7 +274,7 @@ public class MemoryMetadata
                         .map(MemoryPartitioningHandle::getHostAddress)
                         .orElseGet(this::getWorkerAddress)));
 
-        return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(tableIds.values()));
+        return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(tableIds.values()), getNextVersion(tableId), keyColumnIndex);
     }
 
     private void checkSchemaExists(String schemaName)
@@ -290,6 +298,8 @@ public class MemoryMetadata
     public synchronized Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         requireNonNull(tableHandle, "tableHandle is null");
+        MemoryOutputTableHandle handle = (MemoryOutputTableHandle) tableHandle;
+        commitVersion(handle.getTable(), handle.getVersion());
         return Optional.empty();
     }
 
@@ -297,14 +307,65 @@ public class MemoryMetadata
     public synchronized MemoryInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
-        return new MemoryInsertTableHandle(memoryTableHandle.getId(), ImmutableSet.copyOf(tableIds.values()));
+        TableInfo info = requireNonNull(tables.get(memoryTableHandle.getId()), "tableInfo is null");
+        return new MemoryInsertTableHandle(memoryTableHandle.getId(), ImmutableSet.copyOf(tableIds.values()), getNextVersion(memoryTableHandle.getId()), info.getKeyColumnIndex());
     }
 
     @Override
     public synchronized Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         requireNonNull(insertHandle, "insertHandle is null");
+        MemoryInsertTableHandle handle = (MemoryInsertTableHandle) insertHandle;
+        commitVersion(handle.getTable(), handle.getVersion());
         return Optional.empty();
+    }
+
+    private synchronized Optional<Long> getNextVersion(long tableId)
+    {
+        TableInfo info = requireNonNull(tables.get(tableId), "tables is null");
+        return info.getKeyColumnIndex().map(ignored -> info.getNextVersion());
+    }
+
+    @Override
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    {
+        MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
+        TableInfo info = requireNonNull(tables.get(memoryTableHandle.getId()), "tableInfo is null");
+        if (info.getKeyColumnIndex().isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "This table does not support deletes");
+        }
+        return new MemoryTableHandle(memoryTableHandle.getId(), memoryTableHandle.getVersions(), Optional.of(info.getNextVersion()));
+    }
+
+    @Override
+    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        requireNonNull(tableHandle, "tableHandle is null");
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        commitVersion(handle.getId(), handle.getUpdateVersion());
+    }
+
+    @Override
+    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
+        TableInfo info = requireNonNull(tables.get(memoryTableHandle.getId()), "tableInfo is null");
+        if (info.getKeyColumnIndex().isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "This table does not support deletes");
+        }
+        return info.getKeyColumnIndex()
+                .map(index -> new MemoryColumnHandle(index, true))
+                .orElseThrow();
+    }
+
+    private synchronized void commitVersion(long tableId, Optional<Long> version)
+    {
+        if (version.isEmpty()) {
+            return;
+        }
+
+        TableInfo info = requireNonNull(tables.get(tableId), "tables is null");
+        info.commitVersion(version.get());
     }
 
     @Override

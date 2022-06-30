@@ -43,6 +43,7 @@ public class MemoryModule
         binder.bind(MemoryMetadata.class).in(Scopes.SINGLETON);
         binder.bind(MemorySplitManager.class).in(Scopes.SINGLETON);
         binder.bind(MemoryPagesStore.class).in(Scopes.SINGLETON);
+        binder.bind(MemoryVersionedPagesStore.class).in(Scopes.SINGLETON);
         binder.bind(MemoryPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(MemoryPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(MemoryNodePartitioningProvider.class).in(Scopes.SINGLETON);

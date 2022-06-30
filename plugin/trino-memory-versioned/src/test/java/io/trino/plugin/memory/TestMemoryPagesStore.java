@@ -23,6 +23,8 @@ import io.trino.spi.connector.ConnectorPageSink;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
@@ -35,13 +37,15 @@ public class TestMemoryPagesStore
     private static final int POSITIONS_PER_PAGE = 0;
 
     private MemoryPagesStore pagesStore;
+    private MemoryVersionedPagesStore versionedPagesStore;
     private MemoryPageSinkProvider pageSinkProvider;
 
     @BeforeMethod
     public void setUp()
     {
         pagesStore = new MemoryPagesStore();
-        pageSinkProvider = new MemoryPageSinkProvider(pagesStore);
+        versionedPagesStore = new MemoryVersionedPagesStore();
+        pageSinkProvider = new MemoryPageSinkProvider(pagesStore, versionedPagesStore);
     }
 
     @Test
@@ -116,12 +120,12 @@ public class TestMemoryPagesStore
 
     private static ConnectorOutputTableHandle createMemoryOutputTableHandle(long tableId, Long... activeTableIds)
     {
-        return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(activeTableIds));
+        return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(activeTableIds), Optional.empty(), Optional.empty());
     }
 
     private static ConnectorInsertTableHandle createMemoryInsertTableHandle(long tableId, Long[] activeTableIds)
     {
-        return new MemoryInsertTableHandle(tableId, ImmutableSet.copyOf(activeTableIds));
+        return new MemoryInsertTableHandle(tableId, ImmutableSet.copyOf(activeTableIds), Optional.empty(), Optional.empty());
     }
 
     private static Page createPage()

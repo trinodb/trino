@@ -28,7 +28,10 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -38,48 +41,62 @@ public class MemoryPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final MemoryPagesStore pagesStore;
+    private final MemoryVersionedPagesStore versionedPagesStore;
 
     @Inject
-    public MemoryPageSinkProvider(MemoryPagesStore pagesStore)
+    public MemoryPageSinkProvider(MemoryPagesStore pagesStore, MemoryVersionedPagesStore versionedPagesStore)
     {
         this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
+        this.versionedPagesStore = requireNonNull(versionedPagesStore, "versionedPagesStore is null");
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
         MemoryOutputTableHandle memoryOutputTableHandle = (MemoryOutputTableHandle) outputTableHandle;
-        long tableId = memoryOutputTableHandle.getTable();
-        checkState(memoryOutputTableHandle.getActiveTableIds().contains(tableId));
-
-        pagesStore.cleanUp(memoryOutputTableHandle.getActiveTableIds());
-        pagesStore.initialize(tableId);
-        return new MemoryPageSink(pagesStore, tableId);
+        return createPageSink(
+                memoryOutputTableHandle.getActiveTableIds(),
+                memoryOutputTableHandle.getTable(),
+                memoryOutputTableHandle.getVersion(),
+                memoryOutputTableHandle.getKeyColumnIndex());
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
         MemoryInsertTableHandle memoryInsertTableHandle = (MemoryInsertTableHandle) insertTableHandle;
-        long tableId = memoryInsertTableHandle.getTable();
-        checkState(memoryInsertTableHandle.getActiveTableIds().contains(tableId));
+        return createPageSink(
+                memoryInsertTableHandle.getActiveTableIds(),
+                memoryInsertTableHandle.getTable(),
+                memoryInsertTableHandle.getVersion(),
+                memoryInsertTableHandle.getKeyColumnIndex());
+    }
 
-        pagesStore.cleanUp(memoryInsertTableHandle.getActiveTableIds());
-        pagesStore.initialize(tableId);
-        return new MemoryPageSink(pagesStore, tableId);
+    private MemoryPageSink createPageSink(Set<Long> activeTablesIds, long tableId, Optional<Long> version, Optional<Integer> keyColumnIndex)
+    {
+        checkState(activeTablesIds.contains(tableId));
+
+        pagesStore.cleanUp(activeTablesIds);
+        versionedPagesStore.cleanUp(activeTablesIds);
+
+        if (version.isEmpty()) {
+            pagesStore.initialize(tableId);
+            return new MemoryPageSink(page -> pagesStore.add(tableId, page));
+        }
+
+        versionedPagesStore.initialize(tableId);
+        return new MemoryPageSink(page -> versionedPagesStore.add(tableId, version.get(), keyColumnIndex.orElseThrow(), page));
     }
 
     private static class MemoryPageSink
             implements ConnectorPageSink
     {
-        private final MemoryPagesStore pagesStore;
-        private final long tableId;
+        private final Consumer<Page> pagesConsumer;
         private final List<Page> appendedPages = new ArrayList<>();
 
-        public MemoryPageSink(MemoryPagesStore pagesStore, long tableId)
+        public MemoryPageSink(Consumer<Page> pagesConsumer)
         {
-            this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
-            this.tableId = tableId;
+            this.pagesConsumer = requireNonNull(pagesConsumer, "pagesConsumer is null");
         }
 
         @Override
@@ -94,7 +111,7 @@ public class MemoryPageSinkProvider
         {
             // add pages to pagesStore
             for (Page page : appendedPages) {
-                pagesStore.add(tableId, page);
+                pagesConsumer.accept(page);
             }
 
             return completedFuture(ImmutableList.of());

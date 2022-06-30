@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -27,14 +28,20 @@ public final class MemoryOutputTableHandle
 {
     private final long table;
     private final Set<Long> activeTableIds;
+    private final Optional<Long> version;
+    private final Optional<Integer> keyColumnIndex;
 
     @JsonCreator
     public MemoryOutputTableHandle(
             @JsonProperty("table") long table,
-            @JsonProperty("activeTableIds") Set<Long> activeTableIds)
+            @JsonProperty("activeTableIds") Set<Long> activeTableIds,
+            @JsonProperty("version") Optional<Long> version,
+            @JsonProperty("keyColumnIndex") Optional<Integer> keyColumnIndex)
     {
         this.table = table;
         this.activeTableIds = requireNonNull(activeTableIds, "activeTableIds is null");
+        this.version = requireNonNull(version, "version is null");
+        this.keyColumnIndex = requireNonNull(keyColumnIndex, "keyColumnIndex is null");
     }
 
     @JsonProperty
@@ -49,12 +56,26 @@ public final class MemoryOutputTableHandle
         return activeTableIds;
     }
 
+    @JsonProperty
+    public Optional<Long> getVersion()
+    {
+        return version;
+    }
+
+    @JsonProperty
+    public Optional<Integer> getKeyColumnIndex()
+    {
+        return keyColumnIndex;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("table", table)
                 .add("activeTableIds", activeTableIds)
+                .add("version", version)
+                .add("keyColumnIndex", keyColumnIndex)
                 .toString();
     }
 }

@@ -23,11 +23,15 @@ public final class MemoryColumnHandle
         implements ColumnHandle
 {
     private final int columnIndex;
+    private final boolean update;
 
     @JsonCreator
-    public MemoryColumnHandle(@JsonProperty("columnIndex") int columnIndex)
+    public MemoryColumnHandle(
+            @JsonProperty("columnIndex") int columnIndex,
+            @JsonProperty("update") boolean update)
     {
         this.columnIndex = columnIndex;
+        this.update = update;
     }
 
     @JsonProperty
@@ -39,7 +43,7 @@ public final class MemoryColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnIndex);
+        return Objects.hash(columnIndex, update);
     }
 
     @Override
@@ -52,7 +56,7 @@ public final class MemoryColumnHandle
             return false;
         }
         MemoryColumnHandle other = (MemoryColumnHandle) obj;
-        return Objects.equals(this.columnIndex, other.columnIndex);
+        return Objects.equals(this.columnIndex, other.columnIndex) && update == other.update;
     }
 
     @Override

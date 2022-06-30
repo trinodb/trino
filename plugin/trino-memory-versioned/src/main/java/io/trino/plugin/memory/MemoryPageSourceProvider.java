@@ -35,11 +35,13 @@ public final class MemoryPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final MemoryPagesStore pagesStore;
+    private final MemoryVersionedPagesStore versionedPagesStore;
 
     @Inject
-    public MemoryPageSourceProvider(MemoryPagesStore pagesStore)
+    public MemoryPageSourceProvider(MemoryPagesStore pagesStore, MemoryVersionedPagesStore versionedPagesStore)
     {
         this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
+        this.versionedPagesStore = requireNonNull(versionedPagesStore, "versionedPagesStore is null");
     }
 
     @Override
@@ -57,8 +59,14 @@ public final class MemoryPageSourceProvider
         List<Integer> columnIndexes = columns.stream()
                 .map(MemoryColumnHandle.class::cast)
                 .map(MemoryColumnHandle::getColumnIndex).collect(toList());
-        List<Page> pages = pagesStore.getPages(tableId, columnIndexes);
+        MemoryTableHandle tableHandle = (MemoryTableHandle) table;
+        List<Page> pages = tableHandle.getVersions()
+                .map(versions -> versionedPagesStore.getPages(tableId, versions, columnIndexes))
+                .orElseGet(() -> pagesStore.getPages(tableId, columnIndexes));
 
-        return new FixedPageSource(pages);
+        ConnectorPageSource pageSource = new FixedPageSource(pages);
+        return tableHandle.getUpdateVersion()
+                .map(version -> (ConnectorPageSource) new MemoryUpdatablePageSource(new FixedPageSource(pages), versionedPagesStore, tableId, version))
+                .orElse(pageSource);
     }
 }
