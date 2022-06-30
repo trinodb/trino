@@ -21,7 +21,7 @@ JAR file to Accumulo's ``lib/ext`` directory on each TabletServer node.
 .. code-block:: bash
 
     # For each TabletServer node:
-    scp $PRESTO_HOME/plugins/accumulo/trino-accumulo-iterators-*.jar [tabletserver_address]:$ACCUMULO_HOME/lib/ext
+    scp $TRINO_HOME/plugins/accumulo/trino-accumulo-iterators-*.jar [tabletserver_address]:$ACCUMULO_HOME/lib/ext
 
     # TabletServer should pick up new JAR files in ext directory, but may require restart
 
@@ -106,7 +106,7 @@ are both identical to the Trino column name).
 
 When creating a table using SQL, you can optionally specify a
 ``column_mapping`` table property. The value of this property is a
-comma-delimited list of triples, Presto column **:** Accumulo column
+comma-delimited list of triples, Trino column **:** Accumulo column
 family **:** accumulo column qualifier, with one triple for every
 non-row ID column. This sets the mapping of the Trino column name to
 the corresponding Accumulo column family and column qualifier.
@@ -303,15 +303,8 @@ Loading data
 ------------
 
 The Accumulo connector supports loading data via INSERT statements, however
-this method tends to be low-throughput and should not be relied on when throughput
-is a concern. Instead, users of the connector should use the ``PrestoBatchWriter``
-tool that is provided as part of the presto-accumulo-tools subproject in the
-`presto-accumulo repository <https://github.com/bloomberg/presto-accumulo>`_.
-
-The ``PrestoBatchWriter`` is a wrapper class for the typical ``BatchWriter`` that
-leverages the Trino/Accumulo metadata to write Mutations to the main data table.
-In particular, it handles indexing the given mutations on any indexed columns.
-Usage of the tool is provided in the README in the `repository <https://github.com/bloomberg/presto-accumulo>`_.
+this method tends to be low-throughput and should not be relied on when
+throughput is a concern.
 
 External tables
 ---------------
@@ -496,10 +489,6 @@ Adding a new column to an existing table cannot be done today via
 ``ALTER TABLE [table] ADD COLUMN [name] [type]`` because of the additional
 metadata required for the columns to work; the column family, qualifier,
 and if the column is indexed.
-
-Instead, you can use one of the utilities in the
-`presto-accumulo-tools <https://github.com/bloomberg/presto-accumulo/tree/master/presto-accumulo-tools>`__
-sub-project of the ``presto-accumulo`` repository.  Documentation and usage can be found in the README.
 
 Serializers
 -----------
