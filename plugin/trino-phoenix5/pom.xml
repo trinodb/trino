@@ -16,12 +16,30 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.hbase.version>2.2.6</dep.hbase.version>
+
+        <!-- This is required for JDK 17 to start HBase server due to illegal reflective access -->
+        <air.test.jvm.additional-arguments>
+            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+            --add-opens=java.base/java.nio=ALL-UNNAMED
+        </air.test.jvm.additional-arguments>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
+        </dependency>
+
+        <!-- TODO(https://github.com/trinodb/trino/issues/13051): Use org.apache.phoenix:phoenix-client-embedded-hbase-2.4:5.2.0 instead when Phoenix 5.2 is released -->
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-phoenix5-patched</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.phoenix</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -82,12 +100,6 @@
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.phoenix</groupId>
-            <artifactId>phoenix-client-embedded-hbase-2.2</artifactId>
-            <version>5.1.2</version>
         </dependency>
 
         <dependency>
@@ -367,9 +379,27 @@
                             <groupId>javax.xml.bind</groupId>
                             <artifactId>jaxb-api</artifactId>
                         </dependency>
+                        <dependency>
+                            <groupId>org.apache.phoenix</groupId>
+                            <artifactId>phoenix-client-embedded-hbase-2.2</artifactId>
+                        </dependency>
                     </ignoredDependencies>
                 </configuration>
             </plugin>
         </plugins>
     </build>
+
+    <!-- TODO(https://github.com/trinodb/trino/issues/13051): Remove, this is a workaround for errorprone which can't see shaded jar produced in package phase -->
+    <profiles>
+        <profile>
+            <id>errorprone-compiler</id>
+            <dependencies>
+                <dependency>
+                    <groupId>org.apache.phoenix</groupId>
+                    <artifactId>phoenix-client-embedded-hbase-2.2</artifactId>
+                    <version>5.1.2</version>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
 </project>
