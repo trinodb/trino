@@ -105,6 +105,8 @@
         <module>lib/trino-memory-context</module>
         <module>lib/trino-orc</module>
         <module>lib/trino-parquet</module>
+        <!-- TODO(https://github.com/trinodb/trino/issues/13051): Remove whole module when Phoenix5 is released -->
+        <module>lib/trino-phoenix5-patched</module>
         <module>lib/trino-plugin-toolkit</module>
         <module>lib/trino-rcfile</module>
         <module>lib/trino-record-decoder</module>
@@ -437,6 +439,13 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-password-authenticators</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- TODO(https://github.com/trinodb/trino/issues/13051): Remove when Phoenix5 is released -->
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-phoenix5-patched</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1972,7 +1981,7 @@
                     <plugin>
                         <groupId>io.github.gitflow-incremental-builder</groupId>
                         <artifactId>gitflow-incremental-builder</artifactId>
-                        <version>4.1.0</version>
+                        <version>4.1.1</version>
                         <extensions>true</extensions>
                         <configuration>
                             <disableIfBranchMatches>master</disableIfBranchMatches>
