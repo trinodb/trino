@@ -69,7 +69,6 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Verify.verify;
@@ -86,8 +85,6 @@ import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
 import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.execution.buffer.OutputBuffers.createSpoolingExchangeOutputBuffers;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
@@ -116,9 +113,7 @@ public class FaultTolerantStageScheduler
     private final int maxRetryAttemptsPerTask;
     private final int maxTasksWaitingForNodePerStage;
 
-    private final TaskLifecycleListener taskLifecycleListener;
-    // empty when the results are consumed via a direct exchange
-    private final Optional<Exchange> sinkExchange;
+    private final Exchange sinkExchange;
     private final Optional<int[]> sinkBucketToPartitionMap;
 
     private final Map<PlanFragmentId, Exchange> sourceExchanges;
@@ -185,10 +180,9 @@ public class FaultTolerantStageScheduler
             TaskDescriptorStorage taskDescriptorStorage,
             PartitionMemoryEstimator partitionMemoryEstimator,
             TaskExecutionStats taskExecutionStats,
-            TaskLifecycleListener taskLifecycleListener,
             DelayedFutureCompletor futureCompletor,
             Ticker ticker,
-            Optional<Exchange> sinkExchange,
+            Exchange sinkExchange,
             Optional<int[]> sinkBucketToPartitionMap,
             Map<PlanFragmentId, Exchange> sourceExchanges,
             Optional<int[]> sourceBucketToPartitionMap,
@@ -206,7 +200,6 @@ public class FaultTolerantStageScheduler
         this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
         this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
         this.taskExecutionStats = requireNonNull(taskExecutionStats, "taskExecutionStats is null");
-        this.taskLifecycleListener = requireNonNull(taskLifecycleListener, "taskLifecycleListener is null");
         this.futureCompletor = requireNonNull(futureCompletor, "futureCompletor is null");
         this.sinkExchange = requireNonNull(sinkExchange, "sinkExchange is null");
         this.sinkBucketToPartitionMap = requireNonNull(sinkBucketToPartitionMap, "sinkBucketToPartitionMap is null");
@@ -295,14 +288,12 @@ public class FaultTolerantStageScheduler
                                     queuedPartitions.add(task.getPartitionId());
                                     allPartitions.add(task.getPartitionId());
                                     taskDescriptorStorage.put(stage.getStageId(), task);
-                                    sinkExchange.ifPresent(exchange -> {
-                                        ExchangeSinkHandle exchangeSinkHandle = exchange.addSink(task.getPartitionId());
-                                        partitionToExchangeSinkHandleMap.put(task.getPartitionId(), exchangeSinkHandle);
-                                    });
+                                    ExchangeSinkHandle exchangeSinkHandle = sinkExchange.addSink(task.getPartitionId());
+                                    partitionToExchangeSinkHandleMap.put(task.getPartitionId(), exchangeSinkHandle);
                                 }
                                 if (taskSource.isFinished()) {
                                     dynamicFilterService.stageCannotScheduleMoreTasks(stage.getStageId(), 0, allPartitions.size());
-                                    sinkExchange.ifPresent(Exchange::noMoreSinks);
+                                    sinkExchange.noMoreSinks();
                                 }
                                 return null;
                             }
@@ -383,20 +374,9 @@ public class FaultTolerantStageScheduler
 
         int attemptId = getNextAttemptIdForPartition(partition);
 
-        OutputBuffers outputBuffers;
-        Optional<ExchangeSinkInstanceHandle> exchangeSinkInstanceHandle;
-        if (sinkExchange.isPresent()) {
-            ExchangeSinkHandle sinkHandle = partitionToExchangeSinkHandleMap.get(partition);
-            exchangeSinkInstanceHandle = Optional.of(sinkExchange.get().instantiateSink(sinkHandle, attemptId));
-            outputBuffers = createSpoolingExchangeOutputBuffers(exchangeSinkInstanceHandle.get());
-        }
-        else {
-            exchangeSinkInstanceHandle = Optional.empty();
-            // stage will be consumed by the coordinator using direct exchange
-            outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED)
-                    .withBuffer(new OutputBuffers.OutputBufferId(0), 0)
-                    .withNoMoreBufferIds();
-        }
+        ExchangeSinkHandle sinkHandle = partitionToExchangeSinkHandleMap.get(partition);
+        ExchangeSinkInstanceHandle exchangeSinkInstanceHandle = sinkExchange.instantiateSink(sinkHandle, attemptId);
+        OutputBuffers outputBuffers = createSpoolingExchangeOutputBuffers(exchangeSinkInstanceHandle);
 
         Set<PlanNodeId> allSourcePlanNodeIds = ImmutableSet.<PlanNodeId>builder()
                 .addAll(stage.getFragment().getPartitionedSources())
@@ -424,8 +404,6 @@ public class FaultTolerantStageScheduler
         if (taskFinishedFuture == null) {
             taskFinishedFuture = SettableFuture.create();
         }
-
-        taskLifecycleListener.taskCreated(stage.getFragment().getId(), task);
 
         task.addStateChangeListener(taskStatus -> updateTaskStatus(taskStatus, exchangeSinkInstanceHandle));
         task.addFinalTaskInfoListener(taskExecutionStats::update);
@@ -537,7 +515,7 @@ public class FaultTolerantStageScheduler
     private void closeSinkExchange()
     {
         try {
-            sinkExchange.ifPresent(Exchange::close);
+            sinkExchange.close();
         }
         catch (RuntimeException e) {
             log.warn(e, "Error closing sink exchange for stage: %s", stage.getStageId());
@@ -578,7 +556,7 @@ public class FaultTolerantStageScheduler
         return result.build();
     }
 
-    private void updateTaskStatus(TaskStatus taskStatus, Optional<ExchangeSinkInstanceHandle> exchangeSinkInstanceHandle)
+    private void updateTaskStatus(TaskStatus taskStatus, ExchangeSinkInstanceHandle exchangeSinkInstanceHandle)
     {
         TaskState state = taskStatus.getState();
         if (!state.isDone()) {
@@ -612,10 +590,7 @@ public class FaultTolerantStageScheduler
                     switch (state) {
                         case FINISHED:
                             finishedPartitions.add(partitionId);
-                            if (sinkExchange.isPresent()) {
-                                checkArgument(exchangeSinkInstanceHandle.isPresent(), "exchangeSinkInstanceHandle is expected to be present");
-                                sinkExchange.get().sinkFinished(exchangeSinkInstanceHandle.get());
-                            }
+                            sinkExchange.sinkFinished(exchangeSinkInstanceHandle);
                             partitionToRemoteTaskMap.get(partitionId).forEach(RemoteTask::abort);
                             partitionMemoryEstimator.registerPartitionFinished(session, memoryLimits, taskStatus.getPeakMemoryReservation(), true, Optional.empty());
 

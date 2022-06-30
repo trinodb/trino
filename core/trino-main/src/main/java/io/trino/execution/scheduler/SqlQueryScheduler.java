@@ -15,14 +15,17 @@ package io.trino.execution.scheduler;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.graph.Traverser;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.concurrent.MoreFutures;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
@@ -30,7 +33,9 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.exchange.DirectExchangeInput;
+import io.trino.exchange.ExchangeInput;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.NodeTaskMap;
@@ -55,6 +60,7 @@ import io.trino.execution.scheduler.policy.StagesScheduleResult;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.Split;
 import io.trino.metadata.TableProperties;
 import io.trino.metadata.TableSchema;
 import io.trino.operator.RetryPolicy;
@@ -66,6 +72,8 @@ import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
+import io.trino.spi.exchange.ExchangeSourceHandle;
+import io.trino.split.RemoteSplit;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.NodePartitionMap;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -119,6 +127,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Lists.reverse;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -145,6 +154,7 @@ import static io.trino.execution.scheduler.StageExecution.State.FINISHED;
 import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
 import static io.trino.execution.scheduler.StageExecution.State.RUNNING;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
+import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
@@ -354,7 +364,7 @@ public class SqlQueryScheduler
                         taskDescriptorStorage,
                         exchangeManager,
                         nodePartitioningManager,
-                        coordinatorStagesScheduler.getTaskLifecycleListener(),
+                        coordinatorStagesScheduler,
                         maxTaskRetryAttemptsOverall,
                         maxTaskRetryAttemptsPerTask,
                         maxTasksWaitingForNodePerStage,
@@ -985,7 +995,7 @@ public class SqlQueryScheduler
             }));
         }
 
-        public void schedule()
+        public synchronized void schedule()
         {
             if (!scheduled.compareAndSet(false, true)) {
                 return;
@@ -1033,6 +1043,29 @@ public class SqlQueryScheduler
                     queryStateMachine.transitionToRunning();
                 }
             }
+        }
+
+        public synchronized void setSpoolingExchangeInputs(Set<ExchangeInput> inputs)
+        {
+            checkState(scheduled.get(), "coordinator stages are expected to be scheduled at this point");
+            if (stageExecutions.isEmpty()) {
+                queryStateMachine.updateInputsForQueryResults(inputs, true);
+                return;
+            }
+            StageExecution stage = getLast(stageExecutions);
+            List<RemoteTask> tasks = stage.getAllTasks();
+            if (tasks.isEmpty()) {
+                // Coordinator stage is scheduled but the list of tasks is empty. It can only happen if the query has been terminated.
+                return;
+            }
+            verify(tasks.size() == 1, "coordinator stage is expected to have exactly one task, got %s", tasks.size());
+            RemoteTask task = getOnlyElement(tasks);
+            PlanFragment fragment = stage.getFragment();
+            List<RemoteSourceNode> remoteSources = fragment.getRemoteSourceNodes();
+            verify(remoteSources.size() == 1, "coordinator stage is expected to have exactly one remote source, got %s", remoteSources.size());
+            RemoteSourceNode remoteSource = getOnlyElement(remoteSources);
+            inputs.forEach(input -> task.addSplits(ImmutableListMultimap.of(remoteSource.getId(), new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(input)))));
+            task.noMoreSplits(remoteSource.getId());
         }
 
         public Map<PlanFragmentId, OutputBufferManager> getOutputBuffersForStagesConsumedByCoordinator()
@@ -1718,7 +1751,7 @@ public class SqlQueryScheduler
                 TaskDescriptorStorage taskDescriptorStorage,
                 ExchangeManager exchangeManager,
                 NodePartitioningManager nodePartitioningManager,
-                TaskLifecycleListener coordinatorTaskLifecycleListener,
+                CoordinatorStagesScheduler coordinatorStagesScheduler,
                 int taskRetryAttemptsOverall,
                 int taskRetryAttemptsPerTask,
                 int maxTasksWaitingForNodePerStage,
@@ -1752,27 +1785,20 @@ public class SqlQueryScheduler
                 // children to root order
                 List<SqlStage> distributedStagesInReverseTopologicalOrder = reverse(distributedStagesInTopologicalOrder);
 
-                ImmutableSet.Builder<PlanFragmentId> coordinatorConsumedFragmentsBuilder = ImmutableSet.builder();
-
                 checkArgument(taskRetryAttemptsOverall >= 0, "taskRetryAttemptsOverall must be greater than or equal to 0: %s", taskRetryAttemptsOverall);
                 AtomicInteger remainingTaskRetryAttemptsOverall = new AtomicInteger(taskRetryAttemptsOverall);
+                List<Exchange> coordinatorConsumedExchanges = new ArrayList<>();
                 for (SqlStage stage : distributedStagesInReverseTopologicalOrder) {
                     PlanFragment fragment = stage.getFragment();
+
+                    ExchangeContext exchangeContext = new ExchangeContext(session.getQueryId(), new ExchangeId("external-exchange-" + stage.getStageId().getId()));
+                    Exchange exchange = exchangeManager.createExchange(exchangeContext, partitionCount);
+                    exchanges.put(fragment.getId(), exchange);
+
                     Optional<SqlStage> parentStage = stageManager.getParent(stage.getStageId());
-                    TaskLifecycleListener taskLifecycleListener;
-                    Optional<Exchange> exchange;
                     if (parentStage.isEmpty() || parentStage.get().getFragment().getPartitioning().isCoordinatorOnly()) {
                         // output will be consumed by coordinator
-                        exchange = Optional.empty();
-                        taskLifecycleListener = coordinatorTaskLifecycleListener;
-                        coordinatorConsumedFragmentsBuilder.add(fragment.getId());
-                    }
-                    else {
-                        // create external exchange
-                        ExchangeContext context = new ExchangeContext(session.getQueryId(), new ExchangeId("external-exchange-" + stage.getStageId().getId()));
-                        exchange = Optional.of(exchangeManager.createExchange(context, partitionCount));
-                        exchanges.put(fragment.getId(), exchange.get());
-                        taskLifecycleListener = TaskLifecycleListener.NO_OP;
+                        coordinatorConsumedExchanges.add(exchange);
                     }
 
                     ImmutableMap.Builder<PlanFragmentId, Exchange> sourceExchanges = ImmutableMap.builder();
@@ -1793,7 +1819,6 @@ public class SqlQueryScheduler
                             taskDescriptorStorage,
                             partitionMemoryEstimatorFactory.createPartitionMemoryEstimator(),
                             taskExecutionStats,
-                            taskLifecycleListener,
                             (future, delay) -> scheduledExecutorService.schedule(() -> future.set(null), delay.toMillis(), MILLISECONDS),
                             systemTicker(),
                             exchange,
@@ -1809,12 +1834,23 @@ public class SqlQueryScheduler
                     schedulers.add(scheduler);
                 }
 
-                Set<PlanFragmentId> coordinatorConsumedFragments = coordinatorConsumedFragmentsBuilder.build();
-                stateMachine.addStateChangeListener(state -> {
-                    if (state == DistributedStagesSchedulerState.FINISHED) {
-                        coordinatorConsumedFragments.forEach(coordinatorTaskLifecycleListener::noMoreTasks);
-                    }
-                });
+                if (!distributedStagesInReverseTopologicalOrder.isEmpty()) {
+                    verify(!coordinatorConsumedExchanges.isEmpty(), "coordinatorConsumedExchanges is empty");
+                    List<ListenableFuture<List<ExchangeSourceHandle>>> futures = coordinatorConsumedExchanges.stream()
+                            .map(Exchange::getSourceHandles)
+                            .map(MoreFutures::toListenableFuture)
+                            .collect(toImmutableList());
+                    addSuccessCallback(Futures.allAsList(futures), result -> {
+                        List<ExchangeSourceHandle> handles = result.stream()
+                                .flatMap(List::stream)
+                                .collect(toImmutableList());
+                        ImmutableSet.Builder<ExchangeInput> inputs = ImmutableSet.builder();
+                        if (!handles.isEmpty()) {
+                            inputs.add(new SpoolingExchangeInput(handles));
+                        }
+                        coordinatorStagesScheduler.setSpoolingExchangeInputs(inputs.build());
+                    });
+                }
 
                 return new FaultTolerantDistributedStagesScheduler(
                         stateMachine,
