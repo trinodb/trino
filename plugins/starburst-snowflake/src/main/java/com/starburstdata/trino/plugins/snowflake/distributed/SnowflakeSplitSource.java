@@ -46,6 +46,7 @@ import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
@@ -316,7 +317,8 @@ public class SnowflakeSplitSource
                 tableLayoutHandle,
                 // Snowflake connector does not support partitioning
                 UNGROUPED_SCHEDULING,
-                DynamicFilter.EMPTY);
+                DynamicFilter.EMPTY,
+                Constraint.alwaysTrue());
     }
 
     private HiveSplitManager getHiveSplitManager(ConnectorTransactionHandle transactionHandle)
