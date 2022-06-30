@@ -77,6 +77,7 @@ import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.execution.QueryState.FAILED;
+import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.server.protocol.ProtocolUtil.createColumn;
 import static io.trino.server.protocol.ProtocolUtil.toStatementStats;
@@ -116,6 +117,9 @@ class Query
 
     @GuardedBy("this")
     private long lastToken = -1;
+
+    @GuardedBy("this")
+    private boolean resultsConsumed;
 
     @GuardedBy("this")
     private List<Column> columns;
@@ -181,7 +185,9 @@ class Query
         result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
         result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
-            if (state.isDone()) {
+            // Wait for the query info to become available and close the exchange client if there is no output stage for the query results to be pulled from.
+            // This listener also makes sure the exchange client is always properly closed upon query failure.
+            if (state.isDone() || state == FINISHING) {
                 QueryInfo queryInfo = queryManager.getFullQueryInfo(result.getQueryId());
                 result.closeExchangeClientIfNecessary(queryInfo);
             }
@@ -339,6 +345,10 @@ class Query
             return exchangeClient.isBlocked();
         }
 
+        if (!resultsConsumed) {
+            return immediateVoidFuture();
+        }
+
         // otherwise, wait for the query to finish
         queryManager.recordHeartbeat(queryId);
         try {
@@ -407,6 +417,13 @@ class Query
             // grab the update count for non-queries
             Optional<Long> updatedRowsCount = resultRows.getUpdateCount();
             updateCount = updatedRowsCount.orElse(null);
+        }
+
+        if (queryInfo.getOutputStage().isEmpty() || (exchangeClient.isFinished() && resultRows.isEmpty())) {
+            queryManager.resultsConsumed(queryId);
+            resultsConsumed = true;
+            // update query since the query might have been transitioned to the FINISHED state
+            queryInfo = queryManager.getFullQueryInfo(queryId);
         }
 
         // advance next token
@@ -479,7 +496,7 @@ class Query
     private synchronized QueryResultRows removePagesFromExchange(QueryInfo queryInfo, long targetResultBytes)
     {
         // For queries with no output, return a fake boolean result for clients that require it.
-        if ((queryInfo.getState() == QueryState.FINISHED) && queryInfo.getOutputStage().isEmpty()) {
+        if (!resultsConsumed && queryInfo.getOutputStage().isEmpty()) {
             return queryResultRowsBuilder(session)
                     .withSingleBooleanValue(createColumn("result", BooleanType.BOOLEAN, supportsParametricDateTime), true)
                     .build();
@@ -522,10 +539,9 @@ class Query
     private synchronized void closeExchangeClientIfNecessary(QueryInfo queryInfo)
     {
         // Close the exchange client if the query has failed, or if the query
-        // is done and it does not have an output stage. The latter happens
+        // does not have an output stage. The latter happens
         // for data definition executions, as those do not have output.
-        if ((queryInfo.getState() == FAILED) ||
-                (queryInfo.getState().isDone() && queryInfo.getOutputStage().isEmpty())) {
+        if (queryInfo.getState() == FAILED || (!exchangeClient.isFinished() && queryInfo.getOutputStage().isEmpty())) {
             exchangeClient.close();
         }
     }

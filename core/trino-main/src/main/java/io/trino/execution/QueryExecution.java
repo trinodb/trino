@@ -47,6 +47,8 @@ public interface QueryExecution
 
     void outputTaskFailed(TaskId taskId, Throwable failure);
 
+    void resultsConsumed();
+
     Plan getQueryPlan();
 
     BasicQueryInfo getBasicQueryInfo();

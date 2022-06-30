@@ -599,6 +599,12 @@ public class SqlQueryExecution
     }
 
     @Override
+    public void resultsConsumed()
+    {
+        stateMachine.resultsConsumed();
+    }
+
+    @Override
     public ListenableFuture<QueryState> getStateChange(QueryState currentState)
     {
         return stateMachine.getStateChange(currentState);

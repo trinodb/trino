@@ -165,6 +165,9 @@ public class QueryStateMachine
     private Supplier<DynamicFiltersStats> dynamicFiltersStatsSupplier = () -> DynamicFiltersStats.EMPTY;
     private final Object dynamicFiltersStatsSupplierLock = new Object();
 
+    private final AtomicBoolean committed = new AtomicBoolean();
+    private final AtomicBoolean consumed = new AtomicBoolean();
+
     private QueryStateMachine(
             String query,
             Optional<String> preparedQuery,
@@ -926,7 +929,8 @@ public class QueryStateMachine
                 @Override
                 public void onSuccess(@Nullable Void result)
                 {
-                    transitionToFinished();
+                    committed.set(true);
+                    transitionToFinishedIfReady();
                 }
 
                 @Override
@@ -937,13 +941,28 @@ public class QueryStateMachine
             }, directExecutor());
         }
         else {
-            transitionToFinished();
+            committed.set(true);
+            transitionToFinishedIfReady();
         }
         return true;
     }
 
-    private void transitionToFinished()
+    public void resultsConsumed()
     {
+        consumed.set(true);
+        transitionToFinishedIfReady();
+    }
+
+    private void transitionToFinishedIfReady()
+    {
+        if (queryState.get().isDone()) {
+            return;
+        }
+
+        if (!committed.get() || !consumed.get()) {
+            return;
+        }
+
         queryStateTimer.endQuery();
 
         queryState.setIf(FINISHED, currentState -> !currentState.isDone());

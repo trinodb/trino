@@ -42,6 +42,11 @@ public interface QueryManager
     void outputTaskFailed(TaskId taskId, Throwable failure);
 
     /**
+     * Notify that the query results for a query have been fully consumed by the client
+     */
+    void resultsConsumed(QueryId queryId);
+
+    /**
      * Add a listener that fires each time the query state changes.
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
