@@ -25,6 +25,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -33,7 +34,9 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersioningLayout;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -55,10 +58,12 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -82,6 +87,7 @@ public class MemoryMetadata
     private final Map<SchemaTableName, Long> tableIds = new HashMap<>();
     private final Map<Long, TableInfo> tables = new HashMap<>();
     private final Map<SchemaTableName, ConnectorViewDefinition> views = new HashMap<>();
+    private final Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = new HashMap<>();
 
     @Inject
     public MemoryMetadata(NodeManager nodeManager)
@@ -434,6 +440,124 @@ public class MemoryMetadata
     public synchronized Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.ofNullable(views.get(viewName));
+    }
+
+    @Override
+    public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    {
+        checkSchemaExists(viewName.getSchemaName());
+        if (tableIds.containsKey(viewName) && !replace) {
+            throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
+        }
+
+        checkArgument(definition.getSourceTableVersions().isEmpty());
+        Optional<ConnectorMaterializedViewDefinition.VersioningLayout> layout = definition.getVersioningLayout()
+                .filter(ConnectorMaterializedViewDefinition.VersioningLayout::isUnique)
+                .filter(l -> l.getVersioningColumns().size() == 1)
+                .filter(l -> getOnlyElement(l.getVersioningColumns()).getType().equals(BIGINT.getTypeId()));
+
+        definition = new ConnectorMaterializedViewDefinition(
+                definition.getOriginalSql(),
+                definition.getStorageTable(),
+                definition.getCatalog(),
+                definition.getSchema(),
+                definition.getColumns(),
+                definition.getComment(),
+                definition.getOwner(),
+                definition.getProperties(),
+                layout,
+                definition.getSourceTableVersions());
+
+        if (replace) {
+            materializedViews.put(viewName, definition);
+        }
+        else if (materializedViews.putIfAbsent(viewName, definition) != null) {
+            throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
+        }
+        tableIds.put(viewName, nextTableId.getAndIncrement());
+    }
+
+    @Override
+    public void renameMaterializedView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        checkSchemaExists(newViewName.getSchemaName());
+
+        if (!tableIds.containsKey(viewName)) {
+            throw new TrinoException(NOT_FOUND, "Materialized view not found: " + viewName);
+        }
+
+        if (tableIds.containsKey(newViewName)) {
+            throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + newViewName);
+        }
+
+        if (materializedViews.containsKey(newViewName)) {
+            throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + newViewName);
+        }
+
+        tableIds.put(newViewName, tableIds.remove(viewName));
+        materializedViews.put(newViewName, materializedViews.remove(viewName));
+    }
+
+    @Override
+    public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        if (materializedViews.remove(viewName) == null) {
+            throw new ViewNotFoundException(viewName);
+        }
+        materializedViews.remove(viewName);
+    }
+
+    @Override
+    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return materializedViews.keySet().stream()
+                .filter(viewName -> schemaName.map(viewName.getSchemaName()::equals).orElse(true))
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorMaterializedViewDefinition> getMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new);
+        return materializedViews.entrySet().stream()
+                .filter(entry -> prefix.matches(entry.getKey()))
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> addComments(entry.getValue())));
+    }
+
+    @Override
+    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.ofNullable(materializedViews.get(viewName)).map(this::addComments);
+    }
+
+    private ConnectorMaterializedViewDefinition addComments(ConnectorMaterializedViewDefinition definition)
+    {
+        return new ConnectorMaterializedViewDefinition(
+                definition.getOriginalSql(),
+                definition.getStorageTable(),
+                definition.getCatalog(),
+                definition.getSchema(),
+                definition.getColumns(),
+                Optional.of(format("LAYOUT: %s, TABLE VERSIONS: %s", definition.getVersioningLayout(), definition.getSourceTableVersions())),
+                definition.getOwner(),
+                definition.getProperties(),
+                definition.getVersioningLayout(),
+                definition.getSourceTableVersions());
+    }
+
+    @Override
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    {
+        return new MaterializedViewFreshness(true);
+    }
+
+    @Override
+    public Optional<ConnectorTableVersioningLayout> getTableVersioningLayout(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        MemoryTableHandle tableHandle = (MemoryTableHandle) handle;
+        TableInfo info = requireNonNull(tables.get(tableHandle.getId()), "tableInfo is null");
+        return info.getKeyColumnIndex()
+                .map(index -> new ConnectorTableVersioningLayout(ImmutableSet.of(info.getColumns().get(index).getHandle()), true));
     }
 
     @Override

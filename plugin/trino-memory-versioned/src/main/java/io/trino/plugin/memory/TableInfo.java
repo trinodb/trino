@@ -82,7 +82,8 @@ public class TableInfo
                 columns.stream()
                         .map(ColumnInfo::getMetadata)
                         .collect(Collectors.toList()),
-                properties.buildOrThrow());
+                properties.buildOrThrow(),
+                Optional.of("TXNS: " + committedVersions));
     }
 
     public List<ColumnInfo> getColumns()
