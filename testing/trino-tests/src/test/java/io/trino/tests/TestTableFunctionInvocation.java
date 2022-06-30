@@ -75,4 +75,11 @@ public class TestTableFunctionInvocation
         assertThat(query("SELECT boolean_column FROM TABLE(system.simple_table_function(column => 'boolean_column'))"))
                 .matches("SELECT true WHERE false");
     }
+
+    @Test
+    public void testNoArgumentsPassed()
+    {
+        assertThat(query("SELECT col FROM TABLE(system.simple_table_function())"))
+                .matches("SELECT true WHERE false");
+    }
 }
