@@ -333,7 +333,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    public synchronized ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
         MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
         TableInfo info = requireNonNull(tables.get(memoryTableHandle.getId()), "tableInfo is null");
@@ -344,7 +344,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    public synchronized void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         requireNonNull(tableHandle, "tableHandle is null");
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
@@ -352,7 +352,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public synchronized ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
         TableInfo info = requireNonNull(tables.get(memoryTableHandle.getId()), "tableInfo is null");
@@ -443,7 +443,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public synchronized void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
     {
         checkSchemaExists(viewName.getSchemaName());
         if (tableIds.containsKey(viewName) && !replace) {
@@ -478,7 +478,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public void renameMaterializedView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    public synchronized void renameMaterializedView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
     {
         checkSchemaExists(newViewName.getSchemaName());
 
@@ -499,7 +499,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    public synchronized void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         if (materializedViews.remove(viewName) == null) {
             throw new ViewNotFoundException(viewName);
@@ -508,7 +508,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+    public synchronized List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
     {
         return materializedViews.keySet().stream()
                 .filter(viewName -> schemaName.map(viewName.getSchemaName()::equals).orElse(true))
@@ -516,7 +516,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public Map<SchemaTableName, ConnectorMaterializedViewDefinition> getMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+    public synchronized Map<SchemaTableName, ConnectorMaterializedViewDefinition> getMaterializedViews(ConnectorSession session, Optional<String> schemaName)
     {
         SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new);
         return materializedViews.entrySet().stream()
@@ -525,7 +525,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    public synchronized Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.ofNullable(materializedViews.get(viewName)).map(this::addComments);
     }
@@ -552,7 +552,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public Optional<ConnectorTableVersioningLayout> getTableVersioningLayout(ConnectorSession session, ConnectorTableHandle handle)
+    public synchronized Optional<ConnectorTableVersioningLayout> getTableVersioningLayout(ConnectorSession session, ConnectorTableHandle handle)
     {
         MemoryTableHandle tableHandle = (MemoryTableHandle) handle;
         TableInfo info = requireNonNull(tables.get(tableHandle.getId()), "tableInfo is null");
