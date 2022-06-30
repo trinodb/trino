@@ -13,8 +13,12 @@
  */
 package io.trino.plugin.redis;
 
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.TestingConnectorBehavior;
+import org.testng.annotations.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseRedisConnectorTest
         extends BaseConnectorTest
@@ -54,5 +58,44 @@ public abstract class BaseRedisConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Test
+    public void testPredicatePushdown()
+    {
+        // redis key equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM tpch.nation WHERE redis_key = 'tpch:nation:19'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // redis key equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM tpch.nation WHERE redis_key = 'tpch:nation:19' AND regionkey = 3"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // redis key equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM tpch.nation WHERE redis_key = 'tpch:nation:19' AND regionkey = 4"))
+                .returnsEmptyResult()
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // redis key different case
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE redis_key = 'tpch:nation:100'"))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
+
+        // redis key IN case
+        assertThat(query("SELECT regionkey, nationkey, name FROM tpch.nation WHERE redis_key IN ('tpch:nation:19', 'tpch:nation:2', 'tpch:nation:24')"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '1', BIGINT '2', CAST('BRAZIL' AS varchar(25))), " +
+                        "(BIGINT '1', BIGINT '24', CAST('UNITED STATES' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // redis key range
+        assertThat(query("SELECT regionkey, nationkey, name FROM tpch.nation WHERE redis_key BETWEEN 'tpch:nation:23' AND 'tpch:nation:24'"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '23', CAST('UNITED KINGDOM' AS varchar(25))), " +
+                        "(BIGINT '1', BIGINT '24', CAST('UNITED STATES' AS varchar(25)))")
+                .isNotFullyPushedDown(FilterNode.class);
     }
 }
