@@ -162,6 +162,12 @@ public class SqlQueryManager
     }
 
     @Override
+    public void resultsConsumed(QueryId queryId)
+    {
+        queryTracker.getQuery(queryId).resultsConsumed();
+    }
+
+    @Override
     public void addStateChangeListener(QueryId queryId, StateChangeListener<QueryState> listener)
     {
         requireNonNull(listener, "listener is null");

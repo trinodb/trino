@@ -177,6 +177,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public void resultsConsumed()
+    {
+        stateMachine.resultsConsumed();
+    }
+
+    @Override
     public ListenableFuture<QueryState> getStateChange(QueryState currentState)
     {
         return stateMachine.getStateChange(currentState);
