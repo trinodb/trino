@@ -61,6 +61,15 @@ public class TestingTransactionManager
     }
 
     @Override
+    public Optional<TransactionInfo> getTransactionInfoIfExist(TransactionId transactionId)
+    {
+        if (transactions.containsKey(transactionId)) {
+            return Optional.of(getTransactionInfo(transactionId));
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public List<TransactionInfo> getAllTransactionInfos()
     {
         return transactions.keySet().stream()
