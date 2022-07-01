@@ -39,21 +39,17 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-public abstract class AbstractKuduConnectorTest
+public class TestKuduConnectorTest
         extends BaseConnectorTest
 {
     private TestingKuduServer kuduServer;
-
-    protected abstract String getKuduServerVersion();
-
-    protected abstract Optional<String> getKuduSchemaEmulationPrefix();
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        kuduServer = new TestingKuduServer(getKuduServerVersion());
-        return createKuduQueryRunnerTpch(kuduServer, getKuduSchemaEmulationPrefix(), REQUIRED_TPCH_TABLES);
+        kuduServer = new TestingKuduServer();
+        return createKuduQueryRunnerTpch(kuduServer, Optional.empty(), REQUIRED_TPCH_TABLES);
     }
 
     @AfterClass(alwaysRun = true)
@@ -87,6 +83,38 @@ public abstract class AbstractKuduConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Test
+    @Override
+    public void testCreateSchema()
+    {
+        assertThatThrownBy(super::testCreateSchema)
+                .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
+    }
+
+    @Test
+    @Override
+    public void testDropNonEmptySchemaWithTable()
+    {
+        assertThatThrownBy(super::testDropNonEmptySchemaWithTable)
+                .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
+    }
+
+    @Test
+    @Override
+    public void testRenameTableAcrossSchema()
+    {
+        assertThatThrownBy(super::testRenameTableAcrossSchema)
+                .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
+    }
+
+    @Test
+    @Override
+    public void testRenameTableToUnqualifiedPreservesSchema()
+    {
+        assertThatThrownBy(super::testRenameTableToUnqualifiedPreservesSchema)
+                .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
     @Test
