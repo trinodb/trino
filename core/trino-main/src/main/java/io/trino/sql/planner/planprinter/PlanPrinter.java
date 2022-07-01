@@ -719,15 +719,7 @@ public class PlanPrinter
                 descriptor.put("partitionBy", format("[%s]", builder));
             }
             if (node.getOrderingScheme().isPresent()) {
-                OrderingScheme orderingScheme = node.getOrderingScheme().get();
-                descriptor.put("orderBy", format("[%s]", Stream.concat(
-                        orderingScheme.getOrderBy().stream()
-                                .limit(node.getPreSortedOrderPrefix())
-                                .map(symbol -> "<" + symbol + " " + orderingScheme.getOrdering(symbol) + ">"),
-                        orderingScheme.getOrderBy().stream()
-                                .skip(node.getPreSortedOrderPrefix())
-                                .map(symbol -> symbol + " " + orderingScheme.getOrdering(symbol)))
-                        .collect(Collectors.joining(", "))));
+                descriptor.put("orderBy", formatOrderingScheme(node.getOrderingScheme().get(), node.getPreSortedOrderPrefix()));
             }
 
             NodeRepresentation nodeOutput = addNode(
@@ -781,15 +773,7 @@ public class PlanPrinter
                 descriptor.put("partitionBy", format("[%s]", builder));
             }
             if (node.getOrderingScheme().isPresent()) {
-                OrderingScheme orderingScheme = node.getOrderingScheme().get();
-                descriptor.put("orderBy", format("[%s]", Stream.concat(
-                        orderingScheme.getOrderBy().stream()
-                                .limit(node.getPreSortedOrderPrefix())
-                                .map(symbol -> "<" + symbol + " " + orderingScheme.getOrdering(symbol) + ">"),
-                        orderingScheme.getOrderBy().stream()
-                                .skip(node.getPreSortedOrderPrefix())
-                                .map(symbol -> symbol + " " + orderingScheme.getOrdering(symbol)))
-                        .collect(Collectors.joining(", "))));
+                descriptor.put("orderBy", formatOrderingScheme(node.getOrderingScheme().get(), node.getPreSortedOrderPrefix()));
             }
 
             NodeRepresentation nodeOutput = addNode(
@@ -928,13 +912,9 @@ public class PlanPrinter
                     .map(Object::toString)
                     .collect(toImmutableList());
 
-            List<String> orderBy = node.getOrderingScheme().getOrderBy().stream()
-                    .map(input -> input + " " + node.getOrderingScheme().getOrdering(input))
-                    .collect(toImmutableList());
-
             ImmutableMap.Builder<String, String> descriptor = ImmutableMap.builder();
             descriptor.put("partitionBy", formatCollection(partitionBy));
-            descriptor.put("orderBy", formatCollection(orderBy));
+            descriptor.put("orderBy", formatOrderingScheme(node.getOrderingScheme()));
 
             NodeRepresentation nodeOutput = addNode(
                     node,
@@ -1224,28 +1204,20 @@ public class PlanPrinter
         @Override
         public Void visitTopN(TopNNode node, Void context)
         {
-            String keys = node.getOrderingScheme()
-                    .getOrderBy().stream()
-                    .map(input -> input + " " + node.getOrderingScheme().getOrdering(input))
-                    .collect(joining(", ", "[", "]"));
-
             addNode(node,
                     format("TopN%s", node.getStep() == TopNNode.Step.PARTIAL ? "Partial" : ""),
-                    ImmutableMap.of("count", String.valueOf(node.getCount()), "orderBy", keys));
+                    ImmutableMap.of(
+                            "count", String.valueOf(node.getCount()),
+                            "orderBy", formatOrderingScheme(node.getOrderingScheme())));
             return processChildren(node, context);
         }
 
         @Override
         public Void visitSort(SortNode node, Void context)
         {
-            String keys = node.getOrderingScheme()
-                    .getOrderBy().stream()
-                    .map(input -> input + " " + node.getOrderingScheme().getOrdering(input))
-                    .collect(joining(", ", "[", "]"));
-
             addNode(node,
                     format("%sSort", node.isPartial() ? "Partial" : ""),
-                    ImmutableMap.of("orderBy", keys));
+                    ImmutableMap.of("orderBy", formatOrderingScheme(node.getOrderingScheme())));
 
             return processChildren(node, context);
         }
@@ -1399,15 +1371,9 @@ public class PlanPrinter
         public Void visitExchange(ExchangeNode node, Void context)
         {
             if (node.getOrderingScheme().isPresent()) {
-                OrderingScheme orderingScheme = node.getOrderingScheme().get();
-                List<String> orderBy = orderingScheme.getOrderBy()
-                        .stream()
-                        .map(input -> input + " " + orderingScheme.getOrdering(input))
-                        .collect(toImmutableList());
-
                 addNode(node,
                         format("%sMerge", UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString())),
-                        ImmutableMap.of("orderBy", formatCollection(orderBy)));
+                        ImmutableMap.of("orderBy", formatOrderingScheme(node.getOrderingScheme().get())));
             }
             else if (node.getScope() == Scope.LOCAL) {
                 addNode(node,
@@ -1676,6 +1642,28 @@ public class PlanPrinter
         private String formatBoolean(boolean value)
         {
             return value ? "true" : "";
+        }
+
+        private String formatOrderingScheme(OrderingScheme orderingScheme, int preSortedOrderPrefix)
+        {
+            List<String> orderBy = Stream.concat(
+                    orderingScheme.getOrderBy().stream()
+                            .limit(preSortedOrderPrefix)
+                            .map(symbol -> "<" + symbol + " " + orderingScheme.getOrdering(symbol) + ">"),
+                    orderingScheme.getOrderBy().stream()
+                            .skip(preSortedOrderPrefix)
+                            .map(symbol -> symbol + " " + orderingScheme.getOrdering(symbol)))
+                    .collect(toImmutableList());
+            return formatCollection(orderBy);
+        }
+
+        private String formatOrderingScheme(OrderingScheme orderingScheme)
+        {
+            List<String> orderBy = orderingScheme.getOrderBy()
+                    .stream()
+                    .map(input -> input + " " + orderingScheme.getOrdering(input))
+                    .collect(toImmutableList());
+            return formatCollection(orderBy);
         }
 
         private <T> String formatCollection(Collection<T> collection)
