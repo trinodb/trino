@@ -149,6 +149,12 @@ public class InMemoryTransactionManager
     }
 
     @Override
+    public Optional<TransactionInfo> getTransactionInfoIfExist(TransactionId transactionId)
+    {
+        return tryGetTransactionMetadata(transactionId).map(TransactionMetadata::getTransactionInfo);
+    }
+
+    @Override
     public List<TransactionInfo> getAllTransactionInfos()
     {
         return transactions.values().stream()
