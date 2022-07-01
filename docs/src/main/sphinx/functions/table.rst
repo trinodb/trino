@@ -19,6 +19,10 @@ Trino supports adding custom table functions. They are declared by connectors
 through implementing dedicated interfaces. For guidance on adding new table
 functions, see the :doc:`developer guide</develop/table-functions>`.
 
+Connectors offer support for different functions on a per-connector basis. For
+more information about supported table functions, refer to the :doc:`connector
+documentation <../../connector>`.
+
 Table function invocation
 -------------------------
 
@@ -74,38 +78,3 @@ parameters in arguments::
     SELECT * FROM TABLE(my_function("row_count" => ? + 1, "column_count" => ?));
 
     EXECUTE stmt USING 100, 1;
-
-List of table functions by connector
-------------------------------------
-
-* Druid
-
-  * :ref:`query <druid-query-function>` for full query pass-through.
-
-* MariaDB
-
-  * :ref:`query <mariadb-query-function>` for full query pass-through.
-
-* MySQL
-
-  * :ref:`query <mysql-query-function>` for full query pass-through.
-
-* Oracle
-
-  * :ref:`query <oracle-query-function>` for full query pass-through.
-
-* PostgreSQL
-
-  * :ref:`query <postgresql-query-function>` for full query pass-through.
-
-* Redshift
-
-  * :ref:`query <redshift-query-function>` for full query pass-through.
-
-* SQL Server
-
-  * :ref:`query <sqlserver-query-function>` for full query pass-through.
-
-
-
-
