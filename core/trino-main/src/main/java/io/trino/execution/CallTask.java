@@ -98,7 +98,7 @@ public class CallTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
-        if (!transactionManager.isAutoCommit(stateMachine.getSession().getRequiredTransactionId())) {
+        if (!transactionManager.getTransactionInfo(stateMachine.getSession().getRequiredTransactionId()).isAutoCommitContext()) {
             throw new TrinoException(NOT_SUPPORTED, "Procedures cannot be called within a transaction (use autocommit mode)");
         }
 
