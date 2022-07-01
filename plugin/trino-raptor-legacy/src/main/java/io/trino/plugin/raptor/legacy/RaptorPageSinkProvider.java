@@ -18,6 +18,8 @@ import io.trino.plugin.raptor.legacy.storage.StorageManager;
 import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
 import io.trino.spi.PageSorter;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeSink;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -80,6 +82,16 @@ public class RaptorPageSinkProvider
                 toColumnIds(handle.getBucketColumnHandles()),
                 handle.getTemporalColumnHandle(),
                 maxBufferSize);
+    }
+
+    @Override
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle)
+    {
+        RaptorMergeTableHandle merge = (RaptorMergeTableHandle) mergeHandle;
+        ConnectorPageSink pageSink = createPageSink(transactionHandle, session, merge.getInsertTableHandle());
+        long transactionId = merge.getInsertTableHandle().getTransactionId();
+        int columnCount = merge.getInsertTableHandle().getColumnHandles().size();
+        return new RaptorMergeSink(pageSink, storageManager, transactionId, columnCount);
     }
 
     private static List<Long> toColumnIds(List<RaptorColumnHandle> columnHandles)
