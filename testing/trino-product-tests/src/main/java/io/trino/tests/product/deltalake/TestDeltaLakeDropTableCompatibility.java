@@ -80,9 +80,9 @@ public class TestDeltaLakeDropTableCompatibility
 
     private void testDropTableAccuracy(Engine creator, Engine dropper, boolean explicitLocation)
     {
-        String schemaName = "schema_with_location_" + randomTableSuffix();
+        String schemaName = "test_schema_with_location_" + randomTableSuffix();
         String schemaLocation = format("s3://%s/databricks-compatibility-test-%s", bucketName, schemaName);
-        String tableName = explicitLocation ? "external_table" : "managed_table";
+        String tableName = explicitLocation ? "test_external_table" : "test_managed_table";
         Optional<String> tableLocation = explicitLocation
                 ? Optional.of(format("s3://" + bucketName + "/databricks-compatibility-test-%s/%s", schemaName, tableName))
                 : Optional.empty();
