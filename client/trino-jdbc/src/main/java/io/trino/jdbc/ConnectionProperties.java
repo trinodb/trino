@@ -288,6 +288,9 @@ final class ConnectionProperties
         }
     }
 
+    /**
+     * @deprecated use {@link AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients}
+     */
     private static class AssumeLiteralNamesInMetadataCallsForNonConformingClients
             extends AbstractConnectionProperty<Boolean>
     {
