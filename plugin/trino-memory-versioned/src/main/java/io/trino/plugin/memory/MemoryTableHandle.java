@@ -16,6 +16,7 @@ package io.trino.plugin.memory;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -28,27 +29,39 @@ public final class MemoryTableHandle
         implements ConnectorTableHandle
 {
     private final long id;
+    private final SchemaTableName tableName;
     private final Optional<Set<Long>> versions;
     private final Optional<Long> updateVersion;
     private final boolean deletedRows;
+    private final Optional<Long> materializedViewId;
 
     @JsonCreator
     public MemoryTableHandle(
             @JsonProperty("id") long id,
+            @JsonProperty("tableName") SchemaTableName tableName,
             @JsonProperty("versions") Optional<Set<Long>> versions,
             @JsonProperty("updateVersions") Optional<Long> updateVersion,
-            @JsonProperty("deletedRows") boolean deletedRows)
+            @JsonProperty("deletedRows") boolean deletedRows,
+            @JsonProperty("materializedViewId") Optional<Long> materializedViewId)
     {
         this.id = id;
+        this.tableName = requireNonNull(tableName, "tableName is null");
         this.versions = requireNonNull(versions, "versions is null");
         this.updateVersion = requireNonNull(updateVersion, "updateVersion is null");
         this.deletedRows = deletedRows;
+        this.materializedViewId = requireNonNull(materializedViewId, "materializedViewId is null");
     }
 
     @JsonProperty
     public long getId()
     {
         return id;
+    }
+
+    @JsonProperty
+    public SchemaTableName getTableName()
+    {
+        return tableName;
     }
 
     @JsonProperty
@@ -69,6 +82,12 @@ public final class MemoryTableHandle
         return deletedRows;
     }
 
+    @JsonProperty
+    public Optional<Long> getMaterializedViewId()
+    {
+        return materializedViewId;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -82,13 +101,14 @@ public final class MemoryTableHandle
         return id == that.id
                 && versions.equals(that.versions)
                 && updateVersion.equals(that.updateVersion)
-                && deletedRows == that.deletedRows;
+                && deletedRows == that.deletedRows
+                && materializedViewId.equals(that.materializedViewId);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(id, versions, updateVersion, deletedRows);
+        return Objects.hash(id, versions, updateVersion, deletedRows, materializedViewId);
     }
 
     @Override
@@ -96,9 +116,11 @@ public final class MemoryTableHandle
     {
         return toStringHelper(this)
                 .add("id", id)
+                .add("tableName", tableName)
                 .add("versions", versions)
                 .add("updateVersion", updateVersion)
                 .add("deletedRows", deletedRows)
+                .add("materializedViewId", materializedViewId)
                 .toString();
     }
 }

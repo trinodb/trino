@@ -38,11 +38,12 @@ public class TableInfo
     private final List<ColumnInfo> columns;
     private final Optional<Integer> keyColumnIndex;
     private final HostAddress hostAddress;
+    private final Optional<Long> materializedViewId;
 
     private final AtomicLong nextVersion = new AtomicLong();
     private final Set<Long> committedVersions = new HashSet<>();
 
-    public TableInfo(long id, String schemaName, String tableName, List<ColumnInfo> columns, Optional<Integer> keyColumnIndex, HostAddress hostAddress)
+    public TableInfo(long id, String schemaName, String tableName, List<ColumnInfo> columns, Optional<Integer> keyColumnIndex, HostAddress hostAddress, Optional<Long> materializedViewId)
     {
         this.id = id;
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -50,6 +51,7 @@ public class TableInfo
         this.columns = ImmutableList.copyOf(columns);
         this.keyColumnIndex = requireNonNull(keyColumnIndex, "keyColumnIndex is null");
         this.hostAddress = requireNonNull(hostAddress, "hostAddress is null");
+        this.materializedViewId = requireNonNull(materializedViewId, "materializedViewId is null");
     }
 
     public long getId()
@@ -104,6 +106,11 @@ public class TableInfo
     public HostAddress getHostAddress()
     {
         return hostAddress;
+    }
+
+    public Optional<Long> getMaterializedViewId()
+    {
+        return materializedViewId;
     }
 
     public long getNextVersion()

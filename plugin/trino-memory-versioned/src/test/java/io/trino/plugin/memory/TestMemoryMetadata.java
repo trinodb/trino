@@ -16,6 +16,7 @@ package io.trino.plugin.memory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.CatalogName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -25,6 +26,7 @@ import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.TestingNodeManager;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -58,7 +60,7 @@ public class TestMemoryMetadata
     @BeforeMethod
     public void setUp()
     {
-        metadata = new MemoryMetadata(new TestingNodeManager());
+        metadata = new MemoryMetadata(new CatalogName("memory"), new TestingNodeManager(), new TestingTypeManager());
     }
 
     @Test

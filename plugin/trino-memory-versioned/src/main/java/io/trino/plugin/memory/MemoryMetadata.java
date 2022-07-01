@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.CatalogName;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
@@ -51,6 +52,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -92,7 +94,9 @@ public class MemoryMetadata
     private static final Type VERSION_TYPE = new ArrayType(BIGINT);
     private static final String DELETE_TABLE_SUFFIX = "$delete";
 
+    private final CatalogName catalogName;
     private final NodeManager nodeManager;
+    private final TypeManager typeManager;
     private final List<String> schemas = new ArrayList<>();
     private final AtomicLong nextTableId = new AtomicLong();
     private final Map<SchemaTableName, Long> tableIds = new HashMap<>();
@@ -101,9 +105,11 @@ public class MemoryMetadata
     private final Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = new HashMap<>();
 
     @Inject
-    public MemoryMetadata(NodeManager nodeManager)
+    public MemoryMetadata(CatalogName catalogName, NodeManager nodeManager, TypeManager typeManager)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManage is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.schemas.add(SCHEMA_NAME);
     }
 
@@ -171,7 +177,13 @@ public class MemoryMetadata
             return null;
         }
 
-        TableInfo info = requireNonNull(tables.get(id), "tableInfo is null");
+        TableInfo info = tables.get(id);
+        if (info == null) {
+            checkState(materializedViews.containsKey(schemaTableName));
+            // this is MV
+            return null;
+        }
+
         if (info.getKeyColumnIndex().isEmpty()) {
             if (deletedRows) {
                 throw new TrinoException(NOT_SUPPORTED, "Delete table only available for versioned tables");
@@ -195,9 +207,11 @@ public class MemoryMetadata
 
         return new MemoryTableHandle(
                 id,
+                schemaTableName,
                 info.getKeyColumnIndex().map(ignored -> rangeVersions),
                 Optional.empty(),
-                deletedRows);
+                deletedRows,
+                info.getMaterializedViewId());
     }
 
     @Override
@@ -284,7 +298,7 @@ public class MemoryMetadata
         long tableId = handle.getId();
 
         TableInfo oldInfo = tables.get(tableId);
-        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.getColumns(), oldInfo.getKeyColumnIndex(), oldInfo.getHostAddress()));
+        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.getColumns(), oldInfo.getKeyColumnIndex(), oldInfo.getHostAddress(), oldInfo.getMaterializedViewId()));
 
         tableIds.remove(oldInfo.getSchemaTableName());
         tableIds.put(newTableName, tableId);
@@ -339,7 +353,8 @@ public class MemoryMetadata
                 layout.flatMap((Function<ConnectorTableLayout, Optional<?>>) ConnectorTableLayout::getPartitioning)
                         .map(p -> (MemoryPartitioningHandle) p)
                         .map(MemoryPartitioningHandle::getHostAddress)
-                        .orElseGet(this::getWorkerAddress)));
+                        .orElseGet(this::getWorkerAddress),
+                Optional.empty()));
 
         return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(tableIds.values()), getNextVersion(tableId), keyColumnIndex);
     }
@@ -403,9 +418,11 @@ public class MemoryMetadata
         }
         return new MemoryTableHandle(
                 memoryTableHandle.getId(),
+                memoryTableHandle.getTableName(),
                 memoryTableHandle.getVersions(),
                 Optional.of(info.getNextVersion()),
-                false);
+                false,
+                memoryTableHandle.getMaterializedViewId());
     }
 
     @Override
@@ -516,30 +533,70 @@ public class MemoryMetadata
         }
 
         checkArgument(definition.getSourceTableVersions().isEmpty());
-        Optional<ConnectorMaterializedViewDefinition.VersioningLayout> layout = definition.getVersioningLayout()
+        Optional<ConnectorMaterializedViewDefinition.VersioningLayout> layoutOptional = definition.getVersioningLayout()
                 .filter(ConnectorMaterializedViewDefinition.VersioningLayout::isUnique)
                 .filter(l -> l.getVersioningColumns().size() == 1)
                 .filter(l -> getOnlyElement(l.getVersioningColumns()).getType().equals(BIGINT.getTypeId()));
 
-        definition = new ConnectorMaterializedViewDefinition(
+        ImmutableList.Builder<ColumnInfo> columnsBuilder = ImmutableList.builder();
+        for (int i = 0; i < definition.getColumns().size(); ++i) {
+            ConnectorMaterializedViewDefinition.Column column = definition.getColumns().get(i);
+            columnsBuilder.add(new ColumnInfo(new MemoryColumnHandle(i, false), column.getName(), typeManager.getType(column.getType())));
+        }
+
+        Optional<Integer> keyColumnIndex = Optional.empty();
+        if (layoutOptional.isPresent()) {
+            List<String> storageColumnNames = definition.getColumns().stream()
+                    .map(ConnectorMaterializedViewDefinition.Column::getName)
+                    .collect(toImmutableList());
+            ConnectorMaterializedViewDefinition.Column keyColumn = getOnlyElement(layoutOptional.get().getVersioningColumns());
+            if (storageColumnNames.contains(keyColumn.getName())) {
+                keyColumnIndex = Optional.of(storageColumnNames.indexOf(keyColumn.getName()));
+            }
+            else {
+                keyColumnIndex = Optional.of(storageColumnNames.size());
+                columnsBuilder.add(new ColumnInfo(new MemoryColumnHandle(storageColumnNames.size(), false), keyColumn.getName(), typeManager.getType(keyColumn.getType())));
+            }
+        }
+
+        SchemaTableName storageTableName = new SchemaTableName(viewName.getSchemaName(), viewName.getTableName() + "_storage");
+        if (tableIds.containsKey(storageTableName)) {
+            throw new TrinoException(ALREADY_EXISTS, "Storage table already exists");
+        }
+
+        long materializedViewId = nextTableId.getAndIncrement();
+        long storageTableId = nextTableId.getAndIncrement();
+        tableIds.put(storageTableName, storageTableId);
+        tables.put(
+                storageTableId,
+                new TableInfo(
+                        storageTableId,
+                        storageTableName.getSchemaName(),
+                        storageTableName.getTableName(),
+                        columnsBuilder.build(),
+                        keyColumnIndex,
+                        getWorkerAddress(),
+                        Optional.of(materializedViewId)));
+
+        ConnectorMaterializedViewDefinition newDefinition = new ConnectorMaterializedViewDefinition(
                 definition.getOriginalSql(),
-                definition.getStorageTable(),
+                Optional.of(new CatalogSchemaTableName(catalogName.toString(), storageTableName.getSchemaName(), storageTableName.getTableName())),
                 definition.getCatalog(),
                 definition.getSchema(),
                 definition.getColumns(),
                 definition.getComment(),
                 definition.getOwner(),
                 definition.getProperties(),
-                layout,
+                layoutOptional,
                 definition.getSourceTableVersions());
 
         if (replace) {
-            materializedViews.put(viewName, definition);
+            materializedViews.put(viewName, newDefinition);
         }
-        else if (materializedViews.putIfAbsent(viewName, definition) != null) {
+        else if (materializedViews.putIfAbsent(viewName, newDefinition) != null) {
             throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
         }
-        tableIds.put(viewName, nextTableId.getAndIncrement());
+        tableIds.put(viewName, materializedViewId);
     }
 
     @Override
@@ -628,6 +685,57 @@ public class MemoryMetadata
     }
 
     @Override
+    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
+    {
+        return false;
+    }
+
+    @Override
+    public synchronized ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode)
+    {
+        MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
+        TableInfo info = requireNonNull(tables.get(memoryTableHandle.getId()), "tableInfo is null");
+        return new MemoryInsertTableHandle(memoryTableHandle.getId(), ImmutableSet.copyOf(tableIds.values()), getNextVersion(memoryTableHandle.getId()), info.getKeyColumnIndex());
+    }
+
+    @Override
+    public synchronized Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            ConnectorInsertTableHandle insertHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            Map<CatalogSchemaTableName, ConnectorTableVersion> sourceTableVersions)
+    {
+        requireNonNull(insertHandle, "insertHandle is null");
+        MemoryInsertTableHandle handle = (MemoryInsertTableHandle) insertHandle;
+        commitVersion(handle.getTable(), handle.getVersion());
+
+        // TODO: use reverse lookup
+        long materializedViewId = ((MemoryTableHandle) tableHandle).getMaterializedViewId().orElseThrow();
+        SchemaTableName viewName = tableIds.entrySet().stream()
+                .filter(entry -> entry.getValue() == materializedViewId)
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElseThrow();
+        ConnectorMaterializedViewDefinition oldDefinition = materializedViews.get(viewName);
+        ConnectorMaterializedViewDefinition newDefinition = new ConnectorMaterializedViewDefinition(
+                oldDefinition.getOriginalSql(),
+                oldDefinition.getStorageTable(),
+                oldDefinition.getCatalog(),
+                oldDefinition.getSchema(),
+                oldDefinition.getColumns(),
+                oldDefinition.getComment(),
+                oldDefinition.getOwner(),
+                oldDefinition.getProperties(),
+                oldDefinition.getVersioningLayout(),
+                Optional.of(sourceTableVersions));
+        materializedViews.put(viewName, newDefinition);
+
+        return Optional.empty();
+    }
+
+    @Override
     public synchronized Optional<ConnectorTableVersioningLayout> getTableVersioningLayout(ConnectorSession session, ConnectorTableHandle handle)
     {
         MemoryTableHandle tableHandle = (MemoryTableHandle) handle;
@@ -657,7 +765,13 @@ public class MemoryMetadata
                     Set<Long> fromVersions = getVersions(fromVersionExclusive);
                     checkState(rangeVersions.containsAll(fromVersions));
                     rangeVersions.removeAll(fromVersions);
-                    return new MemoryTableHandle(tableHandle.getId(), Optional.of(rangeVersions), Optional.empty(), true);
+                    return new MemoryTableHandle(
+                            tableHandle.getId(),
+                            tableHandle.getTableName(),
+                            Optional.of(rangeVersions),
+                            Optional.empty(),
+                            true,
+                            tableHandle.getMaterializedViewId());
                 });
     }
 

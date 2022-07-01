@@ -152,7 +152,7 @@ import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -1431,7 +1431,7 @@ public final class MetadataManager
 
             MethodHandle equalOperator = typeManager.getTypeOperators().getEqualOperator(
                     sourceTableVersion.getVersionType(),
-                    simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+                    simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
             if (!valuesEqual(equalOperator, currentTableVersion.get().getVersion(), sourceTableVersion.getVersion())) {
                 return new MaterializedViewFreshness(false);
             }
@@ -1443,7 +1443,8 @@ public final class MetadataManager
     private static boolean valuesEqual(MethodHandle equalOperator, Object left, Object right)
     {
         try {
-            return (boolean) equalOperator.invoke(left, right);
+            Boolean result = (Boolean) equalOperator.invoke(left, right);
+            return result != null && result;
         }
         catch (Throwable t) {
             throw internalError(t);
