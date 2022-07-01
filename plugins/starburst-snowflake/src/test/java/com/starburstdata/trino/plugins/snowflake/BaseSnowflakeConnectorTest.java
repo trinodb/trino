@@ -67,6 +67,8 @@ public abstract class BaseSnowflakeConnectorTest
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_ROW_TYPE:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
                 return false;
             case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
             case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
@@ -123,6 +125,14 @@ public abstract class BaseSnowflakeConnectorTest
         if (name.equals("real") || name.startsWith("char")) {
             return Optional.empty();
         }
+
+        if (name.equals("time(6)")
+                || name.equals("timestamp(6)")
+                || name.equals("timestamp(6) with time zone")) {
+            // TODO https://starburstdata.atlassian.net/browse/SEP-9302
+            return Optional.empty();
+        }
+
         return Optional.of(dataMappingTestSetup);
     }
 
