@@ -122,6 +122,7 @@ public class PinotClient
     private final HttpClient httpClient;
     private final PinotHostMapper pinotHostMapper;
     private final String scheme;
+    private final boolean proxyEnabled;
 
     private final NonEvictableLoadingCache<String, List<String>> brokersForTableCache;
     private final NonEvictableLoadingCache<Object, Multimap<String, String>> allTablesCache;
@@ -154,7 +155,9 @@ public class PinotClient
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)).jsonCodec(Schema.class);
         this.brokerResponseCodec = requireNonNull(brokerResponseCodec, "brokerResponseCodec is null");
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
+        requireNonNull(config, "config is null");
         this.scheme = config.isTlsEnabled() ? "https" : "http";
+        this.proxyEnabled = config.getProxyEnabled();
 
         this.controllerUrls = config.getControllerUrls();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -228,16 +231,20 @@ public class PinotClient
     {
         ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
         brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
-        URI brokerPathUri = HttpUriBuilder.uriBuilder()
-                .hostAndPort(HostAndPort.fromString(getBrokerHost(table)))
-                .scheme(scheme)
-                .appendPath(path)
-                .build();
+        HttpUriBuilder httpUriBuilder = getBrokerHttpUriBuilder(getBrokerHost(table));
+        URI brokerPathUri = httpUriBuilder.scheme(scheme).appendPath(path).build();
         return doHttpActionWithHeadersJson(
                 Request.Builder.prepareGet().setUri(brokerPathUri),
                 Optional.empty(),
                 codec,
                 additionalHeadersBuilder.build());
+    }
+
+    private HttpUriBuilder getBrokerHttpUriBuilder(String hostAndPort)
+    {
+        return proxyEnabled ?
+                HttpUriBuilder.uriBuilderFrom(getControllerUrl()) :
+                HttpUriBuilder.uriBuilder().hostAndPort(HostAndPort.fromString(hostAndPort));
     }
 
     private URI getControllerUrl()
@@ -531,8 +538,8 @@ public class PinotClient
     {
         String queryRequest = QUERY_REQUEST_JSON_CODEC.toJson(new QueryRequest(query.getQuery()));
         return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), retryNumber -> {
-            URI queryPathUri = HttpUriBuilder.uriBuilder()
-                    .hostAndPort(HostAndPort.fromString(getBrokerHost(query.getTable())))
+            HttpUriBuilder httpUriBuilder = getBrokerHttpUriBuilder(getBrokerHost(query.getTable()));
+            URI queryPathUri = httpUriBuilder
                     .scheme(scheme)
                     .appendPath(QUERY_URL_PATH)
                     .build();
