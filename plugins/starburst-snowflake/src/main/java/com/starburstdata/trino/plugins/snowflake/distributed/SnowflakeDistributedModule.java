@@ -22,13 +22,16 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.s3.TrinoS3FileSystem;
 import io.trino.plugin.hive.s3.TrinoS3FileSystemStats;
+import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcModule;
 import io.trino.plugin.jdbc.JdbcPageSinkProvider;
+import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.ptf.ConnectorTableFunction;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -70,7 +73,7 @@ public class SnowflakeDistributedModule
         bindSessionPropertiesProvider(binder, SnowflakeDistributedSessionProperties.class);
         // TODO: Make more bindings optional defaults so SEP and Galaxy can
         //       replace them if necessary.
-        binder.bind(SnowflakeMetadataFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(SnowflakeMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(SnowflakeConnectionManager.class).in(Scopes.SINGLETON);
         binder.bind(SnowflakeSplitManager.class).in(Scopes.SINGLETON);
 
@@ -100,6 +103,7 @@ public class SnowflakeDistributedModule
                 .setBinding()
                 .toProvider(SnowflakeDistributedSplitManagerProvider.class)
                 .in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Provides

@@ -12,6 +12,8 @@ package com.starburstdata.trino.plugins.snowflake.distributed;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -24,6 +26,7 @@ import io.trino.spi.connector.RetryMode;
 import java.util.Optional;
 
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.checkColumnsForInvalidCharacters;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 class SnowflakeMetadata
@@ -62,5 +65,17 @@ class SnowflakeMetadata
     {
         checkColumnsForInvalidCharacters(ImmutableList.of(columnMetadata));
         super.addColumn(session, table, columnMetadata);
+    }
+
+    @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
+    {
+        // Distributed Snowflake wraps query in an export statement and create / insert statements are not supported in that syntax
+        String query = preparedQuery.getQuery();
+        if (query.toLowerCase(ENGLISH).startsWith("create") || query.toLowerCase(ENGLISH).startsWith("insert")) {
+            throw new UnsupportedOperationException("Failed to get table handle for prepared query: " + query);
+        }
+
+        return super.getTableHandle(session, preparedQuery);
     }
 }

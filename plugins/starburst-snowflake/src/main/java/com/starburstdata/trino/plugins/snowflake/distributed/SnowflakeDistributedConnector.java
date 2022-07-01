@@ -13,9 +13,8 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcPageSinkProvider;
-import io.trino.plugin.jdbc.JdbcTransactionHandle;
+import io.trino.plugin.jdbc.JdbcTransactionManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
@@ -25,6 +24,7 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
@@ -33,10 +33,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
@@ -50,68 +47,63 @@ public class SnowflakeDistributedConnector
     private static final Logger log = Logger.get(SnowflakeDistributedConnector.class);
 
     private final LifeCycleManager lifeCycleManager;
-    private final SnowflakeMetadataFactory metadataFactory;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final JdbcPageSinkProvider jdbcPageSinkProvider;
+    private final JdbcTransactionManager transactionManager;
     private final Optional<ConnectorAccessControl> accessControl;
     private final Set<Procedure> procedures;
+    private final Set<ConnectorTableFunction> tableFunctions;
     private final List<PropertyMetadata<?>> sessionProperties;
-
-    private final ConcurrentMap<ConnectorTransactionHandle, JdbcMetadata> transactions = new ConcurrentHashMap<>();
 
     @Inject
     public SnowflakeDistributedConnector(
             LifeCycleManager lifeCycleManager,
-            SnowflakeMetadataFactory metadataFactory,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
             JdbcPageSinkProvider jdbcPageSinkProvider,
+            JdbcTransactionManager transactionManager,
             Optional<ConnectorAccessControl> accessControl,
             Set<Procedure> procedures,
+            Set<ConnectorTableFunction> tableFunctions,
             Set<SessionPropertiesProvider> sessionPropertiesProviders)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.jdbcPageSinkProvider = requireNonNull(jdbcPageSinkProvider, "jdbcPageSinkProvider is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
+        this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
         this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
                 .flatMap(provider -> provider.getSessionProperties().stream())
                 .collect(toImmutableList());
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);
-        JdbcTransactionHandle transaction = new JdbcTransactionHandle();
-        transactions.put(transaction, metadataFactory.create());
-        return transaction;
+        return transactionManager.beginTransaction(isolationLevel, readOnly, autoCommit);
     }
 
     @Override
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
     {
-        JdbcMetadata metadata = transactions.get(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
-        return metadata;
+        return transactionManager.getMetadata(transaction);
     }
 
     @Override
     public void commit(ConnectorTransactionHandle transaction)
     {
-        checkArgument(transactions.remove(transaction) != null, "no such transaction: %s", transaction);
+        transactionManager.commit(transaction);
     }
 
     @Override
     public void rollback(ConnectorTransactionHandle transaction)
     {
-        JdbcMetadata metadata = transactions.remove(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
-        metadata.rollback();
+        transactionManager.rollback(transaction);
     }
 
     @Override
@@ -142,6 +134,12 @@ public class SnowflakeDistributedConnector
     public Set<Procedure> getProcedures()
     {
         return procedures;
+    }
+
+    @Override
+    public Set<ConnectorTableFunction> getTableFunctions()
+    {
+        return tableFunctions;
     }
 
     @Override

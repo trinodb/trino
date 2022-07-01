@@ -14,6 +14,8 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.CachingJdbcClient;
 import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcMetadataFactory;
+import io.trino.plugin.jdbc.JdbcTransactionHandle;
 import io.trino.plugin.jdbc.SingletonIdentityCacheMapping;
 
 import javax.inject.Inject;
@@ -24,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import static java.util.Objects.requireNonNull;
 
 public class SnowflakeMetadataFactory
+        implements JdbcMetadataFactory
 {
     private final SnowflakeConnectionManager connectionManager;
     private final JdbcClient jdbcClient;
@@ -39,7 +42,8 @@ public class SnowflakeMetadataFactory
         this.jdbcClient = new CachingJdbcClient(requireNonNull(jdbcClient, "jdbcClient is null"), Set.of(), identityMapping, cachingConfig);
     }
 
-    SnowflakeMetadata create()
+    @Override
+    public SnowflakeMetadata create(JdbcTransactionHandle handle)
     {
         return new SnowflakeMetadata(
                 connectionManager,

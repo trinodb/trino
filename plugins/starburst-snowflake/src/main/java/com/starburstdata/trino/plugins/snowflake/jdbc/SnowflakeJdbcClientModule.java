@@ -30,6 +30,8 @@ import io.trino.plugin.jdbc.SingletonIdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
+import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 
 import javax.inject.Qualifier;
@@ -41,6 +43,7 @@ import java.lang.annotation.Target;
 import java.util.Properties;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.SNOWFLAKE_MAX_LIST_EXPRESSIONS;
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeJdbcSessionProperties.WAREHOUSE;
@@ -92,6 +95,7 @@ public class SnowflakeJdbcClientModule
                 .in(Scopes.SINGLETON);
 
         binder.bind(IdentityCacheMapping.class).annotatedWith(ForWarehouseAware.class).to(SingletonIdentityCacheMapping.class).in(SINGLETON);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     // TODO: Replace this method by annotating SnowflakeClient's constructor
