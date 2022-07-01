@@ -15,8 +15,8 @@ package io.trino.plugin.kudu;
 
 import static io.trino.plugin.kudu.TestingKuduServer.EARLIEST_TAG;
 
-public class TestKuduWithDisabledInferSchemaConnectorTest
-        extends AbstractKuduWithDisabledInferSchemaConnectorTest
+public class TestKuduWithDisabledInferSchemaConnectorSmokeTest
+        extends BaseKuduWithDisabledInferSchemaConnectorSmokeTest
 {
     @Override
     protected String getKuduServerVersion()

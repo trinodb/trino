@@ -25,8 +25,8 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public abstract class AbstractKuduWithDisabledInferSchemaConnectorTest
-        extends AbstractKuduConnectorTest
+public abstract class BaseKuduWithDisabledInferSchemaConnectorSmokeTest
+        extends BaseKuduConnectorSmokeTest
 {
     @Override
     protected Optional<String> getKuduSchemaEmulationPrefix()
@@ -59,25 +59,9 @@ public abstract class AbstractKuduWithDisabledInferSchemaConnectorTest
 
     @Test
     @Override
-    public void testRenameTableAcrossSchema()
+    public void testRenameTableAcrossSchemas()
     {
-        assertThatThrownBy(super::testRenameTableAcrossSchema)
-                .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
-    }
-
-    @Test
-    @Override
-    public void testRenameTableToUnqualifiedPreservesSchema()
-    {
-        assertThatThrownBy(super::testRenameTableToUnqualifiedPreservesSchema)
-                .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
-    }
-
-    @Test
-    @Override
-    public void testDropNonEmptySchemaWithTable()
-    {
-        assertThatThrownBy(super::testDropNonEmptySchemaWithTable)
+        assertThatThrownBy(super::testRenameTableAcrossSchemas)
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 }
