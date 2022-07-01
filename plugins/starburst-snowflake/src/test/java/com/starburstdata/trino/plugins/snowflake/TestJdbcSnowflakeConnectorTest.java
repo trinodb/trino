@@ -15,6 +15,7 @@ import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -70,6 +71,13 @@ public class TestJdbcSnowflakeConnectorTest
                 queryRunner.execute(session, format("SELECT * FROM %s", testTable.getName()));
             }
         }
+    }
+
+    @Override
+    public void testInsertRowConcurrently()
+    {
+        // TODO: Skip slow Snowflake insert tests (https://starburstdata.atlassian.net/browse/SEP-9214)
+        throw new SkipException("Snowflake INSERTs are slow and the futures sometimes timeout in the test. See https://starburstdata.atlassian.net/browse/SEP-9214.");
     }
 
     @Override
