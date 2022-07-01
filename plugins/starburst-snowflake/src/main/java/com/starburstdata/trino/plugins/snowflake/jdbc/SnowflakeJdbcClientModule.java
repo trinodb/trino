@@ -40,7 +40,13 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.lang.management.ManagementFactory;
 import java.util.Properties;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -49,6 +55,7 @@ import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.SNO
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeJdbcSessionProperties.WAREHOUSE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static java.lang.String.format;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
@@ -75,6 +82,8 @@ public class SnowflakeJdbcClientModule
     @Override
     protected void setup(Binder binder)
     {
+        verifyPackageAccessAllowed(binder);
+
         ConfigBinder.configBinder(binder).bindConfig(SnowflakeConfig.class);
         newOptionalBinder(binder, Key.get(JdbcClient.class, ForBaseJdbc.class))
                 .setDefault()
@@ -152,6 +161,42 @@ public class SnowflakeJdbcClientModule
         properties.setProperty("JSON_INDENT", "0");
 
         return properties;
+    }
+
+    /**
+     * The Snowflake JDBC requires reflective access to certain Java internals in Java 17.
+     *
+     * @throws IllegalArgumentException if the appropriate arguments were not provided to the JVM.
+     */
+    public static void verifyPackageAccessAllowed(Binder binder)
+    {
+        if (Runtime.version().compareToIgnoreOptional(Runtime.Version.parse("17")) < 0) {
+            // No need to modify access before Java 17
+            return;
+        }
+
+        // Match an --add-opens argument that opens a package to unnamed modules.
+        // The first group is the opened package.
+        Pattern argPattern = Pattern.compile(
+                "^--add-opens=(.*)=([A-Za-z0-9_.]+,)*ALL-UNNAMED(,[A-Za-z0-9_.]+)*$");
+        // We don't need to check for a values in separate arguments because
+        // they are joined with "=" before we get them.
+
+        Set<String> openedModules = ManagementFactory.getRuntimeMXBean()
+                .getInputArguments()
+                .stream()
+                .map(argPattern::matcher)
+                .filter(Matcher::matches)
+                .map(matcher -> matcher.group(1))
+                .collect(Collectors.toSet());
+
+        Stream.of("java.base/java.nio", "java.base/sun.nio.ch")
+                .filter(pkg -> !openedModules.contains(pkg))
+                .map(pkg -> format("--add-opens=%s=ALL-UNNAMED", pkg))
+                .reduce((a, b) -> a + ", " + b)
+                .ifPresent(missingArguments -> binder.addError(
+                        "Snowflake connector requires these JVM arguments to run on Java 17: "
+                                + missingArguments));
     }
 
     @Retention(RUNTIME)
