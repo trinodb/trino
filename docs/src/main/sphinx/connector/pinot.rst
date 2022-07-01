@@ -74,6 +74,7 @@ Property name                                             Required   Description
 ``pinot.aggregation-pushdown.enabled``                    No         Push down aggregation queries, default is ``true``.
 ``pinot.count-distinct-pushdown.enabled``                 No         Push down count distinct queries to Pinot, default is ``true``.
 ``pinot.target-segment-page-size``                        No         Max allowed page size for segment query, default is ``1MB``.
+``pinot.proxy.enabled``                                   No         Use Pinot Proxy for controller and broker requests, default is ``false``.
 ========================================================= ========== ==============================================================================
 
 If ``pinot.controller.authentication.type`` is set to ``PASSWORD`` then both ``pinot.controller.authentication.user`` and
@@ -101,6 +102,7 @@ Property name                                             Required   Description
 ``pinot.grpc.tls.truststore-path``                        No         TLS truststore file location for gRPC connection, default is empty.
 ``pinot.grpc.tls.truststore-password``                    No         TLS truststore password, default is empty.
 ``pinot.grpc.tls.ssl-provider``                           No         SSL provider, default is ``JDK``.
+``pinot.grpc.proxy-uri``                                  No         Pinot Rest Proxy gRPC endpoint URI, default is null.
 ========================================================= ========== ==============================================================================
 
 For more Apache Pinot TLS configurations, please also refer to `Configuring TLS/SSL <https://docs.pinot.apache.org/operators/tutorials/configuring-tls-ssl>`_.
