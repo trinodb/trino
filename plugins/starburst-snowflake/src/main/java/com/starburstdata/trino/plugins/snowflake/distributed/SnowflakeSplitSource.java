@@ -303,7 +303,6 @@ public class SnowflakeSplitSource
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 NO_ACID_TRANSACTION,
