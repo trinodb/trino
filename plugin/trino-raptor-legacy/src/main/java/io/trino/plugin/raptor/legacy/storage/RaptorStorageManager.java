@@ -106,6 +106,7 @@ import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isBucketNumberColumn;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isHiddenColumn;
+import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isMergeRowIdColumn;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isShardRowIdColumn;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isShardUuidColumn;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
@@ -310,6 +311,9 @@ public class RaptorStorageManager
         if (isBucketNumberColumn(columnId)) {
             return ColumnAdaptation.bucketNumberColumn(bucketNumber);
         }
+        if (isMergeRowIdColumn(columnId)) {
+            return ColumnAdaptation.mergeRowIdColumn(bucketNumber, shardUuid);
+        }
         throw new TrinoException(RAPTOR_ERROR, "Invalid column ID: " + columnId);
     }
 
@@ -322,7 +326,8 @@ public class RaptorStorageManager
         return new RaptorStoragePageSink(transactionId, columnIds, columnTypes, bucketNumber);
     }
 
-    private ShardRewriter createShardRewriter(long transactionId, OptionalInt bucketNumber, UUID shardUuid)
+    @Override
+    public ShardRewriter createShardRewriter(long transactionId, OptionalInt bucketNumber, UUID shardUuid)
     {
         return rowsToDelete -> {
             if (rowsToDelete.isEmpty()) {
