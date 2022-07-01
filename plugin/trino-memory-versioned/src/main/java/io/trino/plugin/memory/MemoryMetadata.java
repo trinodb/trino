@@ -17,11 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -34,6 +38,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTableVersioningLayout;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewFreshness;
@@ -44,6 +49,8 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Type;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -51,6 +58,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,6 +78,7 @@ import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.spi.connector.PointerType.TARGET_ID;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
@@ -80,6 +89,8 @@ public class MemoryMetadata
         implements ConnectorMetadata
 {
     public static final String SCHEMA_NAME = "default";
+    private static final Type VERSION_TYPE = new ArrayType(BIGINT);
+    private static final String DELETE_TABLE_SUFFIX = "$delete";
 
     private final NodeManager nodeManager;
     private final List<String> schemas = new ArrayList<>();
@@ -142,21 +153,63 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    public synchronized ConnectorTableHandle getTableHandle(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Optional<ConnectorTableVersion> startVersion,
+            Optional<ConnectorTableVersion> endVersion)
     {
+        String tableName = schemaTableName.getTableName();
+        boolean deletedRows = tableName.endsWith(DELETE_TABLE_SUFFIX);
+        if (deletedRows) {
+            schemaTableName = new SchemaTableName(
+                    schemaTableName.getSchemaName(),
+                    tableName.substring(0, tableName.length() - DELETE_TABLE_SUFFIX.length()));
+        }
         Long id = tableIds.get(schemaTableName);
         if (id == null) {
             return null;
         }
 
         TableInfo info = requireNonNull(tables.get(id), "tableInfo is null");
-        return new MemoryTableHandle(id, info.getKeyColumnIndex().map(ignored -> info.getCommittedVersions()), Optional.empty());
+        if (info.getKeyColumnIndex().isEmpty()) {
+            if (deletedRows) {
+                throw new TrinoException(NOT_SUPPORTED, "Delete table only available for versioned tables");
+            }
+
+            if (startVersion.isPresent() || endVersion.isPresent()) {
+                throw new TrinoException(NOT_SUPPORTED, "Table is not versioned");
+            }
+        }
+
+        Optional<Set<Long>> startVersions = startVersion
+                .map(this::getVersions);
+        Optional<Set<Long>> endVersions = endVersion
+                .map(this::getVersions);
+
+        // choose transactions that were committed between start and end version
+        Set<Long> rangeVersions = new HashSet<>(endVersions.orElse(info.getCommittedVersions()));
+        startVersions.stream()
+                .peek(versions -> checkState(rangeVersions.containsAll(versions)))
+                .forEach(rangeVersions::removeAll);
+
+        return new MemoryTableHandle(
+                id,
+                info.getKeyColumnIndex().map(ignored -> rangeVersions),
+                Optional.empty(),
+                deletedRows);
     }
 
     @Override
     public synchronized ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        TableInfo info = tables.get(handle.getId());
+        if (handle.isDeletedRows()) {
+            return new ConnectorTableMetadata(
+                    new SchemaTableName(info.getSchemaName(), info.getTableName() + DELETE_TABLE_SUFFIX),
+                    ImmutableList.of(info.getColumns().get(info.getKeyColumnIndex().orElseThrow()).getMetadata()));
+        }
         return tables.get(handle.getId()).getMetadata();
     }
 
@@ -181,8 +234,12 @@ public class MemoryMetadata
     public synchronized Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        return tables.get(handle.getId())
-                .getColumns().stream()
+        TableInfo info = tables.get(handle.getId());
+        if (handle.isDeletedRows()) {
+            ColumnInfo columnInfo = info.getColumns().get(info.getKeyColumnIndex().orElseThrow());
+            return ImmutableMap.of(columnInfo.getName(), new MemoryColumnHandle(0, false));
+        }
+        return info.getColumns().stream()
                 .collect(toImmutableMap(ColumnInfo::getName, ColumnInfo::getHandle));
     }
 
@@ -190,7 +247,11 @@ public class MemoryMetadata
     public synchronized ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        return tables.get(handle.getId())
+        TableInfo info = tables.get(handle.getId());
+        if (handle.isDeletedRows()) {
+            return info.getColumns().get(info.getKeyColumnIndex().orElseThrow()).getMetadata();
+        }
+        return info
                 .getColumn((MemoryColumnHandle) columnHandle)
                 .getMetadata();
     }
@@ -340,7 +401,11 @@ public class MemoryMetadata
         if (info.getKeyColumnIndex().isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "This table does not support deletes");
         }
-        return new MemoryTableHandle(memoryTableHandle.getId(), memoryTableHandle.getVersions(), Optional.of(info.getNextVersion()));
+        return new MemoryTableHandle(
+                memoryTableHandle.getId(),
+                memoryTableHandle.getVersions(),
+                Optional.of(info.getNextVersion()),
+                false);
     }
 
     @Override
@@ -532,13 +597,24 @@ public class MemoryMetadata
 
     private ConnectorMaterializedViewDefinition addComments(ConnectorMaterializedViewDefinition definition)
     {
+        Optional<Map<CatalogSchemaTableName, ConnectorTableVersion>> tableVersions = definition.getSourceTableVersions()
+                .map(versions -> versions.entrySet().stream()
+                        .collect(toImmutableMap(Map.Entry::getKey, entry -> {
+                            ConnectorTableVersion version = entry.getValue();
+                            // convert structured version for better readability
+                            if (version.getVersionType().equals(VERSION_TYPE)) {
+                                return new ConnectorTableVersion(version.getPointerType(), version.getVersionType(), getVersions(version));
+                            }
+
+                            return version;
+                        })));
         return new ConnectorMaterializedViewDefinition(
                 definition.getOriginalSql(),
                 definition.getStorageTable(),
                 definition.getCatalog(),
                 definition.getSchema(),
                 definition.getColumns(),
-                Optional.of(format("LAYOUT: %s, TABLE VERSIONS: %s", definition.getVersioningLayout(), definition.getSourceTableVersions())),
+                Optional.of(format("LAYOUT: %s, TABLE VERSIONS: %s", definition.getVersioningLayout(), tableVersions)),
                 definition.getOwner(),
                 definition.getProperties(),
                 definition.getVersioningLayout(),
@@ -558,6 +634,49 @@ public class MemoryMetadata
         TableInfo info = requireNonNull(tables.get(tableHandle.getId()), "tableInfo is null");
         return info.getKeyColumnIndex()
                 .map(index -> new ConnectorTableVersioningLayout(ImmutableSet.of(info.getColumns().get(index).getHandle()), true));
+    }
+
+    @Override
+    public synchronized Optional<ConnectorTableVersion> getCurrentTableVersion(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        MemoryTableHandle tableHandle = (MemoryTableHandle) handle;
+        return tableHandle.getVersions().map(versions -> new ConnectorTableVersion(
+                TARGET_ID,
+                VERSION_TYPE,
+                new LongArrayBlock(versions.size(), Optional.empty(), Longs.toArray(versions))));
+    }
+
+    @Override
+    public synchronized Optional<ConnectorTableHandle> getDeletedGroupingSets(ConnectorSession session, ConnectorTableHandle handle, ConnectorTableVersion fromVersionExclusive)
+    {
+        MemoryTableHandle tableHandle = (MemoryTableHandle) handle;
+        TableInfo info = requireNonNull(tables.get(tableHandle.getId()), "tableInfo is null");
+        return info.getKeyColumnIndex()
+                .map(index -> {
+                    Set<Long> rangeVersions = new HashSet<>(tableHandle.getVersions().orElseThrow());
+                    Set<Long> fromVersions = getVersions(fromVersionExclusive);
+                    checkState(rangeVersions.containsAll(fromVersions));
+                    rangeVersions.removeAll(fromVersions);
+                    return new MemoryTableHandle(tableHandle.getId(), Optional.of(rangeVersions), Optional.empty(), true);
+                });
+    }
+
+    private Set<Long> getVersions(ConnectorTableVersion version)
+    {
+        if (!version.getPointerType().equals(TARGET_ID)) {
+            throw new TrinoException(NOT_SUPPORTED, "Only 'VERSION' type is supported");
+        }
+        if (!version.getVersionType().equals(VERSION_TYPE)) {
+            throw new TrinoException(NOT_SUPPORTED, "Table version must be of ARRAY[BIGINT] type");
+        }
+        checkArgument(version.getVersion() instanceof LongArrayBlock);
+        Block block = (Block) version.getVersion();
+        ImmutableSet.Builder<Long> versions = ImmutableSet.builder();
+        for (int position = 0; position < block.getPositionCount(); ++position) {
+            checkArgument(!block.isNull(position));
+            versions.add(block.getLong(position, 0));
+        }
+        return versions.build();
     }
 
     @Override

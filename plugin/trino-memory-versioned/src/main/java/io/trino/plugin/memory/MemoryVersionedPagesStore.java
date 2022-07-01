@@ -15,10 +15,12 @@ package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 import io.trino.spi.Page;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -28,6 +30,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -94,6 +97,27 @@ public class MemoryVersionedPagesStore
                 });
 
         return ImmutableList.copyOf(rows.values());
+    }
+
+    public synchronized List<Page> getDeletedRows(
+            long tableId,
+            Set<Long> versions)
+    {
+        if (!contains(tableId)) {
+            return ImmutableList.of();
+        }
+        TableData tableData = tables.get(tableId);
+
+        Set<Long> deletedRows = new HashSet<>();
+        versions.stream()
+                .sorted()
+                .forEach(version -> {
+                    VersionData versionData = tableData.getVersionedData(version);
+                    deletedRows.removeAll(versionData.getInsertedRows().keySet());
+                    deletedRows.addAll(versionData.getRemovedRows());
+                });
+
+        return ImmutableList.of(new Page(new LongArrayBlock(deletedRows.size(), Optional.empty(), Longs.toArray(deletedRows))));
     }
 
     public synchronized boolean contains(long tableId)

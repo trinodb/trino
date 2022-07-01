@@ -14,6 +14,7 @@
 package io.trino.plugin.memory;
 
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -28,6 +29,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -61,7 +63,17 @@ public final class MemoryPageSourceProvider
                 .map(MemoryColumnHandle::getColumnIndex).collect(toList());
         MemoryTableHandle tableHandle = (MemoryTableHandle) table;
         List<Page> pages = tableHandle.getVersions()
-                .map(versions -> versionedPagesStore.getPages(tableId, versions, columnIndexes))
+                .map(versions -> {
+                    if (tableHandle.isDeletedRows()) {
+                        if (columns.size() != 1) {
+                            throw new TrinoException(NOT_SUPPORTED, "Single column must be fetched");
+                        }
+                        return versionedPagesStore.getDeletedRows(tableId, versions);
+                    }
+                    else {
+                        return versionedPagesStore.getPages(tableId, versions, columnIndexes);
+                    }
+                })
                 .orElseGet(() -> pagesStore.getPages(tableId, columnIndexes));
 
         ConnectorPageSource pageSource = new FixedPageSource(pages);

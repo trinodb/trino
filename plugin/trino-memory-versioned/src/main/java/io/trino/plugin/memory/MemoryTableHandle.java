@@ -30,16 +30,19 @@ public final class MemoryTableHandle
     private final long id;
     private final Optional<Set<Long>> versions;
     private final Optional<Long> updateVersion;
+    private final boolean deletedRows;
 
     @JsonCreator
     public MemoryTableHandle(
             @JsonProperty("id") long id,
             @JsonProperty("versions") Optional<Set<Long>> versions,
-            @JsonProperty("updateVersions") Optional<Long> updateVersion)
+            @JsonProperty("updateVersions") Optional<Long> updateVersion,
+            @JsonProperty("deletedRows") boolean deletedRows)
     {
         this.id = id;
         this.versions = requireNonNull(versions, "versions is null");
         this.updateVersion = requireNonNull(updateVersion, "updateVersion is null");
+        this.deletedRows = deletedRows;
     }
 
     @JsonProperty
@@ -60,6 +63,12 @@ public final class MemoryTableHandle
         return updateVersion;
     }
 
+    @JsonProperty
+    public boolean isDeletedRows()
+    {
+        return deletedRows;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -70,13 +79,16 @@ public final class MemoryTableHandle
             return false;
         }
         MemoryTableHandle that = (MemoryTableHandle) o;
-        return id == that.id && versions.equals(that.versions) && updateVersion.equals(that.updateVersion);
+        return id == that.id
+                && versions.equals(that.versions)
+                && updateVersion.equals(that.updateVersion)
+                && deletedRows == that.deletedRows;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(id, versions);
+        return Objects.hash(id, versions, updateVersion, deletedRows);
     }
 
     @Override
@@ -86,6 +98,7 @@ public final class MemoryTableHandle
                 .add("id", id)
                 .add("versions", versions)
                 .add("updateVersion", updateVersion)
+                .add("deletedRows", deletedRows)
                 .toString();
     }
 }
