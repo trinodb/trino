@@ -31,7 +31,7 @@ public class TestHiveAndDeltaLakeCompatibility
     public void testInformationSchemaColumnsOnPresenceOfHiveView()
     {
         // use dedicated schema so we control the number and shape of tables
-        String schemaName = "redirect_to_delta_information_schema_columns_schema_" + randomTableSuffix();
+        String schemaName = "test_redirect_to_delta_information_schema_columns_schema_" + randomTableSuffix();
         onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive." + schemaName);
 
         String hiveViewName = "delta_schema_columns_hive_view_" + randomTableSuffix();
