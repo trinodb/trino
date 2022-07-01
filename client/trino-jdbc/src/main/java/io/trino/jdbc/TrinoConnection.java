@@ -58,6 +58,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -79,6 +81,8 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class TrinoConnection
         implements Connection
 {
+    private static final Logger logger = Logger.getLogger(TrinoConnection.class.getPackage().getName());
+
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
     private final AtomicInteger isolationLevel = new AtomicInteger(TRANSACTION_READ_UNCOMMITTED);
@@ -124,7 +128,14 @@ public class TrinoConnection
         this.extraCredentials = uri.getExtraCredentials();
         this.compressionDisabled = uri.isCompressionDisabled();
         this.assumeLiteralNamesInMetadataCallsForNonConformingClients = uri.isAssumeLiteralNamesInMetadataCallsForNonConformingClients();
+
+        if (this.assumeLiteralNamesInMetadataCallsForNonConformingClients) {
+            logger.log(Level.WARNING, "Connection config assumeLiteralNamesInMetadataCallsForNonConformingClients is deprecated, please use " +
+                    "assumeLiteralUnderscoreInMetadataCallsForNonConformingClients.");
+        }
+
         this.assumeLiteralUnderscoreInMetadataCallsForNonConformingClients = uri.isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients();
+
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
         uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, tags));
