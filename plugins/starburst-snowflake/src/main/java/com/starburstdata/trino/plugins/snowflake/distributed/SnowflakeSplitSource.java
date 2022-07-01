@@ -42,7 +42,6 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -82,8 +81,6 @@ import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.predicate.TupleDomain.all;
 import static io.trino.spi.predicate.TupleDomain.none;
 import static java.lang.String.format;
@@ -173,7 +170,7 @@ public class SnowflakeSplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
         if (transferAgent == null) {
             return exportTableData();
@@ -188,7 +185,7 @@ public class SnowflakeSplitSource
         }
 
         SnowflakeStageAccessInfo snowflakeStageAccessInfo = getSnowflakeStageAccessInfo(transferAgent);
-        return hiveSplitSource.getNextBatch(NOT_PARTITIONED, maxSize)
+        return hiveSplitSource.getNextBatch(maxSize)
                 .thenApply(hiveSplitBatch -> new ConnectorSplitBatch(
                         hiveSplitBatch.getSplits().stream()
                                 .map(hiveSplit -> new SnowflakeSplit((HiveSplit) hiveSplit, snowflakeStageAccessInfo))
@@ -315,8 +312,6 @@ public class SnowflakeSplitSource
                 transactionHandle,
                 session,
                 tableLayoutHandle,
-                // Snowflake connector does not support partitioning
-                UNGROUPED_SCHEDULING,
                 DynamicFilter.EMPTY,
                 Constraint.alwaysTrue());
     }
