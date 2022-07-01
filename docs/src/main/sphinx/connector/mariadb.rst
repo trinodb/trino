@@ -135,6 +135,42 @@ statements, the connector supports the following features:
 
 .. include:: sql-delete-limitation.fragment
 
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access MariaDB.
+
+.. _mariadb-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to MariaDB, because the full query is pushed down and
+processed in MariaDB. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+As an example, select the age of employees by using ``TIMESTAMPDIFF`` and
+``CURDATE``::
+
+    SELECT
+      age
+    FROM
+      TABLE(
+        mariadb.system.query(
+          query => 'SELECT
+            TIMESTAMPDIFF(
+              YEAR,
+              date_of_birth,
+              CURDATE()
+            ) AS age
+          FROM
+            tiny.employees'
+        )
+      );
+
 Performance
 -----------
 

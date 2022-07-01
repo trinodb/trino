@@ -67,3 +67,38 @@ SQL support
 The connector provides :ref:`globally available <sql-globally-available>` and
 :ref:`read operation <sql-read-operations>` statements to access data and
 metadata in the Druid database.
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access Druid.
+
+.. _druid-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to Druid, because the full query is pushed down and
+processed in Druid. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+As an example, use ``STRING_TO_MV`` and ``MV_LENGTH`` from
+`Druid SQL's multi-value string functions <https://druid.apache.org/docs/latest/querying/sql-multivalue-string-functions.html>`_
+to split and then count the number of comma-separated values in a column::
+
+    SELECT
+      num_reports
+    FROM
+      TABLE(
+        druid.system.query(
+          query => 'SELECT
+            MV_LENGTH(
+              STRING_TO_MV(direct_reports, ",")
+            ) AS num_reports
+          FROM company.managers'
+        )
+      );
+

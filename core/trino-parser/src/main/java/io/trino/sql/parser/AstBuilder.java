@@ -2706,7 +2706,7 @@ class AstBuilder
         }
 
         if (name.toString().equalsIgnoreCase("$internal$bind")) {
-            check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one arguments", context);
+            check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one argument", context);
             check(!window.isPresent(), "OVER clause not valid for '$internal$bind' function", context);
             check(!distinct, "DISTINCT not valid for '$internal$bind' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for '$internal$bind' function", context);

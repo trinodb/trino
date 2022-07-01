@@ -13,14 +13,22 @@
  */
 package io.trino.plugin.kudu;
 
-import static io.trino.plugin.kudu.TestingKuduServer.EARLIEST_TAG;
+import org.testng.annotations.Test;
 
-public class TestKuduWithStandardInferSchemaConnectorTest
-        extends AbstractKuduWithStandardInferSchemaConnectorTest
+import java.util.Optional;
+
+public abstract class BaseKuduWithEmptyInferSchemaConnectorSmokeTest
+        extends BaseKuduConnectorSmokeTest
 {
     @Override
-    protected String getKuduServerVersion()
+    protected Optional<String> getKuduSchemaEmulationPrefix()
     {
-        return EARLIEST_TAG;
+        return Optional.of("");
+    }
+
+    @Test
+    public void testListingOfTableForDefaultSchema()
+    {
+        assertQuery("SHOW TABLES FROM default", "VALUES '$schemas'");
     }
 }

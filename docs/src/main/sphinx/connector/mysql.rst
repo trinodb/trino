@@ -306,6 +306,39 @@ the following statements:
 
 .. include:: sql-delete-limitation.fragment
 
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access MySQL.
+
+.. _mysql-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to MySQL, because the full query is pushed down and
+processed in MySQL. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+For example, group and concatenate all employee IDs by manager ID::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        mysql.system.query(
+          query => 'SELECT
+            manager_id, GROUP_CONCAT(employee_id)
+          FROM
+            company.employees
+          GROUP BY
+            manager_id'
+        )
+      );
+
 Performance
 -----------
 

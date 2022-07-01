@@ -11,22 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.redis;
+package io.trino.plugin.kudu;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.redis.util.RedisServer;
-import io.trino.testing.QueryRunner;
+import static io.trino.plugin.kudu.TestingKuduServer.LATEST_TAG;
 
-import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
-
-public class TestRedisConnectorTest
-        extends BaseRedisConnectorTest
+public class TestKuduLatestWithStandardInferSchemaConnectorSmokeTest
+        extends BaseKuduWithStandardInferSchemaConnectorSmokeTest
 {
     @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    protected String getKuduServerVersion()
     {
-        RedisServer redisServer = closeAfterClass(new RedisServer());
-        return createRedisQueryRunner(redisServer, ImmutableMap.of(), ImmutableMap.of(), "string", REQUIRED_TPCH_TABLES);
+        return LATEST_TAG;
     }
 }

@@ -46,7 +46,9 @@ interface ParquetCompressor
                 return null;
             case LZO:
             case LZ4:
-                // TODO Support LZO and LZ4 compression
+            case LZ4_RAW:
+                // TODO Support LZO and LZ4_RAW compression
+                // Note: LZ4 compression scheme has been deprecated by parquet-format in favor of LZ4_RAW
                 // When using airlift LZO or LZ4 compressor, decompressing page in reader throws exception.
                 break;
             case BROTLI:

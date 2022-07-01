@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.block.Block;
@@ -335,7 +336,8 @@ public class PartitionTable
         return columnMetricType.getObject(rowBlockBuilder, 0);
     }
 
-    private static class StructLikeWrapperWithFieldIdToIndex
+    @VisibleForTesting
+    static class StructLikeWrapperWithFieldIdToIndex
     {
         private final StructLikeWrapper structLikeWrapper;
         private final Map<Integer, Integer> fieldIdToIndex;
@@ -360,13 +362,14 @@ public class PartitionTable
                 return false;
             }
             StructLikeWrapperWithFieldIdToIndex that = (StructLikeWrapperWithFieldIdToIndex) o;
-            return Objects.equals(structLikeWrapper, that.structLikeWrapper) && Objects.equals(fieldIdToIndex, that.fieldIdToIndex);
+            // Due to bogus implementation of equals in StructLikeWrapper https://github.com/apache/iceberg/issues/5064 order here matters.
+            return Objects.equals(fieldIdToIndex, that.fieldIdToIndex) && Objects.equals(structLikeWrapper, that.structLikeWrapper);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(structLikeWrapper, fieldIdToIndex);
+            return Objects.hash(fieldIdToIndex, structLikeWrapper);
         }
     }
 

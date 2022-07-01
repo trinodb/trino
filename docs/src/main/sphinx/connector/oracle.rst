@@ -400,6 +400,69 @@ supports the following statements:
 
 .. include:: alter-table-limitation.fragment
 
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access Oracle.
+
+.. _oracle-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to Oracle, because the full query is pushed down and
+processed in Oracle. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+As a simple example, to select an entire table::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        oracle.system.query(
+          query => 'SELECT
+            *
+          FROM
+            tpch.nation'
+        )
+      );
+
+As a practical example, you can use the
+`MODEL clause from Oracle SQL <https://docs.oracle.com/cd/B19306_01/server.102/b14223/sqlmodel.htm>`_::
+
+    SELECT
+      SUBSTR(country, 1, 20) country,
+      SUBSTR(product, 1, 15) product,
+      year,
+      sales
+    FROM
+      TABLE(
+        oracle.system.query(
+          query => 'SELECT
+            *
+          FROM
+            sales_view
+          MODEL
+            RETURN UPDATED ROWS
+            MAIN
+              simple_model
+            PARTITION BY
+              country
+            MEASURES
+              sales
+            RULES
+              (sales['Bounce', 2001] = 1000,
+              sales['Bounce', 2002] = sales['Bounce', 2001] + sales['Bounce', 2000],
+              sales['Y Box', 2002] = sales['Y Box', 2001])
+          ORDER BY
+            country'
+        )
+      );
+
 Performance
 -----------
 
