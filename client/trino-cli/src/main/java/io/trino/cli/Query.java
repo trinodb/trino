@@ -50,7 +50,9 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_HEADER;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_AND_QUOTES;
+import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_QUOTES_AND_ESCAPE;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES;
+import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES_AND_ESCAPE;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.STANDARD;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static java.lang.String.format;
@@ -323,6 +325,10 @@ public class Query
                 return new CsvPrinter(fieldNames, writer, NO_HEADER_AND_QUOTES);
             case CSV_HEADER_UNQUOTED:
                 return new CsvPrinter(fieldNames, writer, NO_QUOTES);
+            case CSV_UNQUOTED_AND_UNESCAPED:
+                return new CsvPrinter(fieldNames, writer, NO_HEADER_QUOTES_AND_ESCAPE);
+            case CSV_HEADER_UNQUOTED_AND_UNESCAPED:
+                return new CsvPrinter(fieldNames, writer, NO_QUOTES_AND_ESCAPE);
             case TSV:
                 return new TsvPrinter(fieldNames, writer, false);
             case TSV_HEADER:

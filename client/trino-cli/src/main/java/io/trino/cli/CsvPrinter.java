@@ -38,18 +38,22 @@ public class CsvPrinter
 
     public enum CsvOutputFormat
     {
-        STANDARD(true, true),
-        NO_HEADER(false, true),
-        NO_QUOTES(true, false),
-        NO_HEADER_AND_QUOTES(false, false);
+        STANDARD(true, true, true),
+        NO_HEADER(false, true, true),
+        NO_QUOTES(true, false, true),
+        NO_QUOTES_AND_ESCAPE(true, false, false),
+        NO_HEADER_AND_QUOTES(false, false, true),
+        NO_HEADER_QUOTES_AND_ESCAPE(false, false, false);
 
-        private boolean header;
-        private boolean quote;
+        private final boolean header;
+        private final boolean quote;
+        private final boolean escape;
 
-        CsvOutputFormat(boolean header, boolean quote)
+        CsvOutputFormat(boolean header, boolean quote, boolean escape)
         {
             this.header = header;
             this.quote = quote;
+            this.escape = escape;
         }
 
         public boolean showHeader()
@@ -61,6 +65,11 @@ public class CsvPrinter
         {
             return quote;
         }
+
+        public boolean isEscaped()
+        {
+            return escape;
+        }
     }
 
     public CsvPrinter(List<String> fieldNames, Writer writer, CsvOutputFormat csvOutputFormat)
@@ -68,7 +77,9 @@ public class CsvPrinter
         requireNonNull(fieldNames, "fieldNames is null");
         requireNonNull(writer, "writer is null");
         this.fieldNames = ImmutableList.copyOf(fieldNames);
-        this.writer = csvOutputFormat.isQuoted() ? new CSVWriter(writer) : new CSVWriter(writer, CSVWriter.DEFAULT_SEPARATOR, CSVWriter.NO_QUOTE_CHARACTER, CSVWriter.NO_ESCAPE_CHARACTER);
+        this.writer = csvOutputFormat.isQuoted() ? new CSVWriter(writer) :
+                (csvOutputFormat.isEscaped() ? new CSVWriter(writer, CSVWriter.DEFAULT_SEPARATOR, CSVWriter.NO_QUOTE_CHARACTER) :
+                        new CSVWriter(writer, CSVWriter.DEFAULT_SEPARATOR, CSVWriter.NO_QUOTE_CHARACTER, CSVWriter.NO_ESCAPE_CHARACTER));
         this.needHeader = csvOutputFormat.showHeader();
     }
 

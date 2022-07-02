@@ -22,7 +22,9 @@ import java.util.List;
 
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_HEADER;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_AND_QUOTES;
+import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_QUOTES_AND_ESCAPE;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES;
+import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES_AND_ESCAPE;
 import static io.trino.cli.CsvPrinter.CsvOutputFormat.STANDARD;
 import static io.trino.cli.TestAlignedTablePrinter.item;
 import static io.trino.cli.TestAlignedTablePrinter.list;
@@ -110,12 +112,14 @@ public class TestCsvPrinter
         printRows(
                 printer,
                 row("hello", "world", 123),
+                row("\"escape_f", "escape_b\"", 0),
                 row("a", null, 4.5));
         printer.finish();
 
         String expected = "" +
                 "first,last,quantity\n" +
                 "hello,world,123\n" +
+                "\"\"escape_f,escape_b\"\",0\n" +
                 "a,,4.5\n";
 
         assertEquals(writer.getBuffer().toString(), expected);
@@ -145,11 +149,13 @@ public class TestCsvPrinter
         printRows(
                 printer,
                 row("hello", "world", 123),
+                row("\"escape_f", "escape_b\"", 0),
                 row("a", null, 4.5));
         printer.finish();
 
         String expected = "" +
                 "hello,world,123\n" +
+                "\"\"escape_f,escape_b\"\",0\n" +
                 "a,,4.5\n";
 
         assertEquals(writer.getBuffer().toString(), expected);
@@ -166,6 +172,53 @@ public class TestCsvPrinter
         printer.finish();
 
         String expected = "";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testCsvPrintingNoHeaderWithoutQuotesAndEscape()
+            throws Exception
+    {
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, NO_HEADER_QUOTES_AND_ESCAPE);
+
+        printRows(
+                printer,
+                row("hello", "\"world\"", 123),
+                row("\"escape_f", "escape_b\"", 0),
+                row("a", null, 4.5));
+        printer.finish();
+
+        String expected = "" +
+                "hello,\"world\",123\n" +
+                "\"escape_f,escape_b\",0\n" +
+                "a,,4.5\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testCsvPrintingWithoutQuotesAndEscape()
+            throws Exception
+    {
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, NO_QUOTES_AND_ESCAPE);
+
+        printRows(
+                printer,
+                row("hello", "world", 123),
+                row("\"escape_f", "escape_b\"", 0),
+                row("a", null, 4.5));
+        printer.finish();
+
+        String expected = "" +
+                "first,last,quantity\n" +
+                "hello,world,123\n" +
+                "\"escape_f,escape_b\",0\n" +
+                "a,,4.5\n";
 
         assertEquals(writer.getBuffer().toString(), expected);
     }

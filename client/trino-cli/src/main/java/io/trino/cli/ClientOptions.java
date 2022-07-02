@@ -195,6 +195,8 @@ public class ClientOptions
         CSV_HEADER,
         CSV_UNQUOTED,
         CSV_HEADER_UNQUOTED,
+        CSV_UNQUOTED_AND_UNESCAPED,
+        CSV_HEADER_UNQUOTED_AND_UNESCAPED,
         JSON,
         NULL
     }
