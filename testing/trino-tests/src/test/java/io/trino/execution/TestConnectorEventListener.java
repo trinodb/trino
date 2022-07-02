@@ -14,40 +14,42 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.Session;
+import com.google.common.io.Closer;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.execution.EventsCollector.EventFilters;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.eventlistener.QueryCompletedEvent;
+import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
 
-import static io.trino.testing.TestingSession.testSessionBuilder;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestConnectorEventListener
 {
-    private final EventsCollector generatedEvents = new EventsCollector();
+    private final EventsCollector generatedEvents = new EventsCollector(EventFilters.builder()
+            .setSplitCompletedFilter(event -> false)
+            .build());
 
-    private DistributedQueryRunner queryRunner;
-    private Session session;
+    private Closer closer;
     private EventsAwaitingQueries queries;
 
     @BeforeClass
     public void setUp()
             throws Exception
     {
-        session = testSessionBuilder()
-                .setSystemProperty("task_concurrency", "1")
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .setClientInfo("{\"clientVersion\":\"testVersion\"}")
-                .build();
-        queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
+        closer = Closer.create();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION).setNodeCount(1).build();
         queryRunner.installPlugin(new Plugin()
         {
             @Override
@@ -58,26 +60,39 @@ public class TestConnectorEventListener
                         .build());
             }
         });
+        closer.register(queryRunner);
         queryRunner.createCatalog("mock-catalog", "mock");
         queries = new EventsAwaitingQueries(generatedEvents, queryRunner, Duration.ofSeconds(1));
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
+            throws IOException
     {
-        queryRunner.close();
-        queryRunner = null;
+        if (closer != null) {
+            closer.close();
+        }
+        closer = null;
     }
 
     @Test
     public void testConnectorEventHandlerReceivingEvents()
             throws Exception
     {
-        queries.runQueryAndWaitForEvents("SELECT 1", 3, session);
+        queries.runQueryAndWaitForEvents("SELECT 1", 2, TEST_SESSION);
 
-        assertThat(generatedEvents.getQueryCreatedEvents())
-                .size().isEqualTo(1);
-        assertThat(generatedEvents.getQueryCompletedEvents())
-                .size().isEqualTo(1);
+        List<QueryCreatedEvent> queryCreatedEvents = generatedEvents.getQueryCreatedEvents();
+        List<QueryCompletedEvent> queryCompletedEvents = generatedEvents.getQueryCompletedEvents();
+        List<Object> allEvents = ImmutableList.builder()
+                .addAll(queryCreatedEvents)
+                .addAll(queryCompletedEvents)
+                .build();
+        List<String> eventTypes = allEvents.stream().map(event -> event.getClass().getSimpleName()).sorted().collect(toImmutableList());
+        assertThat(allEvents)
+                .size().withFailMessage(() -> "got events: " + eventTypes).isEqualTo(2);
+        assertThat(queryCreatedEvents)
+                .size().withFailMessage(() -> "got events: " + eventTypes).isEqualTo(1);
+        assertThat(queryCompletedEvents)
+                .size().withFailMessage(() -> "got events: " + eventTypes).isEqualTo(1);
     }
 }
