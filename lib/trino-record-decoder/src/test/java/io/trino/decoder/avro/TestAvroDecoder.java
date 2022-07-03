@@ -29,6 +29,7 @@ import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import org.apache.avro.AvroTypeException;
@@ -64,10 +65,13 @@ import static io.trino.decoder.util.DecoderTestUtil.checkIsNull;
 import static io.trino.decoder.util.DecoderTestUtil.checkValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -370,12 +374,38 @@ public class TestAvroDecoder
     }
 
     @Test
+    public void testLongDecodedAsTimestampMillis()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", TIMESTAMP_MILLIS, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}", 1658463479L);
+        checkValue(decodedRow, row, 1658463479L * Timestamps.MICROSECONDS_PER_MILLISECOND);
+    }
+
+    @Test
     public void testLongDecodedAsBigint()
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", BIGINT, "id", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "\"long\"", 493857959588286460L);
 
         checkValue(decodedRow, row, 493857959588286460L);
+    }
+
+    @Test
+    public void testIntDecodedAsDate()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", DATE, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\":\"int\",\"logicalType\":\"date\"}", 100);
+
+        checkValue(decodedRow, row, 100);
+    }
+
+    @Test
+    public void testIntDecodedAsTimeMillis()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", TIME_MILLIS, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\":\"int\",\"logicalType\":\"time-millis\"}", 100);
+
+        checkValue(decodedRow, row, 100L * Timestamps.PICOSECONDS_PER_MILLISECOND);
     }
 
     @Test
@@ -1200,6 +1230,9 @@ public class TestAvroDecoder
         singleColumnDecoder(new ArrayType(BigintType.BIGINT));
         singleColumnDecoder(VARCHAR_MAP_TYPE);
         singleColumnDecoder(DOUBLE_MAP_TYPE);
+        singleColumnDecoder(DATE);
+        singleColumnDecoder(TIME_MILLIS);
+        singleColumnDecoder(TIMESTAMP_MILLIS);
 
         // some unsupported types
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DecimalType.createDecimalType(10, 4)));

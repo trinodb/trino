@@ -25,6 +25,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
@@ -32,6 +33,9 @@ import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
@@ -65,7 +69,10 @@ public class AvroColumnDecoder
             BigintType.BIGINT,
             RealType.REAL,
             DoubleType.DOUBLE,
-            VarbinaryType.VARBINARY);
+            VarbinaryType.VARBINARY,
+            DateType.DATE,
+            TimeType.TIME_MILLIS,
+            TimestampType.TIMESTAMP_MILLIS);
 
     private final Type columnType;
     private final String columnMapping;
@@ -185,6 +192,12 @@ public class AvroColumnDecoder
         public long getLong()
         {
             if (value instanceof Long || value instanceof Integer) {
+                if (columnType == TimestampType.TIMESTAMP_MILLIS) {
+                    return ((Number) value).longValue() * Timestamps.MICROSECONDS_PER_MILLISECOND;
+                }
+                if (columnType == TimeType.TIME_MILLIS) {
+                    return ((Number) value).longValue() * Timestamps.PICOSECONDS_PER_MILLISECOND;
+                }
                 return ((Number) value).longValue();
             }
             if (value instanceof Float && columnType == RealType.REAL) {
@@ -275,7 +288,17 @@ public class AvroColumnDecoder
             return;
         }
 
-        if ((value instanceof Integer || value instanceof Long) && (type instanceof BigintType || type instanceof IntegerType || type instanceof SmallintType || type instanceof TinyintType)) {
+        if (type == TimestampType.TIMESTAMP_MILLIS) {
+            type.writeLong(blockBuilder, ((Number) value).longValue() * Timestamps.MICROSECONDS_PER_MILLISECOND);
+            return;
+        }
+
+        if (type == TimeType.TIME_MILLIS) {
+            type.writeLong(blockBuilder, ((Number) value).longValue() * Timestamps.PICOSECONDS_PER_MILLISECOND);
+            return;
+        }
+
+        if ((value instanceof Integer || value instanceof Long) && (type instanceof BigintType || type instanceof IntegerType || type instanceof SmallintType || type instanceof TinyintType || type instanceof DateType)) {
             type.writeLong(blockBuilder, ((Number) value).longValue());
             return;
         }
