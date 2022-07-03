@@ -13,9 +13,29 @@
  */
 package io.trino.connector;
 
-public interface ConnectorServicesProvider
-{
-    void loadInitialCatalogs();
+import io.airlift.configuration.Config;
 
-    ConnectorServices getConnectorServices(CatalogHandle catalogHandle);
+import javax.validation.constraints.NotNull;
+
+public class CatalogManagerConfig
+{
+    public enum CatalogMangerKind
+    {
+        STATIC, DYNAMIC
+    }
+
+    private CatalogMangerKind catalogMangerKind = CatalogMangerKind.STATIC;
+
+    @NotNull
+    public CatalogMangerKind getCatalogMangerKind()
+    {
+        return catalogMangerKind;
+    }
+
+    @Config("catalog.management")
+    public CatalogManagerConfig setCatalogMangerKind(CatalogMangerKind catalogMangerKind)
+    {
+        this.catalogMangerKind = catalogMangerKind;
+        return this;
+    }
 }

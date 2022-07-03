@@ -41,7 +41,6 @@ import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.ConnectorServicesProvider;
-import io.trino.connector.StaticCatalogManager;
 import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.eventlistener.EventListenerConfig;
@@ -152,7 +151,7 @@ public class TestingTrinoServer
     private final boolean preserveData;
     private final LifeCycleManager lifeCycleManager;
     private final PluginManager pluginManager;
-    private final StaticCatalogManager catalogManager;
+    private final CatalogManager catalogManager;
     private final TestingHttpServer server;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
@@ -237,6 +236,7 @@ public class TestingTrinoServer
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
+                .put("catalog.management", "dynamic")
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
                 .put("exchange.client-threads", "4")
@@ -309,7 +309,7 @@ public class TestingTrinoServer
 
         pluginManager = injector.getInstance(PluginManager.class);
 
-        catalogManager = injector.getInstance(StaticCatalogManager.class);
+        catalogManager = injector.getInstance(CatalogManager.class);
 
         server = injector.getInstance(TestingHttpServer.class);
         transactionManager = injector.getInstance(TransactionManager.class);

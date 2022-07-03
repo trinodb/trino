@@ -13,7 +13,6 @@
  */
 package io.trino.connector;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -22,6 +21,7 @@ import io.airlift.log.Logger;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
+import io.trino.spi.TrinoException;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -46,6 +46,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -123,6 +124,7 @@ public class StaticCatalogManager
         catalogs.clear();
     }
 
+    @Override
     public void loadInitialCatalogs()
     {
         if (!state.compareAndSet(State.CREATED, State.INITIALIZED)) {
@@ -169,19 +171,9 @@ public class StaticCatalogManager
         }
     }
 
-    @VisibleForTesting
+    @Override
     public CatalogHandle createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(connectorName, "connectorName is null");
-        requireNonNull(properties, "properties is null");
-
-        checkState(state.get() != State.STOPPED, "Catalog manager is stopped");
-
-        CatalogConnector catalog = catalogFactory.createCatalog(new CatalogProperties(createRootCatalogHandle(catalogName), connectorName, properties));
-        if (catalogs.putIfAbsent(catalogName, catalog) != null) {
-            throw new IllegalStateException(String.format("Catalog '%s' already exists", catalogName));
-        }
-        return catalog.getCatalogHandle();
+        throw new TrinoException(NOT_SUPPORTED, "Create catalog is not supported by the static catalog manager");
     }
 }
