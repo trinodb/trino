@@ -52,7 +52,7 @@ public class CatalogManagerModule
                 GlobalSystemConnector globalSystemConnector)
         {
             lazyCatalogFactory.setCatalogFactory(defaultCatalogFactory);
-            catalogManager.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, globalSystemConnector);
+            catalogManager.registerGlobalSystemConnector(globalSystemConnector);
         }
     }
 }
