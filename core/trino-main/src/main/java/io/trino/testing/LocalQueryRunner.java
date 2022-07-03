@@ -473,7 +473,7 @@ public class LocalQueryRunner
                 handleResolver,
                 exchangeManagerRegistry);
 
-        catalogManager.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, globalSystemConnector);
+        catalogManager.registerGlobalSystemConnector(globalSystemConnector);
 
         // rewrite session to use managed SessionPropertyMetadata
         Optional<TransactionId> transactionId = withInitialTransaction ? Optional.of(transactionManager.beginTransaction(true)) : defaultSession.getTransactionId();

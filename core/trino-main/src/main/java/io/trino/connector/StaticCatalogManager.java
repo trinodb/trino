@@ -13,17 +13,17 @@
  */
 package io.trino.connector;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
-import io.trino.spi.connector.Connector;
 
 import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -58,11 +59,9 @@ public class StaticCatalogManager
     private final CatalogFactory catalogFactory;
     private final List<CatalogProperties> catalogProperties;
 
-    @GuardedBy("this")
     private final ConcurrentMap<String, CatalogConnector> catalogs = new ConcurrentHashMap<>();
 
-    @GuardedBy("this")
-    private State state = State.CREATED;
+    private final AtomicReference<State> state = new AtomicReference<>(State.CREATED);
 
     @Inject
     public StaticCatalogManager(CatalogFactory catalogFactory, StaticCatalogManagerConfig config)
@@ -73,6 +72,7 @@ public class StaticCatalogManager
         ImmutableList.Builder<CatalogProperties> catalogProperties = ImmutableList.builder();
         for (File file : listCatalogFiles(config.getCatalogConfigurationDir())) {
             String catalogName = Files.getNameWithoutExtension(file.getName());
+            checkArgument(!catalogName.equals(GlobalSystemConnector.NAME), "Catalog name SYSTEM is reserved for internal usage");
             if (disabledCatalogs.contains(catalogName)) {
                 log.info("Skipping disabled catalog %s", catalogName);
                 continue;
@@ -111,12 +111,11 @@ public class StaticCatalogManager
     }
 
     @PreDestroy
-    public synchronized void stop()
+    public void stop()
     {
-        if (state == State.STOPPED) {
+        if (state.getAndSet(State.STOPPED) == State.STOPPED) {
             return;
         }
-        state = State.STOPPED;
 
         for (CatalogConnector connector : catalogs.values()) {
             connector.shutdown();
@@ -124,17 +123,11 @@ public class StaticCatalogManager
         catalogs.clear();
     }
 
-    public synchronized void loadInitialCatalogs()
+    public void loadInitialCatalogs()
     {
-        switch (state) {
-            case CREATED:
-                break;
-            case INITIALIZED:
-                return;
-            case STOPPED:
-                throw new IllegalStateException("Catalog manager is stopped");
+        if (!state.compareAndSet(State.CREATED, State.INITIALIZED)) {
+            return;
         }
-        state = State.INITIALIZED;
 
         for (CatalogProperties catalog : catalogProperties) {
             String catalogName = catalog.getCatalogHandle().getCatalogName();
@@ -146,52 +139,49 @@ public class StaticCatalogManager
     }
 
     @Override
-    public synchronized Set<String> getCatalogNames()
+    public Set<String> getCatalogNames()
     {
         return ImmutableSet.copyOf(catalogs.keySet());
     }
 
     @Override
-    public synchronized Optional<Catalog> getCatalog(String catalogName)
+    public Optional<Catalog> getCatalog(String catalogName)
     {
         return Optional.ofNullable(catalogs.get(catalogName))
                 .map(CatalogConnector::getCatalog);
     }
 
     @Override
-    public synchronized ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
+    public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
     {
         CatalogConnector catalogConnector = catalogs.get(catalogHandle.getCatalogName());
         checkArgument(catalogConnector != null, "No catalog '%s'", catalogHandle.getCatalogName());
         return catalogConnector.getMaterializedConnector(catalogHandle.getType());
     }
 
-    public synchronized CatalogHandle createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public void registerGlobalSystemConnector(GlobalSystemConnector connector)
+    {
+        requireNonNull(connector, "connector is null");
+
+        CatalogConnector catalog = catalogFactory.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, connector);
+        if (catalogs.putIfAbsent(GlobalSystemConnector.NAME, catalog) != null) {
+            throw new IllegalStateException("Global system catalog already registered");
+        }
+    }
+
+    @VisibleForTesting
+    public CatalogHandle createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(connectorName, "connectorName is null");
         requireNonNull(properties, "properties is null");
 
-        checkState(state != State.STOPPED, "Catalog manager is stopped");
+        checkState(state.get() != State.STOPPED, "Catalog manager is stopped");
 
-        checkArgument(!catalogs.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
-        CatalogProperties catalogProperties = new CatalogProperties(createRootCatalogHandle(catalogName), connectorName, properties);
-        CatalogConnector catalog = catalogFactory.createCatalog(catalogProperties);
-        catalogs.put(catalogName, catalog);
+        CatalogConnector catalog = catalogFactory.createCatalog(new CatalogProperties(createRootCatalogHandle(catalogName), connectorName, properties));
+        if (catalogs.putIfAbsent(catalogName, catalog) != null) {
+            throw new IllegalStateException(String.format("Catalog '%s' already exists", catalogName));
+        }
         return catalog.getCatalogHandle();
-    }
-
-    public synchronized void createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector)
-    {
-        requireNonNull(catalogHandle, "catalogHandle is null");
-        requireNonNull(connectorName, "connectorName is null");
-        requireNonNull(connector, "connector is null");
-
-        checkState(state != State.STOPPED, "Catalog manager is stopped");
-        String catalogName = catalogHandle.getCatalogName();
-        checkArgument(!catalogs.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
-
-        CatalogConnector catalog = catalogFactory.createCatalog(catalogHandle, connectorName, connector);
-        catalogs.put(catalogName, catalog);
     }
 }
