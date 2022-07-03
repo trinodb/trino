@@ -27,10 +27,9 @@ import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorServicesProvider;
+import io.trino.connector.CoordinatorDynamicCatalogManager;
 import io.trino.connector.DefaultCatalogFactory;
 import io.trino.connector.LazyCatalogFactory;
-import io.trino.connector.StaticCatalogManager;
-import io.trino.connector.StaticCatalogManagerConfig;
 import io.trino.connector.system.AnalyzePropertiesSystemTable;
 import io.trino.connector.system.CatalogSystemTable;
 import io.trino.connector.system.ColumnPropertiesSystemTable;
@@ -291,7 +290,7 @@ public class LocalQueryRunner
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
     private final JoinCompiler joinCompiler;
     private final CatalogFactory catalogFactory;
-    private final StaticCatalogManager catalogManager;
+    private final CoordinatorDynamicCatalogManager catalogManager;
     private final PluginManager pluginManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
 
@@ -351,7 +350,7 @@ public class LocalQueryRunner
         this.optimizerConfig = new OptimizerConfig();
         LazyCatalogFactory catalogFactory = new LazyCatalogFactory();
         this.catalogFactory = catalogFactory;
-        this.catalogManager = new StaticCatalogManager(catalogFactory, new StaticCatalogManagerConfig());
+        this.catalogManager = new CoordinatorDynamicCatalogManager(catalogFactory);
         this.transactionManager = InMemoryTransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 yieldExecutor,
