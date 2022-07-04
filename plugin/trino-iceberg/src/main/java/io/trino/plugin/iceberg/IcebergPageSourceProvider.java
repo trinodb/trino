@@ -37,6 +37,7 @@ import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.predicate.Predicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
+import io.trino.plugin.base.classloader.ClassLoaderSafeUpdatablePageSource;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -336,17 +337,19 @@ public class IcebergPageSourceProvider
                 table.getStorageProperties(),
                 maxOpenPartitions);
 
-        return new IcebergPageSource(
-                tableSchema,
-                icebergColumns,
-                requiredColumns,
-                readColumns,
-                dataPageSource.get(),
-                projectionsAdapter,
-                Optional.of(deleteFilter).filter(filter -> filter.hasPosDeletes() || filter.hasEqDeletes()),
-                positionDeleteSink,
-                updatedRowPageSinkSupplier,
-                table.getUpdatedColumns());
+        return new ClassLoaderSafeUpdatablePageSource(
+                new IcebergPageSource(
+                        tableSchema,
+                        icebergColumns,
+                        requiredColumns,
+                        readColumns,
+                        dataPageSource.get(),
+                        projectionsAdapter,
+                        Optional.of(deleteFilter).filter(filter -> filter.hasPosDeletes() || filter.hasEqDeletes()),
+                        positionDeleteSink,
+                        updatedRowPageSinkSupplier,
+                        table.getUpdatedColumns()),
+                getClass().getClassLoader());
     }
 
     private ReaderPageSource createDataPageSource(
