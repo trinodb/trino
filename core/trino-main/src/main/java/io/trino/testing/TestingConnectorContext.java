@@ -46,9 +46,7 @@ public final class TestingConnectorContext
     {
         TypeOperators typeOperators = new TypeOperators();
         pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), new BlockTypeOperators(typeOperators));
-        InMemoryNodeManager inMemoryNodeManager = new InMemoryNodeManager();
-        inMemoryNodeManager.addCurrentNodeCatalog(TEST_CATALOG_HANDLE);
-        nodeManager = new ConnectorAwareNodeManager(inMemoryNodeManager, "testenv", TEST_CATALOG_HANDLE, true);
+        nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", TEST_CATALOG_HANDLE, true);
     }
 
     @Override
