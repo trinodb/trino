@@ -180,7 +180,8 @@ public class DeltaLakePageSourceProvider
                 parquetDateTimeZone,
                 fileFormatDataSourceStats,
                 parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                        .withUseColumnIndex(isParquetUseColumnIndex(session)));
+                        .withUseColumnIndex(isParquetUseColumnIndex(session)),
+                Optional.empty());
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 

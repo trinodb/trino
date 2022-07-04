@@ -578,7 +578,8 @@ public class DeltaLakeUpdatablePageSource
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
                 parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(this.session))
-                        .withUseColumnIndex(isParquetUseColumnIndex(this.session)));
+                        .withUseColumnIndex(isParquetUseColumnIndex(this.session)),
+                Optional.empty());
     }
 
     private DeltaLakeWriter createWriter(Path targetFile, List<DeltaLakeColumnMetadata> allColumns, List<DeltaLakeColumnHandle> dataColumns)

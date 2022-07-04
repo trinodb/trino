@@ -35,7 +35,8 @@ public class TestParquetWriterConfig
                 .setParquetOptimizedWriterEnabled(false)
                 .setBlockSize(DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE))
                 .setPageSize(DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE))
-                .setBatchSize(ParquetWriterOptions.DEFAULT_BATCH_SIZE));
+                .setBatchSize(ParquetWriterOptions.DEFAULT_BATCH_SIZE)
+                .setValidationPercentage(5));
     }
 
     @Test
@@ -60,13 +61,15 @@ public class TestParquetWriterConfig
                 "parquet.experimental-optimized-writer.enabled", "true",
                 "parquet.writer.block-size", "234MB",
                 "parquet.writer.page-size", "11MB",
-                "parquet.writer.batch-size", "100");
+                "parquet.writer.batch-size", "100",
+                "parquet.optimized-writer.validation-percentage", "10");
 
         ParquetWriterConfig expected = new ParquetWriterConfig()
                 .setParquetOptimizedWriterEnabled(true)
                 .setBlockSize(DataSize.of(234, MEGABYTE))
                 .setPageSize(DataSize.of(11, MEGABYTE))
-                .setBatchSize(100);
+                .setBatchSize(100)
+                .setValidationPercentage(10);
 
         assertFullMapping(properties, expected);
     }

@@ -484,6 +484,12 @@ with Parquet files performed by the Hive connector.
         definition. The equivalent catalog session property is
         ``parquet_use_column_names``.
       - ``true``
+    * - ``parquet.optimized-writer.validation-percentage``
+      - Percentage of parquet files to validate after write by re-reading the whole file
+        when ``parquet.experimental-optimized-writer.enabled`` is set to ``true``.
+        The equivalent catalog session property is ``parquet_optimized_writer_validation_percentage``.
+        Validation can be turned off by setting this property to ``0``.
+      - ``5``
 
 
 Metastore configuration properties
