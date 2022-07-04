@@ -15,13 +15,22 @@ package io.trino.tests.product.deltalake.util;
 
 import io.trino.tempto.query.QueryResult;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public final class DeltaLakeTestUtils
 {
+    public static final String DATABRICKS_104_RUNTIME_VERSION = "10.4";
+
     private DeltaLakeTestUtils() {}
+
+    public static String getDatabricksRuntimeVersion()
+    {
+        QueryResult result = onDelta().executeQuery("SELECT java_method('java.lang.System', 'getenv', 'DATABRICKS_RUNTIME_VERSION')");
+        return firstNonNull((String) result.row(0).get(0), "unknown");
+    }
 
     public static String getColumnCommentOnTrino(String schemaName, String tableName, String columnName)
     {
