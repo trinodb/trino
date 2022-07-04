@@ -115,6 +115,8 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -145,6 +147,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
@@ -179,6 +182,7 @@ import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
@@ -319,7 +323,7 @@ public class IcebergPageSourceProvider
         ReaderPageSource dataPageSource = createDataPageSource(
                 session,
                 hdfsContext,
-                new Path(split.getPath()),
+                split.getPath(),
                 split.getStart(),
                 split.getLength(),
                 fileSize,
@@ -451,7 +455,7 @@ public class IcebergPageSourceProvider
         return createDataPageSource(
                 session,
                 new HdfsContext(session),
-                new Path(delete.path().toString()),
+                delete.path().toString(),
                 0,
                 delete.fileSizeInBytes(),
                 delete.fileSizeInBytes(),
@@ -468,7 +472,7 @@ public class IcebergPageSourceProvider
     public ReaderPageSource createDataPageSource(
             ConnectorSession session,
             HdfsContext hdfsContext,
-            Path path,
+            String path,
             long start,
             long length,
             long fileSize,
@@ -480,13 +484,15 @@ public class IcebergPageSourceProvider
             Optional<NameMapping> nameMapping,
             Map<Integer, Optional<String>> partitionKeys)
     {
+        Path hadoopPath = new Path(hadoopPath(path));
         switch (fileFormat) {
             case ORC:
                 return createOrcPageSource(
                         hdfsEnvironment,
                         session.getIdentity(),
-                        hdfsEnvironment.getConfiguration(hdfsContext, path),
+                        hdfsEnvironment.getConfiguration(hdfsContext, hadoopPath),
                         path,
+                        hadoopPath,
                         start,
                         length,
                         fileSize,
@@ -510,8 +516,9 @@ public class IcebergPageSourceProvider
                 return createParquetPageSource(
                         hdfsEnvironment,
                         session.getIdentity(),
-                        hdfsEnvironment.getConfiguration(hdfsContext, path),
+                        hdfsEnvironment.getConfiguration(hdfsContext, hadoopPath),
                         path,
+                        hadoopPath,
                         start,
                         length,
                         fileSize,
@@ -527,6 +534,7 @@ public class IcebergPageSourceProvider
                 return createAvroPageSource(
                         fileIoProvider.createFileIo(hdfsContext, session.getQueryId()),
                         path,
+                        hadoopPath,
                         start,
                         length,
                         fileModifiedTime,
@@ -542,7 +550,8 @@ public class IcebergPageSourceProvider
             HdfsEnvironment hdfsEnvironment,
             ConnectorIdentity identity,
             Configuration configuration,
-            Path path,
+            String path,
+            Path hadoopPath,
             long start,
             long length,
             long fileSize,
@@ -557,10 +566,10 @@ public class IcebergPageSourceProvider
     {
         OrcDataSource orcDataSource = null;
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(path));
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, hadoopPath, configuration);
+            FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(hadoopPath));
             orcDataSource = new HdfsOrcDataSource(
-                    new OrcDataSourceId(path.toString()),
+                    new OrcDataSourceId(hadoopPath.toString()),
                     fileSize,
                     options,
                     inputStream,
@@ -611,7 +620,7 @@ public class IcebergPageSourceProvider
                             deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName()))));
                 }
                 else if (column.isPathColumn()) {
-                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path.toString()))));
+                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path))));
                 }
                 else if (column.isFileModifiedTimeColumn()) {
                     columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(fileModifiedTime.orElseThrow(), UTC_KEY))));
@@ -693,7 +702,7 @@ public class IcebergPageSourceProvider
             if (e instanceof TrinoException) {
                 throw (TrinoException) e;
             }
-            String message = format("Error opening Iceberg split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage());
+            String message = format("Error opening Iceberg split %s (offset=%s, length=%s): %s", hadoopPath, start, length, e.getMessage());
             if (e instanceof BlockMissingException) {
                 throw new TrinoException(ICEBERG_MISSING_DATA, message, e);
             }
@@ -889,7 +898,8 @@ public class IcebergPageSourceProvider
             HdfsEnvironment hdfsEnvironment,
             ConnectorIdentity identity,
             Configuration configuration,
-            Path path,
+            String path,
+            Path hadoopPath,
             long start,
             long length,
             long fileSize,
@@ -905,9 +915,9 @@ public class IcebergPageSourceProvider
 
         ParquetDataSource dataSource = null;
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(path));
-            dataSource = new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), fileSize, inputStream, fileFormatDataSourceStats, options);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, hadoopPath, configuration);
+            FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(hadoopPath));
+            dataSource = new HdfsParquetDataSource(new ParquetDataSourceId(hadoopPath.toString()), fileSize, inputStream, fileFormatDataSourceStats, options);
             ParquetDataSource theDataSource = dataSource; // extra variable required for lambda below
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(identity, () -> MetadataReader.readFooter(theDataSource));
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
@@ -978,7 +988,7 @@ public class IcebergPageSourceProvider
                             deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName())));
                 }
                 else if (column.isPathColumn()) {
-                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path.toString())));
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path)));
                 }
                 else if (column.isFileModifiedTimeColumn()) {
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(fileModifiedTime.orElseThrow(), UTC_KEY)));
@@ -1036,7 +1046,7 @@ public class IcebergPageSourceProvider
             if (e instanceof TrinoException) {
                 throw (TrinoException) e;
             }
-            String message = format("Error opening Iceberg split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage());
+            String message = format("Error opening Iceberg split %s (offset=%s, length=%s): %s", hadoopPath, start, length, e.getMessage());
 
             if (e instanceof ParquetCorruptionException) {
                 throw new TrinoException(ICEBERG_BAD_DATA, message, e);
@@ -1051,7 +1061,8 @@ public class IcebergPageSourceProvider
 
     private ReaderPageSource createAvroPageSource(
             FileIO fileIo,
-            Path path,
+            String path,
+            Path hadoopPath,
             long start,
             long length,
             OptionalLong fileModifiedTime,
@@ -1069,7 +1080,7 @@ public class IcebergPageSourceProvider
                 .orElse(columns);
 
         // The column orders in the generated schema might be different from the original order
-        try (DataFileStream<GenericRecord> avroFileReader = new DataFileStream<>(fileIo.newInputFile(path.toString()).newStream(), new GenericDatumReader<>())) {
+        try (DataFileStream<GenericRecord> avroFileReader = new DataFileStream<>(fileIo.newInputFile(hadoopPath.toString()).newStream(), new GenericDatumReader<>())) {
             org.apache.avro.Schema avroSchema = avroFileReader.getSchema();
             List<org.apache.avro.Schema.Field> fileFields = avroSchema.getFields();
             if (nameMapping.isPresent() && fileFields.stream().noneMatch(IcebergPageSourceProvider::hasId)) {
@@ -1089,7 +1100,7 @@ public class IcebergPageSourceProvider
                 org.apache.avro.Schema.Field field = fileColumnsByIcebergId.get(column.getId());
 
                 if (column.isPathColumn()) {
-                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path.toString())));
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path)));
                 }
                 else if (column.isFileModifiedTimeColumn()) {
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(fileModifiedTime.orElseThrow(), UTC_KEY)));
@@ -1117,7 +1128,7 @@ public class IcebergPageSourceProvider
             return new ReaderPageSource(
                     constantPopulatingPageSourceBuilder.build(new IcebergAvroPageSource(
                             fileIo,
-                            path.toString(),
+                            hadoopPath.toString(),
                             start,
                             length,
                             fileSchema,
@@ -1293,5 +1304,19 @@ public class IcebergPageSourceProvider
             return new TrinoException(ICEBERG_BAD_DATA, exception);
         }
         return new TrinoException(ICEBERG_CURSOR_ERROR, format("Failed to read ORC file: %s", dataSourceId), exception);
+    }
+
+    private static String hadoopPath(String path)
+    {
+        // hack to preserve the original path for S3 if necessary
+        Path hadoopPath = new Path(path);
+        if ("s3".equals(hadoopPath.toUri().getScheme()) && !path.equals(hadoopPath.toString())) {
+            if (hadoopPath.toUri().getFragment() != null) {
+                throw new TrinoException(ICEBERG_INVALID_METADATA, "Unexpected URI fragment in path: " + path);
+            }
+            URI uri = URI.create(path);
+            return uri + "#" + URLEncoder.encode(uri.getPath(), UTF_8);
+        }
+        return path;
     }
 }

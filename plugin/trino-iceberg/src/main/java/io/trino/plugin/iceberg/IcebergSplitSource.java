@@ -24,7 +24,6 @@ import io.airlift.units.Duration;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -36,7 +35,6 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -52,8 +50,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URI;
-import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -71,7 +67,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
@@ -80,7 +75,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -388,7 +382,7 @@ public class IcebergSplitSource
     {
         IcebergFileFormat fileFormat = IcebergFileFormat.fromIceberg(task.file().format());
         return new IcebergSplit(
-                hadoopPath(task.file().path().toString()),
+                task.file().path().toString(),
                 task.start(),
                 task.length(),
                 task.file().fileSizeInBytes(),
@@ -402,19 +396,5 @@ public class IcebergSplitSource
                         .map(DeleteFile::fromIceberg)
                         .collect(toImmutableList()),
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)));
-    }
-
-    private static String hadoopPath(String path)
-    {
-        // hack to preserve the original path for S3 if necessary
-        Path hadoopPath = new Path(path);
-        if ("s3".equals(hadoopPath.toUri().getScheme()) && !path.equals(hadoopPath.toString())) {
-            if (hadoopPath.toUri().getFragment() != null) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, "Unexpected URI fragment in path: " + path);
-            }
-            URI uri = URI.create(path);
-            return uri + "#" + URLEncoder.encode(uri.getPath(), UTF_8);
-        }
-        return path;
     }
 }
