@@ -1375,10 +1375,16 @@ public interface ConnectorMetadata
         return Optional.empty();
     }
 
+    default Optional<ConnectorTableHandle> getInsertedOrUpdatedRows(ConnectorSession session, ConnectorTableHandle handle, ConnectorTableVersion fromVersionExclusive)
+    {
+        return Optional.empty();
+    }
+
     /**
-     * Returns table handle that produces versioning grouping sets that were removed from table since `fromVersionExclusive`.
+     * Returns table handle that produces rows that were removed from table since `fromVersionExclusive`. Rows
+     * should minimally include versioning columns, but might contain subset or all table columns.
      */
-    default Optional<ConnectorTableHandle> getDeletedGroupingSets(ConnectorSession session, ConnectorTableHandle handle, ConnectorTableVersion fromVersionExclusive)
+    default Optional<ConnectorTableHandle> getDeletedRows(ConnectorSession session, ConnectorTableHandle handle, ConnectorTableVersion fromVersionExclusive)
     {
         return Optional.empty();
     }

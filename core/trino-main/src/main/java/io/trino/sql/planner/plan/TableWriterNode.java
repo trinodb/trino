@@ -29,9 +29,11 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
+import io.trino.metadata.TableVersion;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Table;
@@ -39,6 +41,7 @@ import io.trino.sql.tree.Table;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -402,12 +405,17 @@ public class TableWriterNode
         private final Table table;
         private final TableHandle storageTableHandle;
         private final List<TableHandle> sourceTableHandles;
+        private final Optional<List<Type>> versionedQueryTypes;
+        private final Optional<Map<TableHandle, TableVersion>> sourceTableVersions;
 
-        public RefreshMaterializedViewReference(Table table, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
+        public RefreshMaterializedViewReference(Table table, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles, Optional<List<Type>> versionedQueryTypes, Optional<Map<TableHandle, TableVersion>> sourceTableVersions)
+
         {
             this.table = requireNonNull(table, "table is null");
             this.storageTableHandle = requireNonNull(storageTableHandle, "storageTableHandle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
+            this.versionedQueryTypes = requireNonNull(versionedQueryTypes, "versionedQueryTypes is null");
+            this.sourceTableVersions = requireNonNull(sourceTableVersions, "sourceTableVersions is null");
         }
 
         public Table getTable()
@@ -423,6 +431,16 @@ public class TableWriterNode
         public List<TableHandle> getSourceTableHandles()
         {
             return sourceTableHandles;
+        }
+
+        public Optional<List<Type>> getVersionedQueryTypes()
+        {
+            return versionedQueryTypes;
+        }
+
+        public Optional<Map<TableHandle, TableVersion>> getSourceTableVersions()
+        {
+            return sourceTableVersions;
         }
 
         @Override

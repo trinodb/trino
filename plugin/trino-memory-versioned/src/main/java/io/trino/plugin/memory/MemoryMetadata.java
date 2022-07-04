@@ -16,6 +16,7 @@ package io.trino.plugin.memory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
@@ -251,7 +252,7 @@ public class MemoryMetadata
         TableInfo info = tables.get(handle.getId());
         if (handle.isDeletedRows()) {
             ColumnInfo columnInfo = info.getColumns().get(info.getKeyColumnIndex().orElseThrow());
-            return ImmutableMap.of(columnInfo.getName(), new MemoryColumnHandle(0, false));
+            return ImmutableMap.of(columnInfo.getName(), columnInfo.getHandle());
         }
         return info.getColumns().stream()
                 .collect(toImmutableMap(ColumnInfo::getName, ColumnInfo::getHandle));
@@ -550,8 +551,8 @@ public class MemoryMetadata
                     .map(ConnectorMaterializedViewDefinition.Column::getName)
                     .collect(toImmutableList());
             ConnectorMaterializedViewDefinition.Column keyColumn = getOnlyElement(layoutOptional.get().getVersioningColumns());
-            if (storageColumnNames.contains(keyColumn.getName())) {
-                keyColumnIndex = Optional.of(storageColumnNames.indexOf(keyColumn.getName()));
+            if (storageColumnNames.stream().anyMatch(keyColumn.getName()::equalsIgnoreCase)) {
+                keyColumnIndex = Optional.of(Iterables.indexOf(storageColumnNames, keyColumn.getName()::equalsIgnoreCase));
             }
             else {
                 keyColumnIndex = Optional.of(storageColumnNames.size());
@@ -755,7 +756,18 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized Optional<ConnectorTableHandle> getDeletedGroupingSets(ConnectorSession session, ConnectorTableHandle handle, ConnectorTableVersion fromVersionExclusive)
+    public Optional<ConnectorTableHandle> getInsertedOrUpdatedRows(ConnectorSession session, ConnectorTableHandle handle, ConnectorTableVersion fromVersionExclusive)
+    {
+        return getDataFrom(handle, fromVersionExclusive, false);
+    }
+
+    @Override
+    public synchronized Optional<ConnectorTableHandle> getDeletedRows(ConnectorSession session, ConnectorTableHandle handle, ConnectorTableVersion fromVersionExclusive)
+    {
+        return getDataFrom(handle, fromVersionExclusive, true);
+    }
+
+    private synchronized Optional<ConnectorTableHandle> getDataFrom(ConnectorTableHandle handle, ConnectorTableVersion fromVersionExclusive, boolean deletedRows)
     {
         MemoryTableHandle tableHandle = (MemoryTableHandle) handle;
         TableInfo info = requireNonNull(tables.get(tableHandle.getId()), "tableInfo is null");
@@ -770,7 +782,7 @@ public class MemoryMetadata
                             tableHandle.getTableName(),
                             Optional.of(rangeVersions),
                             Optional.empty(),
-                            true,
+                            deletedRows,
                             tableHandle.getMaterializedViewId());
                 });
     }

@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
@@ -24,6 +25,8 @@ import io.trino.cost.CostProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
+import io.trino.execution.VersioningQueriesExtractor;
+import io.trino.execution.VersioningQueriesExtractor.PlanWithVersioningSymbols;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.Metadata;
@@ -33,6 +36,7 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
+import io.trino.metadata.TableVersion;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -67,6 +71,8 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
+import io.trino.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
+import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
@@ -119,6 +125,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
@@ -416,21 +423,75 @@ public class LogicalPlanner
             TableHandle tableHandle,
             List<ColumnHandle> insertColumns,
             Optional<TableLayout> newTableLayout,
-            Optional<WriterTarget> materializedViewRefreshWriterTarget)
+            Optional<RefreshMaterializedViewReference> materializedViewRefreshWriterTarget)
     {
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
 
         Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap = buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator);
         RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.empty(), session, ImmutableMap.of());
-        RelationPlan plan = planner.process(query, null);
+        RelationPlan subPlan = planner.process(query, null);
 
-        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-        for (int i = 0; i < plan.getFieldMappings().size(); i++) {
-            if (!plan.getDescriptor().getFieldByIndex(i).isHidden()) {
-                builder.add(plan.getFieldMappings().get(i));
+        PlanNode root;
+        List<Symbol> visibleFieldMappings;
+        Optional<List<Type>> versionedQueryTypes = materializedViewRefreshWriterTarget.flatMap(RefreshMaterializedViewReference::getVersionedQueryTypes);
+        if (versionedQueryTypes.isPresent()) {
+            // insert projection that reorders output symbols according to view field mapping
+            Assignments.Builder outputs = Assignments.builder();
+            for (int i = 0; i < subPlan.getFieldMappings().size(); i++) {
+                if (!subPlan.getDescriptor().getFieldByIndex(i).isHidden()) {
+                    outputs.putIdentity(subPlan.getFieldMappings().get(i));
+                }
+            }
+            ProjectNode output = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), outputs.build());
+
+            // add versioning symbols for insert/update branch
+            VersioningQueriesExtractor extractor = new VersioningQueriesExtractor(metadata);
+            PlanWithVersioningSymbols planWithVersioningSymbols = extractor.extractInsertQuery(
+                            session,
+                            symbolAllocator,
+                            output,
+                            materializedViewRefreshWriterTarget.get().getSourceTableVersions())
+                    .orElseThrow(() -> new TrinoException(INVALID_VIEW, "Cannot propagate versioning symbols"));
+            root = planWithVersioningSymbols.getRoot();
+
+            // append delete rows part of query
+            Optional<Map<TableHandle, TableVersion>> sourceTableVersions = materializedViewRefreshWriterTarget.get().getSourceTableVersions();
+            if (sourceTableVersions.isPresent()) {
+                PlanNode deleteRoot = extractor.extractDeleteQuery(session, idAllocator, symbolAllocator, output, sourceTableVersions.get());
+                checkState(root.getOutputSymbols().size() == deleteRoot.getOutputSymbols().size());
+                ImmutableList.Builder<Symbol> unionOutputSymbols = ImmutableList.builder();
+                ImmutableListMultimap.Builder<Symbol, Symbol> unionSymbolMapping = ImmutableListMultimap.builder();
+                for (int i = 0; i < root.getOutputSymbols().size(); ++i) {
+                    Symbol newSymbol = symbolAllocator.newSymbol(root.getOutputSymbols().get(i));
+                    unionOutputSymbols.add(newSymbol);
+                    unionSymbolMapping.put(newSymbol, root.getOutputSymbols().get(i));
+                    unionSymbolMapping.put(newSymbol, deleteRoot.getOutputSymbols().get(i));
+                }
+                root = new UnionNode(
+                        idAllocator.getNextId(),
+                        ImmutableList.of(root, deleteRoot),
+                        unionSymbolMapping.build(),
+                        unionOutputSymbols.build());
+            }
+
+            visibleFieldMappings = root.getOutputSymbols();
+            List<Type> actualQueryTypes = visibleFieldMappings.stream()
+                    .map(symbol -> symbolAllocator.getTypes().get(symbol))
+                    .collect(toImmutableList());
+            if (!versionedQueryTypes.get().equals(actualQueryTypes)) {
+                throw new TrinoException(INVALID_VIEW, "Versioned query has mismatched types");
             }
         }
-        List<Symbol> visibleFieldMappings = builder.build();
+        else {
+            root = subPlan.getRoot();
+            ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
+            for (int i = 0; i < subPlan.getFieldMappings().size(); i++) {
+                if (!subPlan.getDescriptor().getFieldByIndex(i).isHidden()) {
+                    builder.add(subPlan.getFieldMappings().get(i));
+                }
+            }
+            visibleFieldMappings = builder.build();
+        }
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
         Assignments.Builder assignments = Assignments.builder();
@@ -467,7 +528,7 @@ public class LogicalPlanner
             }
         }
 
-        ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
+        ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), root, assignments.build());
 
         List<ColumnMetadata> insertedColumns = insertedColumnsBuilder.build();
         List<Field> fields = insertedColumns.stream()
@@ -475,7 +536,7 @@ public class LogicalPlanner
                 .collect(toImmutableList());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
 
-        plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols(), Optional.empty());
+        RelationPlan plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols(), Optional.empty());
 
         plan = planner.addRowFilters(
                 table,
@@ -564,10 +625,12 @@ public class LogicalPlanner
         TableHandle tableHandle = viewAnalysis.getTarget();
         Query query = viewAnalysis.getQuery();
         Optional<TableLayout> newTableLayout = metadata.getInsertLayout(session, viewAnalysis.getTarget());
-        TableWriterNode.RefreshMaterializedViewReference writerTarget = new TableWriterNode.RefreshMaterializedViewReference(
+        RefreshMaterializedViewReference writerTarget = new RefreshMaterializedViewReference(
                 viewAnalysis.getTable(),
                 tableHandle,
-                new ArrayList<>(analysis.getTables()));
+                new ArrayList<>(analysis.getTables()),
+                viewAnalysis.getVersionedQueryTypes(),
+                viewAnalysis.getSourceTableVersions());
         return getInsertPlan(analysis, viewAnalysis.getTable(), query, tableHandle, viewAnalysis.getColumns(), newTableLayout, Optional.of(writerTarget));
     }
 

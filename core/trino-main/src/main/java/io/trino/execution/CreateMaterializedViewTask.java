@@ -167,8 +167,8 @@ public class CreateMaterializedViewTask
         Plan plan = logicalPlanner.plan(analysis, query, CREATED, false);
 
         SymbolAllocator symbolAllocator = new SymbolAllocator(plan.getTypes().allTypes());
-        VersioningSymbolsExtractor extractor = new VersioningSymbolsExtractor(plannerContext.getMetadata());
-        return extractor.extractVersioningSymbols(session, symbolAllocator, plan.getRoot()).map(
+        VersioningQueriesExtractor extractor = new VersioningQueriesExtractor(plannerContext.getMetadata());
+        return extractor.extractInsertQuery(session, symbolAllocator, plan.getRoot(), Optional.empty()).map(
                 planWithVersioningSymbols -> new VersioningLayout(
                         planWithVersioningSymbols.getVersioningSymbols().stream()
                                 .map(symbol -> {

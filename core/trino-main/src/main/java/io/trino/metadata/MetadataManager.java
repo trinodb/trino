@@ -967,6 +967,24 @@ public final class MetadataManager
     }
 
     @Override
+    public Optional<TableHandle> getInsertedOrUpdatedRows(Session session, TableHandle tableHandle, TableVersion fromVersionExclusive)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        return metadata.getInsertedOrUpdatedRows(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), toConnectorVersion(fromVersionExclusive))
+                .map(handle -> new TableHandle(catalogName, handle, tableHandle.getTransaction()));
+    }
+
+    @Override
+    public Optional<TableHandle> getDeletedRows(Session session, TableHandle tableHandle, TableVersion fromVersionExclusive)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        return metadata.getDeletedRows(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), toConnectorVersion(fromVersionExclusive))
+                .map(handle -> new TableHandle(catalogName, handle, tableHandle.getTransaction()));
+    }
+
+    @Override
     public ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle)
     {
         CatalogName catalogName = tableHandle.getCatalogName();
@@ -2488,11 +2506,12 @@ public final class MetadataManager
 
     private Optional<ConnectorTableVersion> toConnectorVersion(Optional<TableVersion> version)
     {
-        Optional<ConnectorTableVersion> connectorVersion = Optional.empty();
-        if (version.isPresent()) {
-            connectorVersion = Optional.of(new ConnectorTableVersion(version.get().getPointerType(), version.get().getObjectType(), version.get().getPointer()));
-        }
-        return connectorVersion;
+        return version.map(this::toConnectorVersion);
+    }
+
+    private ConnectorTableVersion toConnectorVersion(TableVersion version)
+    {
+        return new ConnectorTableVersion(version.getPointerType(), version.getObjectType(), version.getPointer());
     }
 
     private static class OperatorCacheKey

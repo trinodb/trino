@@ -19,8 +19,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableVersion;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableVersioningLayout;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.Assignments;
@@ -29,25 +34,53 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.tree.NullLiteral;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static java.util.Objects.requireNonNull;
 
-public class VersioningSymbolsExtractor
+public class VersioningQueriesExtractor
 {
     private final Metadata metadata;
 
-    public VersioningSymbolsExtractor(Metadata metadata)
+    public VersioningQueriesExtractor(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    public Optional<PlanWithVersioningSymbols> extractVersioningSymbols(Session session, SymbolAllocator symbolAllocator, PlanNode root)
+    public Optional<PlanWithVersioningSymbols> extractInsertQuery(
+            Session session,
+            SymbolAllocator symbolAllocator,
+            PlanNode root,
+            Optional<Map<TableHandle, TableVersion>> sourceTableVersions)
     {
-        return root.accept(new Rewriter(session, symbolAllocator), null);
+        Map<TableHandle, TableVersion> versions = new HashMap<>();
+        sourceTableVersions.ifPresent(versions::putAll);
+        Optional<PlanWithVersioningSymbols> planWithVersioningSymbols = root.accept(new InsertQueryExtractor(session, symbolAllocator, versions), null);
+        if (!versions.isEmpty()) {
+            throw new TrinoException(INVALID_VIEW, "Not all source table versions were propagated");
+        }
+        return planWithVersioningSymbols;
+    }
+
+    public PlanNode extractDeleteQuery(
+            Session session,
+            PlanNodeIdAllocator idAllocator,
+            SymbolAllocator symbolAllocator,
+            PlanNode root,
+            Map<TableHandle, TableVersion> sourceTableVersions)
+    {
+        checkArgument(extractInsertQuery(session, symbolAllocator, root, Optional.empty()).isPresent(), "Query does not support versioning");
+        Map<TableHandle, TableVersion> versions = new HashMap<>(sourceTableVersions);
+        return root.accept(new DeleteQueryExtractor(session, idAllocator, symbolAllocator, versions), null);
     }
 
     public static class PlanWithVersioningSymbols
@@ -79,16 +112,18 @@ public class VersioningSymbolsExtractor
         }
     }
 
-    private class Rewriter
+    private class InsertQueryExtractor
             extends PlanVisitor<Optional<PlanWithVersioningSymbols>, Void>
     {
         private final Session session;
         private final SymbolAllocator symbolAllocator;
+        private final Map<TableHandle, TableVersion> versions;
 
-        public Rewriter(Session session, SymbolAllocator symbolAllocator)
+        public InsertQueryExtractor(Session session, SymbolAllocator symbolAllocator, Map<TableHandle, TableVersion> versions)
         {
             this.session = requireNonNull(session, "session is null");
             this.symbolAllocator = requireNonNull(symbolAllocator);
+            this.versions = requireNonNull(versions, "versions is null");
         }
 
         @Override
@@ -134,7 +169,9 @@ public class VersioningSymbolsExtractor
                                     plan.getRoot(),
                                     Assignments.builder()
                                             .putAll(node.getAssignments())
-                                            .putIdentities(plan.getVersioningSymbols())
+                                            .putIdentities(plan.getVersioningSymbols().stream()
+                                                    .filter(symbol -> !node.getOutputSymbols().contains(symbol))
+                                                    .collect(toImmutableList()))
                                             .build()),
                             plan.getVersioningSymbols(),
                             plan.isUnique()));
@@ -166,11 +203,17 @@ public class VersioningSymbolsExtractor
                 }
             }
 
+            TableHandle handle = node.getTable();
+            if (versions.containsKey(handle)) {
+                handle = metadata.getInsertedOrUpdatedRows(session, handle, versions.remove(handle))
+                        .orElseThrow(() -> new IllegalStateException("Query does not support versioning"));
+            }
+
             Map<Symbol, ColumnHandle> newVersioningColumns = newVersioningColumnsBuilder.buildOrThrow();
             return Optional.of(new PlanWithVersioningSymbols(
                     new TableScanNode(
                             node.getId(),
-                            node.getTable(),
+                            handle,
                             ImmutableList.<Symbol>builder()
                                     .addAll(node.getOutputSymbols())
                                     .addAll(newVersioningColumns.keySet())
@@ -185,6 +228,101 @@ public class VersioningSymbolsExtractor
                             node.getUseConnectorNodePartitioning()),
                     versioningSymbols.build(),
                     versioningLayout.get().isUnique()));
+        }
+    }
+
+    private class DeleteQueryExtractor
+            extends PlanVisitor<PlanNode, Void>
+    {
+        private final Session session;
+        private final PlanNodeIdAllocator idAllocator;
+        private final SymbolAllocator symbolAllocator;
+        private final Map<TableHandle, TableVersion> versions;
+        private final Map<Symbol, Symbol> versioningSymbolMapping = new HashMap<>();
+
+        public DeleteQueryExtractor(Session session, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Map<TableHandle, TableVersion> versions)
+        {
+            this.session = requireNonNull(session, "session is null");
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.versions = requireNonNull(versions, "versions is null");
+        }
+
+        @Override
+        protected PlanNode visitPlan(PlanNode node, Void context)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public PlanNode visitProject(ProjectNode node, Void context)
+        {
+            PlanNode source = node.getSource().accept(this, null);
+            Assignments.Builder assignments = Assignments.builder();
+            Set<Symbol> addedVersioningSymbols = new HashSet<>();
+            for (Symbol symbol : node.getOutputSymbols()) {
+                Symbol versioningSymbol = versioningSymbolMapping.get(symbol);
+                if (versioningSymbol == null) {
+                    // put null for each non-versioning symbol
+                    assignments.put(symbolAllocator.newSymbol(symbol), new NullLiteral());
+                }
+                else {
+                    assignments.putIdentity(versioningSymbol);
+                    addedVersioningSymbols.add(versioningSymbol);
+                }
+            }
+            // versioning symbols are added last
+            versioningSymbolMapping.values().stream()
+                    .filter(symbol -> !addedVersioningSymbols.contains(symbol))
+                    .forEach(assignments::putIdentity);
+            return new ProjectNode(
+                    // use unique node ids
+                    idAllocator.getNextId(),
+                    source,
+                    assignments.build());
+        }
+
+        @Override
+        public PlanNode visitTableScan(TableScanNode node, Void context)
+        {
+            ConnectorTableVersioningLayout versioningLayout = metadata.getTableVersioningLayout(session, node.getTable())
+                    .orElseThrow(() -> new IllegalStateException("Query does not support versioning"));
+            TableHandle deleteHandle = metadata.getDeletedRows(
+                            session,
+                            node.getTable(),
+                            requireNonNull(versions.remove(node.getTable()), "Missing version for table handle"))
+                    .orElseThrow(() -> new IllegalStateException("Query does not support versioning"));
+
+            ImmutableMap.Builder<Symbol, ColumnHandle> scanAssignmentsBuilder = ImmutableMap.builder();
+            Assignments.Builder projectionAssignments = Assignments.builder();
+            ImmutableSet.Builder<Symbol> versioningSymbols = ImmutableSet.builder();
+            for (Symbol symbol : node.getOutputSymbols()) {
+                Symbol newSymbol = symbolAllocator.newSymbol(symbol);
+                ColumnHandle columnHandle = node.getAssignments().get(symbol);
+                if (versioningLayout.getVersioningColumns().contains(columnHandle)) {
+                    scanAssignmentsBuilder.put(newSymbol, columnHandle);
+                    projectionAssignments.putIdentity(newSymbol);
+                    versioningSymbols.add(newSymbol);
+                    versioningSymbolMapping.put(symbol, newSymbol);
+                }
+                else {
+                    projectionAssignments.put(newSymbol, new NullLiteral());
+                }
+            }
+            Map<Symbol, ColumnHandle> scanAssignments = scanAssignmentsBuilder.buildOrThrow();
+
+            return new ProjectNode(
+                    idAllocator.getNextId(),
+                    new TableScanNode(
+                            idAllocator.getNextId(),
+                            deleteHandle,
+                            ImmutableList.copyOf(scanAssignments.keySet()),
+                            scanAssignments,
+                            TupleDomain.all(),
+                            Optional.empty(),
+                            false,
+                            Optional.empty()),
+                    projectionAssignments.build());
         }
     }
 }

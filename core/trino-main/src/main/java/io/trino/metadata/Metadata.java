@@ -336,6 +336,10 @@ public interface Metadata
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles);
 
+    Optional<TableHandle> getInsertedOrUpdatedRows(Session session, TableHandle tableHandle, TableVersion fromVersionExclusive);
+
+    Optional<TableHandle> getDeletedRows(Session session, TableHandle tableHandle, TableVersion fromVersionExclusive);
+
     /**
      * Get the row ID column handle used with UpdatablePageSource#deleteRows.
      */

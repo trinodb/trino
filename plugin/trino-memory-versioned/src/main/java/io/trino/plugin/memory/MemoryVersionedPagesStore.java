@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.memory.MemoryErrorCode.MISSING_DATA;
 
 @ThreadSafe
@@ -60,7 +61,13 @@ public class MemoryVersionedPagesStore
             if (idBlock.isNull(position)) {
                 throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "NULL row id is not supported");
             }
-            versionData.insertRow(idBlock.getLong(position, 0), page.getSingleValuePage(position));
+            long id = idBlock.getLong(position, 0);
+            if (id >= 0) {
+                versionData.insertRow(id, page.getSingleValuePage(position));
+            }
+            else {
+                versionData.deleteRow(-id);
+            }
         }
     }
 
@@ -117,7 +124,10 @@ public class MemoryVersionedPagesStore
                     deletedRows.addAll(versionData.getRemovedRows());
                 });
 
-        return ImmutableList.of(new Page(new LongArrayBlock(deletedRows.size(), Optional.empty(), Longs.toArray(deletedRows))));
+        Set<Long> negatedDeletedRows = deletedRows.stream()
+                .map(id -> -id)
+                .collect(toImmutableSet());
+        return ImmutableList.of(new Page(new LongArrayBlock(negatedDeletedRows.size(), Optional.empty(), Longs.toArray(negatedDeletedRows))));
     }
 
     public synchronized boolean contains(long tableId)

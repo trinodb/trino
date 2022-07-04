@@ -63,6 +63,8 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.VersioningLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.PointerType;
@@ -650,18 +652,27 @@ class StatementAnalyzer
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
 
+            List<Type> queryTypes = getMaterializedViewRefreshFields(queryScope.getRelationType().getVisibleFields(), optionalView.get().getVersioningLayout()).stream()
+                    .map(Field::getType)
+                    .collect(toImmutableList());
+
+            Optional<Map<TableHandle, TableVersion>> sourceTableVersions = optionalView.get()
+                    .getSourceTableVersions()
+                    .map(versions -> versions.entrySet().stream()
+                            .collect(toImmutableMap(
+                                    entry -> analysis.getTableHandle(entry.getKey()).orElseThrow(() -> new TrinoException(INVALID_VIEW, "Missing table handle for referenced table")),
+                                    entry -> new TableVersion(entry.getValue().getPointerType(), entry.getValue().getVersionType(), entry.getValue().getVersion()))));
+
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
             analysis.setRefreshMaterializedView(new Analysis.RefreshMaterializedViewAnalysis(
                     refreshMaterializedView.getTable(),
                     targetTableHandle.get(), query,
-                    insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
+                    insertColumns.stream().map(columnHandles::get).collect(toImmutableList()),
+                    optionalView.get().getVersioningLayout().map(layout -> queryTypes),
+                    sourceTableVersions));
 
             List<Type> tableTypes = insertColumns.stream()
                     .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
-                    .collect(toImmutableList());
-
-            List<Type> queryTypes = queryScope.getRelationType().getVisibleFields().stream()
-                    .map(Field::getType)
                     .collect(toImmutableList());
 
             if (!typesMatchForInsert(tableTypes, queryTypes)) {
@@ -1980,12 +1991,13 @@ class StatementAnalyzer
                     view.getSchema(),
                     view.getRunAsIdentity(),
                     view.getColumns(),
-                    storageTable);
+                    storageTable,
+                    view.getVersioningLayout());
         }
 
         private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ViewDefinition view)
         {
-            return createScopeForView(table, name, scope, view.getOriginalSql(), view.getCatalog(), view.getSchema(), view.getRunAsIdentity(), view.getColumns(), Optional.empty());
+            return createScopeForView(table, name, scope, view.getOriginalSql(), view.getCatalog(), view.getSchema(), view.getRunAsIdentity(), view.getColumns(), Optional.empty(), Optional.empty());
         }
 
         private Scope createScopeForView(
@@ -1997,7 +2009,8 @@ class StatementAnalyzer
                 Optional<String> schema,
                 Optional<Identity> owner,
                 List<ViewColumn> columns,
-                Optional<TableHandle> storageTable)
+                Optional<TableHandle> storageTable,
+                Optional<VersioningLayout> versioningLayout)
         {
             Statement statement = analysis.getStatement();
             if (statement instanceof CreateView) {
@@ -2043,7 +2056,7 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             if (storageTable.isPresent()) {
-                List<Field> storageTableFields = analyzeStorageTable(table, viewFields, storageTable.get());
+                List<Field> storageTableFields = analyzeStorageTable(table, viewFields, storageTable.get(), versioningLayout);
                 analyzeFiltersAndMasks(table, name, storageTable, viewFields, session.getIdentity().getUser());
                 analysis.addRelationCoercion(table, viewFields.stream().map(Field::getType).toArray(Type[]::new));
                 // use storage table output fields as they contain ColumnHandles
@@ -2056,7 +2069,7 @@ class StatementAnalyzer
             return createAndAssignScope(table, scope, viewFields);
         }
 
-        private List<Field> analyzeStorageTable(Table table, List<Field> viewFields, TableHandle storageTable)
+        private List<Field> analyzeStorageTable(Table table, List<Field> viewFields, TableHandle storageTable, Optional<VersioningLayout> versioningLayout)
         {
             TableSchema tableSchema = metadata.getTableSchema(session, storageTable);
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, storageTable);
@@ -2067,8 +2080,10 @@ class StatementAnalyzer
                     .filter(field -> !field.isHidden())
                     .collect(toImmutableList());
 
+            List<Field> expectedFields = getMaterializedViewRefreshFields(viewFields, versioningLayout);
+
             // make sure storage table fields match view fields
-            if (tableFields.size() != viewFields.size()) {
+            if (tableFields.size() != expectedFields.size()) {
                 throw semanticException(
                         INVALID_VIEW,
                         table,
@@ -2077,9 +2092,9 @@ class StatementAnalyzer
                         viewFields.size());
             }
 
-            for (int index = 0; index < tableFields.size(); index++) {
+            for (int index = 0; index < expectedFields.size(); index++) {
                 Field tableField = tableFields.get(index);
-                Field viewField = viewFields.get(index);
+                Field viewField = expectedFields.get(index);
 
                 if (tableField.getName().isEmpty()) {
                     throw semanticException(
@@ -2122,7 +2137,24 @@ class StatementAnalyzer
                 }
             }
 
-            return tableFields;
+            return tableFields.subList(0, viewFields.size());
+        }
+
+        private List<Field> getMaterializedViewRefreshFields(Collection<Field> viewFields, Optional<VersioningLayout> versioningLayout)
+        {
+            ImmutableList.Builder<Field> refreshFields = ImmutableList.builder();
+            refreshFields.addAll(viewFields);
+            if (versioningLayout.isPresent()) {
+                List<String> viewColumnNames = viewFields.stream()
+                        .map(field -> field.getName().orElseThrow())
+                        .collect(toImmutableList());
+                for (ConnectorMaterializedViewDefinition.Column versioningColumn : versioningLayout.get().getVersioningColumns()) {
+                    if (viewColumnNames.stream().noneMatch(versioningColumn.getName()::equalsIgnoreCase)) {
+                        refreshFields.add(Field.newUnqualified(versioningColumn.getName(), plannerContext.getTypeManager().getType(versioningColumn.getType())));
+                    }
+                }
+            }
+            return refreshFields.build();
         }
 
         private List<Field> analyzeTableOutputFields(Table table, QualifiedObjectName tableName, TableSchema tableSchema, Map<String, ColumnHandle> columnHandles)

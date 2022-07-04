@@ -422,6 +422,18 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<TableHandle> getInsertedOrUpdatedRows(Session session, TableHandle tableHandle, TableVersion fromVersionExclusive)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<TableHandle> getDeletedRows(Session session, TableHandle tableHandle, TableVersion fromVersionExclusive)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();

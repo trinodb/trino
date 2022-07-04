@@ -423,6 +423,18 @@ public class CountingAccessMetadata
     }
 
     @Override
+    public Optional<TableHandle> getInsertedOrUpdatedRows(Session session, TableHandle tableHandle, TableVersion fromVersionExclusive)
+    {
+        return delegate.getInsertedOrUpdatedRows(session, tableHandle, fromVersionExclusive);
+    }
+
+    @Override
+    public Optional<TableHandle> getDeletedRows(Session session, TableHandle tableHandle, TableVersion fromVersionExclusive)
+    {
+        return delegate.getDeletedRows(session, tableHandle, fromVersionExclusive);
+    }
+
+    @Override
     public ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle)
     {
         return delegate.getDeleteRowIdColumnHandle(session, tableHandle);

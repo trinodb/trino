@@ -30,9 +30,11 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
+import io.trino.metadata.TableVersion;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -607,6 +609,16 @@ public class Analysis
         return tables.get(NodeRef.of(table))
                 .getHandle()
                 .orElseThrow(() -> new IllegalArgumentException(format("%s is not a table reference", table)));
+    }
+
+    public Optional<TableHandle> getTableHandle(CatalogSchemaTableName name)
+    {
+        return tables.values().stream()
+                .filter(table -> table.getName().asCatalogSchemaTableName().equals(name))
+                .map(TableEntry::getHandle)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findAny();
     }
 
     public Collection<TableHandle> getTables()
@@ -1341,13 +1353,17 @@ public class Analysis
         private final TableHandle target;
         private final Query query;
         private final List<ColumnHandle> columns;
+        private final Optional<List<Type>> versionedQueryTypes;
+        private final Optional<Map<TableHandle, TableVersion>> sourceTableVersions;
 
-        public RefreshMaterializedViewAnalysis(Table table, TableHandle target, Query query, List<ColumnHandle> columns)
+        public RefreshMaterializedViewAnalysis(Table table, TableHandle target, Query query, List<ColumnHandle> columns, Optional<List<Type>> versionedQueryTypes, Optional<Map<TableHandle, TableVersion>> sourceTableVersions)
         {
             this.table = requireNonNull(table, "table is null");
             this.target = requireNonNull(target, "target is null");
             this.query = query;
             this.columns = requireNonNull(columns, "columns is null");
+            this.versionedQueryTypes = requireNonNull(versionedQueryTypes, "versionedQueryTypes is null");
+            this.sourceTableVersions = requireNonNull(sourceTableVersions, "sourceTableVersions is null");
             checkArgument(columns.size() > 0, "No columns given to refresh materialized view");
         }
 
@@ -1369,6 +1385,16 @@ public class Analysis
         public Table getTable()
         {
             return table;
+        }
+
+        public Optional<List<Type>> getVersionedQueryTypes()
+        {
+            return versionedQueryTypes;
+        }
+
+        public Optional<Map<TableHandle, TableVersion>> getSourceTableVersions()
+        {
+            return sourceTableVersions;
         }
     }
 
