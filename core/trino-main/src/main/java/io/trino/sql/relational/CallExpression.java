@@ -13,23 +13,31 @@
  */
 package io.trino.sql.relational;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public final class CallExpression
         extends RowExpression
 {
     private final ResolvedFunction resolvedFunction;
     private final List<RowExpression> arguments;
 
-    public CallExpression(ResolvedFunction resolvedFunction, List<RowExpression> arguments)
+    @JsonCreator
+    public CallExpression(
+            @JsonProperty("resolvedFunction") ResolvedFunction resolvedFunction,
+            @JsonProperty("arguments") List<RowExpression> arguments)
     {
         requireNonNull(resolvedFunction, "resolvedFunction is null");
         requireNonNull(arguments, "arguments is null");
@@ -38,6 +46,7 @@ public final class CallExpression
         this.arguments = ImmutableList.copyOf(arguments);
     }
 
+    @JsonProperty
     public ResolvedFunction getResolvedFunction()
     {
         return resolvedFunction;
@@ -49,6 +58,7 @@ public final class CallExpression
         return resolvedFunction.getSignature().getReturnType();
     }
 
+    @JsonProperty
     public List<RowExpression> getArguments()
     {
         return arguments;

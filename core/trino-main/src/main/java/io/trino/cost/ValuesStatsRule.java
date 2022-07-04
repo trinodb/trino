@@ -39,7 +39,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.planner.RowExpressionInterpreter.evaluateConstantRowExpression;
 import static io.trino.sql.planner.plan.Patterns.values;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.isExpression;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -95,7 +98,13 @@ public class ValuesStatsRule
         checkState(valuesNode.getRows().isPresent(), "rows is empty");
         return valuesNode.getRows().get().stream()
                 .map(row -> {
-                    Object rowValue = evaluateConstantExpression(row, rowType, plannerContext, session, new AllowAllAccessControl(), ImmutableMap.of());
+                    Object rowValue;
+                    if (isExpression(row)) {
+                        rowValue = evaluateConstantExpression(castToExpression(row), rowType, plannerContext, session, new AllowAllAccessControl(), ImmutableMap.of());
+                    }
+                    else {
+                        rowValue = evaluateConstantRowExpression(row, plannerContext, session);
+                    }
                     return readNativeValue(symbolType, (SingleRowBlock) rowValue, symbolId);
                 })
                 .collect(toList());

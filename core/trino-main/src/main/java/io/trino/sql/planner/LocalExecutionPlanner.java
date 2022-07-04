@@ -2069,11 +2069,9 @@ public class LocalExecutionPlanner
                 pageBuilder.declarePosition();
                 // evaluate values for non-empty rows
                 if (node.getRows().isPresent()) {
-                    Expression row = node.getRows().get().get(i);
-                    Map<NodeRef<Expression>, Type> types = typeAnalyzer.getTypes(session, TypeProvider.empty(), row);
-                    checkState(types.get(NodeRef.of(row)) instanceof RowType, "unexpected type of Values row: %s", types);
+                    RowExpression row = node.getRows().get().get(i);
                     // evaluate the literal value
-                    Object result = new ExpressionInterpreter(row, plannerContext, session, types).evaluate();
+                    Object result = new RowExpressionInterpreter(row, plannerContext, session).evaluate();
                     for (int j = 0; j < outputTypes.size(); j++) {
                         // divide row into fields
                         writeNativeValue(outputTypes.get(j), pageBuilder.getBlockBuilder(j), readNativeValue(outputTypes.get(j), (SingleRowBlock) result, j));

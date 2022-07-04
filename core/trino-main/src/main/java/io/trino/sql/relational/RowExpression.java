@@ -13,8 +13,21 @@
  */
 package io.trino.sql.relational;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.trino.spi.type.Type;
 
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "@type")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = CallExpression.class, name = "call"),
+        @JsonSubTypes.Type(value = SpecialForm.class, name = "special"),
+        @JsonSubTypes.Type(value = LambdaDefinitionExpression.class, name = "lambda"),
+        @JsonSubTypes.Type(value = InputReferenceExpression.class, name = "input"),
+        @JsonSubTypes.Type(value = VariableReferenceExpression.class, name = "variable"),
+        @JsonSubTypes.Type(value = ConstantExpression.class, name = "constant")})
 public abstract class RowExpression
 {
     public abstract Type getType();

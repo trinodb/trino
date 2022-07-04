@@ -20,16 +20,24 @@ import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.RowExpressionUtil;
+import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Row;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.isExpression;
 import static java.util.Objects.requireNonNull;
 
 public class ValuesMatcher
@@ -62,12 +70,20 @@ public class ValuesMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         ValuesNode valuesNode = (ValuesNode) node;
 
+        Function<RowExpression, Expression> rowConverter = row -> {
+            if (isExpression(row)) {
+                return castToExpression(row);
+            }
+            checkState(row instanceof SpecialForm && ((SpecialForm) row).getForm().equals(SpecialForm.Form.ROW_CONSTRUCTOR));
+            return new Row(((SpecialForm) row).getArguments().stream().map(RowExpressionUtil::castRowRowExpressionToExpression).collect(toImmutableList()));
+        };
+
         if (expectedRows.isPresent()) {
             if (expectedRows.get().size() != valuesNode.getRowCount()) {
                 return NO_MATCH;
             }
             if (outputSymbolAliases.size() > 0) {
-                if (!expectedRows.equals(valuesNode.getRows())) {
+                if (!expectedRows.equals(valuesNode.getRows().map(rows -> rows.stream().map(rowConverter).collect(toImmutableList())))) {
                     return NO_MATCH;
                 }
             }

@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.RowExpressionUtil;
+import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.tree.Row;
 
 import java.util.Arrays;
@@ -28,6 +30,9 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.sql.planner.plan.Patterns.values;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.isExpression;
 import static io.trino.util.MoreLists.filteredCopy;
 
 public class PruneValuesColumns
@@ -55,7 +60,7 @@ public class PruneValuesColumns
 
         checkState(valuesNode.getRows().isPresent(), "rows is empty");
         // if any of ValuesNode's rows is specified by expression other than Row, the redundant piece cannot be extracted and pruned
-        if (!valuesNode.getRows().get().stream().allMatch(Row.class::isInstance)) {
+        if (!valuesNode.getRows().get().stream().allMatch(RowExpressionUtil::isRow)) {
             return Optional.empty();
         }
 
@@ -65,11 +70,18 @@ public class PruneValuesColumns
             mapping[i] = valuesNode.getOutputSymbols().indexOf(newOutputs.get(i));
         }
 
-        ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
-        for (Expression row : valuesNode.getRows().get()) {
-            rowsBuilder.add(new Row(Arrays.stream(mapping)
-                    .mapToObj(i -> ((Row) row).getItems().get(i))
-                    .collect(Collectors.toList())));
+        ImmutableList.Builder<RowExpression> rowsBuilder = ImmutableList.builder();
+        for (RowExpression row : valuesNode.getRows().get()) {
+            if (isExpression(row)) {
+                rowsBuilder.add(castToRowExpression(new Row(Arrays.stream(mapping)
+                        .mapToObj(i -> ((Row) castToExpression(row)).getItems().get(i))
+                        .collect(Collectors.toList()))));
+            }
+            else {
+                rowsBuilder.add(new SpecialForm(SpecialForm.Form.ROW_CONSTRUCTOR, row.getType(), Arrays.stream(mapping)
+                        .mapToObj(i -> ((SpecialForm) row).getArguments().get(i))
+                        .collect(Collectors.toList())));
+            }
         }
 
         return Optional.of(new ValuesNode(valuesNode.getId(), newOutputs, rowsBuilder.build()));

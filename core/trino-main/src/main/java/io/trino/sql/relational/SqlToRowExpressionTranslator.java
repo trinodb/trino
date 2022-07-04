@@ -27,11 +27,13 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.DesugarLikeRewriter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.SpecialForm.Form;
 import io.trino.sql.relational.optimizer.ExpressionOptimizer;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
+import io.trino.sql.tree.ArrayConstructor;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
@@ -43,6 +45,7 @@ import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.ComparisonExpression.Operator;
 import io.trino.sql.tree.DecimalLiteral;
+import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FieldReference;
@@ -57,6 +60,7 @@ import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
@@ -78,6 +82,8 @@ import io.trino.type.UnknownType;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -186,6 +192,18 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
+        protected RowExpression visitArrayConstructor(ArrayConstructor node, Void context)
+        {
+            List<RowExpression> arguments = node.getValues().stream()
+                    .map(value -> process(value, context))
+                    .collect(toImmutableList());
+            List<Type> argumentTypes = arguments.stream()
+                    .map(RowExpression::getType)
+                    .collect(toImmutableList());
+            return call(metadata.resolveFunction(session, QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR), fromTypes(argumentTypes)), arguments);
+        }
+
+        @Override
         protected RowExpression visitFieldReference(FieldReference node, Void context)
         {
             return field(node.getFieldIndex(), getType(node));
@@ -213,6 +231,12 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
+        protected RowExpression visitLikePredicate(LikePredicate node, Void context)
+        {
+            return process(DesugarLikeRewriter.rewrite(node, types, metadata, session), context);
+        }
+
+        @Override
         protected RowExpression visitDoubleLiteral(DoubleLiteral node, Void context)
         {
             return constant(node.getValue(), DOUBLE);
@@ -223,6 +247,26 @@ public final class SqlToRowExpressionTranslator
         {
             DecimalParseResult parseResult = Decimals.parse(node.getValue());
             return constant(parseResult.getObject(), parseResult.getType());
+        }
+
+        @Override
+        protected RowExpression visitDereferenceExpression(DereferenceExpression node, Void context)
+        {
+            RowType rowType = (RowType) getType(node.getBase());
+            String fieldName = node.getField().get().getValue();
+            List<RowType.Field> fields = rowType.getFields();
+            int index = -1;
+            for (int i = 0; i < fields.size(); i++) {
+                RowType.Field field = fields.get(i);
+                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
+                    checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
+                    index = i;
+                }
+            }
+
+            checkState(index >= 0, "could not find field name: %s", node.getField());
+            Type returnType = getType(node);
+            return new SpecialForm(DEREFERENCE, returnType, process(node.getBase(), context), constant((long) index, INTEGER));
         }
 
         @Override

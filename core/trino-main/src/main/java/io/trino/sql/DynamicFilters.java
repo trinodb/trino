@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.IsNull;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
@@ -33,6 +34,9 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.sql.relational.CallExpression;
+import io.trino.sql.relational.ConstantExpression;
+import io.trino.sql.relational.RowExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
@@ -177,6 +181,11 @@ public final class DynamicFilters
         return getDescriptor(expression).isPresent();
     }
 
+    public static boolean isDynamicFilter(RowExpression expression)
+    {
+        return getDescriptor(expression).isPresent();
+    }
+
     public static Optional<Descriptor> getDescriptor(Expression expression)
     {
         if (!(expression instanceof FunctionCall)) {
@@ -208,9 +217,49 @@ public final class DynamicFilters
         return Optional.of(new Descriptor(new DynamicFilterId(id), probeSymbol, operator, nullAllowed));
     }
 
+    public static Optional<RowExpressionDescriptor> getDescriptor(RowExpression expression)
+    {
+        if (!(expression instanceof CallExpression)) {
+            return Optional.empty();
+        }
+
+        CallExpression callExpression = (CallExpression) expression;
+        if (!isDynamicFilterCallExpression(callExpression)) {
+            return Optional.empty();
+        }
+
+        List<RowExpression> arguments = callExpression.getArguments();
+        checkArgument(arguments.size() == 4, "invalid arguments count: %s", arguments.size());
+
+        RowExpression probeSymbol = arguments.get(0);
+
+        RowExpression operatorExpression = arguments.get(1);
+        checkArgument(operatorExpression instanceof ConstantExpression);
+        checkArgument(operatorExpression.getType() instanceof VarcharType, "operatorExpression is expected to be an instance of StringLiteral: %s", operatorExpression.getClass().getSimpleName());
+//        String operatorExpressionString = ((VarcharType) operatorExpression).;
+        OperatorType operatorType = OperatorType.valueOf(((Slice) ((ConstantExpression) operatorExpression).getValue()).toStringUtf8());
+
+        RowExpression idExpression = arguments.get(2);
+        checkArgument(idExpression instanceof ConstantExpression);
+        checkArgument(idExpression.getType() instanceof VarcharType, "id is expected to be an instance of StringLiteral: %s", idExpression.getClass().getSimpleName());
+        String id = ((Slice) ((ConstantExpression) idExpression).getValue()).toStringUtf8();
+
+        RowExpression nullAllowedExpression = arguments.get(3);
+        checkArgument(nullAllowedExpression instanceof ConstantExpression);
+        checkArgument(nullAllowedExpression.getType() instanceof BooleanType, "nullAllowedExpression is expected to be an instance of BooleanLiteral: %s", nullAllowedExpression.getClass().getSimpleName());
+        boolean nullAllowed = (boolean) ((ConstantExpression) nullAllowedExpression).getValue();
+        return Optional.of(new RowExpressionDescriptor(new DynamicFilterId(id), probeSymbol, operatorType, nullAllowed));
+    }
+
     private static boolean isDynamicFilterFunction(FunctionCall functionCall)
     {
         String functionName = ResolvedFunction.extractFunctionName(functionCall.getName());
+        return functionName.equals(Function.NAME) || functionName.equals(NullableFunction.NAME);
+    }
+
+    private static boolean isDynamicFilterCallExpression(CallExpression expression)
+    {
+        String functionName = ResolvedFunction.extractFunctionName(expression.getResolvedFunction().toQualifiedName());
         return functionName.equals(Function.NAME) || functionName.equals(NullableFunction.NAME);
     }
 
@@ -354,6 +403,77 @@ public final class DynamicFilters
                 default:
                     throw new IllegalArgumentException("Unsupported dynamic filtering comparison operator: " + operator);
             }
+        }
+    }
+
+    //Call is RowExpressionDescriptor for now, will change the name to Descriptor at the end of migration
+    public static final class RowExpressionDescriptor
+    {
+        private final DynamicFilterId id;
+        private final RowExpression input;
+        private final OperatorType operatorType;
+        private final boolean nullAllowed;
+
+        public RowExpressionDescriptor(DynamicFilterId id, RowExpression input, OperatorType operatorType, boolean nullAllowed)
+        {
+            this.id = requireNonNull(id, "id is null");
+            this.input = requireNonNull(input, "input is null");
+            this.operatorType = requireNonNull(operatorType, "operator is null");
+            checkArgument(!nullAllowed || operatorType == OperatorType.EQUAL, "nullAllowed should be true only with EQUAL operator");
+            this.nullAllowed = nullAllowed;
+        }
+
+        public DynamicFilterId getId()
+        {
+            return id;
+        }
+
+        public RowExpression getInput()
+        {
+            return input;
+        }
+
+        public OperatorType getOperator()
+        {
+            return operatorType;
+        }
+
+        public boolean isNullAllowed()
+        {
+            return nullAllowed;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            RowExpressionDescriptor that = (RowExpressionDescriptor) o;
+            return Objects.equals(id, that.id) &&
+                    Objects.equals(input, that.input) &&
+                    Objects.equals(operatorType, that.operatorType) &&
+                    nullAllowed == that.nullAllowed;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(id, input, operatorType, nullAllowed);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("id", id)
+                    .add("input", input)
+                    .add("operatorType", operatorType)
+                    .add("nullAllowed", nullAllowed)
+                    .toString();
         }
     }
 

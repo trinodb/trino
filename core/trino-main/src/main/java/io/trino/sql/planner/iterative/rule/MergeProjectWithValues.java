@@ -26,6 +26,9 @@ import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.RowExpressionUtil;
+import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SymbolReference;
@@ -46,6 +49,12 @@ import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.values;
+import static io.trino.sql.relational.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.isExpression;
+import static io.trino.sql.relational.RowExpressionUtil.castRowRowExpressionToExpression;
+import static io.trino.sql.relational.RowExpressionUtil.isRow;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
@@ -132,16 +141,34 @@ public class MergeProjectWithValues
             return Result.ofPlanNode(new ValuesNode(
                     valuesNode.getId(),
                     outputs,
-                    nCopies(valuesNode.getRowCount(), new Row(ImmutableList.copyOf(expressions)))));
+                    nCopies(valuesNode.getRowCount(), castToRowExpression(new Row(ImmutableList.copyOf(expressions))))));
         }
 
         // do not proceed if ValuesNode contains a non-deterministic expression and it is referenced more than once by the projection
         Set<Symbol> nonDeterministicValuesOutputs = new HashSet<>();
-        for (Expression rowExpression : valuesNode.getRows().get()) {
-            Row row = (Row) rowExpression;
-            for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
-                if (!isDeterministic(row.getItems().get(i), metadata)) {
-                    nonDeterministicValuesOutputs.add(valuesNode.getOutputSymbols().get(i));
+        for (RowExpression rowExpression : valuesNode.getRows().get()) {
+            if (isExpression(rowExpression)) {
+                Row row = (Row) castRowRowExpressionToExpression(rowExpression);
+                for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
+                    if (!isDeterministic(row.getItems().get(i), metadata)) {
+                        nonDeterministicValuesOutputs.add(valuesNode.getOutputSymbols().get(i));
+                    }
+                }
+            }
+            else {
+                SpecialForm row = (SpecialForm) rowExpression;
+                for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
+                    RowExpression rowArgument = row.getArguments().get(i);
+                    if (isExpression(rowArgument)) {
+                        if (!isDeterministic(castToExpression(rowArgument), metadata)) {
+                            nonDeterministicValuesOutputs.add(valuesNode.getOutputSymbols().get(i));
+                        }
+                    }
+                    else {
+                        if (!isDeterministic(rowArgument)) {
+                            nonDeterministicValuesOutputs.add(valuesNode.getOutputSymbols().get(i));
+                        }
+                    }
                 }
             }
         }
@@ -157,20 +184,21 @@ public class MergeProjectWithValues
         }
 
         // inline values expressions into projection's assignments
-        ImmutableList.Builder<Expression> projectedRows = ImmutableList.builder();
-        for (Expression rowExpression : valuesNode.getRows().get()) {
-            Map<SymbolReference, Expression> mapping = buildMappings(valuesNode.getOutputSymbols(), (Row) rowExpression);
+        ImmutableList.Builder<RowExpression> projectedRows = ImmutableList.builder();
+        for (RowExpression rowExpression : valuesNode.getRows().get()) {
+            // This cast is hacky here, we will not use it when we use RowExpression on assignment.
+            Map<SymbolReference, Expression> mapping = buildMappings(valuesNode.getOutputSymbols(), (Row) castRowRowExpressionToExpression(rowExpression));
             Row projectedRow = new Row(expressions.stream()
                     .map(expression -> replaceExpression(expression, mapping))
                     .collect(toImmutableList()));
-            projectedRows.add(projectedRow);
+            projectedRows.add(castToRowExpression(projectedRow));
         }
         return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), outputs, projectedRows.build()));
     }
 
     private static boolean isSupportedValues(ValuesNode valuesNode)
     {
-        return valuesNode.getRows().isEmpty() || valuesNode.getRows().get().stream().allMatch(Row.class::isInstance);
+        return valuesNode.getRows().isEmpty() || valuesNode.getRows().get().stream().allMatch(RowExpressionUtil::isRow);
     }
 
     private Map<SymbolReference, Expression> buildMappings(List<Symbol> symbols, Row row)

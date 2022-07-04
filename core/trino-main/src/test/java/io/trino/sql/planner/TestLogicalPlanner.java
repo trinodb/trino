@@ -67,6 +67,7 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.tests.QueryTemplate;
 import org.testng.annotations.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -1046,7 +1047,7 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT count(*) FROM (SELECT sum(orderkey) FROM orders)",
                 output(
-                        values(ImmutableList.of("_col0"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"))))));
+                        values(ImmutableList.of("_col0"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))));
         assertPlan(
                 "SELECT count(s) FROM (SELECT sum(orderkey) AS s FROM orders)",
                 anyTree(
@@ -1256,19 +1257,19 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT count(*) FROM (SELECT count(*) FROM nation)",
                 output(
-                        values(List.of("c"), List.of(List.of(new GenericLiteral("BIGINT", "1"))))));
+                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
 
         // unused aggregation result over values
         assertPlan(
                 "SELECT count(*) FROM (SELECT count(*) FROM (VALUES 1,2,3,4,5,6,7))",
                 output(
-                        values(List.of("c"), List.of(List.of(new GenericLiteral("BIGINT", "1"))))));
+                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
 
         // unused aggregation result over unnest
         assertPlan(
                 "SELECT count(*) FROM (SELECT count(*) FROM UNNEST(sequence(1, 10)))",
                 output(
-                        values(List.of("c"), List.of(List.of(new GenericLiteral("BIGINT", "1"))))));
+                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
 
         // no aggregate function at all over a table
         assertPlan(
@@ -1691,7 +1692,7 @@ public class TestLogicalPlanner
                 any(join(
                         INNER,
                         ImmutableList.of(equiJoinClause("expr", "ORDER_STATUS")),
-                        anyTree(values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F"))))),
+                        anyTree(values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new StringLiteral(new String(utf8Slice("O").getBytes(), StandardCharsets.UTF_8))), ImmutableList.of(new StringLiteral(new String(utf8Slice("F").getBytes(), StandardCharsets.UTF_8)))))),
                         exchange(project(strictConstrainedTableScan(
                                 "orders",
                                 ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
@@ -1794,8 +1795,9 @@ public class TestLogicalPlanner
                                         ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
                                         ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O"))))))))));
 
-        // Constraint for the table is derived, based on constant values in the other branch of the join.
-        // It is not accepted by the connector, and remains in form of a filter over TableScan.
+//         Constraint for the table is derived, based on constant values in the other branch of the join.
+//         It is not accepted by the connector, and remains in form of a filter over TableScan
+
         assertPlan(
                 "SELECT orderstatus, t2.s " +
                         "FROM orders " +
@@ -1807,7 +1809,7 @@ public class TestLogicalPlanner
                                 ImmutableList.of(equiJoinClause("expr", "ORDER_KEY")),
                                 project(filter(
                                         "expr IN (BIGINT '1', BIGINT '2')",
-                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")), ImmutableList.of(new GenericLiteral("BIGINT", "2")))))),
+                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Cast(new StringLiteral("1"), toSqlType(BIGINT))), ImmutableList.of(new Cast(new StringLiteral("2"), toSqlType(BIGINT))))))),
                                 anyTree(filter(
                                         "ORDER_KEY IN (BIGINT '1', BIGINT '2')",
                                         strictConstrainedTableScan(

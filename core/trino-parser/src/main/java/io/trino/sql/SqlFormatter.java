@@ -169,7 +169,7 @@ public final class SqlFormatter
         return builder.toString();
     }
 
-    static String formatName(QualifiedName name)
+    public static String formatName(QualifiedName name)
     {
         return name.getOriginalParts().stream()
                 .map(ExpressionFormatter::formatExpression)

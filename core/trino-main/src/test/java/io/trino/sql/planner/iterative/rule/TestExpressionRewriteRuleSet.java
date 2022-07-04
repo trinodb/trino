@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DateType;
-import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -41,6 +40,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognitio
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.rowpattern.Patterns.label;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class TestExpressionRewriteRuleSet
         extends BaseRuleTest
@@ -154,8 +154,8 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
-                        ImmutableList.<Symbol>of(p.symbol("a")),
-                        ImmutableList.of((ImmutableList.of(PlanBuilder.expression("1"))))))
+                        ImmutableList.of(p.symbol("a")),
+                        ImmutableList.of((ImmutableList.of(castToRowExpression(PlanBuilder.expression("1")))))))
                 .matches(
                         values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("0")))));
     }
@@ -165,8 +165,8 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
-                        ImmutableList.<Symbol>of(p.symbol("a")),
-                        ImmutableList.of((ImmutableList.of(PlanBuilder.expression("0"))))))
+                        ImmutableList.of(p.symbol("a")),
+                        ImmutableList.of((ImmutableList.of(castToRowExpression(PlanBuilder.expression("0")))))))
                 .doesNotFire();
     }
 

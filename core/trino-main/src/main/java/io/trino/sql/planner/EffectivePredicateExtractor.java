@@ -49,6 +49,9 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.relational.OriginalExpressionUtils;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
@@ -75,6 +78,10 @@ import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.expressionOrNullSymbols;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.ExpressionUtils.filterDeterministicConjuncts;
+import static io.trino.sql.relational.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.isExpression;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.util.Objects.requireNonNull;
@@ -358,16 +365,29 @@ public class EffectivePredicateExtractor
             // - if the row is of type Row, evaluate fields of the row
             // - otherwise evaluate the whole expression and then analyze fields of the resulting row
             checkState(node.getRows().isPresent(), "rows is empty");
-            List<Expression> processedExpressions = node.getRows().get().stream()
+            List<RowExpression> processedExpressions = node.getRows().get().stream()
                     .flatMap(row -> {
-                        if (row instanceof Row) {
-                            return ((Row) row).getItems().stream();
+                        if (isExpression(row)) {
+                            Expression originalExpression = castToExpression(row);
+                            if (originalExpression instanceof Row) {
+                                return ((Row) originalExpression).getItems().stream().map(OriginalExpressionUtils::castToRowExpression);
+                            }
+                            return Stream.of(castToRowExpression(originalExpression));
                         }
-                        return Stream.of(row);
+                        else {
+                            if (row instanceof SpecialForm && ((SpecialForm) row).getForm().equals(SpecialForm.Form.ROW_CONSTRUCTOR)) {
+                                return ((SpecialForm) row).getArguments().stream();
+                            }
+                            else {
+                                return Stream.of(row);
+                            }
+                        }
                     })
                     .collect(toImmutableList());
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, processedExpressions);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, processedExpressions.stream()
+                    .filter(OriginalExpressionUtils::isExpression)
+                            .map(OriginalExpressionUtils::castToExpression).collect(toImmutableList()));
 
             boolean[] hasNull = new boolean[node.getOutputSymbols().size()];
             boolean[] hasNaN = new boolean[node.getOutputSymbols().size()];
@@ -378,24 +398,55 @@ public class EffectivePredicateExtractor
             }
             List<ImmutableList.Builder<Object>> valuesBuilders = builders.build();
 
-            for (Expression row : node.getRows().get()) {
-                if (row instanceof Row) {
-                    for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                        Expression value = ((Row) row).getItems().get(i);
-                        if (!DeterminismEvaluator.isDeterministic(value, metadata)) {
-                            nonDeterministic[i] = true;
-                        }
-                        else {
-                            ExpressionInterpreter interpreter = new ExpressionInterpreter(value, plannerContext, session, expressionTypes);
-                            Object item = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-                            if (item instanceof Expression) {
-                                return TRUE_LITERAL;
+            for (RowExpression row : node.getRows().get()) {
+                if (isExpression(row)) {
+                    Expression originalExpression = castToExpression(row);
+                    if (originalExpression instanceof Row) {
+                        for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                            Expression value = ((Row) originalExpression).getItems().get(i);
+                            if (!DeterminismEvaluator.isDeterministic(value, metadata)) {
+                                nonDeterministic[i] = true;
                             }
+                            else {
+                                ExpressionInterpreter interpreter = new ExpressionInterpreter(value, plannerContext, session, expressionTypes);
+                                Object item = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+                                if (item instanceof Expression) {
+                                    return TRUE_LITERAL;
+                                }
+                                if (item == null) {
+                                    hasNull[i] = true;
+                                }
+                                else {
+                                    Type type = types.get(node.getOutputSymbols().get(i));
+                                    if (hasNestedNulls(type, item)) {
+                                        // Workaround solution to deal with array and row comparisons don't support null elements currently.
+                                        // TODO: remove when comparisons are fixed
+                                        return TRUE_LITERAL;
+                                    }
+                                    if (isFloatingPointNaN(type, item)) {
+                                        hasNaN[i] = true;
+                                    }
+                                    valuesBuilders.get(i).add(item);
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        if (!DeterminismEvaluator.isDeterministic(originalExpression, metadata)) {
+                            return TRUE_LITERAL;
+                        }
+                        ExpressionInterpreter interpreter = new ExpressionInterpreter(originalExpression, plannerContext, session, expressionTypes);
+                        Object evaluated = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+                        if (evaluated instanceof Expression) {
+                            return TRUE_LITERAL;
+                        }
+                        for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                            Type type = types.get(node.getOutputSymbols().get(i));
+                            Object item = readNativeValue(type, (SingleRowBlock) evaluated, i);
                             if (item == null) {
                                 hasNull[i] = true;
                             }
                             else {
-                                Type type = types.get(node.getOutputSymbols().get(i));
                                 if (hasNestedNulls(type, item)) {
                                     // Workaround solution to deal with array and row comparisons don't support null elements currently.
                                     // TODO: remove when comparisons are fixed
@@ -410,30 +461,62 @@ public class EffectivePredicateExtractor
                     }
                 }
                 else {
-                    if (!DeterminismEvaluator.isDeterministic(row, metadata)) {
-                        return TRUE_LITERAL;
-                    }
-                    ExpressionInterpreter interpreter = new ExpressionInterpreter(row, plannerContext, session, expressionTypes);
-                    Object evaluated = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-                    if (evaluated instanceof Expression) {
-                        return TRUE_LITERAL;
-                    }
-                    for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                        Type type = types.get(node.getOutputSymbols().get(i));
-                        Object item = readNativeValue(type, (SingleRowBlock) evaluated, i);
-                        if (item == null) {
-                            hasNull[i] = true;
+                    if (row instanceof SpecialForm && ((SpecialForm) row).getForm().equals(SpecialForm.Form.ROW_CONSTRUCTOR)) {
+                        for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                            RowExpression value = ((SpecialForm) row).getArguments().get(i);
+                            if (!isDeterministic(value)) {
+                                nonDeterministic[i] = true;
+                            }
+                            else {
+                                RowExpressionInterpreter interpreter = new RowExpressionInterpreter(value, plannerContext, session);
+                                Object item = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+                                if (item instanceof RowExpression) {
+                                    return TRUE_LITERAL;
+                                }
+                                if (item == null) {
+                                    hasNull[i] = true;
+                                }
+                                else {
+                                    Type type = types.get(node.getOutputSymbols().get(i));
+                                    if (hasNestedNulls(type, item)) {
+                                        // Workaround solution to deal with array and row comparisons don't support null elements currently.
+                                        // TODO: remove when comparisons are fixed
+                                        return TRUE_LITERAL;
+                                    }
+                                    if (isFloatingPointNaN(type, item)) {
+                                        hasNaN[i] = true;
+                                    }
+                                    valuesBuilders.get(i).add(item);
+                                }
+                            }
                         }
-                        else {
-                            if (hasNestedNulls(type, item)) {
-                                // Workaround solution to deal with array and row comparisons don't support null elements currently.
-                                // TODO: remove when comparisons are fixed
-                                return TRUE_LITERAL;
+                    }
+                    else {
+                        if (isDeterministic(row)) {
+                            return TRUE_LITERAL;
+                        }
+                        RowExpressionInterpreter interpreter = new RowExpressionInterpreter(row, plannerContext, session);
+                        Object evaluated = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+                        if (evaluated instanceof RowExpression) {
+                            return TRUE_LITERAL;
+                        }
+                        for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                            Type type = types.get(node.getOutputSymbols().get(i));
+                            Object item = readNativeValue(type, (SingleRowBlock) evaluated, i);
+                            if (item == null) {
+                                hasNull[i] = true;
                             }
-                            if (isFloatingPointNaN(type, item)) {
-                                hasNaN[i] = true;
+                            else {
+                                if (hasNestedNulls(type, item)) {
+                                    // Workaround solution to deal with array and row comparisons don't support null elements currently.
+                                    // TODO: remove when comparisons are fixed
+                                    return TRUE_LITERAL;
+                                }
+                                if (isFloatingPointNaN(type, item)) {
+                                    hasNaN[i] = true;
+                                }
+                                valuesBuilders.get(i).add(item);
                             }
-                            valuesBuilders.get(i).add(item);
                         }
                     }
                 }

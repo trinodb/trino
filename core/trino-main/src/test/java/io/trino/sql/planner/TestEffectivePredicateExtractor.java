@@ -57,6 +57,8 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.relational.OriginalExpressionUtils;
+import io.trino.sql.relational.RowExpression;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
@@ -108,6 +110,7 @@ import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -577,8 +580,8 @@ public class TestEffectivePredicateExtractor
                                 newId(),
                                 ImmutableList.of(A),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(bigintLiteral(1))),
-                                        new Row(ImmutableList.of(bigintLiteral(2))))),
+                                        castToRowExpression(new Row(ImmutableList.of(bigintLiteral(1)))),
+                                        castToRowExpression(new Row(ImmutableList.of(bigintLiteral(2)))))),
                         types,
                         typeAnalyzer),
                 new InPredicate(AE, new InListExpression(ImmutableList.of(bigintLiteral(1), bigintLiteral(2)))));
@@ -591,9 +594,9 @@ public class TestEffectivePredicateExtractor
                                 newId(),
                                 ImmutableList.of(A),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(bigintLiteral(1))),
-                                        new Row(ImmutableList.of(bigintLiteral(2))),
-                                        new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT)))))),
+                                        castToRowExpression(new Row(ImmutableList.of(bigintLiteral(1)))),
+                                        castToRowExpression(new Row(ImmutableList.of(bigintLiteral(2)))),
+                                        castToRowExpression(new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT))))))),
                         types,
                         typeAnalyzer),
                 or(
@@ -607,7 +610,7 @@ public class TestEffectivePredicateExtractor
                         new ValuesNode(
                                 newId(),
                                 ImmutableList.of(A),
-                                ImmutableList.of(new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT)))))),
+                                ImmutableList.of(castToRowExpression(new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT))))))),
                         types,
                         typeAnalyzer),
                 new IsNullPredicate(AE));
@@ -619,16 +622,17 @@ public class TestEffectivePredicateExtractor
                         new ValuesNode(
                                 newId(),
                                 ImmutableList.of(R),
-                                ImmutableList.of(new Row(ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new NullLiteral())))))),
+                                ImmutableList.of(castToRowExpression(new Row(ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new NullLiteral()))))))),
                         types,
                         typeAnalyzer),
                 TRUE_LITERAL);
 
         // many rows
-        List<Expression> rows = IntStream.range(0, 500)
+        List<RowExpression> rows = IntStream.range(0, 500)
                 .mapToObj(TestEffectivePredicateExtractor::bigintLiteral)
                 .map(ImmutableList::of)
                 .map(Row::new)
+                .map(OriginalExpressionUtils::castToRowExpression)
                 .collect(toImmutableList());
         assertEquals(
                 effectivePredicateExtractor.extract(
@@ -648,7 +652,7 @@ public class TestEffectivePredicateExtractor
                         new ValuesNode(
                                 newId(),
                                 ImmutableList.of(D),
-                                ImmutableList.of(new Row(ImmutableList.of(doubleLiteral(Double.NaN))))),
+                                ImmutableList.of(castToRowExpression(new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))),
                         types,
                         typeAnalyzer),
                 new NotExpression(new IsNullPredicate(DE)));
@@ -661,8 +665,8 @@ public class TestEffectivePredicateExtractor
                                 newId(),
                                 ImmutableList.of(D),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(DOUBLE)))),
-                                        new Row(ImmutableList.of(doubleLiteral(Double.NaN))))),
+                                        castToRowExpression(new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(DOUBLE))))),
+                                        castToRowExpression(new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))),
                         types,
                         typeAnalyzer),
                 TRUE_LITERAL);
@@ -675,8 +679,8 @@ public class TestEffectivePredicateExtractor
                                 newId(),
                                 ImmutableList.of(D),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(doubleLiteral(42.))),
-                                        new Row(ImmutableList.of(doubleLiteral(Double.NaN))))),
+                                        castToRowExpression(new Row(ImmutableList.of(doubleLiteral(42.)))),
+                                        castToRowExpression(new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))),
                         types,
                         typeAnalyzer),
                 new NotExpression(new IsNullPredicate(DE)));
@@ -688,7 +692,7 @@ public class TestEffectivePredicateExtractor
                         new ValuesNode(
                                 newId(),
                                 ImmutableList.of(D),
-                                ImmutableList.of(new Row(ImmutableList.of(new Cast(doubleLiteral(Double.NaN), toSqlType(REAL)))))),
+                                ImmutableList.of(castToRowExpression(new Row(ImmutableList.of(new Cast(doubleLiteral(Double.NaN), toSqlType(REAL))))))),
                         TypeProvider.copyOf(ImmutableMap.of(D, REAL)),
                         typeAnalyzer),
                 new NotExpression(new IsNullPredicate(DE)));
@@ -701,8 +705,8 @@ public class TestEffectivePredicateExtractor
                                 newId(),
                                 ImmutableList.of(A, B),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(bigintLiteral(1), bigintLiteral(100))),
-                                        new Row(ImmutableList.of(bigintLiteral(2), bigintLiteral(200))))),
+                                        castToRowExpression(new Row(ImmutableList.of(bigintLiteral(1), bigintLiteral(100)))),
+                                        castToRowExpression(new Row(ImmutableList.of(bigintLiteral(2), bigintLiteral(200)))))),
                         types,
                         typeAnalyzer),
                 and(
@@ -717,8 +721,8 @@ public class TestEffectivePredicateExtractor
                                 newId(),
                                 ImmutableList.of(A, B),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(bigintLiteral(1), new Cast(new NullLiteral(), toSqlType(BIGINT)))),
-                                        new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT)), bigintLiteral(200))))),
+                                        castToRowExpression(new Row(ImmutableList.of(bigintLiteral(1), new Cast(new NullLiteral(), toSqlType(BIGINT))))),
+                                        castToRowExpression(new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT)), bigintLiteral(200)))))),
                         types,
                         typeAnalyzer),
                 and(
@@ -730,7 +734,7 @@ public class TestEffectivePredicateExtractor
         ValuesNode node = new ValuesNode(
                 newId(),
                 ImmutableList.of(A, B),
-                ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new FunctionCall(rand.toQualifiedName(), ImmutableList.of())))));
+                ImmutableList.of(castToRowExpression(new Row(ImmutableList.of(bigintLiteral(1), new FunctionCall(rand.toQualifiedName(), ImmutableList.of()))))));
         assertEquals(extract(types, node), new ComparisonExpression(EQUAL, AE, bigintLiteral(1)));
 
         // non-constant
@@ -741,8 +745,8 @@ public class TestEffectivePredicateExtractor
                                 newId(),
                                 ImmutableList.of(A),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(bigintLiteral(1))),
-                                        new Row(ImmutableList.of(BE)))),
+                                        castToRowExpression(new Row(ImmutableList.of(bigintLiteral(1)))),
+                                        castToRowExpression(new Row(ImmutableList.of(BE))))),
                         types,
                         typeAnalyzer),
                 TRUE_LITERAL);

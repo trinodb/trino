@@ -23,8 +23,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.Row;
+import io.trino.type.UnknownType;
 
 import java.util.Optional;
 
@@ -32,6 +31,8 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.sql.planner.plan.Patterns.Values.rowCount;
 import static io.trino.sql.planner.plan.Patterns.tableFinish;
 import static io.trino.sql.planner.plan.Patterns.values;
+import static io.trino.sql.relational.Expressions.constantNull;
+import static io.trino.sql.relational.RowExpressionUtil.toRowConstructorExpression;
 
 /**
  * If the predicate for a table execute is optimized to false, the target table scan
@@ -88,7 +89,7 @@ public class RemoveEmptyTableExecute
                 new ValuesNode(
                         finishNode.getId(),
                         finishNode.getOutputSymbols(),
-                        ImmutableList.of(new Row(ImmutableList.of(new NullLiteral())))));
+                        ImmutableList.of(toRowConstructorExpression(constantNull(UnknownType.UNKNOWN)))));
     }
 
     private Optional<PlanNode> getSingleSourceSkipExchange(PlanNode node, Lookup lookup)

@@ -43,6 +43,10 @@ import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValueP
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.RowExpressionRewriter;
+import io.trino.sql.relational.RowExpressionTreeRewriter;
+import io.trino.sql.relational.VariableReferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
@@ -60,6 +64,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
+import static io.trino.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.isExpression;
 import static java.util.Objects.requireNonNull;
 
 public class SymbolMapper
@@ -132,6 +140,31 @@ public class SymbolMapper
                 return canonical.toSymbolReference();
             }
         }, expression);
+    }
+
+    public RowExpression map(RowExpression value)
+    {
+        if (isExpression(value)) {
+            return castToRowExpression(map(castToExpression(value)));
+        }
+        return RowExpressionTreeRewriter.rewriteWith(new RowExpressionRewriter<Void>()
+        {
+            @Override
+            public RowExpression rewriteVariableReference(VariableReferenceExpression variable, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
+            {
+                return map(variable);
+            }
+        }, value);
+    }
+
+    public VariableReferenceExpression map(VariableReferenceExpression variable)
+    {
+        Symbol symbol = Symbol.from(asSymbolReference(variable));
+        Symbol canonical = mappingFunction.apply(symbol);
+        if (canonical.getName().equals(symbol.getName())) {
+            return variable;
+        }
+        return new VariableReferenceExpression(canonical.getName(), variable.getType());
     }
 
     public AggregationNode map(AggregationNode node, PlanNode source)

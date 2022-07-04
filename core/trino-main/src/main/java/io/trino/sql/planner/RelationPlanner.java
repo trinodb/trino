@@ -56,6 +56,7 @@ import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValueP
 import io.trino.sql.planner.rowpattern.RowPatternToIrRewriter;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
+import io.trino.sql.relational.RowExpression;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.Cast;
@@ -123,6 +124,7 @@ import static io.trino.sql.planner.QueryPlanner.planWindowSpecification;
 import static io.trino.sql.planner.QueryPlanner.pruneInvisibleFields;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.Join.Type.CROSS;
 import static io.trino.sql.tree.Join.Type.IMPLICIT;
@@ -1043,18 +1045,19 @@ class RelationPlanner
         List<Symbol> outputSymbols = outputSymbolsBuilder.build();
         TranslationMap translationMap = new TranslationMap(outerContext, analysis.getScope(node), analysis, lambdaDeclarationToSymbolMap, outputSymbols, session, plannerContext);
 
-        ImmutableList.Builder<Expression> rows = ImmutableList.builder();
+        ImmutableList.Builder<RowExpression> rows = ImmutableList.builder();
         for (Expression row : node.getRows()) {
             if (row instanceof Row) {
-                rows.add(new Row(((Row) row).getItems().stream()
+                Expression expression = new Row(((Row) row).getItems().stream()
                         .map(item -> coerceIfNecessary(analysis, item, translationMap.rewrite(item)))
-                        .collect(toImmutableList())));
+                        .collect(toImmutableList()));
+                rows.add(castToRowExpression(expression));
             }
             else if (analysis.getType(row) instanceof RowType) {
-                rows.add(coerceIfNecessary(analysis, row, translationMap.rewrite(row)));
+                rows.add(castToRowExpression(coerceIfNecessary(analysis, row, translationMap.rewrite(row))));
             }
             else {
-                rows.add(new Row(ImmutableList.of(coerceIfNecessary(analysis, row, translationMap.rewrite(row)))));
+                rows.add(castToRowExpression(new Row(ImmutableList.of(coerceIfNecessary(analysis, row, translationMap.rewrite(row))))));
             }
         }
 

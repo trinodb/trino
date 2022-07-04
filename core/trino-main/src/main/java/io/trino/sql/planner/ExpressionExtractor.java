@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.isExpression;
 import static java.util.Objects.requireNonNull;
 
 public final class ExpressionExtractor
@@ -135,7 +137,11 @@ public final class ExpressionExtractor
         @Override
         public Void visitValues(ValuesNode node, Void context)
         {
-            node.getRows().ifPresent(list -> list.forEach(consumer));
+            node.getRows().ifPresent(list -> list.forEach(rowExpression -> {
+                if (isExpression(rowExpression)) {
+                    consumer.accept(castToExpression(rowExpression));
+                }
+            }));
             return super.visitValues(node, context);
         }
 

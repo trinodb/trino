@@ -13,6 +13,8 @@
  */
 package io.trino.sql.relational;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
@@ -20,6 +22,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Signature;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
+import net.jcip.annotations.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -28,6 +31,7 @@ import java.util.Optional;
 import static io.trino.spi.function.OperatorType.CAST;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class SpecialForm
         extends RowExpression
 {
@@ -46,7 +50,11 @@ public class SpecialForm
         this(form, returnType, arguments, ImmutableList.of());
     }
 
-    public SpecialForm(Form form, Type returnType, List<RowExpression> arguments, List<ResolvedFunction> functionDependencies)
+    @JsonCreator
+    public SpecialForm(@JsonProperty("form") Form form,
+            @JsonProperty("returnType") Type returnType,
+            @JsonProperty("arguments") List<RowExpression> arguments,
+            @JsonProperty("functionDependencies") List<ResolvedFunction> functionDependencies)
     {
         this.form = requireNonNull(form, "form is null");
         this.returnType = requireNonNull(returnType, "returnType is null");
@@ -54,11 +62,13 @@ public class SpecialForm
         this.functionDependencies = ImmutableList.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
     }
 
+    @JsonProperty
     public Form getForm()
     {
         return form;
     }
 
+    @JsonProperty
     public List<ResolvedFunction> getFunctionDependencies()
     {
         return functionDependencies;
@@ -90,11 +100,13 @@ public class SpecialForm
     }
 
     @Override
+    @JsonProperty("returnType")
     public Type getType()
     {
         return returnType;
     }
 
+    @JsonProperty
     public List<RowExpression> getArguments()
     {
         return arguments;

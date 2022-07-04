@@ -18,6 +18,7 @@ import io.trino.matching.Property;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.CorrelatedJoinNode.Type;
+import io.trino.sql.relational.RowExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 
@@ -376,7 +377,7 @@ public final class Patterns
 
     public static final class Values
     {
-        public static Property<ValuesNode, Lookup, Optional<List<Expression>>> rows()
+        public static Property<ValuesNode, Lookup, Optional<List<RowExpression>>> rows()
         {
             return property("rows", ValuesNode::getRows);
         }

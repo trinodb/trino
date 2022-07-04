@@ -14,10 +14,23 @@
 package io.trino.sql;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.trino.FeaturesConfig;
+import io.trino.block.BlockSerdeUtil;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.MetadataManager;
+import io.trino.operator.scalar.FunctionAssertions;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
@@ -25,11 +38,20 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.RowExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolResolver;
+import io.trino.sql.planner.TestingPlannerContext;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
+import io.trino.sql.relational.CallExpression;
+import io.trino.sql.relational.ConstantExpression;
+import io.trino.sql.relational.InputReferenceExpression;
+import io.trino.sql.relational.LambdaDefinitionExpression;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.relational.VariableReferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.NodeRef;
@@ -37,6 +59,7 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionBuilder;
+import io.trino.type.TypeCoercion;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.LocalDate;
@@ -50,6 +73,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -71,7 +95,6 @@ import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
@@ -149,7 +172,19 @@ public class TestExpressionInterpreter
         return symbol.toSymbolReference();
     };
 
+    private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
+
     private static final SqlParser SQL_PARSER = new SqlParser();
+
+    private static final PlannerContext PLANNER_CONTEXT = TestingPlannerContext.plannerContextBuilder().addFunctions(new InternalFunctionBundle(ImmutableList.of(APPLY_FUNCTION))).build();
+
+    private static final TestSqlToRowExpressionTranslator TRANSLATOR = new TestSqlToRowExpressionTranslator();
+
+    private static final TypeCoercion typeCoercion = new TypeCoercion(PLANNER_CONTEXT.getTypeManager()::getType);
+
+    private static final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+
+    private static final FunctionAssertions functionAssertions = new FunctionAssertions(TEST_SESSION, new FeaturesConfig());
 
     @Test
     public void testAnd()
@@ -170,6 +205,8 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("false AND unbound_string='z'", "false");
 
         assertOptimizedEquals("bound_string='z' AND bound_long=1+1", "bound_string='z' AND bound_long=2");
+
+        assertOptimizedEquals("random() > 0 and random() > 0", "random() > 0 and random() > 0");
     }
 
     @Test
@@ -382,7 +419,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("random()", "random()");
 
         // evaluate should execute
-        Object value = evaluate("random()");
+        Object value = evaluate("random()", false);
         assertTrue(value instanceof Double);
         double randomValue = (double) value;
         assertTrue(0 <= randomValue && randomValue < 1);
@@ -511,7 +548,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("3 in (2, 4, 3, null, 5 / 0)", "3 in (2, 4, 3, null, 5 / 0)");
         assertOptimizedEquals("null in (2, 4, null, 5 / 0)", "null in (2, 4, null, 5 / 0)");
         assertOptimizedEquals("3 in (5 / 0, 5 / 0)", "3 in (5 / 0, 5 / 0)");
-        assertTrinoExceptionThrownBy(() -> evaluate("3 in (2, 4, 3, 5 / 0)"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("3 in (2, 4, 3, 5 / 0)"))
                 .hasErrorCode(DIVISION_BY_ZERO);
 
         assertOptimizedEquals("0 / 0 in (2, 4, 3, 5)", "0 / 0 in (2, 4, 3, 5)");
@@ -571,13 +608,20 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testCurrentPath()
+            throws Exception
+    {
+        assertOptimizedEquals("current_path", "'" + TEST_SESSION.getPath() + "'");
+    }
+
+    @Test
     public void testDereference()
     {
         assertOptimizedEquals("CAST(ROW(1, true) AS ROW(id BIGINT, value BOOLEAN)).value", "true");
         assertOptimizedEquals("CAST(ROW(1, null) AS ROW(id BIGINT, value BOOLEAN)).value", "null");
         assertOptimizedEquals("CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value", "CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value"))
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 
@@ -626,10 +670,10 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(12300000000 AS varchar(11))", "'12300000000'");
         assertEvaluatedEquals("CAST(12300000000 AS varchar(50))", "'12300000000'");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(12300000000 AS varchar(3))"))
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(12300000000 AS varchar(3))", true))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value 12300000000 cannot be represented as varchar(3)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(-12300000000 AS varchar(3))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(-12300000000 AS varchar(3))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value -12300000000 cannot be represented as varchar(3)");
     }
@@ -640,10 +684,10 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(1234 AS varchar(4))", "'1234'");
         assertEvaluatedEquals("CAST(1234 AS varchar(50))", "'1234'");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(1234 AS varchar(3))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(1234 AS varchar(3))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value 1234 cannot be represented as varchar(3)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(-1234 AS varchar(3))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(-1234 AS varchar(3))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value -1234 cannot be represented as varchar(3)");
     }
@@ -654,10 +698,10 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(SMALLINT '1234' AS varchar(4))", "'1234'");
         assertEvaluatedEquals("CAST(SMALLINT '1234' AS varchar(50))", "'1234'");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(SMALLINT '1234' AS varchar(3))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(SMALLINT '1234' AS varchar(3))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value 1234 cannot be represented as varchar(3)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(SMALLINT '-1234' AS varchar(3))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(SMALLINT '-1234' AS varchar(3))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value -1234 cannot be represented as varchar(3)");
     }
@@ -668,10 +712,10 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(TINYINT '123' AS varchar(3))", "'123'");
         assertEvaluatedEquals("CAST(TINYINT '123' AS varchar(50))", "'123'");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(TINYINT '123' AS varchar(2))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(TINYINT '123' AS varchar(2))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value 123 cannot be represented as varchar(2)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(TINYINT '-123' AS varchar(2))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(TINYINT '-123' AS varchar(2))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value -123 cannot be represented as varchar(2)");
     }
@@ -683,18 +727,18 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(DECIMAL '12.4' AS varchar(4))", "'12.4'");
         assertEvaluatedEquals("CAST(DECIMAL '12.4' AS varchar(50))", "'12.4'");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '12.4' AS varchar(3))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(DECIMAL '12.4' AS varchar(3))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value 12.4 cannot be represented as varchar(3)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-12.4' AS varchar(3))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(DECIMAL '-12.4' AS varchar(3))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value -12.4 cannot be represented as varchar(3)");
 
         // the trailing 0 does not fit in the type
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '12.40' AS varchar(4))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(DECIMAL '12.40' AS varchar(4))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value 12.40 cannot be represented as varchar(4)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-12.40' AS varchar(5))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(DECIMAL '-12.40' AS varchar(5))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value -12.40 cannot be represented as varchar(5)");
 
@@ -702,18 +746,18 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.1' AS varchar(20))", "'100000000000000000.1'");
         assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.1' AS varchar(50))", "'100000000000000000.1'");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '100000000000000000.1' AS varchar(3))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(DECIMAL '100000000000000000.1' AS varchar(3))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value 100000000000000000.1 cannot be represented as varchar(3)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-100000000000000000.1' AS varchar(3))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(DECIMAL '-100000000000000000.1' AS varchar(3))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value -100000000000000000.1 cannot be represented as varchar(3)");
 
         // the trailing 0 does not fit in the type
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '100000000000000000.10' AS varchar(20))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(DECIMAL '100000000000000000.10' AS varchar(20))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value 100000000000000000.10 cannot be represented as varchar(20)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-100000000000000000.10' AS varchar(21))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(DECIMAL '-100000000000000000.10' AS varchar(21))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value -100000000000000000.10 cannot be represented as varchar(21)");
     }
@@ -754,19 +798,19 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(0.00001e0 AS varchar(6))", "'1.0E-5'");
 
         // the result value does not fit in the type
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(12e0 AS varchar(1))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(12e0 AS varchar(1))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value 12.0 (1.2E1) cannot be represented as varchar(1)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(-12e2 AS varchar(1))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(-12e2 AS varchar(1))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value -1200.0 (-1.2E3) cannot be represented as varchar(1)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(0e0 AS varchar(1))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(0e0 AS varchar(1))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value 0.0 (0E0) cannot be represented as varchar(1)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(0e0 / 0e0 AS varchar(1))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(0e0 / 0e0 AS varchar(1))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value NaN (NaN) cannot be represented as varchar(1)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DOUBLE 'Infinity' AS varchar(1))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(DOUBLE 'Infinity' AS varchar(1))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value Infinity (Infinity) cannot be represented as varchar(1)");
 
@@ -808,19 +852,19 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(REAL '0.00001e0' AS varchar(12))", "'1.0E-5'");
 
         // the result value does not fit in the type
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '12' AS varchar(1))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(REAL '12' AS varchar(1))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value 12.0 (1.2E1) cannot be represented as varchar(1)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '-12e2' AS varchar(1))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(REAL '-12e2' AS varchar(1))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value -1200.0 (-1.2E3) cannot be represented as varchar(1)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '0' AS varchar(1))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(REAL '0' AS varchar(1))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value 0.0 (0E0) cannot be represented as varchar(1)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '0e0' / REAL '0e0' AS varchar(1))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(REAL '0e0' / REAL '0e0' AS varchar(1))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value NaN (NaN) cannot be represented as varchar(1)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL 'Infinity' AS varchar(1))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(REAL 'Infinity' AS varchar(1))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value Infinity (Infinity) cannot be represented as varchar(1)");
 
@@ -835,10 +879,10 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(DATE '-2013-02-02' AS varchar(50))", "'-2013-02-02'");
 
         // the result value does not fit in the type
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DATE '2013-02-02' AS varchar(9))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(DATE '2013-02-02' AS varchar(9))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value 2013-02-02 cannot be represented as varchar(9)");
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DATE '-2013-02-02' AS varchar(9))"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("CAST(DATE '-2013-02-02' AS varchar(9))"))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value -2013-02-02 cannot be represented as varchar(9)");
     }
@@ -1479,8 +1523,24 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("coalesce(rand(), rand(), 1, rand())", "coalesce(rand(), rand(), 1)");
 
         assertEvaluatedEquals("coalesce(1, 0 / 0)", "1");
-        assertTrinoExceptionThrownBy(() -> evaluate("coalesce(0 / 0, 1)"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("coalesce(0 / 0, 1)"))
                 .hasErrorCode(DIVISION_BY_ZERO);
+    }
+
+    @Test
+    public void testLambda()
+    {
+        assertOptimizedEquals("transform(ARRAY[1, 5], x -> x + x)", "transform(ARRAY[1, 5], x -> x + x)");
+        assertOptimizedEquals("transform(sequence(1, 5), x -> x + x)", "transform(sequence(1, 5), x -> x + x)");
+        evaluate("transform(ARRAY[1, 5], x -> x + x)", true);
+    }
+
+    @Test
+    public void testBind()
+    {
+        assertOptimizedEquals("apply(90, \"$internal$bind\"(9, (x, y) -> x + y))", "apply(90, \"$internal$bind\"(9, (x, y) -> x + y))");
+        evaluate("apply(90, \"$internal$bind\"(9, (x, y) -> x + y))", true);
+        evaluate("apply(900, \"$internal$bind\"(90, 9, (x, y, z) -> x + y + z))", true);
     }
 
     @Test
@@ -1525,7 +1585,7 @@ public class TestExpressionInterpreter
 
         assertEvaluatedEquals("IF(true, 1, 0 / 0)", "1");
         assertEvaluatedEquals("IF(false, 0 / 0, 1)", "1");
-        assertTrinoExceptionThrownBy(() -> evaluate("IF(0 / 0 = 0, 1, 2)"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("IF(0 / 0 = 0, 1, 2)"))
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 
@@ -1715,19 +1775,19 @@ public class TestExpressionInterpreter
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Escape string must be a single character");*/
 
-        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE 'abc' ESCAPE 'bc'"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("unbound_string LIKE 'abc' ESCAPE 'bc'"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Escape string must be a single character");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE '#' ESCAPE '#'"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("unbound_string LIKE '#' ESCAPE '#'"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE '#abc' ESCAPE '#'"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("unbound_string LIKE '#abc' ESCAPE '#'"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE 'ab#' ESCAPE '#'"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("unbound_string LIKE 'ab#' ESCAPE '#'"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
     }
@@ -1762,7 +1822,7 @@ public class TestExpressionInterpreter
     {
         assertOptimizedEquals("0 / 0", "0 / 0");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("0 / 0"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("0 / 0"))
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 
@@ -1817,10 +1877,16 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("ROW(0 / 0, 1)[1]", "ROW(0 / 0, 1)[1]");
         assertOptimizedEquals("ROW(0 / 0, 1)[2]", "ROW(0 / 0, 1)[2]");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("ROW(0 / 0, 1)[1]"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("ROW(0 / 0, 1)[1]"))
                 .hasErrorCode(DIVISION_BY_ZERO);
-        assertTrinoExceptionThrownBy(() -> evaluate("ROW(0 / 0, 1)[2]"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("ROW(0 / 0, 1)[2]"))
                 .hasErrorCode(DIVISION_BY_ZERO);
+    }
+
+    @Test
+    public void testRowDereference()
+    {
+        optimize("CAST(null AS ROW(a VARCHAR, b BIGINT)).a");
     }
 
     @Test
@@ -1828,7 +1894,7 @@ public class TestExpressionInterpreter
     {
         assertOptimizedEquals("ARRAY[1, 2, 3][-1]", "ARRAY[1,2,3][CAST(-1 AS bigint)]");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("ARRAY[1, 2, 3][-1]"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("ARRAY[1, 2, 3][-1]"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Array subscript is negative: -1");
     }
@@ -1838,7 +1904,7 @@ public class TestExpressionInterpreter
     {
         assertOptimizedEquals("ARRAY[1, 2, 3][0]", "ARRAY[1,2,3][CAST(0 AS bigint)]");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("ARRAY[1, 2, 3][0]"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("ARRAY[1, 2, 3][0]"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("SQL array indices start at 1");
     }
@@ -1848,7 +1914,7 @@ public class TestExpressionInterpreter
     {
         assertOptimizedEquals("MAP(ARRAY[1, 2], ARRAY[3, 4])[-1]", "MAP(ARRAY[1, 2], ARRAY[3, 4])[-1]");
 
-        assertTrinoExceptionThrownBy(() -> evaluate("MAP(ARRAY[1, 2], ARRAY[3, 4])[-1]"))
+        assertTrinoExceptionThrownBy(() -> evaluateDeterministic("MAP(ARRAY[1, 2], ARRAY[3, 4])[-1]"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Key not present in map: -1");
     }
@@ -1890,7 +1956,7 @@ public class TestExpressionInterpreter
                 rawStringLiteral(Slices.wrappedBuffer(value)),
                 new StringLiteral(pattern),
                 Optional.empty());
-        assertEquals(evaluate(predicate), expected);
+        assertEquals(evaluate(predicate, true), expected);
     }
 
     private static StringLiteral rawStringLiteral(Slice slice)
@@ -1951,16 +2017,24 @@ public class TestExpressionInterpreter
 
     private static void assertEvaluatedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
     {
-        assertEquals(evaluate(actual), evaluate(expected));
+        assertEquals(evaluate(actual, true), evaluate(expected, true));
     }
 
-    private static Object evaluate(String expression)
+    private static Object evaluateDeterministic(String expression)
     {
         assertRoundTrip(expression);
 
         Expression parsedExpression = ExpressionTestUtils.createExpression(expression, PLANNER_CONTEXT, SYMBOL_TYPES);
 
-        return evaluate(parsedExpression);
+        return evaluate(parsedExpression, true);
+    }
+
+    private static Object evaluate(String expression, boolean deterministic)
+    {
+        assertRoundTrip(expression);
+        Expression parsedExpression = ExpressionTestUtils.createExpression(expression, PLANNER_CONTEXT, SYMBOL_TYPES);
+
+        return evaluate(parsedExpression, deterministic);
     }
 
     private static void assertRoundTrip(String expression)
@@ -1971,11 +2045,104 @@ public class TestExpressionInterpreter
         assertEquals(parsed, SQL_PARSER.createExpression(formatted, parsingOptions));
     }
 
-    private static Object evaluate(Expression expression)
+    private static Object evaluate(Expression expression, boolean deterministic)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
+        Object expressionResult = new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes).evaluate(INPUTS);
 
-        return interpreter.evaluate(INPUTS);
+        Object rowExpressionResult = new RowExpressionInterpreter(TRANSLATOR.translateAndOptimize(expression), PLANNER_CONTEXT, TEST_SESSION).evaluate();
+
+        if (deterministic) {
+            assertExpressionAndRowExpressionEquals(expressionResult, rowExpressionResult);
+        }
+        return expressionResult;
+    }
+
+    private static void assertExpressionAndRowExpressionEquals(Object expressionResult, Object rowExpressionResult)
+    {
+        if (rowExpressionResult instanceof RowExpression) {
+            // Cannot be completely evaluated into a constant; compare expressions
+            assertTrue(expressionResult instanceof Expression);
+
+            // It is tricky to check the equivalence of an expression and a row expression.
+            // We rely on the optimized translator to fill the gap.
+            RowExpression translated = TRANSLATOR.translateAndOptimize((Expression) expressionResult);
+            assertRowExpressionEvaluationEquals(translated, rowExpressionResult);
+        }
+        else {
+            // We have constants; directly compare
+            assertRowExpressionEvaluationEquals(expressionResult, rowExpressionResult);
+        }
+    }
+
+    private static void assertRowExpressionEvaluationEquals(Object left, Object right)
+    {
+        if (right instanceof RowExpression) {
+            assertTrue(left instanceof RowExpression);
+            // assertEquals(((RowExpression) left).getType(), ((RowExpression) right).getType());
+            if (left instanceof ConstantExpression) {
+                if (isRemovableCast(right)) {
+                    assertRowExpressionEvaluationEquals(left, ((CallExpression) right).getArguments().get(0));
+                    return;
+                }
+                assertTrue(right instanceof ConstantExpression);
+                assertRowExpressionEvaluationEquals(((ConstantExpression) left).getValue(), ((ConstantExpression) left).getValue());
+            }
+            else if (left instanceof InputReferenceExpression || left instanceof VariableReferenceExpression) {
+                assertEquals(left, right);
+            }
+            else if (left instanceof CallExpression) {
+                assertTrue(right instanceof CallExpression);
+                assertEquals(((CallExpression) left).getResolvedFunction(), ((CallExpression) right).getResolvedFunction());
+                assertEquals(((CallExpression) left).getArguments().size(), ((CallExpression) right).getArguments().size());
+                for (int i = 0; i < ((CallExpression) left).getArguments().size(); i++) {
+                    assertRowExpressionEvaluationEquals(((CallExpression) left).getArguments().get(i), ((CallExpression) right).getArguments().get(i));
+                }
+            }
+            else if (left instanceof SpecialForm) {
+                assertTrue(right instanceof SpecialForm);
+                assertEquals(((SpecialForm) left).getForm(), ((SpecialForm) right).getForm());
+                assertEquals(((SpecialForm) left).getArguments().size(), ((SpecialForm) right).getArguments().size());
+                for (int i = 0; i < ((SpecialForm) left).getArguments().size(); i++) {
+                    assertRowExpressionEvaluationEquals(((SpecialForm) left).getArguments().get(i), ((SpecialForm) right).getArguments().get(i));
+                }
+            }
+            else {
+                assertTrue(left instanceof LambdaDefinitionExpression);
+                assertTrue(right instanceof LambdaDefinitionExpression);
+                assertEquals(((LambdaDefinitionExpression) left).getArguments(), ((LambdaDefinitionExpression) right).getArguments());
+                assertEquals(((LambdaDefinitionExpression) left).getArgumentTypes(), ((LambdaDefinitionExpression) right).getArgumentTypes());
+                assertRowExpressionEvaluationEquals(((LambdaDefinitionExpression) left).getBody(), ((LambdaDefinitionExpression) right).getBody());
+            }
+        }
+        else {
+            // We have constants; directly compare
+            if (left instanceof Block) {
+                assertTrue(right instanceof Block);
+                assertEquals(blockToSlice((Block) left), blockToSlice((Block) right));
+            }
+            else {
+                assertEquals(left, right);
+            }
+        }
+    }
+
+    private static boolean isRemovableCast(Object value)
+    {
+        if (value instanceof CallExpression &&
+                FunctionDependencies.isCast(((CallExpression) value).getResolvedFunction())) {
+            Type targetType = ((CallExpression) value).getType();
+            Type sourceType = ((CallExpression) value).getArguments().get(0).getType();
+            return typeCoercion.canCoerce(sourceType, targetType);
+        }
+        return false;
+    }
+
+    private static Slice blockToSlice(Block block)
+    {
+        // This function is strictly for testing use only
+        SliceOutput sliceOutput = new DynamicSliceOutput(1000);
+        BlockSerdeUtil.writeBlock(blockEncodingSerde, sliceOutput, block);
+        return sliceOutput.slice();
     }
 }

@@ -82,6 +82,8 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NullLiteral;
@@ -111,6 +113,11 @@ import static io.trino.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolReallocator;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.SimplePlanRewriter.rewriteWith;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.isExpression;
+import static io.trino.sql.relational.RowExpressionUtil.isRow;
+import static io.trino.sql.relational.RowExpressionUtil.toRowConstructorExpression;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -549,8 +556,8 @@ public class UnaliasSymbolReferences
             }
 
             // if any of ValuesNode's rows is specified by expression other than Row, we cannot reason about individual fields
-            if (node.getRows().get().stream().anyMatch(row -> !(row instanceof Row))) {
-                List<Expression> newRows = node.getRows().get().stream()
+            if (node.getRows().get().stream().anyMatch(row -> !(isRow(row)))) {
+                List<RowExpression> newRows = node.getRows().get().stream()
                         .map(mapper::map)
                         .collect(toImmutableList());
                 List<Symbol> newOutputs = node.getOutputSymbols().stream()
@@ -563,18 +570,24 @@ public class UnaliasSymbolReferences
                         mapping);
             }
 
-            ImmutableList.Builder<SimpleEntry<Symbol, List<Expression>>> rewrittenAssignmentsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<SimpleEntry<Symbol, List<RowExpression>>> rewrittenAssignmentsBuilder = ImmutableList.builder();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
-                for (Expression row : node.getRows().get()) {
-                    expressionsBuilder.add(mapper.map(((Row) row).getItems().get(i)));
+                ImmutableList.Builder<RowExpression> expressionsBuilder = ImmutableList.builder();
+                for (RowExpression row : node.getRows().get()) {
+                    RowExpression newRow = mapper.map(row);
+                    if (isExpression(newRow)) {
+                        expressionsBuilder.add(castToRowExpression(mapper.map(((Row) castToExpression(row)).getItems().get(i))));
+                    }
+                    else {
+                        expressionsBuilder.add(((SpecialForm) row).getArguments().get(i));
+                    }
                 }
                 rewrittenAssignmentsBuilder.add(new SimpleEntry<>(mapper.map(node.getOutputSymbols().get(i)), expressionsBuilder.build()));
             }
-            List<SimpleEntry<Symbol, List<Expression>>> rewrittenAssignments = rewrittenAssignmentsBuilder.build();
+            List<SimpleEntry<Symbol, List<RowExpression>>> rewrittenAssignments = rewrittenAssignmentsBuilder.build();
 
             // prune duplicate outputs and corresponding expressions. assert that duplicate outputs result from same input expressions
-            Map<Symbol, List<Expression>> deduplicateAssignments = rewrittenAssignments.stream()
+            Map<Symbol, List<RowExpression>> deduplicateAssignments = rewrittenAssignments.stream()
                     .collect(toImmutableMap(SimpleEntry::getKey, SimpleEntry::getValue, (previous, current) -> {
                         checkState(previous.equals(current), "different expressions mapped to the same output symbol");
                         return previous;
@@ -583,11 +596,11 @@ public class UnaliasSymbolReferences
             List<Symbol> newOutputs = deduplicateAssignments.keySet().stream()
                     .collect(toImmutableList());
 
-            List<ImmutableList.Builder<Expression>> newRows = new ArrayList<>(node.getRowCount());
+            List<ImmutableList.Builder<RowExpression>> newRows = new ArrayList<>(node.getRowCount());
             for (int i = 0; i < node.getRowCount(); i++) {
                 newRows.add(ImmutableList.builder());
             }
-            for (List<Expression> expressions : deduplicateAssignments.values()) {
+            for (List<RowExpression> expressions : deduplicateAssignments.values()) {
                 for (int i = 0; i < expressions.size(); i++) {
                     newRows.get(i).add(expressions.get(i));
                 }
@@ -597,10 +610,7 @@ public class UnaliasSymbolReferences
                     new ValuesNode(
                             node.getId(),
                             newOutputs,
-                            newRows.stream()
-                                    .map(ImmutableList.Builder::build)
-                                    .map(Row::new)
-                                    .collect(toImmutableList())),
+                            newRows.stream().map(argumentsBuilder -> toRowConstructorExpression(argumentsBuilder.build())).collect(toImmutableList())),
                     mapping);
         }
 

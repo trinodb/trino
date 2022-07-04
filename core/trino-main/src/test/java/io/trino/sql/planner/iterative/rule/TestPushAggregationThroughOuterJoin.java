@@ -37,7 +37,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
@@ -55,7 +55,7 @@ public class TestPushAggregationThroughOuterJoin
                         .source(
                                 p.join(
                                         LEFT,
-                                        p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
+                                        p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10))),
                                         p.values(p.symbol("COL2")),
                                         ImmutableList.of(new EquiJoinClause(p.symbol("COL1"), p.symbol("COL2"))),
                                         ImmutableList.of(p.symbol("COL1")),
@@ -94,7 +94,7 @@ public class TestPushAggregationThroughOuterJoin
                         .source(p.join(
                                 RIGHT,
                                 p.values(p.symbol("COL2")),
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10))),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("COL2"), p.symbol("COL1"))),
                                 ImmutableList.of(p.symbol("COL2")),
                                 ImmutableList.of(p.symbol("COL1")),
@@ -133,7 +133,7 @@ public class TestPushAggregationThroughOuterJoin
                         .source(
                                 p.join(
                                         LEFT,
-                                        p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
+                                        p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10))),
                                         p.values(p.symbol("COL2"), p.symbol("MASK")),
                                         ImmutableList.of(new EquiJoinClause(p.symbol("COL1"), p.symbol("COL2"))),
                                         ImmutableList.of(p.symbol("COL1")),
@@ -180,7 +180,7 @@ public class TestPushAggregationThroughOuterJoin
                         .source(
                                 p.join(
                                         LEFT,
-                                        p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
+                                        p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10))),
                                         p.values(p.symbol("COL2")),
                                         ImmutableList.of(new EquiJoinClause(p.symbol("COL1"), p.symbol("COL2"))),
                                         ImmutableList.of(p.symbol("COL1")),
@@ -221,10 +221,10 @@ public class TestPushAggregationThroughOuterJoin
                                         LEFT,
                                         p.values(
                                                 ImmutableList.of(p.symbol("COL1"), p.symbol("COL2")),
-                                                ImmutableList.of(expressions("1", "2"))),
+                                                ImmutableList.of(constantExpressions(BIGINT, 1, 2))),
                                         p.values(
                                                 ImmutableList.of(p.symbol("COL3")),
-                                                ImmutableList.of(expressions("1"))),
+                                                ImmutableList.of(constantExpressions(BIGINT, 1))),
                                         ImmutableList.of(new EquiJoinClause(p.symbol("COL1"), p.symbol("COL3"))),
                                         ImmutableList.of(p.symbol("COL1")),
                                         ImmutableList.of(p.symbol("COL3")),
@@ -243,7 +243,7 @@ public class TestPushAggregationThroughOuterJoin
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"), expressions("11"))),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10), constantExpressions(BIGINT, 11))),
                                 p.values(new Symbol("COL2")),
                                 ImmutableList.of(new EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
                                 ImmutableList.of(p.symbol("COL1")),
@@ -269,7 +269,7 @@ public class TestPushAggregationThroughOuterJoin
                                                                 .source(
                                                                         p.values(
                                                                                 ImmutableList.of(p.symbol("COL1"), p.symbol("unused")),
-                                                                                ImmutableList.of(expressions("10", "1"), expressions("10", "2")))))),
+                                                                                ImmutableList.of(constantExpressions(BIGINT, 10, 1), constantExpressions(BIGINT, 10, 2)))))),
                                         p.values(p.symbol("COL2")),
                                         ImmutableList.of(new EquiJoinClause(p.symbol("COL1"), p.symbol("COL2"))),
                                         ImmutableList.of(p.symbol("COL1")),
@@ -288,7 +288,7 @@ public class TestPushAggregationThroughOuterJoin
         tester().assertThat(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10))),
                                 p.values(new Symbol("COL2"), new Symbol("COL3")),
                                 ImmutableList.of(new EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
                                 ImmutableList.of(p.symbol("COL1")),
@@ -308,8 +308,8 @@ public class TestPushAggregationThroughOuterJoin
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
-                                p.values(ImmutableList.of(p.symbol("COL2")), ImmutableList.of(expressions("20"))),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10))),
+                                p.values(ImmutableList.of(p.symbol("COL2")), ImmutableList.of(constantExpressions(BIGINT, 20))),
                                 ImmutableList.of(new EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
                                 ImmutableList.of(p.symbol("COL1")),
                                 ImmutableList.of(p.symbol("COL2")),
@@ -328,8 +328,8 @@ public class TestPushAggregationThroughOuterJoin
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
-                                p.values(ImmutableList.of(p.symbol("COL2"), p.symbol("COL3")), ImmutableList.of(expressions("20", "30"))),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10))),
+                                p.values(ImmutableList.of(p.symbol("COL2"), p.symbol("COL3")), ImmutableList.of(constantExpressions(BIGINT, 20, 30))),
                                 ImmutableList.of(new EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
                                 ImmutableList.of(new Symbol("COL1")),
                                 ImmutableList.of(new Symbol("COL2")),
@@ -344,8 +344,8 @@ public class TestPushAggregationThroughOuterJoin
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
-                                p.values(ImmutableList.of(p.symbol("COL2"), p.symbol("COL3")), ImmutableList.of(expressions("20", "30"))),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10))),
+                                p.values(ImmutableList.of(p.symbol("COL2"), p.symbol("COL3")), ImmutableList.of(constantExpressions(BIGINT, 20, 30))),
                                 ImmutableList.of(new EquiJoinClause(new Symbol("COL1"), new Symbol("COL2"))),
                                 ImmutableList.of(new Symbol("COL1")),
                                 ImmutableList.of(new Symbol("COL2")),

@@ -23,6 +23,8 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Row;
 
@@ -34,6 +36,10 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtLeastScalar;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
 import static io.trino.sql.planner.plan.Patterns.join;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.isExpression;
+import static io.trino.sql.relational.RowExpressionUtil.castRowRowExpressionToExpression;
+import static io.trino.sql.relational.RowExpressionUtil.isRow;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
@@ -161,19 +167,24 @@ public class ReplaceJoinOverConstantWithProject
             return true;
         }
 
-        Expression row = getOnlyElement(values.getRows().get());
-
-        return row instanceof Row;
+        RowExpression row = getOnlyElement(values.getRows().get());
+        return isRow(row);
     }
 
     private ProjectNode appendProjection(PlanNode source, List<Symbol> sourceOutputs, PlanNode constantSource, List<Symbol> constantOutputs, PlanNodeIdAllocator idAllocator)
     {
+        // TODO: rewrite this method when we change assignment to use RowExpression
         ValuesNode values = (ValuesNode) constantSource;
-        Row row = (Row) getOnlyElement(values.getRows().get());
+        RowExpression row = getOnlyElement(values.getRows().get());
 
         Map<Symbol, Expression> mapping = new HashMap<>();
         for (int i = 0; i < values.getOutputSymbols().size(); i++) {
-            mapping.put(values.getOutputSymbols().get(i), row.getItems().get(i));
+            if (isExpression(row)) {
+                mapping.put(values.getOutputSymbols().get(i), ((Row) castToExpression(row)).getItems().get(i));
+            }
+            else {
+                mapping.put(values.getOutputSymbols().get(i), castRowRowExpressionToExpression(((SpecialForm) (row)).getArguments().get(i)));
+            }
         }
 
         Assignments.Builder assignments = Assignments.builder()

@@ -13,12 +13,15 @@
  */
 package io.trino.sql;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.planner.TestingPlannerContext;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
@@ -32,15 +35,16 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestSqlToRowExpressionTranslator
 {
+    private static final PlannerContext PLANNER_CONTEXT = TestingPlannerContext.plannerContextBuilder().addFunctions(new InternalFunctionBundle(ImmutableList.of(APPLY_FUNCTION))).build();
     private final LiteralEncoder literalEncoder = new LiteralEncoder(PLANNER_CONTEXT);
 
     @Test(timeOut = 10_000)
@@ -78,7 +82,8 @@ public class TestSqlToRowExpressionTranslator
                 constant(Decimals.valueOf(new BigDecimal("123456789012345678901234567890.00")), createDecimalType(35, 2)));
     }
 
-    private RowExpression translateAndOptimize(Expression expression)
+    @Test
+    public RowExpression translateAndOptimize(Expression expression)
     {
         return translateAndOptimize(expression, getExpressionTypes(expression));
     }
@@ -107,6 +112,6 @@ public class TestSqlToRowExpressionTranslator
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
-        return ExpressionUtils.getExpressionTypes(PLANNER_CONTEXT, TEST_SESSION, expression, TypeProvider.empty());
+        return ExpressionTestUtils.getTypes(TEST_SESSION, PLANNER_CONTEXT, TypeProvider.empty(), expression);
     }
 }

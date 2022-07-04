@@ -98,15 +98,17 @@ import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.plan.WindowNode.Specification;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.RowExpressionUtil;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.Row;
 import io.trino.testing.TestingHandle;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.TestingTableExecuteHandle;
 import io.trino.testing.TestingTransactionHandle;
+import io.trino.type.UnknownType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -128,6 +130,9 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.relational.Expressions.constant;
+import static io.trino.sql.relational.Expressions.constantNull;
+import static io.trino.sql.relational.RowExpressionUtil.toRowConstructorExpression;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.util.MoreLists.nElements;
 import static java.lang.String.format;
@@ -225,20 +230,20 @@ public class PlanBuilder
         return values(
                 id,
                 ImmutableList.copyOf(columns),
-                nElements(rows, row -> nElements(columns.length, cell -> new NullLiteral())));
+                nElements(rows, row -> nElements(columns.length, cell -> constantNull(UnknownType.UNKNOWN))));
     }
 
-    public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)
+    public ValuesNode values(List<Symbol> columns, List<List<RowExpression>> rows)
     {
         return values(idAllocator.getNextId(), columns, rows);
     }
 
-    public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<List<Expression>> rows)
+    public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<List<RowExpression>> rows)
     {
-        return new ValuesNode(id, columns, rows.stream().map(Row::new).collect(toImmutableList()));
+        return new ValuesNode(id, columns, rows.stream().map(RowExpressionUtil::toRowConstructorExpression).collect(toImmutableList()));
     }
 
-    public ValuesNode valuesOfExpressions(List<Symbol> columns, List<Expression> rows)
+    public ValuesNode valuesOfExpressions(List<Symbol> columns, List<RowExpression> rows)
     {
         return new ValuesNode(idAllocator.getNextId(), columns, rows);
     }
@@ -1383,6 +1388,13 @@ public class PlanBuilder
     {
         return Stream.of(expressions)
                 .map(PlanBuilder::expression)
+                .collect(toImmutableList());
+    }
+
+    public static List<RowExpression> constantExpressions(Type type, Object... values)
+    {
+        return Stream.of(values)
+                .map(value -> constant(value, type))
                 .collect(toImmutableList());
     }
 

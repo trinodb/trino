@@ -17,8 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Row;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -41,12 +41,12 @@ public class ValuesNode
     // It can be an expression of type Row or any other expression that evaluates to RowType.
     // In case when output symbols are present but ValuesNode does not have any rows, `rows` is an Optional with empty list.
     // If ValuesNode does not produce any output symbols, `rows` is Optional.empty().
-    private final Optional<List<Expression>> rows;
+    private final Optional<List<RowExpression>> rows;
 
     /**
      * Constructor of ValuesNode with non-empty output symbols list
      */
-    public ValuesNode(PlanNodeId id, List<Symbol> outputSymbols, List<Expression> rows)
+    public ValuesNode(PlanNodeId id, List<Symbol> outputSymbols, List<RowExpression> rows)
     {
         this(id, outputSymbols, rows.size(), Optional.of(rows));
     }
@@ -64,7 +64,7 @@ public class ValuesNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
             @JsonProperty("rowCount") int rowCount,
-            @JsonProperty("rows") Optional<List<Expression>> rows)
+            @JsonProperty("rows") Optional<List<RowExpression>> rows)
     {
         super(id);
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
@@ -77,8 +77,8 @@ public class ValuesNode
             // check row size consistency (only for rows specified as Row)
             List<Integer> rowSizes = rows.get().stream()
                     .map(row -> requireNonNull(row, "row is null"))
-                    .filter(expression -> expression instanceof Row)
-                    .map(expression -> ((Row) expression).getItems().size())
+                    .filter(expression -> expression instanceof SpecialForm && ((SpecialForm) expression).getForm().equals(SpecialForm.Form.ROW_CONSTRUCTOR))
+                    .map(expression -> ((SpecialForm) expression).getArguments().size())
                     .distinct()
                     .collect(toImmutableList());
             checkState(rowSizes.size() <= 1, "mismatched rows. All rows must be the same size");
@@ -114,7 +114,7 @@ public class ValuesNode
     }
 
     @JsonProperty
-    public Optional<List<Expression>> getRows()
+    public Optional<List<RowExpression>> getRows()
     {
         return rows;
     }

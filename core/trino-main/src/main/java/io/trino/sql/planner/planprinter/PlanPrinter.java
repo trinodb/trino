@@ -111,6 +111,8 @@ import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
@@ -153,6 +155,9 @@ import static io.trino.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregate
 import static io.trino.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.isExpression;
+import static io.trino.sql.relational.RowExpressionUtil.isRow;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static java.lang.Math.abs;
@@ -942,13 +947,20 @@ public class PlanPrinter
             }
             List<String> rows = node.getRows().get().stream()
                     .map(row -> {
-                        if (row instanceof Row) {
-                            return ((Row) row).getItems().stream()
-                                    .map(PlanPrinter::unresolveFunctions)
-                                    .map(Expression::toString)
+                        if (isRow(row)) {
+                            if (isExpression(row)) {
+                                return ((Row) castToExpression(row)).getItems().stream()
+                                        .map(PlanPrinter::unresolveFunctions)
+                                        .map(Expression::toString)
+                                        .collect(joining(", ", "(", ")"));
+                            }
+                            return ((SpecialForm) row).getArguments().stream()
+                                    .map(RowExpression::toString)
                                     .collect(joining(", ", "(", ")"));
                         }
-                        return unresolveFunctions(row).toString();
+                        else {
+                            return row.toString();
+                        }
                     })
                     .collect(toImmutableList());
             for (String row : rows) {

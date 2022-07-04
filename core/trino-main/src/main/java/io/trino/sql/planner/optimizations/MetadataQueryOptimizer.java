@@ -26,6 +26,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.LiteralEncoder;
@@ -45,8 +46,8 @@ import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Row;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
 
 import java.util.List;
 import java.util.Map;
@@ -54,6 +55,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.relational.Expressions.constant;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -146,26 +148,28 @@ public class MetadataQueryOptimizer
                 return context.defaultRewrite(node);
             }
 
-            ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<RowExpression> rowsBuilder = ImmutableList.builder();
             for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
                 if (!domain.isNone()) {
                     Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).get();
 
-                    ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
+                    ImmutableList.Builder<RowExpression> rowBuilder = ImmutableList.builder();
+                    ImmutableList.Builder<Type> rowTypeBuilder = ImmutableList.builder();
                     // for each input column, add a literal expression using the entry value
                     for (Symbol input : inputs) {
                         ColumnHandle column = columns.get(input);
                         Type type = types.get(input);
+                        rowTypeBuilder.add(type);
                         NullableValue value = entries.get(column);
                         if (value == null) {
                             // partition key does not have a single value, so bail out to be safe
                             return context.defaultRewrite(node);
                         }
                         else {
-                            rowBuilder.add(literalEncoder.toExpression(session, value.getValue(), type));
+                            rowBuilder.add(constant(value.getValue(), type));
                         }
                     }
-                    rowsBuilder.add(new Row(rowBuilder.build()));
+                    rowsBuilder.add(new SpecialForm(SpecialForm.Form.ROW_CONSTRUCTOR, RowType.anonymous(rowTypeBuilder.build()), rowBuilder.build()));
                 }
             }
 

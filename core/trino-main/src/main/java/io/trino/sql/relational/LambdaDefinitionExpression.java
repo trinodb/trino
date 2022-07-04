@@ -13,10 +13,14 @@
  */
 package io.trino.sql.relational;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
 import io.trino.type.FunctionType;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -24,6 +28,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public final class LambdaDefinitionExpression
         extends RowExpression
 {
@@ -31,7 +36,10 @@ public final class LambdaDefinitionExpression
     private final List<String> arguments;
     private final RowExpression body;
 
-    public LambdaDefinitionExpression(List<Type> argumentTypes, List<String> arguments, RowExpression body)
+    @JsonCreator
+    public LambdaDefinitionExpression(@JsonProperty("argumentTypes") List<Type> argumentTypes,
+            @JsonProperty("arguments") List<String> arguments,
+            @JsonProperty("body") RowExpression body)
     {
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
@@ -39,16 +47,19 @@ public final class LambdaDefinitionExpression
         this.body = requireNonNull(body, "body is null");
     }
 
+    @JsonProperty
     public List<Type> getArgumentTypes()
     {
         return argumentTypes;
     }
 
+    @JsonProperty
     public List<String> getArguments()
     {
         return arguments;
     }
 
+    @JsonProperty
     public RowExpression getBody()
     {
         return body;

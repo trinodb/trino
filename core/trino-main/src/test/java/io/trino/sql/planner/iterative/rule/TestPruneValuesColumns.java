@@ -20,9 +20,12 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.testng.annotations.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class TestPruneValuesColumns
         extends BaseRuleTest
@@ -37,8 +40,8 @@ public class TestPruneValuesColumns
                                 p.values(
                                         ImmutableList.of(p.symbol("unused"), p.symbol("x")),
                                         ImmutableList.of(
-                                                ImmutableList.of(expression("1"), expression("2")),
-                                                ImmutableList.of(expression("3"), expression("4"))))))
+                                                constantExpressions(BIGINT, 1, 2),
+                                                constantExpressions(BIGINT, 3, 4)))))
                 .matches(
                         project(
                                 ImmutableMap.of("y", PlanMatchPattern.expression("x")),
@@ -83,7 +86,7 @@ public class TestPruneValuesColumns
                                 Assignments.of(),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("x")),
-                                        ImmutableList.of(expression("CAST(ROW(1) AS row(bigint))")))))
+                                        ImmutableList.of(castToRowExpression(expression("CAST(ROW(1) AS row(bigint))"))))))
                 .matches(
                         project(
                                 ImmutableMap.of(),
@@ -99,7 +102,7 @@ public class TestPruneValuesColumns
                                 Assignments.of(p.symbol("x"), expression("x")),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("x"), p.symbol("y")),
-                                        ImmutableList.of(expression("CAST(ROW(1, 'a') AS row(bigint, char(2)))")))))
+                                        ImmutableList.of(castToRowExpression(expression("CAST(ROW(1, 'a') AS row(bigint, char(2)))"))))))
                 .doesNotFire();
     }
 }

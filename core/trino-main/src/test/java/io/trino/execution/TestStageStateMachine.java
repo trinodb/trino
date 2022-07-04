@@ -24,8 +24,6 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.StringLiteral;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -39,6 +37,8 @@ import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.trino.sql.relational.Expressions.constant;
+import static io.trino.sql.relational.RowExpressionUtil.toRowConstructorExpression;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -248,7 +248,7 @@ public class TestStageStateMachine
                 new PlanFragmentId("plan"),
                 new ValuesNode(valuesNodeId,
                         ImmutableList.of(symbol),
-                        ImmutableList.of(new Row(ImmutableList.of(new StringLiteral("foo"))))),
+                        ImmutableList.of(toRowConstructorExpression(constant("foo", VARCHAR)))),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(valuesNodeId),

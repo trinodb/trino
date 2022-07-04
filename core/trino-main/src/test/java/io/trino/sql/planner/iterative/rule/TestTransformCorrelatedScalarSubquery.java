@@ -23,6 +23,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.relational.RowExpression;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -48,15 +50,15 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
+import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestTransformCorrelatedScalarSubquery
         extends BaseRuleTest
 {
-    private static final ImmutableList<List<Expression>> ONE_ROW = ImmutableList.of(ImmutableList.of(new LongLiteral("1")));
-    private static final ImmutableList<List<Expression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(new LongLiteral("1")), ImmutableList.of(new LongLiteral("2")));
-
+    private static final ImmutableList<List<RowExpression>> ONE_ROW = ImmutableList.of(ImmutableList.of(constant(1, BIGINT)));
+    private static final ImmutableList<List<RowExpression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(constant(1, BIGINT)), ImmutableList.of(constant(2, BIGINT)));
     private Rule<?> rule = new TransformCorrelatedScalarSubquery(createTestMetadataManager());
 
     @Test
@@ -85,7 +87,7 @@ public class TestTransformCorrelatedScalarSubquery
                 .on(p -> p.correlatedJoin(
                         ImmutableList.<Symbol>of(),
                         p.values(p.symbol("a")),
-                        p.values(ImmutableList.of(p.symbol("b")), ImmutableList.of(expressions("1")))))
+                        p.values(ImmutableList.of(p.symbol("b")), ImmutableList.of(constantExpressions(BIGINT, 1)))))
                 .doesNotFire();
     }
 

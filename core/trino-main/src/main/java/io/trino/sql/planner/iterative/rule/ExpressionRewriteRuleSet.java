@@ -36,6 +36,7 @@ import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValueP
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
+import io.trino.sql.relational.RowExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.OrderBy;
@@ -60,6 +61,9 @@ import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.patternRecognition;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.values;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static io.trino.sql.relational.OriginalExpressionUtils.isExpression;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
 import static java.lang.String.format;
@@ -328,22 +332,30 @@ public class ExpressionRewriteRuleSet
             }
 
             boolean anyRewritten = false;
-            ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-            for (Expression row : valuesNode.getRows().get()) {
-                Expression rewritten;
-                if (row instanceof Row) {
-                    // preserve the structure of row
-                    rewritten = new Row(((Row) row).getItems().stream()
-                            .map(item -> rewriter.rewrite(item, context))
-                            .collect(toImmutableList()));
+            ImmutableList.Builder<RowExpression> rows = ImmutableList.builder();
+            for (RowExpression row : valuesNode.getRows().get()) {
+                if (isExpression(row)) {
+                    Expression expression = castToExpression(row);
+                    Expression rewritten;
+
+                    if (expression instanceof Row) {
+                        // preserve the structure of row
+                        rewritten = new Row(((Row) expression).getItems().stream()
+                                .map(item -> rewriter.rewrite(item, context))
+                                .collect(toImmutableList()));
+                    }
+                    else {
+                        rewritten = rewriter.rewrite(expression, context);
+                    }
+                    if (!expression.equals(rewritten)) {
+                        anyRewritten = true;
+                    }
+                    rows.add(castToRowExpression(rewritten));
                 }
                 else {
-                    rewritten = rewriter.rewrite(row, context);
+                    // expression rewrite is to desugar AST; row expression should not change
+                    rows.add(row);
                 }
-                if (!row.equals(rewritten)) {
-                    anyRewritten = true;
-                }
-                rows.add(rewritten);
             }
             if (anyRewritten) {
                 return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), rows.build()));

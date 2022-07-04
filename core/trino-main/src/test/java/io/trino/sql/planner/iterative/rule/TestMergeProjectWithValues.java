@@ -14,10 +14,12 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.relational.CallExpression;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.BooleanLiteral;
@@ -40,6 +42,8 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static io.trino.sql.relational.RowExpressionUtil.toRowConstructorExpression;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 
@@ -55,9 +59,9 @@ public class TestMergeProjectWithValues
                                 Assignments.of(),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
-                                        ImmutableList.of(new Cast(
+                                        ImmutableList.of(castToRowExpression(new Cast(
                                                 new Row(ImmutableList.of(new NullLiteral(), new NullLiteral())),
-                                                toSqlType(RowType.anonymous(ImmutableList.of(BIGINT, BIGINT))))))))
+                                                toSqlType(RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)))))))))
                 .doesNotFire();
     }
 
@@ -72,8 +76,8 @@ public class TestMergeProjectWithValues
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(
-                                                new Row(ImmutableList.of(new CharLiteral("x"), new BooleanLiteral("true"))),
-                                                new Row(ImmutableList.of(new CharLiteral("y"), new BooleanLiteral("false")))))))
+                                                castToRowExpression(new Row(ImmutableList.of(new CharLiteral("x"), new BooleanLiteral("true")))),
+                                                castToRowExpression(new Row(ImmutableList.of(new CharLiteral("y"), new BooleanLiteral("false"))))))))
                 .matches(values(2));
 
         // ValuesNode has no output symbols and two rows
@@ -141,13 +145,15 @@ public class TestMergeProjectWithValues
         FunctionCall randomFunction = new FunctionCall(
                 tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
+        ResolvedFunction resolvedFunction = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("random"), ImmutableList.of());
+        CallExpression callExpression = new CallExpression(resolvedFunction, ImmutableList.of());
 
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> p.project(
                         Assignments.of(p.symbol("rand"), expression("rand")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand")),
-                                ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
+                                ImmutableList.of((toRowConstructorExpression(callExpression))))))
                 .matches(
                         values(
                                 ImmutableList.of("rand"),
@@ -160,9 +166,9 @@ public class TestMergeProjectWithValues
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("value")),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(new NullLiteral())),
-                                        new Row(ImmutableList.of(randomFunction)),
-                                        new Row(ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction)))))))
+                                        castToRowExpression(new Row(ImmutableList.of(new NullLiteral()))),
+                                        castToRowExpression(new Row(ImmutableList.of(randomFunction))),
+                                        castToRowExpression(new Row(ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction))))))))
                 .matches(
                         values(
                                 ImmutableList.of("output"),
@@ -180,9 +186,9 @@ public class TestMergeProjectWithValues
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(new DoubleLiteral("1e0"), randomFunction)),
-                                        new Row(ImmutableList.of(randomFunction, new NullLiteral())),
-                                        new Row(ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction), new NullLiteral()))))))
+                                        castToRowExpression(new Row(ImmutableList.of(new DoubleLiteral("1e0"), randomFunction))),
+                                        castToRowExpression(new Row(ImmutableList.of(randomFunction, new NullLiteral()))),
+                                        castToRowExpression(new Row(ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction), new NullLiteral())))))))
                 .matches(
                         values(
                                 ImmutableList.of("x", "y"),
@@ -206,7 +212,7 @@ public class TestMergeProjectWithValues
                                 p.symbol("y"), expression("rand")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand")),
-                                ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
+                                ImmutableList.of(castToRowExpression(new Row(ImmutableList.of(randomFunction)))))))
                 .doesNotFire();
 
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
@@ -214,7 +220,7 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x"), expression("rand + rand")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand")),
-                                ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
+                                ImmutableList.of(castToRowExpression(new Row(ImmutableList.of(randomFunction)))))))
                 .doesNotFire();
     }
 
@@ -227,7 +233,7 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x"), expression("a + corr")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(new Row(ImmutableList.of(new LongLiteral("1")))))))
+                                ImmutableList.of(castToRowExpression(new Row(ImmutableList.of(new LongLiteral("1"))))))))
                 .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(ADD, new LongLiteral("1"), new SymbolReference("corr"))))));
 
         // correlation symbol in values (note: the resulting plan is not yet supported in execution)
@@ -236,7 +242,7 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x"), expression("a")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(new Row(ImmutableList.of(new SymbolReference("corr")))))))
+                                ImmutableList.of(castToRowExpression(new Row(ImmutableList.of(new SymbolReference("corr"))))))))
                 .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new SymbolReference("corr")))));
 
         // correlation symbol is not present in the resulting expression
@@ -245,7 +251,7 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x"), expression("1")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(new Row(ImmutableList.of(new SymbolReference("corr")))))))
+                                ImmutableList.of(castToRowExpression(new Row(ImmutableList.of(new SymbolReference("corr"))))))))
                 .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))));
     }
 
@@ -261,7 +267,7 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x"), failFunction),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(new Row(ImmutableList.of(new LongLiteral("1")))))))
+                                ImmutableList.of(castToRowExpression(new Row(ImmutableList.of(new LongLiteral("1"))))))))
                 .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(failFunction))));
     }
 
@@ -286,9 +292,9 @@ public class TestMergeProjectWithValues
                             p.valuesOfExpressions(
                                     ImmutableList.of(a, b, c),
                                     ImmutableList.of(
-                                            new Row(ImmutableList.of(new CharLiteral("x"), new BooleanLiteral("true"), new LongLiteral("1"))),
-                                            new Row(ImmutableList.of(new CharLiteral("y"), new BooleanLiteral("false"), new LongLiteral("2"))),
-                                            new Row(ImmutableList.of(new CharLiteral("z"), new BooleanLiteral("true"), new LongLiteral("3"))))));
+                                            castToRowExpression(new Row(ImmutableList.of(new CharLiteral("x"), new BooleanLiteral("true"), new LongLiteral("1")))),
+                                            castToRowExpression(new Row(ImmutableList.of(new CharLiteral("y"), new BooleanLiteral("false"), new LongLiteral("2")))),
+                                            castToRowExpression(new Row(ImmutableList.of(new CharLiteral("z"), new BooleanLiteral("true"), new LongLiteral("3")))))));
                 })
                 .matches(values(
                         ImmutableList.of("a", "d", "e", "f"),

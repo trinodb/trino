@@ -60,6 +60,7 @@ import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.source;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 /**
  * This optimizer pushes aggregations below outer joins when: the aggregation
@@ -288,7 +289,7 @@ public class PushAggregationThroughOuterJoin
         ValuesNode nullRow = new ValuesNode(
                 idAllocator.getNextId(),
                 nullSymbols.build(),
-                ImmutableList.of(new Row(nullLiterals.build())));
+                ImmutableList.of(castToRowExpression(new Row(nullLiterals.build()))));
 
         // For each aggregation function in the reference node, create a corresponding aggregation function
         // that points to the nullRow. Map the symbols from the aggregations in referenceAggregation to the

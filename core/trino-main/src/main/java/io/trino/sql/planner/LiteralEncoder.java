@@ -26,18 +26,31 @@ import io.trino.operator.scalar.VarbinaryFunctions;
 import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.relational.ConstantExpression;
+import io.trino.sql.relational.RowExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
@@ -53,9 +66,13 @@ import io.trino.sql.tree.TimestampLiteral;
 
 import javax.annotation.Nullable;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.metadata.LiteralFunction.typeForMagicLiteral;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -70,6 +87,8 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.relational.Expressions.constant;
+import static io.trino.sql.relational.Expressions.constantNull;
 import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Float.intBitsToFloat;
@@ -84,6 +103,49 @@ public final class LiteralEncoder
     public LiteralEncoder(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+    }
+
+    public static Object evaluate(ConnectorSession session, ConstantExpression node)
+    {
+        Type type = node.getType();
+
+        if (node.getValue() == null) {
+            return null;
+        }
+        if (type instanceof BooleanType) {
+            return node.getValue();
+        }
+        if (type instanceof BigintType || type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType) {
+            return node.getValue();
+        }
+        if (type instanceof DoubleType) {
+            return node.getValue();
+        }
+        if (type instanceof RealType) {
+            Long number = (Long) node.getValue();
+            return intBitsToFloat(number.intValue());
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            if (decimalType.isShort()) {
+                checkState(node.getValue() instanceof Long);
+                return decodeDecimal(BigInteger.valueOf((long) node.getValue()), decimalType);
+            }
+            checkState(node.getValue() instanceof Slice);
+            return (Slice) node.getValue();
+        }
+        if (type instanceof VarcharType || type instanceof CharType) {
+            return ((Slice) node.getValue()).toStringUtf8();
+        }
+        if (type instanceof VarbinaryType) {
+            return new SqlVarbinary(((Slice) node.getValue()).getBytes());
+        }
+        if (type instanceof DateType) {
+            return new SqlDate(((Long) node.getValue()).intValue());
+        }
+
+        // We should not fail at the moment; just return the raw value (block, regex, etc) to the user
+        return node.getValue();
     }
 
     public List<Expression> toExpressions(Session session, List<?> objects, List<? extends Type> types)
@@ -294,5 +356,37 @@ public final class LiteralEncoder
                 .setName(resolvedFunction.toQualifiedName())
                 .addArgument(argumentType, argument)
                 .build();
+    }
+
+    public RowExpression toRowExpression(Object object, Type type)
+    {
+        requireNonNull(type, "type is null");
+
+        if (object instanceof RowExpression) {
+            return (RowExpression) object;
+        }
+
+        if (object == null) {
+            return constantNull(type);
+        }
+
+        return constant(object, type);
+    }
+
+    public List<RowExpression> toRowExpressions(List<Object> values, List<Type> types)
+    {
+        checkArgument(values != null, "value is null");
+        checkArgument(types != null, "value is null");
+        checkArgument(values.size() == types.size());
+        ImmutableList.Builder<RowExpression> rowExpressions = ImmutableList.builder();
+        for (int i = 0; i < values.size(); i++) {
+            rowExpressions.add(toRowExpression(values.get(i), types.get(i)));
+        }
+        return rowExpressions.build();
+    }
+
+    private static Number decodeDecimal(BigInteger unscaledValue, DecimalType type)
+    {
+        return new BigDecimal(unscaledValue, type.getScale(), new MathContext(type.getPrecision()));
     }
 }

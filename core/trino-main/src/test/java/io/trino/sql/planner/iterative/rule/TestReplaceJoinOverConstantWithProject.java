@@ -30,6 +30,7 @@ import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class TestReplaceJoinOverConstantWithProject
         extends BaseRuleTest
@@ -107,7 +108,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a")), ImmutableList.of(expression("CAST(ROW('true') AS ROW(b boolean))"))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a")), ImmutableList.of(castToRowExpression(expression("CAST(ROW('true') AS ROW(b boolean))")))),
                                 p.values(5, p.symbol("b"))))
                 .doesNotFire();
     }
@@ -163,7 +164,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(expression("ROW(1, 'x')"))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(castToRowExpression(expression("ROW(1, 'x')")))),
                                 p.values(5, p.symbol("c"))))
                 .matches(
                         project(
@@ -178,7 +179,7 @@ public class TestReplaceJoinOverConstantWithProject
                         p.join(
                                 INNER,
                                 p.values(5, p.symbol("c")),
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(expression("ROW(1, 'x')")))))
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(castToRowExpression(expression("ROW(1, 'x')"))))))
                 .matches(
                         project(
                                 ImmutableMap.of(
@@ -195,7 +196,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 LEFT,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(expression("ROW(1, 'x')"))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(castToRowExpression(expression("ROW(1, 'x')")))),
                                 p.values(5, p.symbol("c"))))
                 .matches(
                         project(
@@ -210,7 +211,7 @@ public class TestReplaceJoinOverConstantWithProject
                         p.join(
                                 LEFT,
                                 p.values(5, p.symbol("c")),
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(expression("ROW(1, 'x')")))))
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(castToRowExpression(expression("ROW(1, 'x')"))))))
                 .matches(
                         project(
                                 ImmutableMap.of(
@@ -227,7 +228,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 RIGHT,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(expression("ROW(1, 'x')"))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(castToRowExpression(expression("ROW(1, 'x')")))),
                                 p.values(5, p.symbol("c"))))
                 .matches(
                         project(
@@ -242,7 +243,7 @@ public class TestReplaceJoinOverConstantWithProject
                         p.join(
                                 RIGHT,
                                 p.values(5, p.symbol("c")),
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(expression("ROW(1, 'x')")))))
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(castToRowExpression(expression("ROW(1, 'x')"))))))
                 .matches(
                         project(
                                 ImmutableMap.of(
@@ -259,7 +260,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 FULL,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(expression("ROW(1, 'x')"))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(castToRowExpression(expression("ROW(1, 'x')")))),
                                 p.values(5, p.symbol("c"))))
                 .matches(
                         project(
@@ -274,7 +275,7 @@ public class TestReplaceJoinOverConstantWithProject
                         p.join(
                                 FULL,
                                 p.values(5, p.symbol("c")),
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(expression("ROW(1, 'x')")))))
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(castToRowExpression(expression("ROW(1, 'x')"))))))
                 .matches(
                         project(
                                 ImmutableMap.of(
@@ -291,7 +292,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(expression("ROW(1, 'x')"))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(castToRowExpression(expression("ROW(1, 'x')")))),
                                 p.values(5, p.symbol("c")),
                                 ImmutableList.of(),
                                 ImmutableList.of(p.symbol("a"), p.symbol("b"), p.symbol("a"), p.symbol("b")),
@@ -313,7 +314,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a")), ImmutableList.of(expression("ROW(rand())"))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a")), ImmutableList.of(castToRowExpression(expression("ROW(rand())")))),
                                 p.values(5, p.symbol("b"))))
                 .matches(
                         strictProject(

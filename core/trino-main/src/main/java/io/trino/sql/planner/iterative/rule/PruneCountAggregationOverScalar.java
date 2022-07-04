@@ -23,14 +23,15 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Row;
 
 import java.util.Map;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
+import static io.trino.sql.relational.Expressions.constant;
+import static io.trino.sql.relational.RowExpressionUtil.toRowConstructorExpression;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -71,7 +72,7 @@ public class PruneCountAggregationOverScalar
             }
         }
         if (!assignments.isEmpty() && isScalar(parent.getSource(), context.getLookup())) {
-            return Result.ofPlanNode(new ValuesNode(parent.getId(), parent.getOutputSymbols(), ImmutableList.of(new Row(ImmutableList.of(new GenericLiteral("BIGINT", "1"))))));
+            return Result.ofPlanNode(new ValuesNode(parent.getId(), parent.getOutputSymbols(), ImmutableList.of(toRowConstructorExpression(constant(1L, BIGINT)))));
         }
         return Result.empty();
     }

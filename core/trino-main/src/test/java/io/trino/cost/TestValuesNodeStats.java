@@ -15,12 +15,21 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.relational.StandardFunctionResolution;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
+import static io.trino.sql.relational.Expressions.call;
+import static io.trino.sql.relational.Expressions.constant;
+import static io.trino.sql.relational.Expressions.constantNull;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestValuesNodeStats
@@ -29,12 +38,13 @@ public class TestValuesNodeStats
     @Test
     public void testStatsForValuesNode()
     {
+        StandardFunctionResolution resolution = new StandardFunctionResolution(tester().getSession(), tester().getMetadata());
         tester().assertStatsFor(pb -> pb
                 .values(ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", DOUBLE)),
                         ImmutableList.of(
-                                ImmutableList.of(expression("3+3"), expression("13.5e0")),
-                                ImmutableList.of(expression("55"), expression("null")),
-                                ImmutableList.of(expression("6"), expression("13.5e0")))))
+                                ImmutableList.of(call(resolution.arithmeticFunction(ADD, BIGINT, BIGINT), constantExpressions(BIGINT, 3L, 3L)), constant(13.5, DOUBLE)),
+                                ImmutableList.of(constant(55L, BIGINT), constantNull(DOUBLE)),
+                                ImmutableList.of(constant(6L, BIGINT), constant(13.5, DOUBLE)))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(3)
@@ -59,10 +69,10 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                 .values(ImmutableList.of(pb.symbol("v", createVarcharType(30))),
                         ImmutableList.of(
-                                ImmutableList.of(expression("'Alice'")),
-                                ImmutableList.of(expression("'has'")),
-                                ImmutableList.of(expression("'a cat'")),
-                                ImmutableList.of(expression("null")))))
+                                constantExpressions(VARCHAR, utf8Slice("Alice")),
+                                constantExpressions(VARCHAR, utf8Slice("has")),
+                                constantExpressions(VARCHAR, utf8Slice("a cat")),
+                                ImmutableList.of(constantNull(VARCHAR)))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(4)
@@ -79,27 +89,27 @@ public class TestValuesNodeStats
     @Test
     public void testStatsForValuesNodeWithJustNulls()
     {
+        StandardFunctionResolution resolution = new StandardFunctionResolution(tester().getSession(), tester().getMetadata());
         PlanNodeStatsEstimate nullAStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(1)
                 .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.zero())
                 .build();
 
         tester().assertStatsFor(pb -> pb
-                .values(ImmutableList.of(pb.symbol("a", BIGINT)),
-                        ImmutableList.of(
-                                ImmutableList.of(expression("3 + null")))))
+                .values(List.of(pb.symbol("a", BIGINT)),
+                        ImmutableList.of(ImmutableList.of(call(resolution.arithmeticFunction(ADD, BIGINT, BIGINT), constant(3L, BIGINT), constantNull(BIGINT))))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
         tester().assertStatsFor(pb -> pb
                 .values(ImmutableList.of(pb.symbol("a", BIGINT)),
                         ImmutableList.of(
-                                ImmutableList.of(expression("null")))))
+                                ImmutableList.of(constantNull(BIGINT)))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
         tester().assertStatsFor(pb -> pb
                 .values(ImmutableList.of(pb.symbol("a", UNKNOWN)),
                         ImmutableList.of(
-                                ImmutableList.of(expression("null")))))
+                                ImmutableList.of(constantNull(BIGINT)))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
     }
 

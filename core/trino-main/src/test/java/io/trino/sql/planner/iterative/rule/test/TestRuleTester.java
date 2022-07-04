@@ -31,7 +31,9 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static java.util.Objects.requireNonNull;
@@ -53,7 +55,7 @@ public class TestRuleTester
                                     Assignments.of(p.symbol("y"), expression("x")),
                                     p.values(
                                             ImmutableList.of(p.symbol("x")),
-                                            ImmutableList.of(ImmutableList.of(expression("1"))))));
+                                            ImmutableList.of((constantExpressions(BIGINT, 1))))));
 
             PlanMatchPattern expected = values(ImmutableList.of("different"), ImmutableList.of());
             assertThatThrownBy(() -> ruleAssert.matches(expected))
@@ -74,7 +76,7 @@ public class TestRuleTester
                     .on(p ->
                             p.values(
                                     List.of(p.symbol("x")),
-                                    List.of(List.of(expression("1")))));
+                                    List.of((constantExpressions(BIGINT, 1)))));
 
             PlanMatchPattern expected = values(List.of("whatever"), List.of());
             assertThatThrownBy(() -> ruleAssert.matches(expected))

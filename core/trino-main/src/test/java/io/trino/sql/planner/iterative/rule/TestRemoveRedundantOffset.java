@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestRemoveRedundantOffset
@@ -48,8 +50,8 @@ public class TestRemoveRedundantOffset
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(
-                                        ImmutableList.of(expression("1")),
-                                        ImmutableList.of(expression("2"))))))
+                                        constantExpressions(BIGINT, 1),
+                                        constantExpressions(BIGINT, 2)))))
                 .matches(
                         values(
                                 ImmutableList.of("a"),

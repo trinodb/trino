@@ -25,8 +25,8 @@ import org.testng.annotations.Test;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 
 public class TestRemoveRedundantTopN
         extends BaseRuleTest
@@ -57,8 +57,8 @@ public class TestRemoveRedundantTopN
                                         p.values(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 ImmutableList.of(
-                                                        expressions("1", "10"),
-                                                        expressions("2", "11"))))))
+                                                        constantExpressions(BIGINT, 1, 10),
+                                                        constantExpressions(BIGINT, 2, 11))))))
                 // TODO: verify contents
                 .matches(
                         node(SortNode.class,
@@ -79,8 +79,8 @@ public class TestRemoveRedundantTopN
                                         p.values(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 ImmutableList.of(
-                                                        expressions("1", "10"),
-                                                        expressions("2", "11"))))))
+                                                        constantExpressions(BIGINT, 1, 10),
+                                                        constantExpressions(BIGINT, 2, 11))))))
                 // TODO: verify contents
                 .matches(values(ImmutableMap.of()));
     }

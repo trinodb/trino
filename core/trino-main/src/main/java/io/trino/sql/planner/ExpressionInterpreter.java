@@ -1469,7 +1469,7 @@ public class ExpressionInterpreter
         return type instanceof ArrayType;
     }
 
-    private static class LambdaSymbolResolver
+    public static class LambdaSymbolResolver
             implements SymbolResolver
     {
         private final Map<String, Object> values;

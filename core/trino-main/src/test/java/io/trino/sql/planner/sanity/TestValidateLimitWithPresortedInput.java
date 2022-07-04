@@ -35,7 +35,6 @@ import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.LongLiteral;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingTransactionHandle;
 import org.testng.annotations.Test;
@@ -48,6 +47,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -153,8 +153,8 @@ public class TestValidateLimitWithPresortedInput
                                 p.values(
                                         ImmutableList.of(p.symbol("a", BIGINT)),
                                         ImmutableList.of(
-                                                ImmutableList.of(new LongLiteral("1")),
-                                                ImmutableList.of(new LongLiteral("1")))))));
+                                                ImmutableList.of(constant(1, BIGINT)),
+                                                ImmutableList.of(constant(1, BIGINT)))))));
     }
 
     @Test

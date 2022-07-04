@@ -180,7 +180,7 @@ public class FunctionDependencies
         return isOperatorName(name) && unmangleOperator(name) != CAST;
     }
 
-    private static boolean isCast(ResolvedFunction function)
+    public static boolean isCast(ResolvedFunction function)
     {
         String name = function.getSignature().getName();
         return isOperatorName(name) && unmangleOperator(name) == CAST;

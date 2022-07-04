@@ -21,9 +21,9 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
-import io.trino.spi.type.BigintType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.QualifiedName;
@@ -32,9 +32,9 @@ import org.testng.annotations.Test;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 
 public class TestPruneCountAggregationOverScalar
@@ -50,7 +50,7 @@ public class TestPruneCountAggregationOverScalar
                         p.aggregation((a) -> a
                                 .globalGrouping()
                                 .addAggregation(
-                                        p.symbol("count_1", BigintType.BIGINT),
+                                        p.symbol("count_1", BIGINT),
                                         functionResolution
                                                 .functionCallBuilder(QualifiedName.of("count"))
                                                 .build(),
@@ -67,7 +67,7 @@ public class TestPruneCountAggregationOverScalar
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
-                                        p.symbol("count_1", BigintType.BIGINT),
+                                        p.symbol("count_1", BIGINT),
                                         functionResolution
                                                 .functionCallBuilder(QualifiedName.of("count"))
                                                 .build(),
@@ -89,14 +89,14 @@ public class TestPruneCountAggregationOverScalar
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
-                                        p.symbol("count_1", BigintType.BIGINT),
+                                        p.symbol("count_1", BIGINT),
                                         functionResolution
                                                 .functionCallBuilder(QualifiedName.of("count"))
                                                 .build(),
                                         ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
-                                .source(p.values(ImmutableList.of(p.symbol("orderkey")), ImmutableList.of(expressions("1"))))))
+                                .source(p.values(ImmutableList.of(p.symbol("orderkey")), ImmutableList.of(PlanBuilder.constantExpressions(BIGINT, 1))))))
                 .matches(values(ImmutableMap.of("count_1", 0)));
     }
 
@@ -107,7 +107,7 @@ public class TestPruneCountAggregationOverScalar
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
-                                        p.symbol("count_1", BigintType.BIGINT),
+                                        p.symbol("count_1", BIGINT),
                                         functionResolution
                                                 .functionCallBuilder(QualifiedName.of("count"))
                                                 .build(),
@@ -125,7 +125,7 @@ public class TestPruneCountAggregationOverScalar
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
-                                        p.symbol("count_1", BigintType.BIGINT),
+                                        p.symbol("count_1", BIGINT),
                                         functionResolution
                                                 .functionCallBuilder(QualifiedName.of("count"))
                                                 .build(),

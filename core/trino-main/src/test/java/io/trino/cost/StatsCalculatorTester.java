@@ -57,6 +57,11 @@ public class StatsCalculatorTester
         return metadata;
     }
 
+    public Session getSession()
+    {
+        return session;
+    }
+
     private static LocalQueryRunner createQueryRunner(Session session)
     {
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
