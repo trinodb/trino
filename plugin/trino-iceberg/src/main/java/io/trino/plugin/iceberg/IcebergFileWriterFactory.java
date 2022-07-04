@@ -188,6 +188,7 @@ public class IcebergFileWriterFactory
                     outputStream,
                     rollbackAction,
                     fileColumnTypes,
+                    fileColumnNames,
                     convert(icebergSchema, "table"),
                     makeTypeMap(fileColumnTypes, fileColumnNames),
                     parquetWriterOptions,

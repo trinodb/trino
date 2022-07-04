@@ -181,7 +181,8 @@ public class CheckpointEntryIterator
                 true,
                 DateTimeZone.UTC,
                 stats,
-                parquetReaderOptions);
+                parquetReaderOptions,
+                Optional.empty());
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 

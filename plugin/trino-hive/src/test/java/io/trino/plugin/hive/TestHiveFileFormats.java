@@ -443,7 +443,11 @@ public class TestHiveFileFormats
     public void testOptimizedParquetWriter(int rowCount)
             throws Exception
     {
-        ConnectorSession session = getHiveSession(new HiveConfig(), new ParquetWriterConfig().setParquetOptimizedWriterEnabled(true));
+        ConnectorSession session = getHiveSession(
+                new HiveConfig(),
+                new ParquetWriterConfig()
+                        .setParquetOptimizedWriterEnabled(true)
+                        .setValidationPercentage(100.0));
         assertTrue(HiveSessionProperties.isParquetOptimizedWriterEnabled(session));
 
         List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
@@ -451,7 +455,7 @@ public class TestHiveFileFormats
                 .withSession(session)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
-                .withFileWriterFactory(new ParquetFileWriterFactory(HDFS_ENVIRONMENT, new NodeVersion("test-version"), TESTING_TYPE_MANAGER, new HiveConfig()))
+                .withFileWriterFactory(new ParquetFileWriterFactory(HDFS_ENVIRONMENT, new NodeVersion("test-version"), TESTING_TYPE_MANAGER, new HiveConfig(), STATS))
                 .isReadableByPageSource(PARQUET_PAGE_SOURCE_FACTORY);
     }
 
