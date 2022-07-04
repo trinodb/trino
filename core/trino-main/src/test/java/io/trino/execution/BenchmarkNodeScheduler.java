@@ -33,6 +33,7 @@ import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
+import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
@@ -167,9 +168,7 @@ public class BenchmarkNodeScheduler
                 splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote(ThreadLocalRandom.current().nextInt(DATA_NODES))));
             }
 
-            InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-            nodeManager.addNode(TEST_CATALOG_HANDLE, nodes);
-            NodeScheduler nodeScheduler = new NodeScheduler(getNodeSelectorFactory(nodeManager, nodeTaskMap));
+            NodeScheduler nodeScheduler = new NodeScheduler(getNodeSelectorFactory(new InMemoryNodeManager(), nodeTaskMap));
             Session session = TestingSession.testSessionBuilder()
                     .setSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.toString(Integer.MAX_VALUE))
                     .build();
@@ -191,7 +190,7 @@ public class BenchmarkNodeScheduler
                     .setMaxPendingSplitsPerTask(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
         }
 
-        private NodeSelectorFactory getNodeSelectorFactory(InMemoryNodeManager nodeManager, NodeTaskMap nodeTaskMap)
+        private NodeSelectorFactory getNodeSelectorFactory(InternalNodeManager nodeManager, NodeTaskMap nodeTaskMap)
         {
             NodeSchedulerConfig nodeSchedulerConfig = getNodeSchedulerConfig();
             switch (policy) {
