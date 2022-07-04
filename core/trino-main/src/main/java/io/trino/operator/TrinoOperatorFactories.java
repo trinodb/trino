@@ -218,7 +218,7 @@ public class TrinoOperatorFactories
             return new io.trino.operator.join.unspilled.LookupJoinOperatorFactory(
                     operatorId,
                     planNodeId,
-                    (JoinBridgeManager<? extends io.trino.operator.join.unspilled.LookupSourceFactory>) lookupSourceFactoryManager,
+                    (JoinBridgeManager<? extends io.trino.operator.join.unspilled.PartitionedLookupSourceFactory>) lookupSourceFactoryManager,
                     probeTypes,
                     probeOutputChannelTypes,
                     lookupSourceFactoryManager.getBuildOutputTypes(),
