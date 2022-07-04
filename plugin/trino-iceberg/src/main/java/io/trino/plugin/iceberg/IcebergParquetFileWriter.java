@@ -45,6 +45,7 @@ public class IcebergParquetFileWriter
             OutputStream outputStream,
             Callable<Void> rollbackAction,
             List<Type> fileColumnTypes,
+            List<String> fileColumnNames,
             MessageType messageType,
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
@@ -57,12 +58,14 @@ public class IcebergParquetFileWriter
         super(outputStream,
                 rollbackAction,
                 fileColumnTypes,
+                fileColumnNames,
                 messageType,
                 primitiveTypes,
                 parquetWriterOptions,
                 fileInputColumnIndexes,
                 compressionCodecName,
                 trinoVersion,
+                Optional.empty(),
                 Optional.empty());
         this.metricsConfig = requireNonNull(metricsConfig, "metricsConfig is null");
         this.outputPath = requireNonNull(outputPath, "outputPath is null");

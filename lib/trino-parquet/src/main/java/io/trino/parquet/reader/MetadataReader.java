@@ -16,7 +16,10 @@ package io.trino.parquet.reader;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetWriteValidation;
 import org.apache.parquet.CorruptStatistics;
 import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.format.ColumnChunk;
@@ -61,6 +64,7 @@ import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport.WRITER_TIMEZONE;
 import static org.apache.parquet.format.Util.readFileMetaData;
 import static org.apache.parquet.format.converter.ParquetMetadataConverterUtil.getLogicalTypeAnnotation;
 
@@ -75,7 +79,7 @@ public final class MetadataReader
 
     private MetadataReader() {}
 
-    public static ParquetMetadata readFooter(ParquetDataSource dataSource)
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<ParquetWriteValidation> parquetWriteValidation)
             throws IOException
     {
         // Parquet File Layout:
@@ -165,7 +169,12 @@ public final class MetadataReader
                 keyValueMetaData.put(keyValue.key, keyValue.value);
             }
         }
-        return new ParquetMetadata(new org.apache.parquet.hadoop.metadata.FileMetaData(messageType, keyValueMetaData, fileMetaData.getCreated_by()), blocks);
+        org.apache.parquet.hadoop.metadata.FileMetaData parquetFileMetadata = new org.apache.parquet.hadoop.metadata.FileMetaData(
+                messageType,
+                keyValueMetaData,
+                fileMetaData.getCreated_by());
+        validateFileMetadata(dataSource.getId(), parquetFileMetadata, parquetWriteValidation);
+        return new ParquetMetadata(parquetFileMetadata, blocks);
     }
 
     private static MessageType readParquetSchema(List<SchemaElement> schema)
@@ -379,5 +388,18 @@ public final class MetadataReader
             return new IndexReference(columnChunk.getOffset_index_offset(), columnChunk.getOffset_index_length());
         }
         return null;
+    }
+
+    private static void validateFileMetadata(ParquetDataSourceId dataSourceId, org.apache.parquet.hadoop.metadata.FileMetaData fileMetaData, Optional<ParquetWriteValidation> parquetWriteValidation)
+            throws ParquetCorruptionException
+    {
+        if (parquetWriteValidation.isEmpty()) {
+            return;
+        }
+        ParquetWriteValidation writeValidation = parquetWriteValidation.get();
+        writeValidation.validateTimeZone(
+                dataSourceId,
+                Optional.ofNullable(fileMetaData.getKeyValueMetaData().get(WRITER_TIMEZONE)));
+        writeValidation.validateColumns(dataSourceId, fileMetaData.getSchema());
     }
 }

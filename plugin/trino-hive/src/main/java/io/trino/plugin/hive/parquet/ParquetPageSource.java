@@ -95,7 +95,7 @@ public class ParquetPageSource
         try {
             page = getColumnAdaptationsPage(parquetReader.nextPage());
         }
-        catch (RuntimeException e) {
+        catch (IOException | RuntimeException e) {
             closeAllSuppress(e, this);
             throw handleException(parquetReader.getDataSource().getId(), e);
         }

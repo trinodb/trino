@@ -23,6 +23,7 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.predicate.Predicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
@@ -177,7 +178,8 @@ public class ParquetPageSourceFactory
                 stats,
                 options.withIgnoreStatistics(isParquetIgnoreStatistics(session))
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                        .withUseColumnIndex(isParquetUseColumnIndex(session))));
+                        .withUseColumnIndex(isParquetUseColumnIndex(session)),
+                Optional.empty()));
     }
 
     /**
@@ -192,7 +194,8 @@ public class ParquetPageSourceFactory
             boolean useColumnNames,
             DateTimeZone timeZone,
             FileFormatDataSourceStats stats,
-            ParquetReaderOptions options)
+            ParquetReaderOptions options,
+            Optional<ParquetWriteValidation> parquetWriteValidation)
     {
         // Ignore predicates on partial columns for now.
         effectivePredicate = effectivePredicate.filter((column, domain) -> column.isBaseColumn());
@@ -204,7 +207,7 @@ public class ParquetPageSourceFactory
         try {
             dataSource = new TrinoParquetDataSource(inputFile, options, stats);
 
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetWriteValidation);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             fileSchema = fileMetaData.getSchema();
 
@@ -267,7 +270,8 @@ public class ParquetPageSourceFactory
                             options,
                             exception -> handleException(dataSourceId, exception),
                             Optional.of(parquetPredicate),
-                            columnIndexes.build()),
+                            columnIndexes.build(),
+                            parquetWriteValidation),
                     parquetReaderColumns);
             return new ReaderPageSource(parquetPageSource, readerProjections);
         }

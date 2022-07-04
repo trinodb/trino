@@ -29,6 +29,7 @@ import io.trino.parquet.GroupField;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.predicate.Predicate;
 import io.trino.parquet.reader.FilteredOffsetIndex.OffsetRange;
@@ -74,6 +75,10 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
+import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation;
+import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation.createStatisticsValidationBuilder;
+import static io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder;
+import static io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static io.trino.parquet.reader.ListColumnReader.calculateCollectionOffsets;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -122,6 +127,9 @@ public class ParquetReader
     private AggregatedMemoryContext currentRowGroupMemoryContext;
     private final Multimap<ChunkKey, ChunkReader> chunkReaders;
     private final List<Optional<ColumnIndexStore>> columnIndexStore;
+    private final Optional<ParquetWriteValidation> writeValidation;
+    private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
+    private final Optional<StatisticsValidation> rowGroupStatisticsValidation;
     private final List<RowRanges> blockRowRanges;
     private final Map<ColumnPath, ColumnDescriptor> paths = new HashMap<>();
     private final ParquetBlockFactory blockFactory;
@@ -139,7 +147,7 @@ public class ParquetReader
             Function<Exception, RuntimeException> exceptionTransform)
             throws IOException
     {
-        this(fileCreatedBy, columnFields, blocks, firstRowsOfBlocks, dataSource, timeZone, memoryContext, options, exceptionTransform, Optional.empty(), nCopies(blocks.size(), Optional.empty()));
+        this(fileCreatedBy, columnFields, blocks, firstRowsOfBlocks, dataSource, timeZone, memoryContext, options, exceptionTransform, Optional.empty(), nCopies(blocks.size(), Optional.empty()), Optional.empty());
     }
 
     public ParquetReader(
@@ -153,7 +161,8 @@ public class ParquetReader
             ParquetReaderOptions options,
             Function<Exception, RuntimeException> exceptionTransform,
             Optional<Predicate> parquetPredicate,
-            List<Optional<ColumnIndexStore>> columnIndexStore)
+            List<Optional<ColumnIndexStore>> columnIndexStore,
+            Optional<ParquetWriteValidation> writeValidation)
             throws IOException
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
@@ -171,6 +180,16 @@ public class ParquetReader
         this.maxBytesPerCell = new HashMap<>();
 
         checkArgument(blocks.size() == firstRowsOfBlocks.size(), "elements of firstRowsOfBlocks must correspond to blocks");
+
+        this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
+        validateWrite(
+                validation -> fileCreatedBy.equals(Optional.of(validation.getCreatedBy())),
+                "Expected created by %s, found %s",
+                writeValidation.map(ParquetWriteValidation::getCreatedBy),
+                fileCreatedBy);
+        validateBlockMetadata(blocks);
+        this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(validation.getTypes()));
+        this.rowGroupStatisticsValidation = writeValidation.map(validation -> createStatisticsValidationBuilder(validation.getTypes()));
 
         this.blockRowRanges = listWithNulls(this.blocks.size());
         for (PrimitiveField field : primitiveFields) {
@@ -231,9 +250,15 @@ public class ParquetReader
         freeCurrentRowGroupBuffers();
         currentRowGroupMemoryContext.close();
         dataSource.close();
+
+        if (writeChecksumBuilder.isPresent()) {
+            ParquetWriteValidation parquetWriteValidation = writeValidation.orElseThrow();
+            parquetWriteValidation.validateChecksum(dataSource.getId(), writeChecksumBuilder.get().build());
+        }
     }
 
     public Page nextPage()
+            throws IOException
     {
         int batchSize = nextBatch();
         if (batchSize <= 0) {
@@ -246,7 +271,9 @@ public class ParquetReader
             Field field = columnFields.get(channel);
             blocks[channel] = blockFactory.createBlock(batchSize, () -> readBlock(field));
         }
-        return new Page(batchSize, blocks);
+        Page page = new Page(batchSize, blocks);
+        validateWritePageChecksum(page);
+        return page;
     }
 
     /**
@@ -258,6 +285,7 @@ public class ParquetReader
     }
 
     private int nextBatch()
+            throws IOException
     {
         if (nextRowInGroup >= currentGroupRowCount && !advanceToNextRowGroup()) {
             return -1;
@@ -273,10 +301,18 @@ public class ParquetReader
     }
 
     private boolean advanceToNextRowGroup()
+            throws IOException
     {
         currentRowGroupMemoryContext.close();
         currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         freeCurrentRowGroupBuffers();
+
+        if (currentRowGroup >= 0 && rowGroupStatisticsValidation.isPresent()) {
+            StatisticsValidation statisticsValidation = rowGroupStatisticsValidation.get();
+            writeValidation.orElseThrow().validateRowGroupStatistics(dataSource.getId(), currentBlockMetadata, statisticsValidation.build());
+            statisticsValidation.reset();
+        }
+
         currentRowGroup++;
         if (currentRowGroup == blocks.size()) {
             return false;
@@ -540,5 +576,30 @@ public class ParquetReader
             }
         }
         return rowRanges;
+    }
+
+    private void validateWritePageChecksum(Page page)
+    {
+        if (writeChecksumBuilder.isPresent()) {
+            page = page.getLoadedPage();
+            writeChecksumBuilder.get().addPage(page);
+            rowGroupStatisticsValidation.orElseThrow().addPage(page);
+        }
+    }
+
+    private void validateBlockMetadata(List<BlockMetaData> blockMetaData)
+            throws ParquetCorruptionException
+    {
+        if (writeValidation.isPresent()) {
+            writeValidation.get().validateBlocksMetadata(dataSource.getId(), blockMetaData);
+        }
+    }
+
+    private void validateWrite(java.util.function.Predicate<ParquetWriteValidation> test, String messageFormat, Object... args)
+            throws ParquetCorruptionException
+    {
+        if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
+            throw new ParquetCorruptionException(dataSource.getId(), "Write validation failed: " + messageFormat, args);
+        }
     }
 }
