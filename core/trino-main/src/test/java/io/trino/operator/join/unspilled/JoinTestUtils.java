@@ -211,7 +211,7 @@ public final class JoinTestUtils
     {
         requireNonNull(buildSideSetup, "buildSideSetup is null");
 
-        LookupSourceFactory lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager().getJoinBridge();
+        PartitionedLookupSourceFactory lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager().getJoinBridge();
         Future<LookupSource> lookupSource = lookupSourceFactory.createLookupSource();
         List<Driver> buildDrivers = buildSideSetup.getBuildDrivers();
 

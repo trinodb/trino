@@ -391,7 +391,7 @@ public class BenchmarkHashBuildAndJoinOperators
             }
         }
 
-        LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge();
+        PartitionedLookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge();
         ListenableFuture<LookupSource> lookupSource = lookupSourceFactory.createLookupSource();
         for (Operator operator : operators) {
             operator.finish();
