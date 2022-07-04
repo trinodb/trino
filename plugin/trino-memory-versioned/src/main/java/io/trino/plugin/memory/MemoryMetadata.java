@@ -391,7 +391,7 @@ public class MemoryMetadata
     {
         MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
         TableInfo info = requireNonNull(tables.get(memoryTableHandle.getId()), "tableInfo is null");
-        return new MemoryInsertTableHandle(memoryTableHandle.getId(), ImmutableSet.copyOf(tableIds.values()), getNextVersion(memoryTableHandle.getId()), info.getKeyColumnIndex());
+        return new MemoryInsertTableHandle(memoryTableHandle.getId(), ImmutableSet.copyOf(tableIds.values()), getNextVersion(memoryTableHandle.getId()), info.getKeyColumnIndex(), Optional.empty());
     }
 
     @Override
@@ -696,7 +696,26 @@ public class MemoryMetadata
     {
         MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
         TableInfo info = requireNonNull(tables.get(memoryTableHandle.getId()), "tableInfo is null");
-        return new MemoryInsertTableHandle(memoryTableHandle.getId(), ImmutableSet.copyOf(tableIds.values()), getNextVersion(memoryTableHandle.getId()), info.getKeyColumnIndex());
+        long tableId;
+        Optional<Long> oldTableId;
+        if (info.getKeyColumnIndex().isPresent()) {
+            tableId = memoryTableHandle.getId();
+            oldTableId = Optional.empty();
+        }
+        else {
+            // use new table id for full MV refresh
+            tableId = nextTableId.getAndIncrement();
+            oldTableId = Optional.of(memoryTableHandle.getId());
+        }
+        return new MemoryInsertTableHandle(
+                tableId,
+                ImmutableSet.<Long>builder()
+                        .addAll(tableIds.values())
+                        .add(tableId)
+                        .build(),
+                getNextVersion(memoryTableHandle.getId()),
+                info.getKeyColumnIndex(),
+                oldTableId);
     }
 
     @Override
@@ -713,7 +732,8 @@ public class MemoryMetadata
         commitVersion(handle.getTable(), handle.getVersion());
 
         // TODO: use reverse lookup
-        long materializedViewId = ((MemoryTableHandle) tableHandle).getMaterializedViewId().orElseThrow();
+        MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
+        long materializedViewId = memoryTableHandle.getMaterializedViewId().orElseThrow();
         SchemaTableName viewName = tableIds.entrySet().stream()
                 .filter(entry -> entry.getValue() == materializedViewId)
                 .map(Map.Entry::getKey)
@@ -732,6 +752,12 @@ public class MemoryMetadata
                 oldDefinition.getVersioningLayout(),
                 Optional.of(sourceTableVersions));
         materializedViews.put(viewName, newDefinition);
+
+        // switch to new table data for full refresh MV
+        if (handle.getOldTableId().isPresent()) {
+            tableIds.put(memoryTableHandle.getTableName(), handle.getTable());
+            tables.put(handle.getTable(), tables.remove(handle.getOldTableId().get()));
+        }
 
         return Optional.empty();
     }

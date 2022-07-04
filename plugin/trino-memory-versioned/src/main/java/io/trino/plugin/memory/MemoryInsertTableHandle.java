@@ -30,18 +30,21 @@ public class MemoryInsertTableHandle
     private final Set<Long> activeTableIds;
     private final Optional<Long> version;
     private final Optional<Integer> keyColumnIndex;
+    private final Optional<Long> oldTableId;
 
     @JsonCreator
     public MemoryInsertTableHandle(
             @JsonProperty("table") long table,
             @JsonProperty("activeTableIds") Set<Long> activeTableIds,
             @JsonProperty("version") Optional<Long> version,
-            @JsonProperty("keyColumnIndex") Optional<Integer> keyColumnIndex)
+            @JsonProperty("keyColumnIndex") Optional<Integer> keyColumnIndex,
+            @JsonProperty("oldTableId") Optional<Long> oldTableId)
     {
         this.table = table;
         this.activeTableIds = requireNonNull(activeTableIds, "activeTableIds is null");
         this.version = requireNonNull(version, "version is null");
         this.keyColumnIndex = requireNonNull(keyColumnIndex, "keyColumnIndex is null");
+        this.oldTableId = requireNonNull(oldTableId, "oldTableId is null");
     }
 
     @JsonProperty
@@ -68,6 +71,12 @@ public class MemoryInsertTableHandle
         return keyColumnIndex;
     }
 
+    @JsonProperty
+    public Optional<Long> getOldTableId()
+    {
+        return oldTableId;
+    }
+
     @Override
     public String toString()
     {
@@ -76,6 +85,7 @@ public class MemoryInsertTableHandle
                 .add("activeTableIds", activeTableIds)
                 .add("version", version)
                 .add("keyColumnIndex", keyColumnIndex)
+                .add("oldTableId", oldTableId)
                 .toString();
     }
 }

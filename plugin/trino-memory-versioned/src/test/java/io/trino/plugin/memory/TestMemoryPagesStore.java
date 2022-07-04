@@ -125,7 +125,7 @@ public class TestMemoryPagesStore
 
     private static ConnectorInsertTableHandle createMemoryInsertTableHandle(long tableId, Long[] activeTableIds)
     {
-        return new MemoryInsertTableHandle(tableId, ImmutableSet.copyOf(activeTableIds), Optional.empty(), Optional.empty());
+        return new MemoryInsertTableHandle(tableId, ImmutableSet.copyOf(activeTableIds), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     private static Page createPage()
