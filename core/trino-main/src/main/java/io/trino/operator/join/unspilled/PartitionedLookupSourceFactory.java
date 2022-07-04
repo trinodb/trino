@@ -16,6 +16,7 @@ package io.trino.operator.join.unspilled;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.trino.operator.join.JoinBridge;
 import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.OuterPositionIterator;
 import io.trino.operator.join.TrackingLookupSourceSupplier;
@@ -41,7 +42,7 @@ import static io.trino.operator.join.unspilled.PartitionedLookupSource.createPar
 import static java.util.Objects.requireNonNull;
 
 public final class PartitionedLookupSourceFactory
-        implements LookupSourceFactory
+        implements JoinBridge
 {
     private final List<Type> types;
     private final List<Type> outputTypes;
@@ -80,13 +81,11 @@ public final class PartitionedLookupSourceFactory
         this.blockTypeOperators = blockTypeOperators;
     }
 
-    @Override
     public List<Type> getTypes()
     {
         return types;
     }
 
-    @Override
     public List<Type> getOutputTypes()
     {
         return outputTypes;
@@ -94,13 +93,11 @@ public final class PartitionedLookupSourceFactory
 
     // partitions is final, so we don't need a lock to read its length here
     @SuppressWarnings("FieldAccessNotGuarded")
-    @Override
     public int partitions()
     {
         return partitions.length;
     }
 
-    @Override
     public synchronized ListenableFuture<LookupSource> createLookupSource()
     {
         checkState(!destroyed.isDone(), "already destroyed");
@@ -220,7 +217,6 @@ public final class PartitionedLookupSourceFactory
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
-    @Override
     public ListenableFuture<Void> isDestroyed()
     {
         return nonCancellationPropagating(destroyed);

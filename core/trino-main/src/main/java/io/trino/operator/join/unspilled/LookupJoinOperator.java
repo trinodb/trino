@@ -56,7 +56,7 @@ public class LookupJoinOperator
             JoinType joinType,
             boolean outputSingleMatch,
             boolean waitForBuild,
-            LookupSourceFactory lookupSourceFactory,
+            PartitionedLookupSourceFactory lookupSourceFactory,
             JoinProbeFactory joinProbeFactory,
             Runnable afterClose,
             ProcessorContext processorContext,

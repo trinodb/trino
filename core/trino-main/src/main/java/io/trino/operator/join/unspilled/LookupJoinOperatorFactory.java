@@ -60,7 +60,7 @@ public class LookupJoinOperatorFactory
     private final boolean waitForBuild;
     private final JoinProbeFactory joinProbeFactory;
     private final Optional<OperatorFactory> outerOperatorFactory;
-    private final JoinBridgeManager<? extends LookupSourceFactory> joinBridgeManager;
+    private final JoinBridgeManager<? extends PartitionedLookupSourceFactory> joinBridgeManager;
     private final HashGenerator probeHashGenerator;
 
     private boolean closed;
@@ -68,7 +68,7 @@ public class LookupJoinOperatorFactory
     public LookupJoinOperatorFactory(
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactoryManager,
+            JoinBridgeManager<? extends PartitionedLookupSourceFactory> lookupSourceFactoryManager,
             List<Type> probeTypes,
             List<Type> probeOutputTypes,
             List<Type> buildOutputTypes,
@@ -183,7 +183,7 @@ public class LookupJoinOperatorFactory
     public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
     {
         checkState(!closed, "Factory is already closed");
-        LookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge();
+        PartitionedLookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge();
 
         joinBridgeManager.probeOperatorCreated();
         return new LookupJoinOperator(
@@ -202,7 +202,7 @@ public class LookupJoinOperatorFactory
     public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
     {
         checkState(!closed, "Factory is already closed");
-        LookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge();
+        PartitionedLookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge();
 
         joinBridgeManager.probeOperatorCreated();
         return new LookupJoinOperator(
