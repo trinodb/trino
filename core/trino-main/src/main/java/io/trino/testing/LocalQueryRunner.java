@@ -85,6 +85,7 @@ import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
@@ -257,7 +258,7 @@ public class LocalQueryRunner
 
     private final SqlParser sqlParser;
     private final PlanFragmenter planFragmenter;
-    private final InMemoryNodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
     private final BlockTypeOperators blockTypeOperators;
     private final PlannerContext plannerContext;
     private final TypeRegistry typeRegistry;
@@ -719,7 +720,6 @@ public class LocalQueryRunner
     {
         catalogFactory.addConnectorFactory(connectorFactory, ignored -> connectorFactory.getClass().getClassLoader());
         CatalogHandle catalogHandle = catalogManager.createCatalog(catalogName, connectorFactory.getName(), properties);
-        nodeManager.addCurrentNodeCatalog(catalogHandle);
         return catalogHandle;
     }
 
@@ -738,8 +738,7 @@ public class LocalQueryRunner
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        CatalogHandle catalogHandle = catalogManager.createCatalog(catalogName, connectorName, properties);
-        nodeManager.addCurrentNodeCatalog(catalogHandle);
+        catalogManager.createCatalog(catalogName, connectorName, properties);
     }
 
     public LocalQueryRunner printPlan()

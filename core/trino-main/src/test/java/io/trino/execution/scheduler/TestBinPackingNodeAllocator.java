@@ -13,7 +13,6 @@
  */
 package io.trino.execution.scheduler;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.testing.TestingTicker;
@@ -34,15 +33,12 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -71,8 +67,6 @@ public class TestBinPackingNodeAllocator
     private static final InternalNode NODE_4 = new InternalNode("node-4", URI.create("local://" + NODE_4_ADDRESS), NodeVersion.UNKNOWN, false);
 
     private static final CatalogHandle CATALOG_1 = createTestCatalogHandle("catalog1");
-    private static final CatalogHandle CATALOG_2 = createTestCatalogHandle("catalog2");
-    private static final List<CatalogHandle> ALL_CATALOGS = ImmutableList.of(CATALOG_1, CATALOG_2);
 
     private static final NodeRequirements REQ_32 = new NodeRequirements(Optional.empty(), Set.of(), DataSize.of(32, GIGABYTE));
     private static final NodeRequirements REQ_20 = new NodeRequirements(Optional.empty(), Set.of(), DataSize.of(16, GIGABYTE));
@@ -151,7 +145,7 @@ public class TestBinPackingNodeAllocator
     public void testAllocateSimple()
             throws Exception
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2));
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
@@ -184,7 +178,7 @@ public class TestBinPackingNodeAllocator
             assertNotAcquired(acquire6);
 
             // add new node
-            addNode(nodeManager, NODE_3);
+            nodeManager.addNodes(NODE_3);
             // TODO: make BinPackingNodeAllocatorService react on new node added automatically
             nodeAllocatorService.processPendingAcquires();
 
@@ -200,7 +194,7 @@ public class TestBinPackingNodeAllocator
     public void testAllocateDifferentSizes()
             throws Exception
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2));
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
@@ -246,7 +240,7 @@ public class TestBinPackingNodeAllocator
     @Test(timeOut = TEST_TIMEOUT)
     public void testAllocateDifferentSizesOpportunisticAcquisition()
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2));
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
@@ -286,7 +280,7 @@ public class TestBinPackingNodeAllocator
     @Test(timeOut = TEST_TIMEOUT)
     public void testAllocateReleaseBeforeAcquired()
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1));
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
@@ -315,9 +309,7 @@ public class TestBinPackingNodeAllocator
     @Test(timeOut = TEST_TIMEOUT)
     public void testNoMatchingNodeAvailable()
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(nodesMapBuilder()
-                .put(NODE_1, ImmutableList.of(CATALOG_2))
-                .buildOrThrow());
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
@@ -333,7 +325,7 @@ public class TestBinPackingNodeAllocator
                     .hasMessageContaining("No nodes available to run query");
 
             // add node with specific catalog
-            addNode(nodeManager, NODE_2, CATALOG_1);
+            nodeManager.addNodes(NODE_2);
 
             // we should be able to acquire the node now
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_CATALOG_1_32.withMemory(DataSize.of(64, GIGABYTE)));
@@ -363,7 +355,7 @@ public class TestBinPackingNodeAllocator
     @Test(timeOut = TEST_TIMEOUT)
     public void testRemoveAcquiredNode()
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1));
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
@@ -381,7 +373,7 @@ public class TestBinPackingNodeAllocator
     @Test(timeOut = TEST_TIMEOUT)
     public void testAllocateNodeWithAddressRequirements()
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2));
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
 
         setupNodeAllocatorService(nodeManager);
 
@@ -409,7 +401,7 @@ public class TestBinPackingNodeAllocator
     @Test(timeOut = TEST_TIMEOUT)
     public void testAllocateNotEnoughRuntimeMemory()
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2));
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
@@ -465,7 +457,7 @@ public class TestBinPackingNodeAllocator
     @Test(timeOut = TEST_TIMEOUT)
     public void testAllocateRuntimeMemoryDiscrepancies()
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1));
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
 
         setupNodeAllocatorService(nodeManager);
         // test when global memory usage on node is greater than per task usage
@@ -526,7 +518,7 @@ public class TestBinPackingNodeAllocator
     @Test(timeOut = TEST_TIMEOUT)
     public void testSpaceReservedOnPrimaryNodeIfNoNodeWithEnoughRuntimeMemoryAvailable()
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2));
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         // test when global memory usage on node is greater than per task usage
@@ -564,7 +556,7 @@ public class TestBinPackingNodeAllocator
     @Test(timeOut = TEST_TIMEOUT)
     public void testAllocateWithRuntimeMemoryEstimateOverhead()
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1));
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
         setupNodeAllocatorService(nodeManager, DataSize.of(4, GIGABYTE));
 
         // test when global memory usage on node is greater than per task usage
@@ -600,7 +592,7 @@ public class TestBinPackingNodeAllocator
     @Test
     public void testStressAcquireRelease()
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1));
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
         setupNodeAllocatorService(nodeManager, DataSize.of(4, GIGABYTE));
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
@@ -614,50 +606,6 @@ public class TestBinPackingNodeAllocator
     private TaskId taskId(int partition)
     {
         return new TaskId(new StageId("test_query", 0), partition, 0);
-    }
-
-    private InMemoryNodeManager testingNodeManager(Map<InternalNode, List<CatalogHandle>> nodeMap)
-    {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        for (Map.Entry<InternalNode, List<CatalogHandle>> entry : nodeMap.entrySet()) {
-            InternalNode node = entry.getKey();
-            List<CatalogHandle> catalogs = entry.getValue();
-            for (CatalogHandle catalog : catalogs) {
-                nodeManager.addNode(catalog, node);
-            }
-        }
-        return nodeManager;
-    }
-
-    private Map<InternalNode, List<CatalogHandle>> basicNodesMap(InternalNode... nodes)
-    {
-        return Arrays.stream(nodes)
-                .collect(toImmutableMap(
-                        node -> node,
-                        node -> ALL_CATALOGS));
-    }
-
-    private ImmutableMap.Builder<InternalNode, List<CatalogHandle>> nodesMapBuilder()
-    {
-        return ImmutableMap.builder();
-    }
-
-    private void addNode(InMemoryNodeManager nodeManager, InternalNode node)
-    {
-        addNode(nodeManager, node, ALL_CATALOGS);
-    }
-
-    private void addNode(InMemoryNodeManager nodeManager, InternalNode node, CatalogHandle... catalogs)
-    {
-        addNode(nodeManager, node, ImmutableList.copyOf(Arrays.asList(catalogs)));
-    }
-
-    private void addNode(InMemoryNodeManager nodeManager, InternalNode node, List<CatalogHandle> catalogs)
-    {
-        checkArgument(!catalogs.isEmpty(), "no catalogs specified");
-        for (CatalogHandle catalog : catalogs) {
-            nodeManager.addNode(catalog, node);
-        }
     }
 
     private void assertAcquired(NodeAllocator.NodeLease lease, InternalNode node)
