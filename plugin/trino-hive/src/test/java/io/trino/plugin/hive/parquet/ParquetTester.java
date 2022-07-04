@@ -148,6 +148,13 @@ import static org.testng.Assert.assertTrue;
 
 public class ParquetTester
 {
+    /**
+     * Some specific operations require global synchronization. The infamous hadoop configuration
+     * classes seems to be overwriting configuration between threads. All tests using this class
+     * are single-threaded, however two different classes may be run in the same time causing trouble.
+     */
+    private static final Object LOCK = new Object();
+
     private static final int MAX_PRECISION_INT64 = toIntExact(maxPrecision(8));
 
     public static final ConnectorSession SESSION = getHiveSession(createHiveConfig(false));
@@ -601,14 +608,18 @@ public class ParquetTester
             DateTimeZone dateTimeZone)
             throws Exception
     {
-        RecordWriter recordWriter = new TestMapredParquetOutputFormat(parquetSchema, singleLevelArray, dateTimeZone)
-                .getHiveRecordWriter(
-                        jobConf,
-                        new Path(outputFile.toURI()),
-                        Text.class,
-                        compressionCodecName != UNCOMPRESSED,
-                        tableProperties,
-                        () -> {});
+        RecordWriter recordWriter;
+        synchronized (LOCK) {
+            // The writing itself is not sycnhronized so this lock should not decrease execution time significantly
+            recordWriter = new TestMapredParquetOutputFormat(parquetSchema, singleLevelArray, dateTimeZone)
+                    .getHiveRecordWriter(
+                            jobConf,
+                            new Path(outputFile.toURI()),
+                            Text.class,
+                            compressionCodecName != UNCOMPRESSED,
+                            tableProperties,
+                            () -> {});
+        }
         Object row = objectInspector.create();
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
         while (stream(valuesByField).allMatch(Iterator::hasNext)) {
