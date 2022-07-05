@@ -180,7 +180,8 @@ public class VersioningQueriesExtractor
         @Override
         public Optional<PlanWithVersioningSymbols> visitTableScan(TableScanNode node, Void context)
         {
-            Optional<ConnectorTableVersioningLayout> versioningLayout = metadata.getTableVersioningLayout(session, node.getTable());
+            TableHandle handle = node.getTable();
+            Optional<ConnectorTableVersioningLayout> versioningLayout = metadata.getTableVersioningLayout(session, handle);
             if (versioningLayout.isEmpty()) {
                 return Optional.empty();
             }
@@ -203,17 +204,22 @@ public class VersioningQueriesExtractor
                 }
             }
 
-            TableHandle handle = node.getTable();
+            TableHandle versionedHandle = handle.withConnectorHandle(versioningLayout.get().getHandle());
+            TableHandle deltaHandle;
+            // versions use raw table handle as a key
             if (versions.containsKey(handle)) {
-                handle = metadata.getInsertedOrUpdatedRows(session, handle, versions.remove(handle))
+                deltaHandle = metadata.getInsertedOrUpdatedRows(session, versionedHandle, versions.remove(handle))
                         .orElseThrow(() -> new IllegalStateException("Query does not support versioning"));
+            }
+            else {
+                deltaHandle = versionedHandle;
             }
 
             Map<Symbol, ColumnHandle> newVersioningColumns = newVersioningColumnsBuilder.buildOrThrow();
             return Optional.of(new PlanWithVersioningSymbols(
                     new TableScanNode(
                             node.getId(),
-                            handle,
+                            deltaHandle,
                             ImmutableList.<Symbol>builder()
                                     .addAll(node.getOutputSymbols())
                                     .addAll(newVersioningColumns.keySet())
@@ -287,9 +293,10 @@ public class VersioningQueriesExtractor
         {
             ConnectorTableVersioningLayout versioningLayout = metadata.getTableVersioningLayout(session, node.getTable())
                     .orElseThrow(() -> new IllegalStateException("Query does not support versioning"));
-            TableHandle deleteHandle = metadata.getDeletedRows(
+            TableHandle deleteHandle = node.getTable().withConnectorHandle(versioningLayout.getHandle());
+            deleteHandle = metadata.getDeletedRows(
                             session,
-                            node.getTable(),
+                            deleteHandle,
                             requireNonNull(versions.remove(node.getTable()), "Missing version for table handle"))
                     .orElseThrow(() -> new IllegalStateException("Query does not support versioning"));
 

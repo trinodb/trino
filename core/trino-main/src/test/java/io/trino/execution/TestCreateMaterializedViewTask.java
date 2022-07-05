@@ -462,7 +462,7 @@ public class TestCreateMaterializedViewTask
         {
             if ((tableHandle.getConnectorHandle() instanceof TestingTableHandle)) {
                 if (((TestingTableHandle) tableHandle.getConnectorHandle()).getTableName().equals(MOCK_TABLE_VERSIONED.getTable())) {
-                    return Optional.of(new ConnectorTableVersioningLayout(ImmutableSet.of(new TestingColumnHandle("key")), true));
+                    return Optional.of(new ConnectorTableVersioningLayout(tableHandle.getConnectorHandle(), ImmutableSet.of(new TestingColumnHandle("key")), true));
                 }
             }
 

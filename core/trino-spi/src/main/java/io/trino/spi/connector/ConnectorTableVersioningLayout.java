@@ -20,6 +20,10 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorTableVersioningLayout
 {
     /**
+     * Handle of table with versioning columns
+     */
+    private final ConnectorTableHandle handle;
+    /**
      * Columns that capture row group changes.
      */
     private final Set<ColumnHandle> versioningColumns;
@@ -30,10 +34,16 @@ public class ConnectorTableVersioningLayout
      */
     private final boolean unique;
 
-    public ConnectorTableVersioningLayout(Set<ColumnHandle> versioningColumns, boolean unique)
+    public ConnectorTableVersioningLayout(ConnectorTableHandle handle, Set<ColumnHandle> versioningColumns, boolean unique)
     {
+        this.handle = requireNonNull(handle, "handle is null");
         this.versioningColumns = requireNonNull(versioningColumns, "versioningColumns is null");
         this.unique = unique;
+    }
+
+    public ConnectorTableHandle getHandle()
+    {
+        return handle;
     }
 
     public Set<ColumnHandle> getVersioningColumns()

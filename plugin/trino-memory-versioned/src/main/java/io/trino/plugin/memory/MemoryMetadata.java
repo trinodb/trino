@@ -768,7 +768,7 @@ public class MemoryMetadata
         MemoryTableHandle tableHandle = (MemoryTableHandle) handle;
         TableInfo info = requireNonNull(tables.get(tableHandle.getId()), "tableInfo is null");
         return info.getKeyColumnIndex()
-                .map(index -> new ConnectorTableVersioningLayout(ImmutableSet.of(info.getColumns().get(index).getHandle()), true));
+                .map(index -> new ConnectorTableVersioningLayout(tableHandle, ImmutableSet.of(info.getColumns().get(index).getHandle()), true));
     }
 
     @Override

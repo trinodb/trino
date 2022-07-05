@@ -445,17 +445,17 @@ public class LogicalPlanner
             ProjectNode output = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), outputs.build());
 
             // add versioning symbols for insert/update branch
+            Optional<Map<TableHandle, TableVersion>> sourceTableVersions = materializedViewRefreshWriterTarget.get().getSourceTableVersions();
             VersioningQueriesExtractor extractor = new VersioningQueriesExtractor(metadata);
             PlanWithVersioningSymbols planWithVersioningSymbols = extractor.extractInsertQuery(
                             session,
                             symbolAllocator,
                             output,
-                            materializedViewRefreshWriterTarget.get().getSourceTableVersions())
+                            sourceTableVersions)
                     .orElseThrow(() -> new TrinoException(INVALID_VIEW, "Cannot propagate versioning symbols"));
             root = planWithVersioningSymbols.getRoot();
 
             // append delete rows part of query
-            Optional<Map<TableHandle, TableVersion>> sourceTableVersions = materializedViewRefreshWriterTarget.get().getSourceTableVersions();
             if (sourceTableVersions.isPresent()) {
                 PlanNode deleteRoot = extractor.extractDeleteQuery(session, idAllocator, symbolAllocator, output, sourceTableVersions.get());
                 checkState(root.getOutputSymbols().size() == deleteRoot.getOutputSymbols().size());
