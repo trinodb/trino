@@ -47,6 +47,7 @@ import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.textIoPlan;
+import static io.trino.sql.planner.planprinter.PlanPrinter.jsonDistributedPlan;
 import static io.trino.sql.planner.planprinter.PlanPrinter.jsonLogicalPlan;
 import static io.trino.util.StatementUtils.isDataDefinitionStatement;
 import static java.lang.String.format;
@@ -147,6 +148,8 @@ public class QueryExplainer
                 plan = getLogicalPlan(session, statement, parameters, warningCollector);
                 return jsonLogicalPlan(plan.getRoot(), session, plan.getTypes(), plannerContext.getMetadata(), plannerContext.getFunctionManager(), plan.getStatsAndCosts());
             case DISTRIBUTED:
+                SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
+                return jsonDistributedPlan(subPlan, plannerContext.getMetadata(), plannerContext.getFunctionManager(), session);
             case VALIDATE:
                 // unsupported
                 break;
