@@ -22,8 +22,8 @@ import org.testng.annotations.Test;
 import java.util.Locale;
 import java.util.Map;
 
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.ACCESS_KEY;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.SECRET_KEY;
+import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
+import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
@@ -55,8 +55,8 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
                                 .put("hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
-                                .put("hive.s3.aws-access-key", ACCESS_KEY)
-                                .put("hive.s3.aws-secret-key", SECRET_KEY)
+                                .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
+                                .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
                                 .put("hive.s3.endpoint", "http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
                                 .put("hive.s3.path-style-access", "true")
                                 .put("hive.s3.streaming.part-size", "5MB")

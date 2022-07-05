@@ -64,8 +64,8 @@ public final class S3HiveQueryRunner
         return builder()
                 .setHiveMetastoreEndpoint(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
                 .setS3Endpoint("http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
-                .setS3AccessKey(HiveMinioDataLake.ACCESS_KEY)
-                .setS3SecretKey(HiveMinioDataLake.SECRET_KEY)
+                .setS3AccessKey(HiveMinioDataLake.MINIO_ACCESS_KEY)
+                .setS3SecretKey(HiveMinioDataLake.MINIO_SECRET_KEY)
                 .setBucketName(hiveMinioDataLake.getBucketName());
     }
 
