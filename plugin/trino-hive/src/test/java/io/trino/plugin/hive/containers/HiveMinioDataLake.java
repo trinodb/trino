@@ -40,8 +40,8 @@ import static org.testcontainers.containers.Network.newNetwork;
 public class HiveMinioDataLake
         implements AutoCloseable
 {
-    public static final String ACCESS_KEY = "accesskey";
-    public static final String SECRET_KEY = "secretkey";
+    public static final String MINIO_ACCESS_KEY = "accesskey";
+    public static final String MINIO_SECRET_KEY = "secretkey";
 
     private final String bucketName;
     private final Minio minio;
@@ -70,8 +70,8 @@ public class HiveMinioDataLake
                 Minio.builder()
                         .withNetwork(network)
                         .withEnvVars(ImmutableMap.<String, String>builder()
-                                .put("MINIO_ACCESS_KEY", ACCESS_KEY)
-                                .put("MINIO_SECRET_KEY", SECRET_KEY)
+                                .put("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY)
+                                .put("MINIO_SECRET_KEY", MINIO_SECRET_KEY)
                                 .buildOrThrow())
                         .build());
 
@@ -160,7 +160,7 @@ public class HiveMinioDataLake
 
     private MinioClient initMinioClient()
     {
-        MinioClient minioClient = new MinioClient(getMinioAddress(), ACCESS_KEY, SECRET_KEY);
+        MinioClient minioClient = new MinioClient(getMinioAddress(), MINIO_ACCESS_KEY, MINIO_SECRET_KEY);
         closer.register(minioClient);
 
         // use retry loop for minioClient.makeBucket as minio container tends to return "Server not initialized, please try again" error

@@ -24,8 +24,8 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.ACCESS_KEY;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.SECRET_KEY;
+import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
+import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,8 +57,8 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
 
         queryRunner.installPlugin(new TestingHivePlugin());
         Map<String, String> s3Properties = ImmutableMap.<String, String>builder()
-                .put("hive.s3.aws-access-key", ACCESS_KEY)
-                .put("hive.s3.aws-secret-key", SECRET_KEY)
+                .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
+                .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
                 .put("hive.s3.endpoint", hiveMinioDataLake.getMinioAddress())
                 .put("hive.s3.path-style-access", "true")
                 .buildOrThrow();

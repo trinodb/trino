@@ -34,8 +34,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.ACCESS_KEY;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.SECRET_KEY;
+import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
+import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -163,8 +163,8 @@ public final class DeltaLakeQueryRunner
                 coordinatorProperties,
                 extraProperties,
                 ImmutableMap.<String, String>builder()
-                        .put("hive.s3.aws-access-key", ACCESS_KEY)
-                        .put("hive.s3.aws-secret-key", SECRET_KEY)
+                        .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
+                        .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
                         .put("hive.s3.endpoint", minioAddress)
                         .put("hive.s3.path-style-access", "true")
                         .putAll(connectorProperties)

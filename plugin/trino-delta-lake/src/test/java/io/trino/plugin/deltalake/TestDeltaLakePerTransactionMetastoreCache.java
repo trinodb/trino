@@ -53,8 +53,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.ACCESS_KEY;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.SECRET_KEY;
+import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
+import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -139,8 +139,8 @@ public class TestDeltaLakePerTransactionMetastoreCache
 
         ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
         deltaLakeProperties.put("hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint());
-        deltaLakeProperties.put("hive.s3.aws-access-key", ACCESS_KEY);
-        deltaLakeProperties.put("hive.s3.aws-secret-key", SECRET_KEY);
+        deltaLakeProperties.put("hive.s3.aws-access-key", MINIO_ACCESS_KEY);
+        deltaLakeProperties.put("hive.s3.aws-secret-key", MINIO_SECRET_KEY);
         deltaLakeProperties.put("hive.s3.endpoint", hiveMinioDataLake.getMinioAddress());
         deltaLakeProperties.put("hive.s3.path-style-access", "true");
         deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
