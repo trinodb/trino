@@ -31,6 +31,7 @@ public class TestDeltaLakeJmx
     {
         assertThat(onTrino().executeQuery("SHOW TABLES IN jmx.current LIKE '%name=delta%'")).containsOnly(
                 row("io.trino.plugin.hive.metastore.cache:name=delta,type=cachinghivemetastore"),
+                row("io.trino.plugin.hive.metastore.glue:name=delta,type=gluehivemetastore"),
                 row("io.trino.plugin.hive.s3:name=delta,type=trinos3filesystem"),
                 row("io.trino.plugin.hive:catalog=delta,name=delta,type=fileformatdatasourcestats"),
                 row("io.trino.plugin.hive:name=delta,type=namenodestats"),

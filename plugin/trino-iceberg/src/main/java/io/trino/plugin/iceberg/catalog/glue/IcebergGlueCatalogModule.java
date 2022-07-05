@@ -34,6 +34,7 @@ public class IcebergGlueCatalogModule
     {
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
         binder.bind(GlueMetastoreStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(GlueMetastoreStats.class).withGeneratedName();
         binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableOperationsProvider.class).to(GlueIcebergTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoGlueCatalogFactory.class).in(Scopes.SINGLETON);
