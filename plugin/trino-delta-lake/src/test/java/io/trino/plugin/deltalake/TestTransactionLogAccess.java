@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
+import io.airlift.units.Duration;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -54,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -111,6 +113,12 @@ public class TestTransactionLogAccess
     private void setupTransactionLogAccess(String tableName, Path tableLocation)
             throws IOException
     {
+        setupTransactionLogAccess(tableName, tableLocation, new DeltaLakeConfig());
+    }
+
+    private void setupTransactionLogAccess(String tableName, Path tableLocation, DeltaLakeConfig deltaLakeConfig)
+            throws IOException
+    {
         TestingConnectorContext context = new TestingConnectorContext();
         TypeManager typeManager = context.getTypeManager();
 
@@ -125,7 +133,7 @@ public class TestTransactionLogAccess
                 SESSION,
                 typeManager,
                 new CheckpointSchemaManager(typeManager),
-                new DeltaLakeConfig(),
+                deltaLakeConfig,
                 fileFormatDataSourceStats,
                 hdfsEnvironment,
                 new ParquetReaderConfig());
@@ -695,6 +703,37 @@ public class TestTransactionLogAccess
                     fileStats.getMaxColumnValue(new DeltaLakeColumnHandle(columnName, IntegerType.INTEGER, columnName, IntegerType.INTEGER, REGULAR)),
                     Optional.of(statsValues.get(columnName)));
         }
+    }
+
+    @Test
+    public void testTableSnapshotsCacheDisabled()
+            throws Exception
+    {
+        String tableName = "person";
+        Path tableDir = new Path(getClass().getClassLoader().getResource("databricks/" + tableName).toURI());
+        DeltaLakeConfig cacheDisabledConfig = new DeltaLakeConfig();
+        cacheDisabledConfig.setMetadataCacheTtl(new Duration(0, TimeUnit.SECONDS));
+        setupTransactionLogAccess(tableName, tableDir, cacheDisabledConfig);
+
+        assertEquals(
+                transactionLogAccess.getAccessTrackingFileSystem().getOpenCount(),
+                ImmutableMap.of(
+                        "_last_checkpoint", 1,
+                        "00000000000000000011.json", 1,
+                        "00000000000000000012.json", 1,
+                        "00000000000000000013.json", 1,
+                        "00000000000000000014.json", 1));
+
+        // With the transaction log cache disabled, when loading the snapshot again, all the needed files will be opened again
+        transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir, SESSION);
+        assertEquals(
+                transactionLogAccess.getAccessTrackingFileSystem().getOpenCount(),
+                ImmutableMap.of(
+                        "_last_checkpoint", 2,
+                        "00000000000000000011.json", 2,
+                        "00000000000000000012.json", 2,
+                        "00000000000000000013.json", 2,
+                        "00000000000000000014.json", 2));
     }
 
     private void copyTransactionLogEntry(int startVersion, int endVersion, File sourceDir, File targetDir)
