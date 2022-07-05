@@ -301,16 +301,46 @@ public class PlanPrinter
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-
-        Map<PlanFragmentId, JsonRenderedNode> anonymizedPlan = allStages.stream()
+        List<PlanFragment> planFragments = allStages.stream()
                 .map(StageInfo::getPlan)
                 .filter(Objects::nonNull)
+                .collect(toImmutableList());
+
+        return jsonDistributedPlan(
+                planFragments,
+                tableScanNode -> tableInfos.get(tableScanNode.getId()),
+                valuePrinter,
+                types,
+                anonymizer);
+    }
+
+    public static String jsonDistributedPlan(SubPlan plan, Metadata metadata, FunctionManager functionManager, Session session)
+    {
+        TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
+        ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
+        TypeProvider typeProvider = getTypeProvider(plan.getAllFragments());
+        return jsonDistributedPlan(
+                plan.getAllFragments(),
+                tableInfoSupplier,
+                valuePrinter,
+                typeProvider,
+                new NoOpAnonymizer());
+    }
+
+    private static String jsonDistributedPlan(
+            List<PlanFragment> fragments,
+            Function<TableScanNode, TableInfo> tableInfoSupplier,
+            ValuePrinter valuePrinter,
+            TypeProvider typeProvider,
+            Anonymizer anonymizer)
+    {
+        Map<PlanFragmentId, JsonRenderedNode> anonymizedPlan = fragments.stream()
                 .collect(toImmutableMap(
                         PlanFragment::getId,
                         planFragment -> new PlanPrinter(
                                 planFragment.getRoot(),
-                                types,
-                                tableScanNode -> tableInfos.get(tableScanNode.getId()),
+                                typeProvider,
+                                tableInfoSupplier,
                                 ImmutableMap.of(),
                                 valuePrinter,
                                 planFragment.getStatsAndCosts(),

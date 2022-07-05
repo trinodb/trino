@@ -34,10 +34,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -55,6 +57,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJsonRepresentation
 {
+    private static final JsonCodec<Map<String, JsonRenderedNode>> DISTRIBUTED_PLAN_JSON_CODEC = mapJsonCodec(String.class, JsonRenderedNode.class);
     private static final JsonCodec<JsonRenderedNode> JSON_RENDERED_NODE_CODEC = jsonCodec(JsonRenderedNode.class);
     private static final TableInfo TABLE_INFO = new TableInfo(
             Optional.of("tpch"),
@@ -68,6 +71,50 @@ public class TestJsonRepresentation
     {
         queryRunner = LocalQueryRunner.create(TEST_SESSION);
         queryRunner.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(1), ImmutableMap.of());
+    }
+
+    @Test
+    public void testDistributedJsonPlan()
+    {
+        MaterializedResult actualPlan = queryRunner.execute("EXPLAIN (TYPE DISTRIBUTED, FORMAT JSON) SELECT quantity FROM lineitem limit 10");
+        Map<String, JsonRenderedNode> distributedPlan = ImmutableMap.of(
+                "0", new JsonRenderedNode(
+                        "6",
+                        "Output",
+                        ImmutableMap.of("columnNames", "[quantity]"),
+                        ImmutableList.of(typedSymbol("quantity", "double")),
+                        ImmutableList.of(),
+                        ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 541665, 0, 0)),
+                        ImmutableList.of(new JsonRenderedNode(
+                                "98",
+                                "Limit",
+                                ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
+                                ImmutableList.of(typedSymbol("quantity", "double")),
+                                ImmutableList.of(),
+                                ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 541665, 0, 0)),
+                                ImmutableList.of(new JsonRenderedNode(
+                                        "147",
+                                        "LocalExchange",
+                                        ImmutableMap.of(
+                                                "partitioning", "SINGLE",
+                                                "isReplicateNullsAndAny", "",
+                                                "hashColumn", "[]",
+                                                "arguments", "[]"),
+                                        ImmutableList.of(typedSymbol("quantity", "double")),
+                                        ImmutableList.of(),
+                                        ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 541575, 0, 0)),
+                                        ImmutableList.of(new JsonRenderedNode(
+                                                "0",
+                                                "TableScan",
+                                                ImmutableMap.of("table", "tpch:tiny:lineitem"),
+                                                ImmutableList.of(typedSymbol("quantity", "double")),
+                                                ImmutableList.of("quantity := tpch:quantity"),
+                                                ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 541575, 0, 0)),
+                                                ImmutableList.of()))))))));
+        MaterializedResult expectedPlan = resultBuilder(queryRunner.getDefaultSession(), createVarcharType(2072))
+                .row(DISTRIBUTED_PLAN_JSON_CODEC.toJson(distributedPlan))
+                .build();
+        assertThat(actualPlan).isEqualTo(expectedPlan);
     }
 
     @Test
