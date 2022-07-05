@@ -41,6 +41,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -75,7 +76,8 @@ public class PushAggregationIntoTableScan
 
     private static final Pattern<AggregationNode> PATTERN =
             aggregation()
-                    .with(step().equalTo(AggregationNode.Step.SINGLE))
+                    .matching(node -> node.getStep().equals(Step.SINGLE)
+                        || node.getStep().equals(Step.PARTIAL))
                     // skip arguments that are, for instance, lambda expressions
                     .matching(PushAggregationIntoTableScan::allArgumentsAreSimpleReferences)
                     .matching(node -> node.getGroupingSets().getGroupingSetCount() <= 1)
