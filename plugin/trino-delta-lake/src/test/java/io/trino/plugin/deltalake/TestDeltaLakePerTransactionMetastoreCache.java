@@ -69,15 +69,6 @@ public class TestDeltaLakePerTransactionMetastoreCache
 
     private final Map<String, Long> hiveMetastoreInvocationCounts = new ConcurrentHashMap<>();
 
-    @AfterClass(alwaysRun = true)
-    public final void close()
-            throws Exception
-    {
-        if (dockerizedMinioDataLake != null) {
-            dockerizedMinioDataLake.close();
-        }
-    }
-
     private void resetHiveMetastoreInvocationCounts()
     {
         hiveMetastoreInvocationCounts.clear();
