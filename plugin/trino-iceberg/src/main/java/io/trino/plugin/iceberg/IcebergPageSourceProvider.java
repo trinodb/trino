@@ -85,6 +85,7 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
@@ -120,6 +121,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -142,7 +144,9 @@ import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcLazyReadSmallRanges;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxBufferSize;
@@ -169,6 +173,8 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -297,6 +303,18 @@ public class IcebergPageSourceProvider
             fileSize = fileIoProvider.createFileIo(hdfsContext, session.getQueryId())
                     .newInputFile(split.getPath()).getLength();
         }
+        OptionalLong fileModifiedTime = OptionalLong.empty();
+        if (requiredColumns.stream().anyMatch(IcebergColumnHandle::isFileModifiedTimeColumn)) {
+            try {
+                FileStatus fileStatus = hdfsEnvironment.doAs(
+                        session.getIdentity(),
+                        () -> hdfsEnvironment.getFileSystem(hdfsContext, new Path(split.getPath())).getFileStatus(new Path(split.getPath())));
+                fileModifiedTime = OptionalLong.of(fileStatus.getModificationTime());
+            }
+            catch (IOException e) {
+                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, e);
+            }
+        }
 
         ReaderPageSource dataPageSource = createDataPageSource(
                 session,
@@ -305,6 +323,7 @@ public class IcebergPageSourceProvider
                 split.getStart(),
                 split.getLength(),
                 fileSize,
+                fileModifiedTime,
                 split.getFileFormat(),
                 split.getSchemaAsJson().map(SchemaParser::fromJson),
                 requiredColumns,
@@ -433,6 +452,7 @@ public class IcebergPageSourceProvider
                 0,
                 delete.fileSizeInBytes(),
                 delete.fileSizeInBytes(),
+                OptionalLong.empty(),
                 IcebergFileFormat.fromIceberg(delete.format()),
                 Optional.of(schemaFromHandles(columns)),
                 columns,
@@ -449,6 +469,7 @@ public class IcebergPageSourceProvider
             long start,
             long length,
             long fileSize,
+            OptionalLong fileModifiedTime,
             IcebergFileFormat fileFormat,
             Optional<Schema> fileSchema,
             List<IcebergColumnHandle> dataColumns,
@@ -466,6 +487,7 @@ public class IcebergPageSourceProvider
                         start,
                         length,
                         fileSize,
+                        fileModifiedTime,
                         dataColumns,
                         predicate,
                         orcReaderOptions
@@ -490,6 +512,7 @@ public class IcebergPageSourceProvider
                         start,
                         length,
                         fileSize,
+                        fileModifiedTime,
                         dataColumns,
                         parquetReaderOptions
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
@@ -503,6 +526,7 @@ public class IcebergPageSourceProvider
                         path,
                         start,
                         length,
+                        fileModifiedTime,
                         fileSchema.orElseThrow(),
                         nameMapping,
                         dataColumns);
@@ -519,6 +543,7 @@ public class IcebergPageSourceProvider
             long start,
             long length,
             long fileSize,
+            OptionalLong fileModifiedTime,
             List<IcebergColumnHandle> columns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             OrcReaderOptions options,
@@ -584,6 +609,9 @@ public class IcebergPageSourceProvider
                 }
                 else if (column.isPathColumn()) {
                     columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path.toString()))));
+                }
+                else if (column.isFileModifiedTimeColumn()) {
+                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(fileModifiedTime.orElseThrow(), UTC_KEY))));
                 }
                 else if (column.isUpdateRowIdColumn()) {
                     // $row_id is a composite of multiple physical columns. It is assembled by the IcebergPageSource
@@ -862,6 +890,7 @@ public class IcebergPageSourceProvider
             long start,
             long length,
             long fileSize,
+            OptionalLong fileModifiedTime,
             List<IcebergColumnHandle> regularColumns,
             ParquetReaderOptions options,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
@@ -948,6 +977,9 @@ public class IcebergPageSourceProvider
                 else if (column.isPathColumn()) {
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path.toString())));
                 }
+                else if (column.isFileModifiedTimeColumn()) {
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(fileModifiedTime.orElseThrow(), UTC_KEY)));
+                }
                 else if (column.isUpdateRowIdColumn()) {
                     // $row_id is a composite of multiple physical columns, it is assembled by the IcebergPageSource
                     trinoTypes.add(column.getType());
@@ -1019,6 +1051,7 @@ public class IcebergPageSourceProvider
             Path path,
             long start,
             long length,
+            OptionalLong fileModifiedTime,
             Schema fileSchema,
             Optional<NameMapping> nameMapping,
             List<IcebergColumnHandle> columns)
@@ -1054,6 +1087,9 @@ public class IcebergPageSourceProvider
 
                 if (column.isPathColumn()) {
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path.toString())));
+                }
+                else if (column.isFileModifiedTimeColumn()) {
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(fileModifiedTime.orElseThrow(), UTC_KEY)));
                 }
                 // For delete
                 else if (column.isRowPositionColumn()) {

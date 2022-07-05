@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.IS_DELETED;
@@ -168,6 +169,12 @@ public class IcebergColumnHandle
         return id == IS_DELETED.fieldId();
     }
 
+    @JsonIgnore
+    public boolean isFileModifiedTimeColumn()
+    {
+        return id == FILE_MODIFIED_TIME.getId();
+    }
+
     @Override
     public int hashCode()
     {
@@ -212,6 +219,25 @@ public class IcebergColumnHandle
         return ColumnMetadata.builder()
                 .setName(FILE_PATH.getColumnName())
                 .setType(FILE_PATH.getType())
+                .setHidden(true)
+                .build();
+    }
+
+    public static IcebergColumnHandle fileModifiedTimeColumnHandle()
+    {
+        return new IcebergColumnHandle(
+                columnIdentity(FILE_MODIFIED_TIME),
+                FILE_MODIFIED_TIME.getType(),
+                ImmutableList.of(),
+                FILE_MODIFIED_TIME.getType(),
+                Optional.empty());
+    }
+
+    public static ColumnMetadata fileModifiedTimeColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(FILE_MODIFIED_TIME.getColumnName())
+                .setType(FILE_MODIFIED_TIME.getType())
                 .setHidden(true)
                 .build();
     }

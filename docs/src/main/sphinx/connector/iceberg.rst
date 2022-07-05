@@ -610,11 +610,13 @@ path metadata as a hidden column in each table:
 
 * ``$path``: Full file system path name of the file for this row
 
-You can use this column in your SQL statements like any other column. This
+* ``$file_modified_time``: Timestamp of the last modification of the file for this row
+
+You can use these columns in your SQL statements like any other column. This
 can be selected directly, or used in conditional statements. For example, you
 can inspect the file path for each record::
 
-    SELECT *, "$path"
+    SELECT *, "$path", "$file_modified_time"
     FROM iceberg.web.page_views;
 
 Retrieve all records that belong to a specific file using ``"$path"`` filter::
@@ -622,6 +624,12 @@ Retrieve all records that belong to a specific file using ``"$path"`` filter::
     SELECT *
     FROM iceberg.web.page_views
     WHERE "$path" = '/usr/iceberg/table/web.page_views/data/file_01.parquet'
+
+Retrieve all records that belong to a specific file using ``"$file_modified_time"`` filter::
+
+    SELECT *
+    FROM iceberg.web.page_views
+    WHERE "$file_modified_time" = CAST('2022-07-01 01:02:03.456 UTC' AS timestamp with time zone)
 
 .. _iceberg-metadata-tables:
 
