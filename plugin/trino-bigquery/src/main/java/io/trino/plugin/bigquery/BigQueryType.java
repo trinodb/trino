@@ -23,7 +23,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -300,7 +299,7 @@ public enum BigQueryType
         if (type == TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS) {
             return StandardSQLTypeName.TIMESTAMP;
         }
-        if (type instanceof CharType || type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return StandardSQLTypeName.STRING;
         }
         if (type == VarbinaryType.VARBINARY) {
