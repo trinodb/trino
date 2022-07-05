@@ -88,6 +88,7 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -116,8 +117,10 @@ import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.time.ZoneOffset.UTC;
+import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -4503,6 +4506,38 @@ public abstract class BaseIcebergConnectorTest
                 .matches("VALUES 2, 5");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testFileModifiedTimeHiddenColumn()
+    {
+        ZonedDateTime beforeTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_file_modified_time_", "(col) AS VALUES (1)")) {
+            MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                    .row("col", "integer", "", "")
+                    .build();
+            MaterializedResult actualColumns = computeActual("DESCRIBE " + table.getName());
+            // Describe output should not have the $file_modified_time hidden column
+            assertEquals(actualColumns, expectedColumns);
+
+            ZonedDateTime fileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + table.getName());
+            ZonedDateTime afterTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
+            assertThat(fileModifiedTime).isBetween(beforeTime, afterTime);
+        }
+    }
+
+    @Test
+    public void testDeleteWithFileModifiedTimeColumn()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_with_file_modified_time_", "(key int)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1)", 1);
+            sleepUninterruptibly(1, MILLISECONDS);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2)", 1);
+
+            ZonedDateTime oldModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + table.getName() + " WHERE key = 1");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + oldModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 2");
+        }
     }
 
     @Test
