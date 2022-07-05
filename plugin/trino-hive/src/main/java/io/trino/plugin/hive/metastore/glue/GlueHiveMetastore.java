@@ -101,6 +101,8 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
+import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Managed;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -230,6 +232,8 @@ public class GlueHiveMetastore
         return asyncGlueClientBuilder.build();
     }
 
+    @Managed
+    @Flatten
     public GlueMetastoreStats getStats()
     {
         return stats;
