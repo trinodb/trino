@@ -27,6 +27,7 @@ import io.trino.spi.function.QualifiedFunctionName;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.SqlPathElement;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.Identifier;
@@ -89,7 +90,7 @@ public class FunctionResolver
                     .collect(toImmutableList());
             for (CatalogFunctionMetadata candidate : exactCandidates) {
                 if (canBindSignature(session, candidate.getFunctionMetadata().getSignature(), signature)) {
-                    return toFunctionBinding(candidate, signature);
+                    return toFunctionBinding(candidate, signature, signature.getReturnType());
                 }
             }
 
@@ -99,7 +100,7 @@ public class FunctionResolver
                     .collect(toImmutableList());
             for (CatalogFunctionMetadata candidate : genericCandidates) {
                 if (canBindSignature(session, candidate.getFunctionMetadata().getSignature(), signature)) {
-                    return toFunctionBinding(candidate, signature);
+                    return toFunctionBinding(candidate, signature, signature.getReturnType());
                 }
             }
         }
@@ -113,11 +114,11 @@ public class FunctionResolver
                 .canBind(fromTypeSignatures(actualSignature.getArgumentTypes()), actualSignature.getReturnType());
     }
 
-    private CatalogFunctionBinding toFunctionBinding(CatalogFunctionMetadata functionMetadata, Signature signature)
+    private CatalogFunctionBinding toFunctionBinding(CatalogFunctionMetadata functionMetadata, Signature signature, TypeSignature returnType)
     {
         BoundSignature boundSignature = new BoundSignature(
                 signature.getName(),
-                typeManager.getType(signature.getReturnType()),
+                typeManager.getType(returnType),
                 signature.getArgumentTypes().stream()
                         .map(typeManager::getType)
                         .collect(toImmutableList()));
@@ -246,7 +247,15 @@ public class FunctionResolver
 
         if (applicableFunctions.size() == 1) {
             ApplicableFunction applicableFunction = getOnlyElement(applicableFunctions);
-            return Optional.of(toFunctionBinding(applicableFunction.getFunction(), applicableFunction.getBoundSignature()));
+            Signature boundSignature = applicableFunction.getBoundSignature();
+            List<TypeSignature> typeSignatures = parameters.stream()
+                    .filter(parameter -> !parameter.hasDependency())
+                    .map(TypeSignatureProvider::getTypeSignature)
+                    .collect(toImmutableList());
+            TypeSignature returnType = boundSignature.getReturnTypeDerivation()
+                    .map(signature -> signature.apply(typeSignatures))
+                    .orElse(boundSignature.getReturnType());
+            return Optional.of(toFunctionBinding(applicableFunction.getFunction(), boundSignature, returnType));
         }
 
         StringBuilder errorMessageBuilder = new StringBuilder();

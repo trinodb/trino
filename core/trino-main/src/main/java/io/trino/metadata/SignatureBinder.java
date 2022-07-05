@@ -179,12 +179,16 @@ public class SignatureBinder
         }
         List<TypeSignature> boundArgumentSignatures = applyBoundVariables(argumentSignatures, typeVariables);
         TypeSignature boundReturnTypeSignature = applyBoundVariables(signature.getReturnType(), typeVariables);
+        TypeSignature calculatedTypeSignature = signature.getReturnTypeDerivation()
+                .map(typeSignatureFunction -> typeSignatureFunction.apply(boundArgumentSignatures))
+                .orElse(boundReturnTypeSignature);
 
-        return Signature.builder()
+        Signature.Builder signatureBuilder = Signature.builder()
                 .name(signature.getName())
-                .returnType(boundReturnTypeSignature)
-                .argumentTypes(boundArgumentSignatures)
-                .build();
+                .returnType(calculatedTypeSignature)
+                .argumentTypes(boundArgumentSignatures);
+        signature.getReturnTypeDerivation().ifPresent(signatureBuilder::returnTypeDerivation);
+        return signatureBuilder.build();
     }
 
     public static List<TypeSignature> applyBoundVariables(List<TypeSignature> typeSignatures, FunctionBinding functionBinding)

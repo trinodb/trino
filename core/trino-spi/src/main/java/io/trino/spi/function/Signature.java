@@ -13,7 +13,6 @@
  */
 package io.trino.spi.function;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -22,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
@@ -38,6 +39,7 @@ public class Signature
     private final List<TypeVariableConstraint> typeVariableConstraints;
     private final List<LongVariableConstraint> longVariableConstraints;
     private final TypeSignature returnType;
+    private final Optional<Function<List<TypeSignature>, TypeSignature>> returnTypeDerivation;
     private final List<TypeSignature> argumentTypes;
     private final boolean variableArity;
 
@@ -46,6 +48,7 @@ public class Signature
             List<TypeVariableConstraint> typeVariableConstraints,
             List<LongVariableConstraint> longVariableConstraints,
             TypeSignature returnType,
+            Optional<Function<List<TypeSignature>, TypeSignature>> returnTypeDerivation,
             List<TypeSignature> argumentTypes,
             boolean variableArity)
     {
@@ -57,6 +60,7 @@ public class Signature
         this.typeVariableConstraints = List.copyOf(typeVariableConstraints);
         this.longVariableConstraints = List.copyOf(longVariableConstraints);
         this.returnType = requireNonNull(returnType, "returnType is null");
+        this.returnTypeDerivation = requireNonNull(returnTypeDerivation, "returnTypeDerivation is null");
         this.argumentTypes = List.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.variableArity = variableArity;
     }
@@ -66,37 +70,36 @@ public class Signature
         return name.startsWith(OPERATOR_PREFIX);
     }
 
-    @JsonProperty
     public String getName()
     {
         return name;
     }
 
-    @JsonProperty
     public TypeSignature getReturnType()
     {
         return returnType;
     }
 
-    @JsonProperty
+    public Optional<Function<List<TypeSignature>, TypeSignature>> getReturnTypeDerivation()
+    {
+        return returnTypeDerivation;
+    }
+
     public List<TypeSignature> getArgumentTypes()
     {
         return argumentTypes;
     }
 
-    @JsonProperty
     public boolean isVariableArity()
     {
         return variableArity;
     }
 
-    @JsonProperty
     public List<TypeVariableConstraint> getTypeVariableConstraints()
     {
         return typeVariableConstraints;
     }
 
-    @JsonProperty
     public List<LongVariableConstraint> getLongVariableConstraints()
     {
         return longVariableConstraints;
@@ -122,6 +125,7 @@ public class Signature
                 Objects.equals(this.typeVariableConstraints, other.typeVariableConstraints) &&
                 Objects.equals(this.longVariableConstraints, other.longVariableConstraints) &&
                 Objects.equals(this.returnType, other.returnType) &&
+                Objects.equals(this.returnTypeDerivation, other.returnTypeDerivation) &&
                 Objects.equals(this.argumentTypes, other.argumentTypes) &&
                 Objects.equals(this.variableArity, other.variableArity);
     }
@@ -142,11 +146,12 @@ public class Signature
 
     public Signature withName(String name)
     {
-        return fromJson(
+        return new Signature(
                 name,
                 typeVariableConstraints,
                 longVariableConstraints,
                 returnType,
+                returnTypeDerivation,
                 argumentTypes,
                 variableArity);
     }
@@ -162,6 +167,7 @@ public class Signature
         private final List<TypeVariableConstraint> typeVariableConstraints = new ArrayList<>();
         private final List<LongVariableConstraint> longVariableConstraints = new ArrayList<>();
         private TypeSignature returnType;
+        private Optional<Function<List<TypeSignature>, TypeSignature>> returnTypeDerivation = Optional.empty();
         private final List<TypeSignature> argumentTypes = new ArrayList<>();
         private boolean variableArity;
 
@@ -248,6 +254,12 @@ public class Signature
             return this;
         }
 
+        public Builder returnTypeDerivation(Function<List<TypeSignature>, TypeSignature> returnTypeDerivation)
+        {
+            this.returnTypeDerivation = Optional.of(requireNonNull(returnTypeDerivation, "returnTypeDerivation is null"));
+            return this;
+        }
+
         public Builder longVariable(String name, String expression)
         {
             this.longVariableConstraints.add(new LongVariableConstraint(name, expression));
@@ -279,7 +291,7 @@ public class Signature
 
         public Signature build()
         {
-            return new Signature(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
+            return new Signature(name, typeVariableConstraints, longVariableConstraints, returnType, returnTypeDerivation, argumentTypes, variableArity);
         }
     }
 }
