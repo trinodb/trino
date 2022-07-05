@@ -150,8 +150,6 @@ public class TestBigQueryConnectorTest
                 {"time with time zone", "time(6)"},
                 {"timestamp(6)", "timestamp(6)"},
                 {"timestamp(6) with time zone", "timestamp(6) with time zone"},
-                {"char", "varchar"},
-                {"char(65535)", "varchar"},
                 {"varchar", "varchar"},
                 {"varchar(65535)", "varchar"},
                 {"varbinary", "varbinary"},
