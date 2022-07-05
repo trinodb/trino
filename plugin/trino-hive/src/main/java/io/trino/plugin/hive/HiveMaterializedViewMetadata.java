@@ -35,7 +35,7 @@ public interface HiveMaterializedViewMetadata
 
     Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
-    MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name);
+    Optional<MaterializedViewFreshness> getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean refresh);
 
     boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName);
 

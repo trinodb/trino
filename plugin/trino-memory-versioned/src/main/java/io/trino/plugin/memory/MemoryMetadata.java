@@ -680,9 +680,9 @@ public class MemoryMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    public Optional<MaterializedViewFreshness> getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean refresh)
     {
-        return new MaterializedViewFreshness(true);
+        return Optional.empty();
     }
 
     @Override

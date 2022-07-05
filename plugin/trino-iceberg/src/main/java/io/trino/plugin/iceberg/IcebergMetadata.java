@@ -2140,10 +2140,10 @@ public class IcebergMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName)
+    public Optional<MaterializedViewFreshness> getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean refresh)
     {
         // freshness test is performed by engine
-        return new MaterializedViewFreshness(true);
+        return Optional.empty();
     }
 
     @Override

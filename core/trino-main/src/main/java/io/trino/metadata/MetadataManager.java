@@ -1401,7 +1401,7 @@ public final class MetadataManager
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName)
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName, boolean refresh)
     {
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
         if (catalog.isEmpty()) {
@@ -1412,8 +1412,9 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = catalog.get();
         CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
-        if (!metadata.getMaterializedViewFreshness(session.toConnectorSession(catalogName), viewName.asSchemaTableName()).isMaterializedViewFresh()) {
-            return new MaterializedViewFreshness(false);
+        Optional<MaterializedViewFreshness> freshness = metadata.getMaterializedViewFreshness(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), refresh);
+        if (freshness.isPresent()) {
+            return freshness.get();
         }
 
         Optional<Map<CatalogSchemaTableName, ConnectorTableVersion>> sourceTableVersions = getMaterializedViewInternal(session, viewName)

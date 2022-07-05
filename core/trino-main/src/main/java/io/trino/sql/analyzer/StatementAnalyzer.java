@@ -644,7 +644,7 @@ class StatementAnalyzer
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Table '%s' does not exist", targetTable);
             }
 
-            analysis.setSkipMaterializedViewRefresh(metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh());
+            analysis.setSkipMaterializedViewRefresh(metadata.getMaterializedViewFreshness(session, name, true).isMaterializedViewFresh());
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
             List<String> insertColumns = tableMetadata.getColumns().stream()
@@ -1788,7 +1788,7 @@ class StatementAnalyzer
 
             Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
             if (optionalMaterializedView.isPresent()) {
-                if (metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh()) {
+                if (metadata.getMaterializedViewFreshness(session, name, false).isMaterializedViewFresh()) {
                     // If materialized view is current, answer the query using the storage table
                     Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalMaterializedView.get());
                     if (storageName.isEmpty()) {

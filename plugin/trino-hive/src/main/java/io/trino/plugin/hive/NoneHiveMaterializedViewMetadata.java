@@ -63,7 +63,7 @@ public class NoneHiveMaterializedViewMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    public Optional<MaterializedViewFreshness> getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean refresh)
     {
         throw new TrinoException(NOT_FOUND, "This connector does not support materialized views");
     }

@@ -547,11 +547,11 @@ public class MockConnector
         }
 
         @Override
-        public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName viewName)
+        public Optional<MaterializedViewFreshness> getMaterializedViewFreshness(ConnectorSession session, SchemaTableName viewName, boolean refresh)
         {
             ConnectorMaterializedViewDefinition view = getMaterializedViews.apply(session, viewName.toSchemaTablePrefix()).get(viewName);
             checkArgument(view != null, "Materialized view %s does not exist", viewName);
-            return new MaterializedViewFreshness(view.getStorageTable().isPresent());
+            return Optional.of(new MaterializedViewFreshness(view.getStorageTable().isPresent()));
         }
 
         @Override

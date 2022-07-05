@@ -3529,9 +3529,9 @@ public class HiveMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    public Optional<MaterializedViewFreshness> getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean refresh)
     {
-        return hiveMaterializedViewMetadata.getMaterializedViewFreshness(session, name);
+        return hiveMaterializedViewMetadata.getMaterializedViewFreshness(session, name, refresh);
     }
 
     @Override

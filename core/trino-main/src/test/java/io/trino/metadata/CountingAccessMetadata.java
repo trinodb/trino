@@ -826,9 +826,9 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name)
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name, boolean refresh)
     {
-        return delegate.getMaterializedViewFreshness(session, name);
+        return delegate.getMaterializedViewFreshness(session, name, refresh);
     }
 
     @Override

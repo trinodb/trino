@@ -105,7 +105,7 @@ public class MaterializedViewSystemTable
                 MaterializedViewFreshness freshness;
 
                 try {
-                    freshness = metadata.getMaterializedViewFreshness(session, name);
+                    freshness = metadata.getMaterializedViewFreshness(session, name, false);
                 }
                 catch (MaterializedViewNotFoundException e) {
                     // Ignore materialized view that was dropped during query execution (race condition)

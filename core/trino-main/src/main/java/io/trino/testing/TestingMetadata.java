@@ -268,9 +268,9 @@ public class TestingMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    public Optional<MaterializedViewFreshness> getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean refresh)
     {
-        return new MaterializedViewFreshness(freshMaterializedViews.contains(name));
+        return Optional.of(new MaterializedViewFreshness(freshMaterializedViews.contains(name)));
     }
 
     public void markMaterializedViewIsFresh(SchemaTableName name)

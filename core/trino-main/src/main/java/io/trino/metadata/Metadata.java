@@ -676,7 +676,7 @@ public interface Metadata
      * Method to get difference between the states of table at two different points in time/or as of given token-ids.
      * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
      */
-    MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name);
+    MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name, boolean refresh);
 
     /**
      * Rename the specified materialized view.

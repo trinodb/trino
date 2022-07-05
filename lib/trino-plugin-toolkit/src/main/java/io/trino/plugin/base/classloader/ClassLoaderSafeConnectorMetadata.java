@@ -960,10 +960,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    public Optional<MaterializedViewFreshness> getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean refresh)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getMaterializedViewFreshness(session, name);
+            return delegate.getMaterializedViewFreshness(session, name, refresh);
         }
     }
 
