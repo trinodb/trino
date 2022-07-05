@@ -20,43 +20,84 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.MAX_LENGTH;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Math.addExact;
+import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
 
 public final class ConcatFunction
         extends SqlScalarFunction
 {
-    // TODO design new variadic functions binding mechanism that will allow to produce VARCHAR(x) where x < MAX_LENGTH.
-    public static final ConcatFunction VARCHAR_CONCAT = new ConcatFunction(VARCHAR.getTypeSignature(), "Concatenates given strings");
+    public static final ConcatFunction VARCHAR_CONCAT = new ConcatFunction(VARCHAR);
 
-    public static final ConcatFunction VARBINARY_CONCAT = new ConcatFunction(VARBINARY.getTypeSignature(), "concatenates given varbinary values");
+    public static final ConcatFunction VARBINARY_CONCAT = new ConcatFunction(VARBINARY);
 
     private static final int MAX_INPUT_VALUES = 254;
     private static final int MAX_OUTPUT_LENGTH = DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 
-    private ConcatFunction(TypeSignature type, String description)
+    private ConcatFunction(Type type)
     {
-        super(FunctionMetadata.scalarBuilder()
-                .signature(Signature.builder()
-                        .name("concat")
-                        .returnType(type)
-                        .argumentType(type)
-                        .variableArity()
-                        .build())
-                .description(description)
-                .build());
+        super(buildFunctionMetadata(type));
+    }
+
+    private static FunctionMetadata buildFunctionMetadata(Type type)
+    {
+        if (type == VARCHAR) {
+            return FunctionMetadata.scalarBuilder()
+                    .signature(Signature.builder()
+                            .name("concat")
+                            .returnTypeDerivation(ConcatFunction::calculateVarcharConcatReturnType)
+
+                            // still required for SHOW FUNCTIONS result
+                            .longVariable("x", "1")
+                            .returnType(new TypeSignature("varchar", typeVariable("x")))
+                            .argumentType(type)
+
+                            .variableArity()
+                            .build())
+                    .description("Concatenates given strings")
+                    .build();
+        }
+        if (type == VARBINARY) {
+            return FunctionMetadata.scalarBuilder()
+                    .signature(Signature.builder()
+                            .name("concat")
+                            .returnType(type)
+                            .argumentType(type)
+                            .variableArity()
+                            .build())
+                    .description("concatenates given varbinary values")
+                    .build();
+        }
+        throw new IllegalArgumentException("Unsupported type: " + type);
+    }
+
+    private static TypeSignature calculateVarcharConcatReturnType(List<TypeSignature> typeSignatures)
+    {
+        long totalLength = typeSignatures.stream()
+                .mapToLong(signature -> getOnlyElement(signature.getParameters()).getLongLiteral())
+                .sum();
+        if (totalLength > MAX_LENGTH) {
+            return VARCHAR.getTypeSignature();
+        }
+        return createVarcharType(toIntExact(totalLength)).getTypeSignature();
     }
 
     @Override

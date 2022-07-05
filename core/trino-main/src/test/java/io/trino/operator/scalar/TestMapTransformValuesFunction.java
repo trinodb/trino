@@ -263,12 +263,12 @@ public class TestMapTransformValuesFunction
 
         assertThat(assertions.expression("transform_values(a, (k, v) -> k || ':' || v)")
                 .binding("a", "map(ARRAY['s0', 's1', 's2'], ARRAY['abc', 'def', 'xyz'])"))
-                .hasType(mapType(createVarcharType(2), VARCHAR))
+                .hasType(mapType(createVarcharType(2), createVarcharType(6)))
                 .isEqualTo(ImmutableMap.of("s0", "s0:abc", "s1", "s1:def", "s2", "s2:xyz"));
 
         assertThat(assertions.expression("transform_values(a, (k, v) -> k || ':' || array_max(v))")
                 .binding("a", "map(ARRAY['s0', 's1', 's2'], ARRAY[ARRAY['a', 'b'], ARRAY['a', 'c'], ARRAY['a', 'b', 'c']])"))
-                .hasType(mapType(createVarcharType(2), VARCHAR))
+                .hasType(mapType(createVarcharType(2), createVarcharType(4)))
                 .isEqualTo(ImmutableMap.of("s0", "s0:b", "s1", "s1:c", "s2", "s2:c"));
 
         assertThat(assertions.expression("transform_values(a, (k, v) -> if(v % 2 = 0, reverse(k), k))")

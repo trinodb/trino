@@ -1058,7 +1058,7 @@ public class TestExpressionCompiler
                 assertThat(assertions.expression("a || b")
                         .binding("a", toLiteral(left))
                         .binding("b", toLiteral(right)))
-                        .hasType(VARCHAR)
+                        .hasType(left == null || right == null ? VARCHAR : createVarcharType(left.length() + right.length()))
                         .isEqualTo(left == null || right == null ? null : left + right);
 
                 assertThat(assertions.expression("a IS DISTINCT FROM b")

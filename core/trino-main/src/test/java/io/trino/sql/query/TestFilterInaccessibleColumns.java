@@ -255,7 +255,7 @@ public class TestFilterInaccessibleColumns
     public void testFunctionFields()
     {
         assertThat(assertions.query("SELECT * FROM (SELECT concat(name,'-test') FROM nation WHERE name = 'FRANCE')"))
-                .matches("VALUES (CAST('FRANCE-test' AS VARCHAR))");
+                .matches("VALUES (CAST('FRANCE-test' AS VARCHAR(30)))");
     }
 
     @Test

@@ -1,6 +1,6 @@
 -- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
  chr | varchar(1) | bigint | scalar | true | Convert Unicode code point to a string |
- concat | varchar | varchar | scalar | true | Concatenates given strings |
+ concat | varchar(x) | varchar | scalar | true | Concatenates given strings |
  length | bigint | varchar(x) | scalar | true | Count of code points of the given string |
  lower | varchar(x)| varchar(x)| scalar | true | Converts the string to lower case |
  ltrim | varchar(x)| varchar(x)| scalar | true | Removes whitespace from the beginning of a string |

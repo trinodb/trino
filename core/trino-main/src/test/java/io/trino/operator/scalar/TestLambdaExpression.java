@@ -268,7 +268,7 @@ public class TestLambdaExpression
                 .isEqualTo(true);
         assertThat(assertions.expression("apply(a, x -> x || x)")
                 .binding("a", "'abc'"))
-                .hasType(createUnboundedVarcharType())
+                .hasType(createVarcharType(6))
                 .isEqualTo("abcabc");
         assertThat(assertions.expression("apply(a, x -> ROW(x, CAST(x AS INTEGER), x > '0'))")
                 .binding("a", "'123'"))

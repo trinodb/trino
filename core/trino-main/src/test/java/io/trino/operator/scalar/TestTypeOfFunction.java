@@ -91,9 +91,9 @@ public class TestTypeOfFunction
     public void testComplex()
     {
         assertThat(assertions.function("typeof", "CONCAT('ala','ma','kota')"))
-                .isEqualTo("varchar");
+                .isEqualTo("varchar(9)");
         assertThat(assertions.function("typeof", "CONCAT(CONCAT('ala','ma','kota'), 'baz')"))
-                .isEqualTo("varchar");
+                .isEqualTo("varchar(12)");
         assertThat(assertions.function("typeof", "ARRAY [CAST(1 AS INTEGER),CAST(2 AS INTEGER),CAST(3 AS INTEGER)]"))
                 .isEqualTo("array(integer)");
         assertThat(assertions.function("typeof", "sin(2)"))

@@ -204,7 +204,7 @@ public class TestArrayTransformFunction
                 .isEqualTo(ImmutableList.of(true, false));
         assertThat(assertions.expression("transform(a, x -> x || x)")
                 .binding("a", "ARRAY['abc', 'def']"))
-                .hasType(new ArrayType(createUnboundedVarcharType()))
+                .hasType(new ArrayType(createVarcharType(6)))
                 .isEqualTo(ImmutableList.of("abcabc", "defdef"));
         assertThat(assertions.expression("transform(a, x -> ROW(x, CAST(x AS INTEGER), x > '3'))")
                 .binding("a", "ARRAY['123', '456']"))

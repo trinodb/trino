@@ -615,9 +615,9 @@ public class TestAggregationsInRowPatternMatching
                 """))
                 .matches("""
                         VALUES
-                             (1, ARRAY[VARCHAR 'XY'], ARRAY[false], ARRAY[true]),
-                             (2, ARRAY['XY', 'XY'], ARRAY[false, false], ARRAY[true, true]),
-                             (3, ARRAY['XY', 'XY', 'XY'], ARRAY[false, false, false], ARRAY[true, true, true])
+                             (1, ARRAY[CAST('XY' AS VARCHAR(2))], ARRAY[false], ARRAY[true]),
+                             (2, ARRAY[CAST('XY' AS VARCHAR(2)), CAST('XY' AS VARCHAR(2))], ARRAY[false, false], ARRAY[true, true]),
+                             (3, ARRAY[CAST('XY' AS VARCHAR(2)), CAST('XY' AS VARCHAR(2)), CAST('XY' AS VARCHAR(2))], ARRAY[false, false, false], ARRAY[true, true, true])
                         """);
 
         // subquery in runtime-evaluated aggregation argument

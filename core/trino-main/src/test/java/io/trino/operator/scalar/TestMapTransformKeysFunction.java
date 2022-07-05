@@ -230,7 +230,7 @@ public class TestMapTransformKeysFunction
 
         assertThat(assertions.expression("transform_keys(a, (k, v) -> to_base(k, 16) || substr(v, 1, 1))")
                 .binding("a", "map(ARRAY[25, 26, 27], ARRAY['abc', 'def', 'xyz'])"))
-                .hasType(mapType(VARCHAR, createVarcharType(3)))
+                .hasType(mapType(createVarcharType(67), createVarcharType(3)))
                 .isEqualTo(ImmutableMap.of("19a", "abc", "1ad", "def", "1bx", "xyz"));
 
         assertThat(assertions.expression("transform_keys(a, (k, v) -> ARRAY[CAST(k AS VARCHAR)] || v)")
@@ -308,7 +308,7 @@ public class TestMapTransformKeysFunction
 
         assertThat(assertions.expression("transform_keys(a, (k, v) -> k || v)")
                 .binding("a", "map(ARRAY['a', 'x'], ARRAY['bc', 'yz'])"))
-                .hasType(mapType(VARCHAR, createVarcharType(2)))
+                .hasType(mapType(createVarcharType(3), createVarcharType(2)))
                 .isEqualTo(ImmutableMap.of("abc", "bc", "xyz", "yz"));
 
         assertThat(assertions.expression("transform_keys(a, (k, v) -> k || v)")

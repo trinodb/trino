@@ -801,7 +801,7 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
                         new OutputColumnMetadata("aliased_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
-                        new OutputColumnMetadata("aliased_varchar", "varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"), new ColumnDetail("tpch", "tiny", "nation", "comment"))));
+                        new OutputColumnMetadata("aliased_varchar", "varchar(177)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"), new ColumnDetail("tpch", "tiny", "nation", "comment"))));
     }
 
     @Test

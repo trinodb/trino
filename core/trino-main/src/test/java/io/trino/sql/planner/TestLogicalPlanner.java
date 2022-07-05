@@ -1844,7 +1844,7 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT orderkey, t2.s " +
                         "FROM orders " +
-                        "JOIN (SELECT '' || x FROM (VALUES 'F') t(x)) t2(s) " +
+                        "JOIN (SELECT '' || x FROM (VALUES CAST('F' AS VARCHAR)) t(x)) t2(s) " +
                         "ON orders.orderstatus = t2.s",
                 any(project(
                         ImmutableMap.of("cast", expression("CAST(ORDER_STATUS AS varchar)")),

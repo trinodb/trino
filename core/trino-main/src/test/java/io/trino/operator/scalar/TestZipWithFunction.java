@@ -94,7 +94,7 @@ public class TestZipWithFunction
         assertThat(assertions.expression("zip_with(a, b, (x, y) -> concat(x, y))")
                 .binding("a", "ARRAY['a', 'b']")
                 .binding("b", "ARRAY['c', 'd']"))
-                .hasType(new ArrayType(VARCHAR))
+                .hasType(new ArrayType(createVarcharType(2)))
                 .isEqualTo(ImmutableList.of("ac", "bd"));
 
         assertThat(assertions.expression("zip_with(a, b, (x, y) -> map_concat(x, y))")

@@ -2866,7 +2866,7 @@ public class TestAnalyzer
                 "          )" +
                 "          SELECT * from t")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:106: recursion step relation output type (varchar) is not coercible to recursion base relation output type (varchar(1)) at column 1");
+                .hasMessage("line 1:106: recursion step relation output type (varchar(2)) is not coercible to recursion base relation output type (varchar(1)) at column 1");
 
         assertFails("WITH RECURSIVE t(n, m, o) AS (" +
                 "          SELECT * FROM (VALUES(1, 2, ROW('a', 4)), (5, 6, ROW('a', 8)))" +
