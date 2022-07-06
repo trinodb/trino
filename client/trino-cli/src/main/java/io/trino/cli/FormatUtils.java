@@ -94,24 +94,24 @@ public final class FormatUtils
     {
         double fractional = size.toBytes();
         String unit = null;
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= 1000) {
+            fractional /= 1000;
             unit = "K";
         }
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= 1000) {
+            fractional /= 1000;
             unit = "M";
         }
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= 1000) {
+            fractional /= 1000;
             unit = "G";
         }
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= 1000) {
+            fractional /= 1000;
             unit = "T";
         }
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= 1000) {
+            fractional /= 1000;
             unit = "P";
         }
 
