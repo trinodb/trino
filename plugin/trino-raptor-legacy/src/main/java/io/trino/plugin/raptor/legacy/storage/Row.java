@@ -17,9 +17,21 @@ import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 
@@ -34,8 +46,6 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.trino.plugin.raptor.legacy.util.Types.isArrayType;
-import static io.trino.plugin.raptor.legacy.util.Types.isMapType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -147,20 +157,28 @@ public class Row
             }
             return HiveDecimal.create(unscaledValue, decimalType.getScale());
         }
-        if (type.getJavaType() == boolean.class) {
+        if ((type == BooleanType.BOOLEAN) ||
+                (type == SmallintType.SMALLINT) ||
+                (type == IntegerType.INTEGER) ||
+                (type == BigintType.BIGINT) ||
+                (type == DoubleType.DOUBLE) ||
+                (type == DateType.DATE) ||
+                type.equals(TimestampType.TIMESTAMP_MILLIS)) {
             return nativeValue;
         }
-        if (type.getJavaType() == long.class) {
-            return nativeValue;
+        if (type == TinyintType.TINYINT) {
+            return ((Number) nativeValue).byteValue();
         }
-        if (type.getJavaType() == double.class) {
-            return nativeValue;
+        if (type == RealType.REAL) {
+            return Float.intBitsToFloat(((Number) nativeValue).intValue());
         }
-        if (type.getJavaType() == Slice.class) {
-            Slice slice = (Slice) nativeValue;
-            return type instanceof VarcharType ? slice.toStringUtf8() : slice.getBytes();
+        if (type instanceof VarcharType) {
+            return ((Slice) nativeValue).toStringUtf8();
         }
-        if (isArrayType(type)) {
+        if (type == VarbinaryType.VARBINARY) {
+            return ((Slice) nativeValue).getBytes();
+        }
+        if (type instanceof ArrayType) {
             Block arrayBlock = (Block) nativeValue;
             Type elementType = type.getTypeParameters().get(0);
             List<Object> list = new ArrayList<>();
@@ -169,7 +187,7 @@ public class Row
             }
             return list;
         }
-        if (isMapType(type)) {
+        if (type instanceof MapType) {
             Block mapBlock = (Block) nativeValue;
             Type keyType = type.getTypeParameters().get(0);
             Type valueType = type.getTypeParameters().get(1);

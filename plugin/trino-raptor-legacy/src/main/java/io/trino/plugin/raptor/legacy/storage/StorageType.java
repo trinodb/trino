@@ -20,14 +20,18 @@ import static org.apache.hadoop.hive.serde.serdeConstants.BINARY_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.BOOLEAN_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.DOUBLE_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.serdeConstants.FLOAT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.MAP_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.serdeConstants.TINYINT_TYPE_NAME;
 
 public final class StorageType
 {
     public static final StorageType BOOLEAN = new StorageType(BOOLEAN_TYPE_NAME);
+    public static final StorageType BYTE = new StorageType(TINYINT_TYPE_NAME);
     public static final StorageType LONG = new StorageType(BIGINT_TYPE_NAME);
+    public static final StorageType FLOAT = new StorageType(FLOAT_TYPE_NAME);
     public static final StorageType DOUBLE = new StorageType(DOUBLE_TYPE_NAME);
     public static final StorageType STRING = new StorageType(STRING_TYPE_NAME);
     public static final StorageType BYTES = new StorageType(BINARY_TYPE_NAME);
