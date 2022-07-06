@@ -38,6 +38,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.ptf.ScalarArgument;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.type.Type;
@@ -95,6 +96,7 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -1515,6 +1517,29 @@ public class PlanPrinter
                     ImmutableMap.of("correlation", formatCollection(node.getCorrelation()), "filter", formatFilter(node.getFilter())));
 
             return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitTableFunction(TableFunctionNode node, Void context)
+        {
+            NodeRepresentation nodeOutput = addNode(
+                    node,
+                    "TableFunction",
+                    ImmutableMap.of("name", node.getName()));
+
+            checkArgument(
+                    node.getSources().isEmpty() && node.getTableArgumentProperties().isEmpty() && node.getInputDescriptorMappings().isEmpty(),
+                    "Table or descriptor arguments are not yet supported in PlanPrinter");
+
+            node.getArguments().entrySet().stream()
+                    .forEach(entry -> nodeOutput.appendDetails(entry.getKey() + " => " + formatArgument((ScalarArgument) entry.getValue())));
+
+            return null;
+        }
+
+        private String formatArgument(ScalarArgument argument)
+        {
+            return format("ScalarArgument{type=%s, value=%s}", argument.getType(), valuePrinter.castToVarchar(argument.getType(), argument.getValue()));
         }
 
         @Override
