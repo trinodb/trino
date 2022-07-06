@@ -97,7 +97,7 @@ public class TestBigQueryTypeMapping
     }
 
     @Test(dataProvider = "bigqueryIntegerTypeProvider")
-    public void testInteger(String inputType)
+    public void testInt64(String inputType)
     {
         SqlDataTypeTest.create()
                 .addRoundTrip(inputType, "-9223372036854775808", BIGINT, "-9223372036854775808")
@@ -111,14 +111,15 @@ public class TestBigQueryTypeMapping
     @DataProvider
     public Object[][] bigqueryIntegerTypeProvider()
     {
-        // INT, SMALLINT, INTEGER, BIGINT, TINYINT, and BYTEINT are aliases for INT64 in BigQuery
+        // BYTEINT, TINYINT, SMALLINT, INTEGER, INT and BIGINT are aliases for INT64 in BigQuery
         return new Object[][] {
+                {"BYTEINT"},
+                {"TINYINT"},
+                {"SMALLINT"},
+                {"INTEGER"},
                 {"INT64"},
                 {"INT"},
-                {"SMALLINT"},
-                {"SMALLINT"},
-                {"TINYINT"},
-                {"BYTEINT"},
+                {"BIGINT"},
         };
     }
 
