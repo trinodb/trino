@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.RetryMode;
 
 import java.util.Optional;
 
@@ -43,10 +44,10 @@ class SnowflakeMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
         checkColumnsForInvalidCharacters(tableMetadata.getColumns());
-        return super.beginCreateTable(session, tableMetadata, layout);
+        return super.beginCreateTable(session, tableMetadata, layout, retryMode);
     }
 
     @Override
