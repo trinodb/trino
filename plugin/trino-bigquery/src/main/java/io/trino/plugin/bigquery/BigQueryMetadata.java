@@ -259,7 +259,7 @@ public class BigQueryMetadata
             columnMetadata.add(PARTITION_DATE.getColumnMetadata());
             columnMetadata.add(PARTITION_TIME.getColumnMetadata());
         }
-        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
+        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build(), ImmutableMap.of(), handle.getComment());
     }
 
     @Override
@@ -373,9 +373,6 @@ public class BigQueryMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        if (tableMetadata.getComment().isPresent()) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
-        }
         if (tableMetadata.getColumns().stream().anyMatch(column -> column.getComment() != null)) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
         }
@@ -406,9 +403,10 @@ public class BigQueryMetadata
 
         TableId tableId = TableId.of(schemaName, tableName);
         TableDefinition tableDefinition = StandardTableDefinition.of(Schema.of(fields));
-        TableInfo tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build();
+        TableInfo.Builder tableInfo = TableInfo.newBuilder(tableId, tableDefinition);
+        tableMetadata.getComment().ifPresent(tableInfo::setDescription);
 
-        bigQueryClientFactory.create(session).createTable(tableInfo);
+        bigQueryClientFactory.create(session).createTable(tableInfo.build());
     }
 
     @Override
