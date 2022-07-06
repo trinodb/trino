@@ -17,14 +17,15 @@
     </properties>
 
     <dependencies>
+
         <dependency>
-            <groupId>io.trino.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
+            <groupId>io.trino.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
         </dependency>
 
         <dependency>
