@@ -38,6 +38,8 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.ptf.Argument;
+import io.trino.spi.ptf.ScalarArgument;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.type.Type;
@@ -95,6 +97,7 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -448,7 +451,8 @@ public class PlanPrinter
         return GraphvizPrinter.printDistributed(plan);
     }
 
-    private class Visitor
+    @VisibleForTesting
+    class Visitor
             extends PlanVisitor<Void, Void>
     {
         private final TypeProvider types;
@@ -1523,6 +1527,19 @@ public class PlanPrinter
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
+        @Override
+        public Void visitTableFunction(TableFunctionNode node, Void context)
+        {
+            NodeRepresentation nodeOutput = addNode(node,
+                    "TableFunction",
+                    ImmutableMap.of("name", node.getName()));
+
+            for (Map.Entry<String, Argument> entry : node.getArguments().entrySet()) {
+                nodeOutput.appendDetails("%s := %s", entry.getKey(), formatArgument(entry.getValue()));
+            }
+            return processChildren(node, context);
+        }
+
         private Void processChildren(PlanNode node, Void context)
         {
             for (PlanNode child : node.getSources()) {
@@ -1605,6 +1622,17 @@ public class PlanPrinter
                     });
 
             return "[" + Joiner.on(", ").join(parts.build()) + "]";
+        }
+
+        private String formatArgument(Argument argument)
+        {
+            if (argument instanceof ScalarArgument) {
+                ScalarArgument scalarArgument = (ScalarArgument) argument;
+                return valuePrinter.castToVarchar(scalarArgument.getType(), scalarArgument.getValue());
+            }
+            else {
+                throw new UnsupportedOperationException("not yet implemented for " + argument);
+            }
         }
 
         private String formatFilter(Expression filter)
