@@ -461,6 +461,10 @@ is ``CSV``.
     - Comma-separated values without quotes.
   * - ``CSV_HEADER_UNQUOTED``
     - Comma-separated values with header row but no quotes.
+  * - ``CSV_UNQUOTED_AND_UNESCAPED``
+    - Comma-separated values without quotes and escaping of quotes.
+  * - ``CSV_HEADER_UNQUOTED_AND_UNESCAPED``
+    - Comma-separated values with header row but neither quotes nor escaping of quotes.
   * - ``TSV``
     - Tab-separated values.
   * - ``TSV_HEADER``
