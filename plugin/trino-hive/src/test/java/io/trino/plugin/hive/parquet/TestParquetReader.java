@@ -17,7 +17,9 @@ import org.testng.annotations.Test;
 
 // Failing on multiple threads because of org.apache.hadoop.hive.ql.io.parquet.write.ParquetRecordWriterWrapper
 // uses a single record writer across all threads.
-@Test(singleThreaded = true)
+// This test is disabled as it is contained in the io.trino.plugin.hive.parquet.TestFullParquetReader class.
+// In order to run it, remove the 'enabled = false' property.
+@Test(singleThreaded = true, enabled = false)
 public class TestParquetReader
         extends AbstractTestParquetReader
 {
