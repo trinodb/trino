@@ -18,6 +18,7 @@ import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -350,6 +351,18 @@ public abstract class BaseSapHanaConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(127);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Maximum length is 127");
     }
 
     @Override
