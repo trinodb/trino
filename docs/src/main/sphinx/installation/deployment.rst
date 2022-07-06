@@ -283,7 +283,81 @@ See :doc:`/connector` for more information about configuring connectors.
 Running Trino
 --------------
 
-The installation directory contains the launcher script in ``bin/launcher``.
+The installation provides a ``bin/launcher`` script, which requires Python in
+the ``PATH``. The script can be used manually or as a daemon startup script. It
+accepts the following commands:
+
+.. list-table:: ``launcher`` commands
+  :widths: 15, 85
+  :header-rows: 1
+
+  * - Command
+    - Action
+  * - ``run``
+    - Starts the server in the foreground and leaves it running. To shut down
+      the server, use Ctrl+C in this terminal or the ``stop`` command from
+      another terminal.
+  * - ``start``
+    - Starts the server as a daemon and returns its process ID.
+  * - ``stop``
+    - Shuts down a server started with either ``start`` or ``run``. Sends the
+      SIGTERM signal.
+  * - ``restart``
+    - Stops then restarts a running server, or starts a stopped server,
+      assigning a new process ID.
+  * - ``kill``
+    - Shuts down a possibly hung server by sending the SIGKILL signal.
+  * - ``status``
+    - Prints a status line, either *Stopped pid* or *Running as pid*.
+
+A number of additional options allow you to specify configuration file and
+directory locations, as well as Java options. Run the launcher with ``--help``
+to see the supported commands and command line options.
+
+.. code-block:: text
+
+   --etc-dir=DIR             Defaults to INSTALL_PATH/etc
+   --launcher-config=FILE    Defaults to INSTALL_PATH/bin/launcher.properties
+   --node-config=FILE        Defaults to ETC_DIR/node.properties
+   --jvm-config=FILE         Defaults to ETC_DIR/jvm.config
+   --config=FILE             Defaults to ETC_DIR/config.properties
+   --log-levels-file=FILE    Defaults to ETC_DIR/log.properties
+   --data-dir=DIR            Defaults to INSTALL_PATH
+   --pid-file=FILE           Defaults to DATA_DIR/var/run/launcher.pid
+   --launcher-log-file=FILE  Defaults to DATA_DIR/var/log/launcher.log (only in
+                             daemon mode)
+   --server-log-file=FILE    Defaults to DATA_DIR/var/log/server.log (only in
+                             daemon mode)
+   -J OPT                    Set a JVM option
+   -D NAME=VALUE             Set a Java system property
+
+The ``-v`` or ``--verbose`` option for each command prepends the server's
+current settings before the command's usual output. For example, you can check
+the status and launcher configuration of a Trino installation in ``/opt/trino``
+and get output similar to the following:
+
+.. code-block:: text
+
+    $ cd /opt/trino
+    $ bin/launcher -v status
+    config_path     = /opt/trino/etc/config.properties
+    data_dir        = /opt/trino
+    etc_dir         = /opt/trino/etc
+    install_path    = /opt/trino
+    jvm_config      = /opt/trino/etc/jvm.config
+    jvm_options     = []
+    launcher_config = /opt/trino/bin/launcher.properties
+    launcher_log    = /opt/trino/var/log/launcher.log
+    log_levels      = /opt/trino/etc/log.properties
+    log_levels_set  = False
+    node_config     = /opt/trino/etc/node.properties
+    pid_file        = /opt/trino/var/run/launcher.pid
+    properties      = {'node.environment': 'demo'}
+    server_log      = /opt/trino/var/log/server.log
+    verbose         = True
+
+    Not running
+
 Trino can be started as a daemon by running the following:
 
 .. code-block:: text
@@ -297,10 +371,6 @@ if using a supervision system like daemontools:
 .. code-block:: text
 
     bin/launcher run
-
-Run the launcher with ``--help`` to see the supported commands and
-command line options. In particular, the ``--verbose`` option is
-very useful for debugging the installation.
 
 The launcher configures default values for the configuration
 directory ``etc``, configuration files, the data directory ``var``,
