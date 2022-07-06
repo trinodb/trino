@@ -71,7 +71,6 @@ public class TestBigQueryConnectorTest
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
             case SUPPORTS_CREATE_TABLE_WITH_DATA:
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_DELETE:
             case SUPPORTS_INSERT:
             case SUPPORTS_ADD_COLUMN:
