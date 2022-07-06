@@ -55,12 +55,10 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.metadata.FunctionDependencies.isCast;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
@@ -81,6 +79,7 @@ import static io.trino.sql.relational.SpecialForm.Form.OR;
 import static io.trino.sql.relational.SpecialForm.Form.ROW_CONSTRUCTOR;
 import static io.trino.sql.relational.SpecialForm.Form.SWITCH;
 import static io.trino.sql.relational.SpecialForm.Form.WHEN;
+import static io.trino.sql.relational.StandardFunctionResolution.isCastFunction;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -485,48 +484,22 @@ public class RowExpressionInterpreter
                 case DEREFERENCE: {
                     checkArgument(node.getArguments().size() == 2);
 
-                    RowExpression base = node.getArguments().get(0);
-                    RowExpression fieldIdentifier = node.getArguments().get(1);
-
-                    Type type = base.getType();
-                    // if there is no type for the base of Dereference, it must be QualifiedName
-                    if (type == null) {
-                        return node;
-                    }
-
-                    // Row dereference: process dereference base eagerly, and only then pick the expected field
-                    Object baseProcessed = processWithExceptionHandling(base, context);
-                    Object fieldIdentifierProcessed = processWithExceptionHandling(fieldIdentifier, context);
+                    Object base = node.getArguments().get(0).accept(this, context);
+                    int index = ((Number) node.getArguments().get(1).accept(this, context)).intValue();
 
                     // if the base part is evaluated to be null, the dereference expression should also be null
-                    if (baseProcessed == null) {
+                    if (base == null) {
                         return null;
                     }
 
-                    if (hasUnresolvedValue(baseProcessed)) {
-                        return new SpecialForm(DEREFERENCE,
-                                type,
-                                toRowExpression(baseProcessed, node.getArguments().get(0).getType()),
-                                toRowExpression(fieldIdentifierProcessed, node.getArguments().get(1).getType()));
+                    if (hasUnresolvedValue(base)) {
+                        return new SpecialForm(
+                                DEREFERENCE,
+                                node.getType(),
+                                toRowExpression(base, node.getArguments().get(0).getType()),
+                                toRowExpression((long) index, node.getArguments().get(1).getType()));
                     }
-
-                    RowType rowType = (RowType) type;
-                    Block row = (Block) base;
-                    Type returnType = node.getType();
-                    checkArgument(fieldIdentifier instanceof VariableReferenceExpression);
-                    String fieldName = ((VariableReferenceExpression) fieldIdentifier).getName();
-                    List<RowType.Field> fields = rowType.getFields();
-                    int index = -1;
-                    for (int i = 0; i < fields.size(); i++) {
-                        RowType.Field field = fields.get(i);
-                        if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
-                            checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
-                            index = i;
-                        }
-                    }
-
-                    checkState(index >= 0, "could not find field name: %s", fieldName);
-                    return readNativeValue(returnType, row, index);
+                    return readNativeValue(node.getType(), (Block) base, index);
                 }
                 case BIND: {
                     checkArgument(node.getArguments().size() >= 2);
@@ -663,7 +636,7 @@ public class RowExpressionInterpreter
             }
             CallExpression callExpression = (CallExpression) expression;
             ResolvedFunction function = callExpression.getResolvedFunction();
-            if (!isCast(function)) {
+            if (!isCastFunction(function)) {
                 return true;
             }
             RowExpression nestedOperand = Iterables.getOnlyElement(callExpression.getArguments());
@@ -698,7 +671,7 @@ public class RowExpressionInterpreter
 
         private boolean hasUnresolvedValue(List<Object> values)
         {
-            return values.stream().anyMatch(instanceOf(RowExpression.class)::apply);
+            return values.stream().anyMatch(instanceOf(RowExpression.class));
         }
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)

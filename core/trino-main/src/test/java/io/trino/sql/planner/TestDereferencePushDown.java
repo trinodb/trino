@@ -18,12 +18,15 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.StringLiteral;
 import org.testng.annotations.Test;
 
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.MERGE_PROJECT_WITH_VALUES;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -73,7 +76,7 @@ public class TestDereferencePushDown
                                         values(
                                                 ImmutableList.of("b_x", "b_y", "a_y"),
                                                 ImmutableList.of(ImmutableList.of(
-                                                        new GenericLiteral("BIGINT", "1"),
+                                                        new Cast(new StringLiteral("1"), toSqlType(BIGINT)),
                                                         new DoubleLiteral("2e0"),
                                                         new DoubleLiteral("2e0"))))))));
 
@@ -99,7 +102,7 @@ public class TestDereferencePushDown
                                         "b_y = 2e0",
                                         values(
                                                 ImmutableList.of("b_x", "b_y"),
-                                                ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0")))))))));
+                                                ImmutableList.of(ImmutableList.of(new Cast(new StringLiteral("1"), toSqlType(BIGINT)), new DoubleLiteral("2e0")))))))));
     }
 
     @Test
@@ -118,9 +121,9 @@ public class TestDereferencePushDown
                                         values(
                                                 ImmutableList.of("b_x", "b_y", "a_x", "a_y"),
                                                 ImmutableList.of(ImmutableList.of(
-                                                        new GenericLiteral("BIGINT", "1"),
+                                                        new Cast(new StringLiteral("1"), toSqlType(BIGINT)),
                                                         new DoubleLiteral("2e0"),
-                                                        new GenericLiteral("BIGINT", "1"),
+                                                        new Cast(new StringLiteral("1"), toSqlType(BIGINT)),
                                                         new DoubleLiteral("2e0"))))))));
     }
 
@@ -133,7 +136,7 @@ public class TestDereferencePushDown
                 anyTree(
                         project(values(
                                 ImmutableList.of("x", "y"),
-                                ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0")))))));
+                                ImmutableList.of(ImmutableList.of(new Cast(new StringLiteral("1"), toSqlType(BIGINT)), new DoubleLiteral("2e0")))))));
 
         assertPlanWithSession(
                 "WITH t(msg1, msg2, msg3, msg4, msg5) AS (VALUES " +
@@ -220,7 +223,7 @@ public class TestDereferencePushDown
                                                 values(
                                                         ImmutableList.of("b_x", "b_y", "a_y"),
                                                         ImmutableList.of(ImmutableList.of(
-                                                                new GenericLiteral("BIGINT", "1"),
+                                                                new Cast(new StringLiteral("1"), toSqlType(BIGINT)),
                                                                 new DoubleLiteral("2e0"),
                                                                 new DoubleLiteral("2e0")))))))));
 
@@ -246,7 +249,7 @@ public class TestDereferencePushDown
                                 "b_y = 2e0",
                                 values(
                                         ImmutableList.of("b_x", "b_y"),
-                                        ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0")))))))));
+                                        ImmutableList.of(ImmutableList.of(new Cast(new StringLiteral("1"), toSqlType(BIGINT)), new DoubleLiteral("2e0")))))))));
     }
 
     @Test

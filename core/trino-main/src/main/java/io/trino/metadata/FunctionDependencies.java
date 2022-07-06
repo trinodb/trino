@@ -19,6 +19,7 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.sql.relational.StandardFunctionResolution;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.Collection;
@@ -63,7 +64,7 @@ public class FunctionDependencies
                 .filter(FunctionDependencies::isOperator)
                 .collect(toImmutableMap(OperatorKey::new, identity()));
         this.casts = functionDependencies.stream()
-                .filter(FunctionDependencies::isCast)
+                .filter(StandardFunctionResolution::isCastFunction)
                 .collect(toImmutableMap(CastKey::new, identity()));
     }
 
@@ -178,12 +179,6 @@ public class FunctionDependencies
     {
         String name = function.getSignature().getName();
         return isOperatorName(name) && unmangleOperator(name) != CAST;
-    }
-
-    public static boolean isCast(ResolvedFunction function)
-    {
-        String name = function.getSignature().getName();
-        return isOperatorName(name) && unmangleOperator(name) == CAST;
     }
 
     public static final class FunctionKey

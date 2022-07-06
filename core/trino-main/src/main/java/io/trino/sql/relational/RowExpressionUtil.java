@@ -30,6 +30,7 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.type.UnknownType;
@@ -39,12 +40,12 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.FunctionDependencies.isCast;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.relational.OriginalExpressionUtils.castToExpression;
 import static io.trino.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static io.trino.sql.relational.OriginalExpressionUtils.isExpression;
+import static io.trino.sql.relational.StandardFunctionResolution.isCastFunction;
 
 public class RowExpressionUtil
 {
@@ -66,7 +67,7 @@ public class RowExpressionUtil
             ResolvedFunction resolvedFunction = callExpression.getResolvedFunction();
 
             // need testing on TRY_CAST
-            if (isCast(resolvedFunction)) {
+            if (isCastFunction(resolvedFunction)) {
                 RowExpression argument = Iterables.getOnlyElement(callExpression.getArguments());
                 return (argument instanceof ConstantExpression && constantExpressionEvaluatesSuccessfully(plannerContext, session, expression));
             }
@@ -122,7 +123,7 @@ public class RowExpressionUtil
         }
         if (rowExpression instanceof CallExpression) {
             CallExpression callExpression = (CallExpression) rowExpression;
-            if (isCast(callExpression.getResolvedFunction())) {
+            if (isCastFunction(callExpression.getResolvedFunction())) {
                 return new Cast(Iterables.getOnlyElement(((CallExpression) rowExpression).getArguments().stream().map(RowExpressionUtil::castRowRowExpressionToExpression).collect(toImmutableList())), toSqlType(callExpression.getType()));
             }
             else {
@@ -137,6 +138,9 @@ public class RowExpressionUtil
         }
         ConstantExpression expression = (ConstantExpression) rowExpression;
         if (expression.getType().getJavaType() == boolean.class) {
+            if (expression.getValue() == null) {
+                return new NullLiteral();
+            }
             return new BooleanLiteral(String.valueOf(expression.getValue()));
         }
         if (expression.getType().getJavaType() == long.class) {

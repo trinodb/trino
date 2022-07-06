@@ -38,6 +38,11 @@ public final class ValuePrinter
         this.session = requireNonNull(session, "session is null");
     }
 
+    public Session getSession()
+    {
+        return session;
+    }
+
     public String castToVarchar(Type type, Object value)
     {
         try {

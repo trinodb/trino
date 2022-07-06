@@ -29,8 +29,9 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.MarkDistinctNode;
-import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.StringLiteral;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 
@@ -43,6 +44,8 @@ import static io.trino.SystemSessionProperties.JOIN_PARTITIONED_BUILD_MIN_ROW_CO
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.SPILL_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -122,7 +125,7 @@ public class TestAddExchangesPlans
                                         anyTree(
                                                 exchange(REMOTE, REPARTITION,
                                                         anyTree(
-                                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")))))))))));
+                                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Cast(new StringLiteral("1"), toSqlType(BIGINT))))))))))));
     }
 
     @Test
@@ -159,7 +162,7 @@ public class TestAddExchangesPlans
                                                         tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"))))))),
+                                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Cast(new StringLiteral("1"), toSqlType(BIGINT)))))))),
                                 anyTree(
                                         exchange(REMOTE, REPARTITION,
                                                 anyTree(

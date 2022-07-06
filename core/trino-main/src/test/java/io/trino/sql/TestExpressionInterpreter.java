@@ -22,7 +22,6 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.FeaturesConfig;
 import io.trino.block.BlockSerdeUtil;
-import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
@@ -96,6 +95,7 @@ import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.relational.StandardFunctionResolution.isCastFunction;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -2130,7 +2130,7 @@ public class TestExpressionInterpreter
     private static boolean isRemovableCast(Object value)
     {
         if (value instanceof CallExpression &&
-                FunctionDependencies.isCast(((CallExpression) value).getResolvedFunction())) {
+                isCastFunction(((CallExpression) value).getResolvedFunction())) {
             Type targetType = ((CallExpression) value).getType();
             Type sourceType = ((CallExpression) value).getArguments().get(0).getType();
             return typeCoercion.canCoerce(sourceType, targetType);

@@ -23,12 +23,15 @@ import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.StringLiteral;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
@@ -49,7 +52,7 @@ public class TestCanonicalize
                         ") t\n" +
                         "CROSS JOIN (VALUES 2)",
                 anyTree(
-                        values(ImmutableList.of("field", "expr"), ImmutableList.of(ImmutableList.of(new LongLiteral("2"), new GenericLiteral("BIGINT", "1"))))));
+                        values(ImmutableList.of("field", "expr"), ImmutableList.of(ImmutableList.of(new LongLiteral("2"), new Cast(new StringLiteral("1"), toSqlType(BIGINT)))))));
     }
 
     @Test

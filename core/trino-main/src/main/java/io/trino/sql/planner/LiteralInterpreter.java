@@ -21,15 +21,36 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.collect.cache.CacheUtils;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.VarbinaryFunctions;
+import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
+import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
@@ -46,12 +67,20 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
+import io.trino.type.SqlIntervalDayTime;
+import io.trino.type.SqlIntervalYearMonth;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -62,6 +91,8 @@ import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
 import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class LiteralInterpreter
@@ -87,6 +118,89 @@ public final class LiteralInterpreter
             throw new IllegalArgumentException("node must be a Literal");
         }
         return new LiteralVisitor(type).process(node, null);
+    }
+
+    public static Object evaluate(ConstantExpression node)
+    {
+        Type type = node.getType();
+
+        if (node.getValue() == null) {
+            return null;
+        }
+        if (type instanceof BooleanType) {
+            return node.getValue();
+        }
+        if (type instanceof BigintType || type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType) {
+            return node.getValue();
+        }
+        if (type instanceof DoubleType) {
+            return node.getValue();
+        }
+        if (type instanceof RealType) {
+            Long number = (Long) node.getValue();
+            return intBitsToFloat(number.intValue());
+        }
+        if (type instanceof DecimalType) {
+            if (isShortDecimal(type)) {
+                return Decimals.toString((long) node.getValue(), ((DecimalType) type).getScale());
+            }
+            else {
+                return Decimals.toString((Int128) node.getValue(), ((DecimalType) type).getScale());
+            }
+        }
+        if (type instanceof VarcharType || type instanceof CharType) {
+            return ((Slice) node.getValue()).toStringUtf8();
+        }
+        if (type instanceof VarbinaryType) {
+            return new SqlVarbinary(((Slice) node.getValue()).getBytes());
+        }
+        if (type instanceof DateType) {
+            return new SqlDate(toIntExact((Long) node.getValue())).toString();
+        }
+        if (type instanceof TimestampType) {
+            TimestampType timestampType = (TimestampType) type;
+            if (timestampType.isShort()) {
+                return TimestampToVarcharCast.cast(timestampType.getPrecision(), (Long) node.getValue()).toStringUtf8();
+            }
+            else {
+                return TimestampToVarcharCast.cast(timestampType.getPrecision(), (LongTimestamp) node.getValue()).toStringUtf8();
+            }
+        }
+
+        if (type instanceof TimestampWithTimeZoneType) {
+            TimestampWithTimeZoneType timestampWithTimeZoneType = (TimestampWithTimeZoneType) type;
+            String representation;
+            if (timestampWithTimeZoneType.isShort()) {
+                representation = TimestampWithTimeZoneToVarcharCast.cast(timestampWithTimeZoneType.getPrecision(), (long) node.getValue()).toStringUtf8();
+            }
+            else {
+                representation = TimestampWithTimeZoneToVarcharCast.cast(timestampWithTimeZoneType.getPrecision(), (LongTimestampWithTimeZone) node.getValue()).toStringUtf8();
+            }
+            if (!node.getValue().equals(parseTimestampWithTimeZone(timestampWithTimeZoneType.getPrecision(), representation))) {
+                // Certain (point in time, time zone) pairs cannot be represented as a TIMESTAMP literal, as the literal uses local date/time in given time zone.
+                // Thus, during DST backwards change by e.g. 1 hour, the local time is "repeated" twice and thus one local date/time logically corresponds to two
+                // points in time, leaving one of them non-referencable.
+                // TODO (https://github.com/trinodb/trino/issues/5781) consider treating such values as illegal
+            }
+            else {
+                return representation;
+            }
+        }
+
+        if (type instanceof IntervalDayTimeType) {
+            return new SqlIntervalDayTime((long) node.getValue());
+        }
+        if (type instanceof IntervalYearMonthType) {
+            return new SqlIntervalYearMonth(((Long) node.getValue()).intValue());
+        }
+
+        if (type.getJavaType().equals(Slice.class)) {
+            // DO NOT ever remove toBase64. Calling toString directly on Slice whose base is not byte[] will cause JVM to crash.
+            return "'" + VarbinaryFunctions.toBase64((Slice) node.getValue()).toStringUtf8() + "'";
+        }
+
+        // We should not fail at the moment; just return the raw value (block, regex, etc) to the user
+        return node.getValue();
     }
 
     private class LiteralVisitor
@@ -217,5 +331,10 @@ public final class LiteralInterpreter
         {
             return null;
         }
+    }
+
+    private static Number decodeDecimal(BigInteger unscaledValue, DecimalType type)
+    {
+        return new BigDecimal(unscaledValue, type.getScale(), new MathContext(type.getPrecision()));
     }
 }

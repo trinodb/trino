@@ -29,7 +29,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -89,13 +88,11 @@ public class MetadataQueryOptimizer
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
         private final PlannerContext plannerContext;
-        private final LiteralEncoder literalEncoder;
 
         private Optimizer(Session session, PlannerContext plannerContext, PlanNodeIdAllocator idAllocator)
         {
             this.session = session;
             this.plannerContext = plannerContext;
-            this.literalEncoder = new LiteralEncoder(plannerContext);
             this.idAllocator = idAllocator;
         }
 

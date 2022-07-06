@@ -176,6 +176,8 @@ public class PlanPrinter
     private final Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats;
     private final ValuePrinter valuePrinter;
 
+    private final Function<RowExpression, String> rowExpressionFormatter;
+
     // NOTE: do NOT add Metadata or Session to this class.  The plan printer must be usable outside of a transaction.
     private PlanPrinter(
             PlanNode planRoot,
@@ -212,6 +214,7 @@ public class PlanPrinter
                 .sum(), MILLISECONDS));
 
         this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime, totalBlockedTime);
+        this.rowExpressionFormatter = rowExpression -> new RowExpressionFormatter().formatRowExpression(valuePrinter.getSession().toConnectorSession(), rowExpression);
 
         Visitor visitor = new Visitor(stageExecutionStrategy, types, estimatedStatsAndCosts, stats);
         planRoot.accept(visitor, null);
@@ -955,11 +958,11 @@ public class PlanPrinter
                                         .collect(joining(", ", "(", ")"));
                             }
                             return ((SpecialForm) row).getArguments().stream()
-                                    .map(RowExpression::toString)
+                                    .map(rowExpressionFormatter)
                                     .collect(joining(", ", "(", ")"));
                         }
                         else {
-                            return row.toString();
+                            return rowExpressionFormatter.apply(row);
                         }
                     })
                     .collect(toImmutableList());

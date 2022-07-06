@@ -22,7 +22,10 @@ import io.trino.spi.type.Type;
 import io.trino.sql.tree.ArithmeticBinaryExpression.Operator;
 import io.trino.sql.tree.ComparisonExpression;
 
+import static io.trino.metadata.Signature.isOperatorName;
+import static io.trino.metadata.Signature.unmangleOperator;
 import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
@@ -30,6 +33,8 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.MODULUS;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
+import static io.trino.spi.function.OperatorType.NEGATION;
+import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static java.util.Objects.requireNonNull;
 
@@ -90,5 +95,62 @@ public final class StandardFunctionResolution
         }
 
         return metadata.resolveOperator(session, operatorType, ImmutableList.of(leftType, rightType));
+    }
+
+    public static boolean isNegateFunction(ResolvedFunction resolvedFunction)
+    {
+        String name = resolvedFunction.getSignature().getName();
+        return isOperatorName(name) && unmangleOperator(name) == NEGATION;
+    }
+
+    public static boolean isArithmeticFunction(ResolvedFunction resolvedFunction)
+    {
+        String name = resolvedFunction.getSignature().getName();
+        return isOperatorName(name) && isArithmeticOperatorType(unmangleOperator(name));
+    }
+
+    public static boolean isComparisonFunction(ResolvedFunction resolvedFunction)
+    {
+        String name = resolvedFunction.getSignature().getName();
+        return isOperatorName(name) && isComparisonOperatorType(unmangleOperator(name));
+    }
+
+    public static boolean isCastFunction(ResolvedFunction function)
+    {
+        String name = function.getSignature().getName();
+        return isOperatorName(name) && unmangleOperator(name) == CAST;
+    }
+
+    public static boolean isSubscriptFunction(ResolvedFunction function)
+    {
+        String name = function.getSignature().getName();
+        return isOperatorName(name) && unmangleOperator(name) == SUBSCRIPT;
+    }
+
+    private static boolean isArithmeticOperatorType(OperatorType operatorType)
+    {
+        switch (operatorType) {
+            case ADD:
+            case SUBTRACT:
+            case MULTIPLY:
+            case DIVIDE:
+            case MODULUS:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static boolean isComparisonOperatorType(OperatorType operatorType)
+    {
+        switch (operatorType) {
+            case EQUAL:
+            case LESS_THAN:
+            case LESS_THAN_OR_EQUAL:
+            case IS_DISTINCT_FROM:
+                return true;
+            default:
+                return false;
+        }
     }
 }
