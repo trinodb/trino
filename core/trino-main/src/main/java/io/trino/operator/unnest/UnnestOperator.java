@@ -338,16 +338,14 @@ public class UnnestOperator
             if (elementType instanceof RowType) {
                 return new ArrayOfRowsUnnester(elementType.getTypeParameters().size());
             }
-            else {
-                return new ArrayUnnester();
-            }
+            return new ArrayUnnester();
         }
-        else if (nestedType instanceof MapType) {
+
+        if (nestedType instanceof MapType) {
             return new MapUnnester();
         }
-        else {
-            throw new IllegalArgumentException("Cannot unnest type: " + nestedType);
-        }
+
+        throw new IllegalArgumentException("Cannot unnest type: " + nestedType);
     }
 
     // Does not preserve original values
