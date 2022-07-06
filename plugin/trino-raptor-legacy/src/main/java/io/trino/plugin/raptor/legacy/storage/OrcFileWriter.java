@@ -18,13 +18,23 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
-import io.airlift.slice.Slice;
 import io.trino.hive.orc.NullMemoryManager;
 import io.trino.plugin.raptor.legacy.util.SyncingFileSystem;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.VarbinaryType;
@@ -66,8 +76,6 @@ import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.trino.plugin.raptor.legacy.storage.Row.extractRow;
 import static io.trino.plugin.raptor.legacy.storage.StorageType.arrayOf;
 import static io.trino.plugin.raptor.legacy.storage.StorageType.mapOf;
-import static io.trino.plugin.raptor.legacy.util.Types.isArrayType;
-import static io.trino.plugin.raptor.legacy.util.Types.isMapType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
@@ -306,28 +314,35 @@ public class OrcFileWriter
             DecimalType decimalType = (DecimalType) type;
             return StorageType.decimal(decimalType.getPrecision(), decimalType.getScale());
         }
-        Class<?> javaType = type.getJavaType();
-        if (javaType == boolean.class) {
+        if (type == BooleanType.BOOLEAN) {
             return StorageType.BOOLEAN;
         }
-        if (javaType == long.class) {
+        if ((type == SmallintType.SMALLINT) ||
+                (type == IntegerType.INTEGER) ||
+                (type == BigintType.BIGINT) ||
+                (type == DateType.DATE) ||
+                type.equals(TimestampType.TIMESTAMP_MILLIS)) {
             return StorageType.LONG;
         }
-        if (javaType == double.class) {
+        if (type == TinyintType.TINYINT) {
+            return StorageType.BYTE;
+        }
+        if (type == RealType.REAL) {
+            return StorageType.FLOAT;
+        }
+        if (type == DoubleType.DOUBLE) {
             return StorageType.DOUBLE;
         }
-        if (javaType == Slice.class) {
-            if (type instanceof VarcharType) {
-                return StorageType.STRING;
-            }
-            if (type.equals(VarbinaryType.VARBINARY)) {
-                return StorageType.BYTES;
-            }
+        if (type instanceof VarcharType) {
+            return StorageType.STRING;
         }
-        if (isArrayType(type)) {
+        if (type == VarbinaryType.VARBINARY) {
+            return StorageType.BYTES;
+        }
+        if (type instanceof ArrayType) {
             return arrayOf(toStorageType(type.getTypeParameters().get(0)));
         }
-        if (isMapType(type)) {
+        if (type instanceof MapType) {
             return mapOf(toStorageType(type.getTypeParameters().get(0)), toStorageType(type.getTypeParameters().get(1)));
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
