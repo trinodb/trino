@@ -20,6 +20,7 @@ import io.trino.spi.Page;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -61,7 +62,7 @@ public class MemoryVersionedPagesStore
             if (idBlock.isNull(position)) {
                 throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "NULL row id is not supported");
             }
-            long id = idBlock.getLong(position, 0);
+            long id = getId(idBlock, position);
             if (id >= 0) {
                 versionData.insertRow(id, page.getSingleValuePage(position));
             }
@@ -78,7 +79,7 @@ public class MemoryVersionedPagesStore
             if (idBlock.isNull(position)) {
                 throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "NULL row id is not supported");
             }
-            versionData.deleteRow(idBlock.getLong(position, 0));
+            versionData.deleteRow(getId(idBlock, position));
         }
     }
 
@@ -128,6 +129,15 @@ public class MemoryVersionedPagesStore
                 .map(id -> -id)
                 .collect(toImmutableSet());
         return ImmutableList.of(new Page(new LongArrayBlock(negatedDeletedRows.size(), Optional.empty(), Longs.toArray(negatedDeletedRows))));
+    }
+
+    private long getId(Block block, int position)
+    {
+        if (block instanceof IntArrayBlock) {
+            return block.getInt(position, 0);
+        }
+
+        return block.getLong(position, 0);
     }
 
     public synchronized boolean contains(long tableId)

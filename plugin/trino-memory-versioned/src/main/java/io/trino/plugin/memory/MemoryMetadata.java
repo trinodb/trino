@@ -53,6 +53,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -84,6 +85,7 @@ import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.connector.PointerType.TARGET_ID;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -339,8 +341,9 @@ public class MemoryMetadata
                         .findFirst()
                         .orElseThrow(() -> new TrinoException(INVALID_TABLE_PROPERTY, format("Key column '%s' not present", keyColumnName))));
         keyColumnIndex.ifPresent(index -> {
-            if (!columns.get(index).getMetadata().getType().equals(BIGINT)) {
-                throw new TrinoException(TYPE_MISMATCH, "Only BIGINT key columns are supported");
+            Type type = columns.get(index).getMetadata().getType();
+            if (!type.equals(BIGINT) && !type.equals(INTEGER)) {
+                throw new TrinoException(TYPE_MISMATCH, "Only BIGINT and INTEGER key columns are supported");
             }
         });
 
@@ -537,7 +540,10 @@ public class MemoryMetadata
         Optional<ConnectorMaterializedViewDefinition.VersioningLayout> layoutOptional = definition.getVersioningLayout()
                 .filter(ConnectorMaterializedViewDefinition.VersioningLayout::isUnique)
                 .filter(l -> l.getVersioningColumns().size() == 1)
-                .filter(l -> getOnlyElement(l.getVersioningColumns()).getType().equals(BIGINT.getTypeId()));
+                .filter(l -> {
+                    TypeId type = getOnlyElement(l.getVersioningColumns()).getType();
+                    return type.equals(BIGINT.getTypeId()) || type.equals(INTEGER.getTypeId());
+                });
 
         ImmutableList.Builder<ColumnInfo> columnsBuilder = ImmutableList.builder();
         for (int i = 0; i < definition.getColumns().size(); ++i) {

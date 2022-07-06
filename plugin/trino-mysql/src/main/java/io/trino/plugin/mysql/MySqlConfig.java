@@ -31,6 +31,7 @@ public class MySqlConfig
     // implementation, which throw SQL exception when a table disappears during listing.
     // Using `useInformationSchema=false` may provide more diagnostic information (see https://github.com/trinodb/trino/issues/1597)
     private boolean driverUseInformationSchema = true;
+    private boolean debeziumEnabled;
 
     public boolean isAutoReconnect()
     {
@@ -80,5 +81,17 @@ public class MySqlConfig
     {
         this.driverUseInformationSchema = driverUseInformationSchema;
         return this;
+    }
+
+    @Config("debezium.enabled")
+    public MySqlConfig setDebeziumEnabled(boolean debeziumEnabled)
+    {
+        this.debeziumEnabled = debeziumEnabled;
+        return this;
+    }
+
+    public boolean isDebeziumEnabled()
+    {
+        return debeziumEnabled;
     }
 }

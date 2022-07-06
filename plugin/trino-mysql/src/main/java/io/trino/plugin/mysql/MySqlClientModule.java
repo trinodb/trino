@@ -19,6 +19,8 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.mysql.jdbc.Driver;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorRecordSetProvider;
+import io.trino.plugin.base.classloader.ForClassLoaderSafe;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
@@ -26,15 +28,20 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
+import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.plugin.mysql.debezium.DebeziumModule;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.ptf.ConnectorTableFunction;
 
 import java.sql.SQLException;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class MySqlClientModule
@@ -50,6 +57,16 @@ public class MySqlClientModule
         install(new DecimalModule());
         install(new JdbcJoinPushdownSupportModule());
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        binder.bind(MySqlClient.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(MySqlMetadataFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorRecordSetProvider.class).setBinding().to(ClassLoaderSafeConnectorRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ClassLoader.class).toInstance(MySqlClientModule.class.getClassLoader());
+        binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForClassLoaderSafe.class).to(MySqlRecordSetProvider.class).in(Scopes.SINGLETON);
+        install(conditionalModule(
+                MySqlConfig.class,
+                MySqlConfig::isDebeziumEnabled,
+                new DebeziumModule(),
+                b -> b.bind(VersioningService.class).to(NoVersioningService.class).in(Scopes.SINGLETON)));
     }
 
     @Provides

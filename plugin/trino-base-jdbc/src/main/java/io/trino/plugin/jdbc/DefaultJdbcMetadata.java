@@ -145,6 +145,10 @@ public class DefaultJdbcMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
+        if (handle.isVersioned()) {
+            return Optional.empty();
+        }
+
         if (handle.getSortOrder().isPresent() && handle.getLimit().isPresent()) {
             handle = flushAttributesAsQuery(session, handle);
         }
@@ -253,6 +257,10 @@ public class DefaultJdbcMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
+        if (handle.isVersioned()) {
+            return Optional.empty();
+        }
+
         List<JdbcColumnHandle> newColumns = assignments.values().stream()
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
@@ -300,6 +308,10 @@ public class DefaultJdbcMetadata
         }
 
         JdbcTableHandle handle = (JdbcTableHandle) table;
+
+        if (handle.isVersioned()) {
+            return Optional.empty();
+        }
 
         // Global aggregation is represented by [[]]
         verify(!groupingSets.isEmpty(), "No grouping sets provided");
@@ -401,8 +413,16 @@ public class DefaultJdbcMetadata
             return Optional.empty();
         }
 
-        JdbcTableHandle leftHandle = flushAttributesAsQuery(session, (JdbcTableHandle) left);
-        JdbcTableHandle rightHandle = flushAttributesAsQuery(session, (JdbcTableHandle) right);
+        JdbcTableHandle leftHandle = (JdbcTableHandle) left;
+        JdbcTableHandle rightHandle = (JdbcTableHandle) right;
+
+        if (leftHandle.isVersioned() || rightHandle.isVersioned()) {
+            return Optional.empty();
+        }
+
+        leftHandle = flushAttributesAsQuery(session, (JdbcTableHandle) left);
+        rightHandle = flushAttributesAsQuery(session, (JdbcTableHandle) right);
+
         int nextSyntheticColumnId = max(leftHandle.getNextSyntheticColumnId(), rightHandle.getNextSyntheticColumnId());
 
         ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newLeftColumnsBuilder = ImmutableMap.builder();
@@ -501,6 +521,10 @@ public class DefaultJdbcMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
+        if (handle.isVersioned()) {
+            return Optional.empty();
+        }
+
         if (limit > Integer.MAX_VALUE) {
             // Some databases, e.g. Phoenix, Redshift, do not support limit exceeding 2147483647.
             return Optional.empty();
@@ -541,6 +565,10 @@ public class DefaultJdbcMetadata
 
         verify(!sortItems.isEmpty(), "sortItems are empty");
         JdbcTableHandle handle = (JdbcTableHandle) table;
+
+        if (handle.isVersioned()) {
+            return Optional.empty();
+        }
 
         List<JdbcSortItem> resultSortOrder = sortItems.stream()
                 .map(sortItem -> {

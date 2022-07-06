@@ -60,6 +60,10 @@ public final class JdbcTableHandle
 
     private final int nextSyntheticColumnId;
 
+    private final Optional<Long> startVersion;
+    private final Optional<Long> endVersion;
+    private final boolean deletedRows;
+
     @Deprecated
     public JdbcTableHandle(SchemaTableName schemaTableName, @Nullable String catalogName, @Nullable String schemaName, String tableName)
     {
@@ -76,7 +80,34 @@ public final class JdbcTableHandle
                 OptionalLong.empty(),
                 Optional.empty(),
                 ImmutableSet.of(),
-                0);
+                0,
+                Optional.empty(),
+                Optional.empty(),
+                false);
+    }
+
+    public JdbcTableHandle(
+            JdbcRelationHandle relationHandle,
+            TupleDomain<ColumnHandle> constraint,
+            List<String> constraintExpressions,
+            Optional<List<JdbcSortItem>> sortOrder,
+            OptionalLong limit,
+            Optional<List<JdbcColumnHandle>> columns,
+            Set<SchemaTableName> otherReferencedTables,
+            int nextSyntheticColumnId)
+    {
+        this(
+                relationHandle,
+                constraint,
+                constraintExpressions,
+                sortOrder,
+                limit,
+                columns,
+                otherReferencedTables,
+                nextSyntheticColumnId,
+                Optional.empty(),
+                Optional.empty(),
+                false);
     }
 
     @JsonCreator
@@ -88,7 +119,10 @@ public final class JdbcTableHandle
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns,
             @JsonProperty("otherReferencedTables") Set<SchemaTableName> otherReferencedTables,
-            @JsonProperty("nextSyntheticColumnId") int nextSyntheticColumnId)
+            @JsonProperty("nextSyntheticColumnId") int nextSyntheticColumnId,
+            @JsonProperty("startVersion") Optional<Long> startVersion,
+            @JsonProperty("endVersion") Optional<Long> endVersion,
+            @JsonProperty("deletedRows") boolean deletedRows)
     {
         this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
@@ -101,6 +135,9 @@ public final class JdbcTableHandle
         this.columns = columns.map(ImmutableList::copyOf);
         this.otherReferencedTables = ImmutableSet.copyOf(requireNonNull(otherReferencedTables, "otherReferencedTables is null"));
         this.nextSyntheticColumnId = nextSyntheticColumnId;
+        this.startVersion = requireNonNull(startVersion, "startVersion is null");
+        this.endVersion = requireNonNull(endVersion, "endVersion is null");
+        this.deletedRows = deletedRows;
     }
 
     /**
@@ -253,6 +290,61 @@ public final class JdbcTableHandle
         return relationHandle instanceof JdbcNamedRelationHandle;
     }
 
+    @JsonProperty
+    public Optional<Long> getStartVersion()
+    {
+        return startVersion;
+    }
+
+    @JsonProperty
+    public Optional<Long> getEndVersion()
+    {
+        return endVersion;
+    }
+
+    @JsonProperty
+    public boolean isDeletedRows()
+    {
+        return deletedRows;
+    }
+
+    public boolean isVersioned()
+    {
+        return endVersion.isPresent();
+    }
+
+    public JdbcTableHandle withVersion(Optional<Long> startVersion, Optional<Long> endVersion)
+    {
+        return new JdbcTableHandle(
+                relationHandle,
+                constraint,
+                constraintExpressions,
+                sortOrder,
+                limit,
+                columns,
+                otherReferencedTables,
+                nextSyntheticColumnId,
+                startVersion,
+                endVersion,
+                deletedRows);
+    }
+
+    public JdbcTableHandle withDeletedRows(boolean deletedRows)
+    {
+        return new JdbcTableHandle(
+                relationHandle,
+                constraint,
+                constraintExpressions,
+                sortOrder,
+                limit,
+                columns,
+                otherReferencedTables,
+                nextSyntheticColumnId,
+                startVersion,
+                endVersion,
+                deletedRows);
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -269,13 +361,16 @@ public final class JdbcTableHandle
                 Objects.equals(this.sortOrder, o.sortOrder) &&
                 Objects.equals(this.limit, o.limit) &&
                 Objects.equals(this.columns, o.columns) &&
+                Objects.equals(this.startVersion, o.startVersion) &&
+                Objects.equals(this.endVersion, o.endVersion) &&
+                Objects.equals(this.deletedRows, o.deletedRows) &&
                 this.nextSyntheticColumnId == o.nextSyntheticColumnId;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(relationHandle, constraint, constraintExpressions, sortOrder, limit, columns, nextSyntheticColumnId);
+        return Objects.hash(relationHandle, constraint, constraintExpressions, sortOrder, limit, columns, nextSyntheticColumnId, startVersion, endVersion, deletedRows);
     }
 
     @Override
@@ -299,6 +394,9 @@ public final class JdbcTableHandle
         sortOrder.ifPresent(value -> builder.append(" sortOrder=").append(value));
         limit.ifPresent(value -> builder.append(" limit=").append(value));
         columns.ifPresent(value -> builder.append(" columns=").append(value));
+        startVersion.ifPresent(value -> builder.append(" startVersion=").append(startVersion));
+        endVersion.ifPresent(value -> builder.append(" endVersion=").append(endVersion));
+        builder.append(" deletedRows=").append(deletedRows);
         return builder.toString();
     }
 }
