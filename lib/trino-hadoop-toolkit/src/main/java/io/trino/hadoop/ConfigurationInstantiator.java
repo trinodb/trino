@@ -13,10 +13,9 @@
  */
 package io.trino.hadoop;
 
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import org.apache.hadoop.conf.Configuration;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
-
-import static com.google.common.base.Preconditions.checkState;
 
 public final class ConfigurationInstantiator
 {
@@ -37,17 +36,11 @@ public final class ConfigurationInstantiator
 
     private static Configuration newConfiguration(boolean loadDefaults)
     {
-        // Configuration captures TCCL and it may used later e.g. to load filesystem implementation class
-        ClassLoader tccl = Thread.currentThread().getContextClassLoader();
-        ClassLoader expectedClassLoader = ConfigurationInstantiator.class.getClassLoader();
-        checkState(
-                tccl == expectedClassLoader,
-                "During instantiation, the Configuration object captures the TCCL and uses it to resolve classes by name. " +
-                        "For this reason, the current TCCL %s should be same as this class's classloader %s. " +
-                        "Otherwise the constructed Configuration will use *some* classloader to resolve classes",
-                tccl,
-                expectedClassLoader);
-        return newConfigurationWithTccl(loadDefaults);
+        // Ensure that the context class loader used while instantiating the `Configuration` object corresponds to the
+        // class loader of the `ConfigurationInstantiator`
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(ConfigurationInstantiator.class.getClassLoader())) {
+            return newConfigurationWithTccl(loadDefaults);
+        }
     }
 
     // Usage of `new Configuration(boolean)` is not allowed. Only ConfigurationInstantiator
