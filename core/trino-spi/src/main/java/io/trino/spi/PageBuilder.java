@@ -21,6 +21,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.spi.Preconditions.checkArgument;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -169,12 +170,5 @@ public class PageBuilder
         }
 
         return Page.wrapBlocksWithoutCopy(declaredPositions, blocks);
-    }
-
-    private static void checkArgument(boolean expression, String errorMessage)
-    {
-        if (!expression) {
-            throw new IllegalArgumentException(errorMessage);
-        }
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.spi.ptf;
 
+import static io.trino.spi.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 final class Preconditions
@@ -24,12 +25,5 @@ final class Preconditions
         requireNonNull(value, name + " is null");
         checkArgument(!value.isEmpty(), name + " is empty");
         return value;
-    }
-
-    public static void checkArgument(boolean assertion, String message)
-    {
-        if (!assertion) {
-            throw new IllegalArgumentException(message);
-        }
     }
 }

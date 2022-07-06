@@ -15,7 +15,7 @@ package io.trino.spi.type;
 
 import java.util.List;
 
-import static java.lang.String.format;
+import static io.trino.spi.Preconditions.checkArgument;
 
 public class QuantileDigestParametricType
         implements ParametricType
@@ -39,12 +39,5 @@ public class QuantileDigestParametricType
         // Validation check on the acceptable type (bigint, real, double) intentionally omitted
         // because this is validated in each function and to allow for consistent error messaging
         return new QuantileDigestType(parameters.get(0).getType());
-    }
-
-    private static void checkArgument(boolean argument, String format, Object... args)
-    {
-        if (!argument) {
-            throw new IllegalArgumentException(format(format, args));
-        }
     }
 }

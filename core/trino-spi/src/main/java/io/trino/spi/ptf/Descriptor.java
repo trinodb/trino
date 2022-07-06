@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static io.trino.spi.ptf.Preconditions.checkArgument;
+import static io.trino.spi.Preconditions.checkArgument;
 import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 

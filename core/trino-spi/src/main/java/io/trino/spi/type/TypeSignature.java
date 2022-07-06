@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
+import static io.trino.spi.Preconditions.checkArgument;
 import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
 import static java.lang.String.format;
@@ -132,13 +133,6 @@ public final class TypeSignature
         }
         typeName.append(")");
         return typeName.toString();
-    }
-
-    private static void checkArgument(boolean argument, String format, Object... args)
-    {
-        if (!argument) {
-            throw new IllegalArgumentException(format(format, args));
-        }
     }
 
     private static boolean validateName(String name)

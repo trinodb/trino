@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static io.trino.spi.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -172,12 +173,5 @@ public class Procedure
         requireNonNull(value, name + " is null");
         checkArgument(!value.isEmpty(), name + " is empty");
         return value;
-    }
-
-    private static void checkArgument(boolean assertion, String message)
-    {
-        if (!assertion) {
-            throw new IllegalArgumentException(message);
-        }
     }
 }

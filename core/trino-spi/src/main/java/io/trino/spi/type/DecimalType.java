@@ -99,11 +99,4 @@ public abstract class DecimalType
     {
         return List.of(numericParameter(precision), numericParameter(scale));
     }
-
-    static void checkArgument(boolean condition, String format, Object... args)
-    {
-        if (!condition) {
-            throw new IllegalArgumentException(format(format, args));
-        }
-    }
 }

@@ -15,7 +15,7 @@ package io.trino.spi.ptf;
 
 import java.util.Objects;
 
-import static io.trino.spi.ptf.Preconditions.checkArgument;
+import static io.trino.spi.Preconditions.checkArgument;
 import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
 
 /**

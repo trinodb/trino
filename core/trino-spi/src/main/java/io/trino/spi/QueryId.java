@@ -19,7 +19,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.List;
 import java.util.Objects;
 
-import static java.lang.String.format;
+import static io.trino.spi.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class QueryId
@@ -111,12 +111,5 @@ public final class QueryId
             checkArgument(isValidId(part), "Invalid id %s", id);
         }
         return ids;
-    }
-
-    private static void checkArgument(boolean condition, String message, Object... messageArgs)
-    {
-        if (!condition) {
-            throw new IllegalArgumentException(format(message, messageArgs));
-        }
     }
 }

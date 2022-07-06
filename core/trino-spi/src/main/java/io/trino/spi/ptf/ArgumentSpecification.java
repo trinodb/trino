@@ -15,7 +15,7 @@ package io.trino.spi.ptf;
 
 import javax.annotation.Nullable;
 
-import static io.trino.spi.ptf.Preconditions.checkArgument;
+import static io.trino.spi.Preconditions.checkArgument;
 import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
 
 /**

@@ -18,7 +18,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import static io.trino.spi.ptf.Preconditions.checkArgument;
+import static io.trino.spi.Preconditions.checkArgument;
 import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
