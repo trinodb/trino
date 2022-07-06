@@ -24,6 +24,9 @@ env:
   # the Docker daemon only downloads 3 layers concurrently which prevents the other pull from making any progress.
   # This value should be greater than the time taken for the longest image pull.
   TESTCONTAINERS_PULL_PAUSE_TIMEOUT: 600
+  # We are closing all containers in tests, also we don't reuse CI workers so ryuk for cleanup is not really needed.
+  # Downloading ryuk image is flaky.
+  TESTCONTAINERS_RYUK_DISABLED: true
   TEST_REPORT_RETENTION_DAYS: 5
 
 # Cancel previous PR builds.
