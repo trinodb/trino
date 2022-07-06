@@ -153,131 +153,259 @@ public class TestFormatUtils
     }
 
     @Test
-    public void testFormatDataSize()
+    public void testFormatDataSizeBinary()
     {
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1L), false), "1B");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1L), true), "1B");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12L), false), "12B");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12L), true), "12B");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123L), false), "123B");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123L), true), "123B");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234L), false), "1.23K");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234L), true), "1.23KB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345L), false), "12.3K");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345L), true), "12.3KB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456L), false), "123K");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456L), true), "123KB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567L), false), "1.23M");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567L), true), "1.23MB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678L), false), "12.3M");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678L), true), "12.3MB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789L), false), "123M");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789L), true), "123MB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890L), false), "1.23G");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890L), true), "1.23GB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901L), false), "12.3G");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901L), true), "12.3GB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012L), false), "123G");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012L), true), "123GB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123L), false), "1.23T");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123L), true), "1.23TB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901234L), false), "12.3T");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901234L), true), "12.3TB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012345L), false), "123T");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012345L), true), "123TB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123456L), false), "1.23P");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123456L), true), "1.23PB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901234567L), false), "12.3P");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901234567L), true), "12.3PB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012345678L), false), "123P");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012345678L), true), "123PB");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123456789L), false), "1235P");
-        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123456789L), true), "1235PB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1L), false, false), "1B");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1L), true, false), "1B");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12L), false, false), "12B");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12L), true, false), "12B");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123L), false, false), "123B");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123L), true, false), "123B");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234L), false, false), "1.21Ki");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234L), true, false), "1.21KiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345L), false, false), "12.1Ki");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345L), true, false), "12.1KiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456L), false, false), "121Ki");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456L), true, false), "121KiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567L), false, false), "1.18Mi");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567L), true, false), "1.18MiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678L), false, false), "11.8Mi");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678L), true, false), "11.8MiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789L), false, false), "118Mi");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789L), true, false), "118MiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890L), false, false), "1.15Gi");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890L), true, false), "1.15GiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901L), false, false), "11.5Gi");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901L), true, false), "11.5GiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012L), false, false), "115Gi");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012L), true, false), "115GiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123L), false, false), "1.12Ti");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123L), true, false), "1.12TiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901234L), false, false), "11.2Ti");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901234L), true, false), "11.2TiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012345L), false, false), "112Ti");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012345L), true, false), "112TiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123456L), false, false), "1.1Pi");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123456L), true, false), "1.1PiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901234567L), false, false), "11Pi");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901234567L), true, false), "11PiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012345678L), false, false), "110Pi");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012345678L), true, false), "110PiB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123456789L), false, false), "1097Pi");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123456789L), true, false), "1097PiB");
     }
 
     @Test
-    public void testFormatDataRate()
+    public void testFormatDataSizeDecimal()
     {
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1ns"), false), "0B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1ns"), true), "0B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1ns"), false), "1G");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1ns"), true), "1GB/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1ns"), false), "10G");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1ns"), true), "10GB/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10ns"), false), "1G");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10ns"), true), "1GB/s");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1L), false, true), "1B");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1L), true, true), "1B");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12L), false, true), "12B");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12L), true, true), "12B");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123L), false, true), "123B");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123L), true, true), "123B");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234L), false, true), "1.23K");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234L), true, true), "1.23KB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345L), false, true), "12.3K");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345L), true, true), "12.3KB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456L), false, true), "123K");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456L), true, true), "123KB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567L), false, true), "1.23M");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567L), true, true), "1.23MB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678L), false, true), "12.3M");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678L), true, true), "12.3MB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789L), false, true), "123M");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789L), true, true), "123MB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890L), false, true), "1.23G");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890L), true, true), "1.23GB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901L), false, true), "12.3G");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901L), true, true), "12.3GB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012L), false, true), "123G");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012L), true, true), "123GB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123L), false, true), "1.23T");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123L), true, true), "1.23TB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901234L), false, true), "12.3T");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901234L), true, true), "12.3TB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012345L), false, true), "123T");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012345L), true, true), "123TB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123456L), false, true), "1.23P");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123456L), true, true), "1.23PB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901234567L), false, true), "12.3P");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(12345678901234567L), true, true), "12.3PB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012345678L), false, true), "123P");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(123456789012345678L), true, true), "123PB");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123456789L), false, true), "1235P");
+        assertEquals(FormatUtils.formatDataSize(DataSize.ofBytes(1234567890123456789L), true, true), "1235PB");
+    }
 
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1us"), false), "0B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1us"), true), "0B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1us"), false), "1M");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1us"), true), "1MB/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1us"), false), "10M");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1us"), true), "10MB/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10us"), false), "1M");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10us"), true), "1MB/s");
+    @Test
+    public void testFormatDataRateBinary()
+    {
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1ns"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1ns"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1ns"), false, true), "1G");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1ns"), true, true), "1GB/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1ns"), false, true), "10G");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1ns"), true, true), "10GB/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10ns"), false, true), "1G");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10ns"), true, true), "1GB/s");
 
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1ms"), false), "0B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1ms"), true), "0B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1ms"), false), "1K");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1ms"), true), "1KB/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1ms"), false), "10K");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1ms"), true), "10KB/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10ms"), false), "1K");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10ms"), true), "1KB/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1us"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1us"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1us"), false, true), "1M");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1us"), true, true), "1MB/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1us"), false, true), "10M");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1us"), true, true), "10MB/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10us"), false, true), "1M");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10us"), true, true), "1MB/s");
 
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1s"), false), "0B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1s"), true), "0B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1s"), false), "1B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1s"), true), "1B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("10s"), false), "0B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("10s"), true), "0B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1s"), false), "10B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1s"), true), "10B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10s"), false), "1B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10s"), true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1ms"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1ms"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1ms"), false, true), "1K");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1ms"), true, true), "1KB/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1ms"), false, true), "10K");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1ms"), true, true), "10KB/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10ms"), false, true), "1K");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10ms"), true, true), "1KB/s");
 
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1m"), false), "0B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1m"), true), "0B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(60), Duration.valueOf("1m"), false), "1B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(60), Duration.valueOf("1m"), true), "1B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(600), Duration.valueOf("1m"), false), "10B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(600), Duration.valueOf("1m"), true), "10B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(100), Duration.valueOf("10m"), false), "0B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(100), Duration.valueOf("10m"), true), "0B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(600), Duration.valueOf("10m"), false), "1B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(600), Duration.valueOf("10m"), true), "1B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(6000), Duration.valueOf("10m"), false), "10B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(6000), Duration.valueOf("10m"), true), "10B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1s"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1s"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1s"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1s"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("10s"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("10s"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1s"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1s"), true, true), "10B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10s"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10s"), true, true), "1B/s");
 
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1h"), false), "0B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1h"), true), "0B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(3600), Duration.valueOf("1h"), false), "1B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(3600), Duration.valueOf("1h"), true), "1B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(36000), Duration.valueOf("1h"), false), "10B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(36000), Duration.valueOf("1h"), true), "10B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(100), Duration.valueOf("10h"), false), "0B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(100), Duration.valueOf("10h"), true), "0B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(36000), Duration.valueOf("10h"), false), "1B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(36000), Duration.valueOf("10h"), true), "1B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(360000), Duration.valueOf("10h"), false), "10B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(360000), Duration.valueOf("10h"), true), "10B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1m"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1m"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(60), Duration.valueOf("1m"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(60), Duration.valueOf("1m"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(600), Duration.valueOf("1m"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(600), Duration.valueOf("1m"), true, true), "10B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(100), Duration.valueOf("10m"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(100), Duration.valueOf("10m"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(600), Duration.valueOf("10m"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(600), Duration.valueOf("10m"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(6000), Duration.valueOf("10m"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(6000), Duration.valueOf("10m"), true, true), "10B/s");
 
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1d"), false), "0B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1d"), true), "0B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(86400), Duration.valueOf("1d"), false), "1B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(86400), Duration.valueOf("1d"), true), "1B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(864000), Duration.valueOf("1d"), false), "10B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(864000), Duration.valueOf("1d"), true), "10B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(86400), Duration.valueOf("10d"), false), "0B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(86400), Duration.valueOf("10d"), true), "0B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(864000), Duration.valueOf("10d"), false), "1B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(864000), Duration.valueOf("10d"), true), "1B/s");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(8640000), Duration.valueOf("10d"), false), "10B");
-        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(8640000), Duration.valueOf("10d"), true), "10B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1h"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1h"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(3600), Duration.valueOf("1h"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(3600), Duration.valueOf("1h"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(36000), Duration.valueOf("1h"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(36000), Duration.valueOf("1h"), true, true), "10B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(100), Duration.valueOf("10h"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(100), Duration.valueOf("10h"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(36000), Duration.valueOf("10h"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(36000), Duration.valueOf("10h"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(360000), Duration.valueOf("10h"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(360000), Duration.valueOf("10h"), true, true), "10B/s");
+
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1d"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1d"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(86400), Duration.valueOf("1d"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(86400), Duration.valueOf("1d"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(864000), Duration.valueOf("1d"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(864000), Duration.valueOf("1d"), true, true), "10B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(86400), Duration.valueOf("10d"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(86400), Duration.valueOf("10d"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(864000), Duration.valueOf("10d"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(864000), Duration.valueOf("10d"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(8640000), Duration.valueOf("10d"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(8640000), Duration.valueOf("10d"), true, true), "10B/s");
 
         // Currently, these tests fail due to https://github.com/trinodb/trino/issues/13093
-//        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("0s"), false), "0B");
-//        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("0s"), true), "0B/s");
+        // assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("0s"), false), "0B");
+        // assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("0s"), true), "0B/s");
+    }
+
+    @Test
+    public void testFormatDataRateDecimal()
+    {
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1ns"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1ns"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1ns"), false, true), "1G");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1ns"), true, true), "1GB/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1ns"), false, true), "10G");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1ns"), true, true), "10GB/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10ns"), false, true), "1G");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10ns"), true, true), "1GB/s");
+
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1us"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1us"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1us"), false, true), "1M");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1us"), true, true), "1MB/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1us"), false, true), "10M");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1us"), true, true), "10MB/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10us"), false, true), "1M");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10us"), true, true), "1MB/s");
+
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1ms"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1ms"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1ms"), false, true), "1K");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1ms"), true, true), "1KB/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1ms"), false, true), "10K");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1ms"), true, true), "10KB/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10ms"), false, true), "1K");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10ms"), true, true), "1KB/s");
+
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1s"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(0), Duration.valueOf("1s"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1s"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1s"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("10s"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("10s"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1s"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("1s"), true, true), "10B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10s"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(10), Duration.valueOf("10s"), true, true), "1B/s");
+
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1m"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1m"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(60), Duration.valueOf("1m"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(60), Duration.valueOf("1m"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(600), Duration.valueOf("1m"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(600), Duration.valueOf("1m"), true, true), "10B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(100), Duration.valueOf("10m"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(100), Duration.valueOf("10m"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(600), Duration.valueOf("10m"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(600), Duration.valueOf("10m"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(6000), Duration.valueOf("10m"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(6000), Duration.valueOf("10m"), true, true), "10B/s");
+
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1h"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1h"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(3600), Duration.valueOf("1h"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(3600), Duration.valueOf("1h"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(36000), Duration.valueOf("1h"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(36000), Duration.valueOf("1h"), true, true), "10B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(100), Duration.valueOf("10h"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(100), Duration.valueOf("10h"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(36000), Duration.valueOf("10h"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(36000), Duration.valueOf("10h"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(360000), Duration.valueOf("10h"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(360000), Duration.valueOf("10h"), true, true), "10B/s");
+
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1d"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("1d"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(86400), Duration.valueOf("1d"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(86400), Duration.valueOf("1d"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(864000), Duration.valueOf("1d"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(864000), Duration.valueOf("1d"), true, true), "10B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(86400), Duration.valueOf("10d"), false, true), "0B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(86400), Duration.valueOf("10d"), true, true), "0B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(864000), Duration.valueOf("10d"), false, true), "1B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(864000), Duration.valueOf("10d"), true, true), "1B/s");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(8640000), Duration.valueOf("10d"), false, true), "10B");
+        assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(8640000), Duration.valueOf("10d"), true, true), "10B/s");
+
+        // Currently, these tests fail due to https://github.com/trinodb/trino/issues/13093
+        // assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("0s"), false), "0B");
+        // assertEquals(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("0s"), true), "0B/s");
     }
 
     @Test
