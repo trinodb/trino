@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.deltalake.DeltaHiveTypeTranslator;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -23,8 +22,6 @@ import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
 import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.HiveTypeName;
 import io.trino.plugin.hive.RecordFileWriter;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -39,7 +36,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
@@ -53,6 +49,7 @@ import java.util.Properties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.deltalake.DeltaLakeSchemaProperties.buildHiveSchema;
 import static io.trino.plugin.hive.HiveCompressionCodec.SNAPPY;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -62,7 +59,6 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 
 public class CheckpointWriter
@@ -108,7 +104,7 @@ public class CheckpointWriter
                 addEntryType,
                 removeEntryType);
 
-        Properties schema = buildSchemaProperties(columnNames, columnTypes);
+        Properties schema = buildHiveSchema(columnNames, columnTypes);
 
         Configuration conf = hdfsEnvironment.getConfiguration(new HdfsEnvironment.HdfsContext(session), targetPath);
         configureCompression(conf, SNAPPY);
@@ -142,19 +138,6 @@ public class CheckpointWriter
 
         writer.appendRows(pageBuilder.build());
         writer.commit();
-    }
-
-    private static Properties buildSchemaProperties(List<String> columnNames, List<Type> columnTypes)
-    {
-        // TODO copied out from DeltaLakePageSink. Extrat to utility class (https://github.com/trinodb/trino/issues/12030)
-        Properties schema = new Properties();
-        schema.setProperty(IOConstants.COLUMNS, String.join(",", columnNames));
-        schema.setProperty(IOConstants.COLUMNS_TYPES, columnTypes.stream()
-                .map(DeltaHiveTypeTranslator::toHiveType)
-                .map(HiveType::getHiveTypeName)
-                .map(HiveTypeName::toString)
-                .collect(joining(":")));
-        return schema;
     }
 
     private void writeMetadataEntry(PageBuilder pageBuilder, RowType entryType, MetadataEntry metadataEntry)

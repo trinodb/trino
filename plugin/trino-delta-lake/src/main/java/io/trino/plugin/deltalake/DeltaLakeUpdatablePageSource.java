@@ -63,6 +63,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakePageSink.createPartitionValues;
+import static io.trino.plugin.deltalake.DeltaLakeSchemaProperties.buildHiveSchema;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
@@ -577,7 +578,7 @@ public class DeltaLakeUpdatablePageSource
         Configuration conf = hdfsEnvironment.getConfiguration(new HdfsEnvironment.HdfsContext(session), targetFile);
         configureCompression(conf, SNAPPY);
 
-        Properties schema = DeltaLakePageSink.buildSchemaProperties(
+        Properties schema = buildHiveSchema(
                 dataColumns.stream().map(DeltaLakeColumnHandle::getName).collect(toImmutableList()),
                 dataColumns.stream().map(DeltaLakeColumnHandle::getType).collect(toImmutableList()));
         RecordFileWriter recordFileWriter = new RecordFileWriter(
