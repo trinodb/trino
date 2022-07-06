@@ -40,7 +40,7 @@ public class EnvMultinodeMinioDataLake
     public EnvMultinodeMinioDataLake(StandardMultinode standardMultinode, Hadoop hadoop, Minio minio, DockerFiles dockerFiles)
     {
         super(standardMultinode, hadoop, minio);
-        this.configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-minio-data-lake");
+        this.configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/multinode-minio-data-lake");
     }
 
     @Override
