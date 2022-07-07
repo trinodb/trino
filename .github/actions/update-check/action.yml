@@ -1,0 +1,103 @@
+name: "update-check-action"
+description: "Creates or updates a check for a specific PR"
+inputs:
+  pull_request_number:
+    description: "Number of the pull request to update checks in"
+    required: true
+  check_name:
+    description: "Name of the check to update"
+    required: true
+  conclusion:
+    description: "Conclusion to set for the check"
+    required: true
+  github_token:
+    description: "GitHub token to authenticate with"
+    default: ${{ github.token }}
+  run_id:
+    description: "Current workflow run id"
+    default: ${{ github.run_id }}
+  run_attempt:
+    description: "Current workflow run attempt number"
+    default: ${{ github.run_attempt }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/github-script@v6
+      id: update-check-run
+      if: ${{ always() }}
+      env:
+        number: ${{ inputs.pull_request_number }}
+        check_name: ${{ inputs.check_name }}
+        # Conveniently, job.status maps to https://developer.github.com/v3/checks/runs/#update-a-check-run
+        conclusion: ${{ inputs.conclusion }}
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const { data: pull } = await github.rest.pulls.get({
+            ...context.repo,
+            pull_number: process.env.number
+          });
+          const ref = pull.head.sha;
+          const { data: checks } = await github.rest.checks.listForRef({
+            ...context.repo,
+            ref
+          });
+          const check = checks.check_runs.filter(c => c.name === process.env.check_name);
+          if (check && check.length != 0) {
+            const { data: result } = await github.rest.checks.update({
+              ...context.repo,
+              check_run_id: check[0].id,
+              status: 'completed',
+              conclusion: process.env.conclusion
+            });
+            return result;
+          }
+          const { data: result } = await github.rest.checks.create({
+            ...context.repo,
+            name: process.env.check_name,
+            head_sha: ref,
+            status: 'completed',
+            conclusion: process.env.conclusion
+          });
+          return result;
+    - uses: actions/github-script@v6
+      id: comment
+      if: ${{ always() }}
+      env:
+        number: ${{ inputs.pull_request_number }}
+        run_id: ${{ inputs.run_id }}
+        run_attempt: ${{ inputs.run_attempt }} || 1
+        conclusion: ${{ inputs.conclusion }}
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const { data: pull } = await github.rest.pulls.get({
+            ...context.repo,
+            pull_number: process.env.number
+          });
+          const { data: run } = await github.rest.actions.getWorkflowRunAttempt({
+            ...context.repo,
+            run_id: process.env.run_id,
+            attempt_number: process.env.run_attempt,
+            exclude_pull_requests: true
+          });
+
+          const message = "The CI workflow run with tests that require additional secrets finished as " + process.env.conclusion + ": " + run.html_url
+          const comments = await github.paginate(github.rest.issues.listComments.endpoint.merge({
+            ...context.repo,
+            issue_number: process.env.number
+          }))
+          const exists = comments.filter(comment => comment.body === message).length != 0
+
+          if (exists) {
+            return;
+          }
+
+          const { data: result } = await github.rest.issues.createComment({
+            ...context.repo,
+            issue_number: process.env.number,
+            body: message
+          });
+
+          return result;
