@@ -429,9 +429,9 @@ public class InMemoryTransactionManager
 
         private synchronized List<CatalogInfo> listCatalogs()
         {
-            // register all known catalogs
+            // register all known catalogs - but don't verify so failed catalogs can be listed
             catalogManager.getCatalogNames()
-                    .forEach(this::tryRegisterCatalog);
+                    .forEach(catalogName -> registeredCatalogs.computeIfAbsent(catalogName, catalogManager::getCatalog));
 
             return registeredCatalogs.values().stream()
                     .filter(Optional::isPresent)
@@ -442,8 +442,9 @@ public class InMemoryTransactionManager
 
         private synchronized Optional<CatalogHandle> tryRegisterCatalog(String catalogName)
         {
-            return registeredCatalogs.computeIfAbsent(catalogName, catalogManager::getCatalog)
-                    .map(Catalog::getCatalogHandle);
+            Optional<Catalog> catalog = registeredCatalogs.computeIfAbsent(catalogName, catalogManager::getCatalog);
+            catalog.ifPresent(Catalog::verify);
+            return catalog.map(Catalog::getCatalogHandle);
         }
 
         private synchronized CatalogMetadata getTransactionCatalogMetadata(CatalogHandle catalogHandle)

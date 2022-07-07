@@ -80,6 +80,7 @@ import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
 import static io.trino.server.TrinoSystemRequirements.verifySystemTimeIsReasonable;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 
 public class Server
@@ -200,6 +201,7 @@ public class Server
         catalogManager.getCatalogNames().stream()
                 .map(catalogManager::getCatalog)
                 .flatMap(Optional::stream)
+                .filter(not(Catalog::isFailed))
                 .map(Catalog::getCatalogHandle)
                 .map(connectorServicesProvider::getConnectorServices)
                 .map(ConnectorServices::getEventListeners)
