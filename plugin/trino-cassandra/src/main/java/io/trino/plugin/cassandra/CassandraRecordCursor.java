@@ -16,7 +16,7 @@ package io.trino.plugin.cassandra;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import io.airlift.slice.Slice;
-import io.trino.plugin.cassandra.CassandraType.Kind;
+import io.trino.plugin.cassandra.CassandraTypeMapping.Kind;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.TimeZoneKey;
@@ -31,13 +31,15 @@ import static java.lang.Float.floatToRawIntBits;
 public class CassandraRecordCursor
         implements RecordCursor
 {
-    private final List<CassandraType> cassandraTypes;
+    private final List<CassandraTypeMapping> cassandraTypes;
+    private final CassandraTypeManager cassandraTypeManager;
     private final ResultSet rs;
     private Row currentRow;
 
-    public CassandraRecordCursor(CassandraSession cassandraSession, List<CassandraType> cassandraTypes, String cql)
+    public CassandraRecordCursor(CassandraSession cassandraSession, CassandraTypeManager cassandraTypeManager, List<CassandraTypeMapping> cassandraTypes, String cql)
     {
         this.cassandraTypes = cassandraTypes;
+        this.cassandraTypeManager = cassandraTypeManager;
         rs = cassandraSession.execute(cql);
         currentRow = null;
     }
@@ -115,7 +117,7 @@ public class CassandraRecordCursor
         }
     }
 
-    private CassandraType getCassandraType(int i)
+    private CassandraTypeMapping getCassandraType(int i)
     {
         return cassandraTypes.get(i);
     }
@@ -126,7 +128,7 @@ public class CassandraRecordCursor
         if (getCassandraType(i).getKind() == Kind.TIMESTAMP) {
             throw new IllegalArgumentException("Timestamp column can not be accessed with getSlice");
         }
-        NullableValue value = cassandraTypes.get(i).getColumnValue(currentRow, i);
+        NullableValue value = cassandraTypeManager.getColumnValue(cassandraTypes.get(i), currentRow, i);
         if (value.getValue() instanceof Slice) {
             return (Slice) value.getValue();
         }
@@ -136,11 +138,11 @@ public class CassandraRecordCursor
     @Override
     public Object getObject(int i)
     {
-        CassandraType cassandraType = cassandraTypes.get(i);
+        CassandraTypeMapping cassandraType = cassandraTypes.get(i);
         switch (cassandraType.getKind()) {
             case TUPLE:
             case UDT:
-                return cassandraType.getColumnValue(currentRow, i).getValue();
+                return cassandraTypeManager.getColumnValue(cassandraType, currentRow, i).getValue();
             default:
                 throw new IllegalArgumentException("getObject cannot be called for " + cassandraType);
         }

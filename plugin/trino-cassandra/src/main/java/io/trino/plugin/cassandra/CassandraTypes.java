@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
-import io.trino.plugin.cassandra.CassandraType.Kind;
+import io.trino.plugin.cassandra.CassandraTypeMapping.Kind;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
@@ -38,27 +38,27 @@ public final class CassandraTypes
     // IPv4 embedded into IPv6: FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:255.255.255.255 - 45 characters
     private static final int IP_ADDRESS_STRING_MAX_LENGTH = 45;
 
-    public static final CassandraType ASCII = new CassandraType(Kind.ASCII, createUnboundedVarcharType());
-    public static final CassandraType BIGINT = new CassandraType(Kind.BIGINT, BigintType.BIGINT);
-    public static final CassandraType BLOB = new CassandraType(Kind.BLOB, VarbinaryType.VARBINARY);
-    public static final CassandraType BOOLEAN = new CassandraType(Kind.BOOLEAN, BooleanType.BOOLEAN);
-    public static final CassandraType COUNTER = new CassandraType(Kind.COUNTER, BigintType.BIGINT);
-    public static final CassandraType CUSTOM = new CassandraType(Kind.CUSTOM, VarbinaryType.VARBINARY);
-    public static final CassandraType DATE = new CassandraType(Kind.DATE, DateType.DATE);
-    public static final CassandraType DECIMAL = new CassandraType(Kind.DECIMAL, DoubleType.DOUBLE);
-    public static final CassandraType DOUBLE = new CassandraType(Kind.DOUBLE, DoubleType.DOUBLE);
-    public static final CassandraType FLOAT = new CassandraType(Kind.FLOAT, RealType.REAL);
-    public static final CassandraType INET = new CassandraType(Kind.INET, createVarcharType(IP_ADDRESS_STRING_MAX_LENGTH));
-    public static final CassandraType INT = new CassandraType(Kind.INT, IntegerType.INTEGER);
-    public static final CassandraType LIST = new CassandraType(Kind.LIST, createUnboundedVarcharType());
-    public static final CassandraType MAP = new CassandraType(Kind.MAP, createUnboundedVarcharType());
-    public static final CassandraType SET = new CassandraType(Kind.SET, createUnboundedVarcharType());
-    public static final CassandraType SMALLINT = new CassandraType(Kind.SMALLINT, SmallintType.SMALLINT);
-    public static final CassandraType TEXT = new CassandraType(Kind.TEXT, createUnboundedVarcharType());
-    public static final CassandraType TIMESTAMP = new CassandraType(Kind.TIMESTAMP, TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS);
-    public static final CassandraType TIMEUUID = new CassandraType(Kind.TIMEUUID, UuidType.UUID);
-    public static final CassandraType TINYINT = new CassandraType(Kind.TINYINT, TinyintType.TINYINT);
-    public static final CassandraType UUID = new CassandraType(Kind.UUID, UuidType.UUID);
-    public static final CassandraType VARCHAR = new CassandraType(Kind.VARCHAR, createUnboundedVarcharType());
-    public static final CassandraType VARINT = new CassandraType(Kind.VARINT, createUnboundedVarcharType());
+    public static final CassandraTypeMapping ASCII = new CassandraTypeMapping(Kind.ASCII, createUnboundedVarcharType());
+    public static final CassandraTypeMapping BIGINT = new CassandraTypeMapping(Kind.BIGINT, BigintType.BIGINT);
+    public static final CassandraTypeMapping BLOB = new CassandraTypeMapping(Kind.BLOB, VarbinaryType.VARBINARY);
+    public static final CassandraTypeMapping BOOLEAN = new CassandraTypeMapping(Kind.BOOLEAN, BooleanType.BOOLEAN);
+    public static final CassandraTypeMapping COUNTER = new CassandraTypeMapping(Kind.COUNTER, BigintType.BIGINT);
+    public static final CassandraTypeMapping CUSTOM = new CassandraTypeMapping(Kind.CUSTOM, VarbinaryType.VARBINARY);
+    public static final CassandraTypeMapping DATE = new CassandraTypeMapping(Kind.DATE, DateType.DATE);
+    public static final CassandraTypeMapping DECIMAL = new CassandraTypeMapping(Kind.DECIMAL, DoubleType.DOUBLE);
+    public static final CassandraTypeMapping DOUBLE = new CassandraTypeMapping(Kind.DOUBLE, DoubleType.DOUBLE);
+    public static final CassandraTypeMapping FLOAT = new CassandraTypeMapping(Kind.FLOAT, RealType.REAL);
+    public static final CassandraTypeMapping INET = new CassandraTypeMapping(Kind.INET, createVarcharType(IP_ADDRESS_STRING_MAX_LENGTH));
+    public static final CassandraTypeMapping INT = new CassandraTypeMapping(Kind.INT, IntegerType.INTEGER);
+    public static final CassandraTypeMapping LIST = new CassandraTypeMapping(Kind.LIST, createUnboundedVarcharType());
+    public static final CassandraTypeMapping MAP = new CassandraTypeMapping(Kind.MAP, createUnboundedVarcharType());
+    public static final CassandraTypeMapping SET = new CassandraTypeMapping(Kind.SET, createUnboundedVarcharType());
+    public static final CassandraTypeMapping SMALLINT = new CassandraTypeMapping(Kind.SMALLINT, SmallintType.SMALLINT);
+    public static final CassandraTypeMapping TEXT = new CassandraTypeMapping(Kind.TEXT, createUnboundedVarcharType());
+    public static final CassandraTypeMapping TIMESTAMP = new CassandraTypeMapping(Kind.TIMESTAMP, TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS);
+    public static final CassandraTypeMapping TIMEUUID = new CassandraTypeMapping(Kind.TIMEUUID, UuidType.UUID);
+    public static final CassandraTypeMapping TINYINT = new CassandraTypeMapping(Kind.TINYINT, TinyintType.TINYINT);
+    public static final CassandraTypeMapping UUID = new CassandraTypeMapping(Kind.UUID, UuidType.UUID);
+    public static final CassandraTypeMapping VARCHAR = new CassandraTypeMapping(Kind.VARCHAR, createUnboundedVarcharType());
+    public static final CassandraTypeMapping VARINT = new CassandraTypeMapping(Kind.VARINT, createUnboundedVarcharType());
 }

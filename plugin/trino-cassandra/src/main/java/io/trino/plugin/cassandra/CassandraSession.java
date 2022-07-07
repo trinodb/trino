@@ -82,8 +82,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
 import static io.trino.plugin.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
 import static io.trino.plugin.cassandra.CassandraMetadata.PRESTO_COMMENT_METADATA;
-import static io.trino.plugin.cassandra.CassandraType.isFullySupported;
-import static io.trino.plugin.cassandra.CassandraType.toCassandraType;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.selectDistinctFrom;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validTableName;
@@ -104,12 +102,18 @@ public class CassandraSession
     private static final String SIZE_ESTIMATES = "size_estimates";
     private static final Version PARTITION_FETCH_WITH_IN_PREDICATE_VERSION = Version.parse("2.2");
 
+    private final CassandraTypeManager cassandraTypeManager;
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
     private final Supplier<CqlSession> session;
     private final Duration noHostAvailableRetryTimeout;
 
-    public CassandraSession(JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec, Supplier<CqlSession> sessionSupplier, Duration noHostAvailableRetryTimeout)
+    public CassandraSession(
+            CassandraTypeManager cassandraTypeManager,
+            JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
+            Supplier<CqlSession> sessionSupplier,
+            Duration noHostAvailableRetryTimeout)
     {
+        this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
         this.noHostAvailableRetryTimeout = requireNonNull(noHostAvailableRetryTimeout, "noHostAvailableRetryTimeout is null");
         this.session = memoize(sessionSupplier::get);
@@ -342,7 +346,7 @@ public class CassandraSession
 
     private Optional<CassandraColumnHandle> buildColumnHandle(RelationMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
     {
-        Optional<CassandraType> cassandraType = toCassandraType(columnMeta.getType());
+        Optional<CassandraTypeMapping> cassandraType = cassandraTypeManager.toCassandraType(columnMeta.getType());
         if (cassandraType.isEmpty()) {
             log.debug("Unsupported column type: %s", columnMeta.getType().asCql(false, false));
             return Optional.empty();
@@ -350,7 +354,7 @@ public class CassandraSession
 
         List<DataType> typeArgs = getTypeArguments(columnMeta.getType());
         for (DataType typeArgument : typeArgs) {
-            if (!isFullySupported(typeArgument)) {
+            if (!cassandraTypeManager.isFullySupported(typeArgument)) {
                 log.debug("%s column has unsupported type: %s", columnMeta.getName(), typeArgument);
                 return Optional.empty();
             }
@@ -420,14 +424,14 @@ public class CassandraSession
                     buffer.put(component);
                 }
                 CassandraColumnHandle columnHandle = partitionKeyColumns.get(i);
-                NullableValue keyPart = columnHandle.getCassandraType().getColumnValue(row, i);
+                NullableValue keyPart = cassandraTypeManager.getColumnValue(columnHandle.getCassandraType(), row, i);
                 map.put(columnHandle, keyPart);
                 if (i > 0) {
                     stringBuilder.append(" AND ");
                 }
                 stringBuilder.append(CassandraCqlUtils.validColumnName(columnHandle.getName()));
                 stringBuilder.append(" = ");
-                stringBuilder.append(columnHandle.getCassandraType().getColumnValueForCql(row, i));
+                stringBuilder.append(cassandraTypeManager.getColumnValueForCql(columnHandle.getCassandraType(), row, i));
             }
             buffer.flip();
             byte[] key = new byte[buffer.limit()];
@@ -492,7 +496,7 @@ public class CassandraSession
         return rowList.build();
     }
 
-    private static List<Relation> getInRelations(List<CassandraColumnHandle> partitionKeyColumns, List<Set<Object>> filterPrefixes)
+    private List<Relation> getInRelations(List<CassandraColumnHandle> partitionKeyColumns, List<Set<Object>> filterPrefixes)
     {
         return IntStream
                 .range(0, Math.min(partitionKeyColumns.size(), filterPrefixes.size()))
@@ -500,24 +504,24 @@ public class CassandraSession
                 .collect(toImmutableList());
     }
 
-    private static Relation getInRelation(CassandraColumnHandle column, Set<Object> filterPrefixes)
+    private Relation getInRelation(CassandraColumnHandle column, Set<Object> filterPrefixes)
     {
         List<Term> values = filterPrefixes
                 .stream()
-                .map(value -> column.getCassandraType().getJavaValue(value))
+                .map(value -> cassandraTypeManager.getJavaValue(column.getCassandraType().getKind(), value))
                 .map(QueryBuilder::literal)
                 .collect(toList());
 
         return Relation.column(CassandraCqlUtils.validColumnName(column.getName())).in(values);
     }
 
-    private static List<Relation> getEqualityRelations(List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)
+    private List<Relation> getEqualityRelations(List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)
     {
         return IntStream
                 .range(0, Math.min(partitionKeyColumns.size(), filterPrefix.size()))
                 .mapToObj(i -> {
                     CassandraColumnHandle column = partitionKeyColumns.get(i);
-                    Object value = column.getCassandraType().getJavaValue(filterPrefix.get(i));
+                    Object value = cassandraTypeManager.getJavaValue(column.getCassandraType().getKind(), filterPrefix.get(i));
                     return Relation.column(CassandraCqlUtils.validColumnName(column.getName())).isEqualTo(literal(value));
                 })
                 .collect(toImmutableList());

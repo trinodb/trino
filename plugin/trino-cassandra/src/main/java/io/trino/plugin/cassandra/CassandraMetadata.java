@@ -55,7 +55,6 @@ import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.truncate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
-import static io.trino.plugin.cassandra.CassandraType.toCassandraType;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.ID_COLUMN_NAME;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.cqlNameToSqlName;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
@@ -80,16 +79,19 @@ public class CassandraMetadata
     private final boolean allowDropTable;
 
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
+    private final CassandraTypeManager cassandraTypeManager;
 
     @Inject
     public CassandraMetadata(
             CassandraSession cassandraSession,
             CassandraPartitionManager partitionManager,
             JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
+            CassandraTypeManager cassandraTypeManager,
             CassandraClientConfig config)
     {
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
+        this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
         this.allowDropTable = requireNonNull(config, "config is null").getAllowDropTable();
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
     }
@@ -221,6 +223,7 @@ public class CassandraMetadata
         }
         else {
             CassandraClusteringPredicatesExtractor clusteringPredicatesExtractor = new CassandraClusteringPredicatesExtractor(
+                    cassandraTypeManager,
                     cassandraSession.getTable(handle.getSchemaTableName()).getClusteringKeyColumns(),
                     partitionResult.getUnenforcedConstraint(),
                     cassandraSession.getCassandraVersion());
@@ -316,7 +319,7 @@ public class CassandraMetadata
             queryBuilder.append(", ")
                     .append(validColumnName(name))
                     .append(" ")
-                    .append(toCassandraType(type, cassandraSession.getProtocolVersion()).getName().toLowerCase(ENGLISH));
+                    .append(cassandraTypeManager.toCassandraType(type, cassandraSession.getProtocolVersion()).getName().toLowerCase(ENGLISH));
         }
         queryBuilder.append(") ");
 
