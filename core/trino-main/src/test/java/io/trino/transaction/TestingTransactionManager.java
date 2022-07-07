@@ -15,6 +15,7 @@
 package io.trino.transaction;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import io.trino.metadata.CatalogInfo;
@@ -58,7 +59,8 @@ public class TestingTransactionManager
                 DateTime.now(), // created
                 Duration.succinctNanos(0), // idle
                 ImmutableList.of(), // catalogs
-                Optional.empty()); // write catalog
+                Optional.empty(),  // write catalog
+                ImmutableSet.of());
     }
 
     @Override

@@ -43,6 +43,9 @@ public class DynamicCatalogManagerModule
             binder.bind(ConnectorServicesProvider.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
             binder.bind(CatalogManager.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
             binder.bind(CoordinatorLazyRegister.class).asEagerSingleton();
+
+            configBinder(binder).bindConfig(CatalogPruneTaskConfig.class);
+            binder.bind(CatalogPruneTask.class).in(Scopes.SINGLETON);
         }
         else {
             binder.bind(WorkerDynamicCatalogManager.class).in(Scopes.SINGLETON);
