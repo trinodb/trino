@@ -452,6 +452,39 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testInequalityPredicatePushdownWithOuterJoin()
+    {
+        assertPlan("" +
+                        "SELECT o.orderkey " +
+                        "FROM orders o LEFT JOIN lineitem l " +
+                        "ON o.orderkey = l.orderkey AND o.custkey + 42 < l.partkey + 42 " +
+                        "WHERE o.custkey - 24 < COALESCE(l.partkey - 24, 0)",
+                anyTree(
+                        // predicate above outer join is not pushed to build side
+                        filter(
+                                "O_CUSTKEY - BIGINT '24' < COALESCE(L_PARTKEY - BIGINT '24', BIGINT '0')",
+                                join(
+                                        LEFT,
+                                        ImmutableList.of(equiJoinClause("O_ORDERKEY", "L_ORDERKEY")),
+                                        // part of inequality predicate within outer join is pushed down to build side
+                                        Optional.of("O_CUSTKEY + BIGINT '42' < EXPR"),
+                                        anyTree(
+                                                tableScan(
+                                                        "orders",
+                                                        ImmutableMap.of(
+                                                                "O_ORDERKEY", "orderkey",
+                                                                "O_CUSTKEY", "custkey"))),
+                                        anyTree(
+                                                project(
+                                                        ImmutableMap.of("EXPR", expression("L_PARTKEY + BIGINT '42'")),
+                                                        tableScan(
+                                                                "lineitem",
+                                                                ImmutableMap.of(
+                                                                        "L_ORDERKEY", "orderkey",
+                                                                        "L_PARTKEY", "partkey"))))))));
+    }
+
+    @Test
     public void testTopNPushdownToJoinSource()
     {
         assertPlan("SELECT n.name, r.name FROM nation n LEFT JOIN region r ON n.regionkey = r.regionkey ORDER BY n.comment LIMIT 1",

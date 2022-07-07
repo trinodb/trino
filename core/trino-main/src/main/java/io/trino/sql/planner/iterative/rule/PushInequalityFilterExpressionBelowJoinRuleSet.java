@@ -45,6 +45,7 @@ import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.Rule.Context;
 import static io.trino.sql.planner.iterative.Rule.Result;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -118,7 +119,21 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
     private Result pushInequalityFilterExpressionBelowJoin(Context context, JoinNode joinNode, Optional<FilterNode> filterNode)
     {
         JoinNodeContext joinNodeContext = new JoinNodeContext(joinNode);
-        Map<Boolean, List<Expression>> parentFilterCandidates = extractPushDownCandidates(joinNodeContext, filterNode.map(FilterNode::getPredicate).orElse(TRUE_LITERAL));
+
+        Expression parentFilterPredicate = filterNode.map(FilterNode::getPredicate).orElse(TRUE_LITERAL);
+        Map<Boolean, List<Expression>> parentFilterCandidates;
+        if (joinNode.getType() == INNER) {
+            parentFilterCandidates = extractPushDownCandidates(joinNodeContext, parentFilterPredicate);
+        }
+        else {
+            // Do not push parent filter predicate for outer joins. Pushing it below join changes
+            // filter semantics because such filter depends on null output from outer join side
+            // (otherwise outer join would be converted to inner join by predicate push down).
+            parentFilterCandidates = ImmutableMap.of(
+                    true, ImmutableList.of(),
+                    false, extractConjuncts(parentFilterPredicate));
+        }
+
         Map<Boolean, List<Expression>> joinFilterCandidates = extractPushDownCandidates(joinNodeContext, joinNode.getFilter().orElse(TRUE_LITERAL));
 
         if (parentFilterCandidates.get(true).isEmpty() && joinFilterCandidates.get(true).isEmpty()) {
