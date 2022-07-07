@@ -36,6 +36,7 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -97,6 +98,7 @@ public class SqlTask
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
     private final AtomicReference<String> traceToken = new AtomicReference<>();
+    private final AtomicReference<Set<CatalogHandle>> catalogs = new AtomicReference<>();
 
     public static SqlTask createSqlTask(
             TaskId taskId,
@@ -248,6 +250,17 @@ public class SqlTask
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             return createTaskStatus(taskHolderReference.get());
         }
+    }
+
+    public Optional<Set<CatalogHandle>> getCatalogs()
+    {
+        return Optional.ofNullable(catalogs.get());
+    }
+
+    public boolean setCatalogs(Set<CatalogHandle> catalogs)
+    {
+        requireNonNull(catalogs, "catalogs is null");
+        return this.catalogs.compareAndSet(null, requireNonNull(catalogs, "catalogs is null"));
     }
 
     public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersDynamicFiltersVersion)

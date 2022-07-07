@@ -189,6 +189,12 @@ public class StaticCatalogManager
     }
 
     @Override
+    public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
+    {
+        // static catalogs do not need management
+    }
+
+    @Override
     public Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle)
     {
         // static catalog manager does not propagate catalogs between machines

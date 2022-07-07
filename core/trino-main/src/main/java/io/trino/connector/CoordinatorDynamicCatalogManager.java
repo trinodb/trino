@@ -30,8 +30,11 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -44,6 +47,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metadata.Catalog.failedCatalog;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
@@ -163,6 +167,13 @@ public class CoordinatorDynamicCatalogManager
         return Optional.ofNullable(activeCatalogs.get(catalogName));
     }
 
+    public Set<CatalogHandle> getActiveCatalogs()
+    {
+        return activeCatalogs.values().stream()
+                .map(Catalog::getCatalogHandle)
+                .collect(toImmutableSet());
+    }
+
     @Override
     public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs)
     {
@@ -172,6 +183,51 @@ public class CoordinatorDynamicCatalogManager
 
         if (!missingCatalogs.isEmpty()) {
             throw new TrinoException(CATALOG_NOT_AVAILABLE, "Missing catalogs: " + missingCatalogs);
+        }
+    }
+
+    @Override
+    public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
+    {
+        List<CatalogConnector> removedCatalogs = new ArrayList<>();
+        catalogsUpdateLock.lock();
+        try {
+            if (state == State.STOPPED) {
+                return;
+            }
+            Iterator<Entry<CatalogHandle, CatalogConnector>> iterator = allCatalogs.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Entry<CatalogHandle, CatalogConnector> entry = iterator.next();
+
+                Catalog activeCatalog = activeCatalogs.get(entry.getKey().getCatalogName());
+                if (activeCatalog != null && activeCatalog.getCatalogHandle().equals(entry.getKey())) {
+                    // catalog is registered with a name, and therefor is available for new queries, and should not be removed
+                    continue;
+                }
+
+                if (!catalogsInUse.contains(entry.getKey())) {
+                    iterator.remove();
+                    removedCatalogs.add(entry.getValue());
+                }
+            }
+        }
+        finally {
+            catalogsUpdateLock.unlock();
+        }
+
+        // todo do this in a background thread
+        for (CatalogConnector removedCatalog : removedCatalogs) {
+            try {
+                removedCatalog.shutdown();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error shutting down catalog: %s".formatted(removedCatalog));
+            }
+        }
+
+        if (!removedCatalogs.isEmpty()) {
+            List<String> sortedHandles = removedCatalogs.stream().map(connector -> connector.getCatalogHandle().toString()).sorted().toList();
+            log.info("Pruned catalogs: %s", sortedHandles);
         }
     }
 
@@ -216,6 +272,8 @@ public class CoordinatorDynamicCatalogManager
                     handle -> catalogFactory.createCatalog(catalogProperties));
             activeCatalogs.put(catalogName, catalog.getCatalog());
             catalogStore.addOrReplaceCatalog(catalogProperties);
+
+            log.info("Added catalog: %s", catalog.getCatalogHandle());
         }
         finally {
             catalogsUpdateLock.unlock();

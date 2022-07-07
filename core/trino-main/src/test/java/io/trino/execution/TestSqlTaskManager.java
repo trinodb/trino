@@ -61,6 +61,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -555,6 +556,12 @@ public class TestSqlTaskManager
 
         @Override
         public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs) {}
+
+        @Override
+        public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
+        {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
         public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
