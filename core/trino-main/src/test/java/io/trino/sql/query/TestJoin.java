@@ -225,4 +225,24 @@ public class TestJoin
                                                 values())
                                                 .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates)))));
     }
+
+    @Test
+    public void testPredicateOverOuterJoin()
+    {
+        assertThat(assertions.query(
+                "SELECT 5 " +
+                        "FROM (VALUES (1,'foo')) l(l1, l2) " +
+                        "LEFT JOIN (VALUES (2,'bar')) r(r1, r2) " +
+                        "ON l2 = r2 " +
+                        "WHERE l1 >= COALESCE(r1, 0)"))
+                .matches("VALUES 5");
+
+        assertThat(assertions.query(
+                "SELECT 5 " +
+                        "FROM (VALUES (2,'foo')) l(l1, l2) " +
+                        "RIGHT JOIN (VALUES (1,'bar')) r(r1, r2) " +
+                        "ON l2 = r2 " +
+                        "WHERE r1 >= COALESCE(l1, 0)"))
+                .matches("VALUES 5");
+    }
 }
