@@ -57,18 +57,21 @@ public class CassandraSplitManager
     private final int partitionSizeForBatchSelect;
     private final CassandraTokenSplitManager tokenSplitMgr;
     private final CassandraPartitionManager partitionManager;
+    private final CassandraTypeManager cassandraTypeManager;
 
     @Inject
     public CassandraSplitManager(
             CassandraClientConfig cassandraClientConfig,
             CassandraSession cassandraSession,
             CassandraTokenSplitManager tokenSplitMgr,
-            CassandraPartitionManager partitionManager)
+            CassandraPartitionManager partitionManager,
+            CassandraTypeManager cassandraTypeManager)
     {
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
         this.partitionSizeForBatchSelect = cassandraClientConfig.getPartitionSizeForBatchSelect();
         this.tokenSplitMgr = tokenSplitMgr;
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
+        this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
     }
 
     @Override
@@ -114,13 +117,14 @@ public class CassandraSplitManager
         return new FixedSplitSource(splits);
     }
 
-    private static String extractClusteringKeyPredicates(CassandraPartitionResult partitionResult, CassandraTableHandle tableHandle, CassandraSession session)
+    private String extractClusteringKeyPredicates(CassandraPartitionResult partitionResult, CassandraTableHandle tableHandle, CassandraSession session)
     {
         if (partitionResult.isUnpartitioned()) {
             return "";
         }
 
         CassandraClusteringPredicatesExtractor clusteringPredicatesExtractor = new CassandraClusteringPredicatesExtractor(
+                cassandraTypeManager,
                 session.getTable(tableHandle.getSchemaTableName()).getClusteringKeyColumns(),
                 partitionResult.getUnenforcedConstraint(),
                 session.getCassandraVersion());
