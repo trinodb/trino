@@ -30,6 +30,7 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvid
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeEventListener;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
@@ -77,6 +78,7 @@ public final class InternalDeltaLakeConnectorFactory
             Bootstrap app = new Bootstrap(
                     new EventModule(),
                     new MBeanModule(),
+                    new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.deltalake", "trino.plugin.deltalake"),
                     new JsonModule(),
                     new MBeanServerModule(),
                     new HiveHdfsModule(),
