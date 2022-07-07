@@ -45,6 +45,7 @@ import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.Rule.Context;
 import static io.trino.sql.planner.iterative.Rule.Result;
+import static io.trino.sql.planner.plan.Patterns.Join.type;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -84,10 +85,10 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
             GREATER_THAN_OR_EQUAL,
             LESS_THAN,
             LESS_THAN_OR_EQUAL);
-    private static final Pattern<JoinNode> JOIN_PATTERN = join();
+    private static final Pattern<JoinNode> JOIN_PATTERN = join().with(type().equalTo(JoinNode.Type.INNER));
     private static final Capture<JoinNode> JOIN_CAPTURE = newCapture();
     private static final Pattern<FilterNode> FILTER_PATTERN = filter().with(source().matching(
-            join().capturedAs(JOIN_CAPTURE)));
+            join().with(type().equalTo(JoinNode.Type.INNER)).capturedAs(JOIN_CAPTURE)));
 
     private final Metadata metadata;
     private final TypeAnalyzer typeAnalyzer;
