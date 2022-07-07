@@ -120,6 +120,26 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot access catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCreateCatalog(String catalogName)
+    {
+        denyCreateCatalog(catalogName, null);
+    }
+
+    public static void denyCreateCatalog(String catalogName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDropCatalog(String catalogName)
+    {
+        denyDropCatalog(catalogName, null);
+    }
+
+    public static void denyDropCatalog(String catalogName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateSchema(String schemaName)
     {
         denyCreateSchema(schemaName, null);
