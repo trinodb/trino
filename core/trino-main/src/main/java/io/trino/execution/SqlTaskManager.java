@@ -28,6 +28,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.connector.CatalogProperties;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.event.SplitMonitor;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -48,6 +49,7 @@ import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
@@ -64,6 +66,7 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.Closeable;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -73,11 +76,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
@@ -428,6 +433,26 @@ public class SqlTaskManager
         return sqlTask.acknowledgeAndGetNewDynamicFilterDomains(currentDynamicFiltersVersion);
     }
 
+    private final ReentrantLock catalogsLock = new ReentrantLock();
+
+    public void pruneCatalogs(Set<CatalogHandle> activeCatalogs)
+    {
+        catalogsLock.lock();
+        try {
+            Set<CatalogHandle> catalogsInUse = new HashSet<>(activeCatalogs);
+            for (SqlTask task : tasks.asMap().values()) {
+                // add all catalogs being used by a non-done task
+                if (!task.getTaskState().isDone()) {
+                    catalogsInUse.addAll(task.getCatalogs().orElse(ImmutableSet.of()));
+                }
+            }
+            connectorServicesProvider.pruneCatalogs(catalogsInUse);
+        }
+        finally {
+            catalogsLock.unlock();
+        }
+    }
+
     /**
      * Updates the task plan, splitAssignments and output buffers.  If the task does not
      * already exist, it is created and then updated.
@@ -483,7 +508,15 @@ public class SqlTaskManager
             }
         }
 
-        fragment.ifPresent(planFragment -> connectorServicesProvider.ensureCatalogsLoaded(session, planFragment.getActiveCatalogs()));
+        fragment.map(PlanFragment::getActiveCatalogs)
+                .ifPresent(activeCatalogs -> {
+                    Set<CatalogHandle> catalogHandles = activeCatalogs.stream()
+                            .map(CatalogProperties::getCatalogHandle)
+                            .collect(toImmutableSet());
+                    if (sqlTask.setCatalogs(catalogHandles)) {
+                        connectorServicesProvider.ensureCatalogsLoaded(session, activeCatalogs);
+                    }
+                });
 
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, fragment, splitAssignments, outputBuffers, dynamicFilterDomains);

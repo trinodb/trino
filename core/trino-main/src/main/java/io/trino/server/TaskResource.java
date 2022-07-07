@@ -35,6 +35,7 @@ import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.security.ResourceSecurity;
+import io.trino.spi.connector.CatalogHandle;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -61,6 +62,7 @@ import javax.ws.rs.core.UriInfo;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -386,6 +388,15 @@ public class TaskResource
 
         taskManager.destroyTaskResults(taskId, bufferId);
         asyncResponse.resume(Response.noContent().build());
+    }
+
+    @ResourceSecurity(INTERNAL_ONLY)
+    @POST
+    @Path("pruneCatalogs")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public void pruneCatalogs(Set<CatalogHandle> catalogHandles)
+    {
+        taskManager.pruneCatalogs(catalogHandles);
     }
 
     private boolean injectFailure(

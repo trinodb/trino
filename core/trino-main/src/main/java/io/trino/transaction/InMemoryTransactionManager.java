@@ -13,6 +13,7 @@
  */
 package io.trino.transaction;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
@@ -574,7 +575,16 @@ public class InMemoryTransactionManager
                     .sorted()
                     .collect(toUnmodifiableList());
 
-            return new TransactionInfo(transactionId, isolationLevel, readOnly, autoCommitContext, createTime, idleTime, catalogNames, writtenCatalogName);
+            return new TransactionInfo(
+                    transactionId,
+                    isolationLevel,
+                    readOnly,
+                    autoCommitContext,
+                    createTime,
+                    idleTime,
+                    catalogNames,
+                    writtenCatalogName,
+                    ImmutableSet.copyOf(activeCatalogs.keySet()));
         }
     }
 }
