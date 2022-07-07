@@ -38,7 +38,7 @@ public class RewriteCast
     private static final Capture<ConnectorExpression> ARGUMENT = newCapture();
 
     private static final Pattern<Call> PATTERN = call()
-                .with(functionName().equalTo(CAST_FUNCTION_NAME))
+            .with(functionName().equalTo(CAST_FUNCTION_NAME))
             .with(argument(0).capturedAs(ARGUMENT));
 
     private final Function<Type, Optional<String>> typeMapping;

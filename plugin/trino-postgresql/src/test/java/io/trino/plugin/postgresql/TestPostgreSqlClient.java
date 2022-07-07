@@ -48,6 +48,7 @@ import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingConnectorSession;
@@ -441,20 +442,6 @@ public class TestPostgreSqlClient
                                 Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
                 Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2)))
                 .hasValue("(\"c_varchar\") IN ('value1', 'value2', \"c_varchar2\")");
-    }
-
-    @Test
-    public void testConvertInWithNulls()
-    {
-        assertThat(JDBC_CLIENT.convertPredicate(
-                SESSION,
-                translateToConnectorExpression(
-                        new InPredicate(
-                                new SymbolReference("c_varchar"),
-                                new InListExpression(List.of(new StringLiteral("value1"), new StringLiteral("value2"), new Cast(new NullLiteral(), toSqlType(VARCHAR_COLUMN.getColumnType())), new SymbolReference("c_varchar2")))),
-                        Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
-                Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2)))
-                .hasValue("(\"c_varchar\") IN ('value1', 'value2', CAST(NULL AS varchar(10)), \"c_varchar2\")");
     }
 
     @Test

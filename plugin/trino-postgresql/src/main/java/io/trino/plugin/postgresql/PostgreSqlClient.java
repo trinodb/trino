@@ -343,6 +343,21 @@ public class PostgreSqlClient
                         .build());
     }
 
+    private Optional<String> typedCast(Type type)
+    {
+        if (type instanceof VarcharType) {
+            VarcharType varcharType = (VarcharType) type;
+            return varcharType.getLength().map(length -> format("varchar(%d)", length)).or(() -> Optional.of("varchar"));
+        }
+
+        if (type instanceof CharType) {
+            CharType charType = (CharType) type;
+            return Optional.of(format("char(%d)", charType.getLength()));
+        }
+
+        return Optional.empty();
+    }
+
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
