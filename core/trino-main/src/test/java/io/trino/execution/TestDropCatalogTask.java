@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.DropCatalog;
@@ -91,7 +92,7 @@ public class TestDropCatalogTask
 
     private DropCatalogTask getCreateCatalogTask()
     {
-        return new DropCatalogTask(queryRunner.getCatalogManager());
+        return new DropCatalogTask(queryRunner.getCatalogManager(), new AllowAllAccessControl());
     }
 
     private QueryStateMachine createNewQuery()

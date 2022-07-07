@@ -74,7 +74,7 @@ public class CreateCatalogTask
 
         Session session = stateMachine.getSession();
         String catalog = statement.getCatalogName().toString();
-        // TODO add access control check
+        accessControl.checkCanCreateCatalog(session.toSecurityContext(), catalog);
 
         Map<String, String> properties = new HashMap<>();
         for (Property property : statement.getProperties()) {

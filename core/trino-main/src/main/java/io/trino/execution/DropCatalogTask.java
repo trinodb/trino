@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogManager;
+import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.Expression;
@@ -32,11 +33,13 @@ public class DropCatalogTask
         implements DataDefinitionTask<DropCatalog>
 {
     private final CatalogManager catalogManager;
+    private final AccessControl accessControl;
 
     @Inject
-    public DropCatalogTask(CatalogManager catalogManager)
+    public DropCatalogTask(CatalogManager catalogManager, AccessControl accessControl)
     {
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -56,7 +59,7 @@ public class DropCatalogTask
             throw new TrinoException(NOT_SUPPORTED, "CASCADE is not yet supported for DROP SCHEMA");
         }
 
-        // TODO add access control check
+        accessControl.checkCanDropCatalog(stateMachine.getSession().toSecurityContext(), statement.getCatalogName().toString());
         catalogManager.dropCatalog(statement.getCatalogName().toString(), statement.isExists());
         return immediateVoidFuture();
     }
