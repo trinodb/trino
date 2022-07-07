@@ -37,6 +37,8 @@ import static org.testng.Assert.assertEquals;
 
 public final class CassandraTestingUtils
 {
+    public static final CassandraTypeManager CASSANDRA_TYPE_MANAGER = new CassandraTypeManager();
+
     public static final String TABLE_ALL_TYPES = "table_all_types";
     public static final String TABLE_TUPLE_TYPE = "table_tuple_type";
     public static final String TABLE_USER_DEFINED_TYPE = "table_user_defined_type";

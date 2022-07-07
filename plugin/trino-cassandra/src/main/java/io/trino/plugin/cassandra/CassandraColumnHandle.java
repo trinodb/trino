@@ -31,7 +31,7 @@ public class CassandraColumnHandle
 {
     private final String name;
     private final int ordinalPosition;
-    private final CassandraType cassandraType;
+    private final CassandraTypeMapping cassandraType;
     private final boolean partitionKey;
     private final boolean clusteringKey;
     private final boolean indexed;
@@ -41,7 +41,7 @@ public class CassandraColumnHandle
     public CassandraColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("ordinalPosition") int ordinalPosition,
-            @JsonProperty("cassandraType") CassandraType cassandraType,
+            @JsonProperty("cassandraType") CassandraTypeMapping cassandraType,
             @JsonProperty("partitionKey") boolean partitionKey,
             @JsonProperty("clusteringKey") boolean clusteringKey,
             @JsonProperty("indexed") boolean indexed,
@@ -70,7 +70,7 @@ public class CassandraColumnHandle
     }
 
     @JsonProperty
-    public CassandraType getCassandraType()
+    public CassandraTypeMapping getCassandraType()
     {
         return cassandraType;
     }

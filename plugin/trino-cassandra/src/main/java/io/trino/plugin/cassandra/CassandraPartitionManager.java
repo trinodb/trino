@@ -45,11 +45,13 @@ public class CassandraPartitionManager
     private static final Logger log = Logger.get(CassandraPartitionManager.class);
 
     private final CassandraSession cassandraSession;
+    private final CassandraTypeManager cassandraTypeManager;
 
     @Inject
-    public CassandraPartitionManager(CassandraSession cassandraSession)
+    public CassandraPartitionManager(CassandraSession cassandraSession, CassandraTypeManager cassandraTypeManager)
     {
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
+        this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
     }
 
     public CassandraPartitionResult getPartitions(CassandraTableHandle cassandraTableHandle, TupleDomain<ColumnHandle> tupleDomain)
@@ -98,7 +100,7 @@ public class CassandraPartitionManager
                 if (column.isIndexed() && domain.isSingleValue()) {
                     sb.append(CassandraCqlUtils.validColumnName(column.getName()))
                             .append(" = ")
-                            .append(column.getCassandraType().toCqlLiteral(entry.getValue().getSingleValue()));
+                            .append(cassandraTypeManager.toCqlLiteral(column.getCassandraType(), entry.getValue().getSingleValue()));
                     indexedColumns.add(column);
                     // Only one indexed column predicate can be pushed down.
                     break;
@@ -132,7 +134,7 @@ public class CassandraPartitionManager
         return cassandraSession.getPartitions(table, partitionKeysList);
     }
 
-    private static List<Set<Object>> getPartitionKeysList(CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
+    private List<Set<Object>> getPartitionKeysList(CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
     {
         ImmutableList.Builder<Set<Object>> partitionColumnValues = ImmutableList.builder();
         for (CassandraColumnHandle columnHandle : table.getPartitionKeyColumns()) {
@@ -158,8 +160,8 @@ public class CassandraPartitionManager
                             }
                             Object value = range.getSingleValue();
 
-                            CassandraType valueType = columnHandle.getCassandraType();
-                            if (valueType.isSupportedPartitionKey()) {
+                            CassandraTypeMapping valueType = columnHandle.getCassandraType();
+                            if (cassandraTypeManager.isSupportedPartitionKey(valueType.getKind())) {
                                 columnValues.add(value);
                             }
                         }
