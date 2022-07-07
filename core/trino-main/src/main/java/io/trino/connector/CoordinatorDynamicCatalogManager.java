@@ -23,6 +23,7 @@ import io.trino.metadata.CatalogManager;
 import io.trino.server.ForStartup;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -43,9 +44,11 @@ import java.util.concurrent.locks.ReentrantLock;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.metadata.Catalog.failedCatalog;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.util.Executors.executeUntilFailure;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -67,7 +70,7 @@ public class CoordinatorDynamicCatalogManager
     /**
      * Active catalogs that have been created and not dropped.
      */
-    private final ConcurrentMap<String, CatalogConnector> activeCatalogs = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Catalog> activeCatalogs = new ConcurrentHashMap<>();
 
     /**
      * All catalogs including those that have been dropped.
@@ -125,12 +128,20 @@ public class CoordinatorDynamicCatalogManager
                     executor,
                     catalogStore.getCatalogs().stream()
                             .map(storedCatalog -> (Callable<?>) () -> {
-                                log.info("-- Loading catalog %s --", storedCatalog.getName());
-                                CatalogProperties catalog = storedCatalog.loadProperties();
-                                CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
-                                activeCatalogs.put(catalog.getCatalogHandle().getCatalogName(), newCatalog);
-                                allCatalogs.put(catalog.getCatalogHandle(), newCatalog);
-                                log.info("-- Added catalog %s using connector %s --", storedCatalog.getName(), catalog.getConnectorName());
+                                CatalogProperties catalog = null;
+                                try {
+                                    catalog = storedCatalog.loadProperties();
+                                    CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
+                                    activeCatalogs.put(catalog.getCatalogHandle().getCatalogName(), newCatalog.getCatalog());
+                                    allCatalogs.put(catalog.getCatalogHandle(), newCatalog);
+                                    log.info("-- Added catalog %s using connector %s --", storedCatalog.getName(), catalog.getConnectorName());
+                                }
+                                catch (Throwable e) {
+                                    CatalogHandle catalogHandle = catalog != null ? catalog.getCatalogHandle() : createRootCatalogHandle(storedCatalog.getName(), new CatalogVersion("failed"));
+                                    ConnectorName connectorName = catalog != null ? catalog.getConnectorName() : new ConnectorName("unknown");
+                                    activeCatalogs.put(storedCatalog.getName(), failedCatalog(storedCatalog.getName(), catalogHandle, connectorName));
+                                    log.error(e, "-- Failed to load catalog %s using connector %s --", storedCatalog.getName(), connectorName);
+                                }
                                 return null;
                             })
                             .collect(toImmutableList()));
@@ -149,8 +160,7 @@ public class CoordinatorDynamicCatalogManager
     @Override
     public Optional<Catalog> getCatalog(String catalogName)
     {
-        return Optional.ofNullable(activeCatalogs.get(catalogName))
-                .map(CatalogConnector::getCatalog);
+        return Optional.ofNullable(activeCatalogs.get(catalogName));
     }
 
     @Override
@@ -204,7 +214,7 @@ public class CoordinatorDynamicCatalogManager
             CatalogConnector catalog = allCatalogs.computeIfAbsent(
                     catalogProperties.getCatalogHandle(),
                     handle -> catalogFactory.createCatalog(catalogProperties));
-            activeCatalogs.put(catalogName, catalog);
+            activeCatalogs.put(catalogName, catalog.getCatalog());
             catalogStore.addOrReplaceCatalog(catalogProperties);
         }
         finally {
@@ -223,7 +233,7 @@ public class CoordinatorDynamicCatalogManager
             }
 
             CatalogConnector catalog = catalogFactory.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, new ConnectorName(GlobalSystemConnector.NAME), connector);
-            if (activeCatalogs.putIfAbsent(GlobalSystemConnector.NAME, catalog) != null) {
+            if (activeCatalogs.putIfAbsent(GlobalSystemConnector.NAME, catalog.getCatalog()) != null) {
                 throw new IllegalStateException("Global system catalog already registered");
             }
             allCatalogs.put(GlobalSystemConnector.CATALOG_HANDLE, catalog);
