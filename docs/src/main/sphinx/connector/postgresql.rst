@@ -97,35 +97,161 @@ catalog named ``sales`` using the configured connector.
 Type mapping
 ------------
 
-The data type mappings are as follows:
+Because Trino and PostgreSQL each support types that the other does not, this
+connector modifies some types when reading or writing data. Data types may not
+map the same way in both directions between Trino and the data source. Refer to
+the following sections for type mapping in each direction.
 
-=================== ================================ =======================================================================
-PostgreSQL          Trino                            Notes
-=================== ================================ =======================================================================
-``BIT``             ``BOOLEAN``
-``BOOLEAN``         ``BOOLEAN``
-``SMALLINT``        ``SMALLINT``
-``INTEGER``         ``INTEGER``
-``BIGINT``          ``BIGINT``
-``REAL``            ``DATE``
-``DOUBLE``          ``DOUBLE``
-``NUMERIC(p, s)``   ``DECIMAL(p, s)``                ``DECIMAL(p, s)`` is an alias of  ``NUMERIC(p, s)``.
-                                                     See :ref:`postgresql-decimal-type-handling` for more information.
-``CHAR(n)``         ``CHAR(n)``
-``VARCHAR(n)``      ``VARCHAR(n)``
-``ENUM``            ``VARCHAR``
-``BINARY``          ``VARBINARY``
-``DATE``            ``DATE``
-``TIME(n)``         ``TIME(n)``
-``TIMESTAMP(n)``    ``TIMESTAMP(n)``
-``TIMESTAMPTZ(n)``  ``TIMESTAMP(n) WITH TIME ZONE``
-``MONEY``           ``VARCHAR``
-``UUID``            ``UUID``
-``JSON``            ``JSON``
-``JSONB``           ``JSON``
-``HSTORE``          ``MAP(VARCHAR, VARCHAR)``
-``ARRAY``           Disabled, ``ARRAY`` or ``JSON``  See :ref:`postgresql-array-type-handling` for more information.
-=================== ================================ =======================================================================
+PostgreSQL type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps PostgreSQL types to the corresponding Trino types following
+this table:
+
+.. list-table:: PostgreSQL type to Trino type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - PostgreSQL type
+    - Trino type
+    - Notes
+  * - ``BIT``
+    - ``BOOLEAN``
+    -
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``REAL``
+    - ``REAL``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``NUMERIC(p, s)``
+    - ``DECIMAL(p, s)``
+    - ``DECIMAL(p, s)`` is an alias of  ``NUMERIC(p, s)``. See
+      :ref:`postgresql-decimal-type-handling` for more information.
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+    -
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+    -
+  * - ``ENUM``
+    - ``VARCHAR``
+    -
+  * - ``BYTEA``
+    - ``VARBINARY``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    -
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n)``
+    -
+  * - ``TIMESTAMPTZ(n)``
+    - ``TIMESTAMP(n) WITH TIME ZONE``
+    -
+  * - ``MONEY``
+    - ``VARCHAR``
+    -
+  * - ``UUID``
+    - ``UUID``
+    -
+  * - ``JSON``
+    - ``JSON``
+    -
+  * - ``JSONB``
+    - ``JSON``
+    -
+  * - ``HSTORE``
+    - ``MAP(VARCHAR, VARCHAR)``
+    -
+  * - ``ARRAY``
+    - Disabled, ``ARRAY``, or ``JSON``
+    - See :ref:`postgresql-array-type-handling` for more information.
+
+No other types are supported.
+
+Trino type to PostgreSQL type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding PostgreSQL types following
+this table:
+
+.. list-table:: Trino type to PostgreSQL type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - Trino type
+    - PostgreSQL type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``TINYINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``DECIMAL(p, s)``
+    - ``NUMERIC(p, s)``
+    - ``DECIMAL(p, s)`` is an alias of  ``NUMERIC(p, s)``. See
+      :ref:`postgresql-decimal-type-handling` for more information.
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+    -
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+    -
+  * - ``VARBINARY``
+    - ``BYTEA``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    -
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n)``
+    -
+  * - ``TIMESTAMP(n) WITH TIME ZONE``
+    - ``TIMESTAMPTZ(n)``
+    -
+  * - ``UUID``
+    - ``UUID``
+    -
+  * - ``JSON``
+    - ``JSONB``
+    -
+  * - ``ARRAY``
+    - ``ARRAY``
+    - See :ref:`postgresql-array-type-handling` for more information.
+
+No other types are supported.
 
 .. _postgresql-decimal-type-handling:
 
