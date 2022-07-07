@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
@@ -40,6 +41,7 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.util.Strings.isNullOrEmpty;
@@ -52,6 +54,73 @@ public final class DeltaLakeQueryRunner
 
     private DeltaLakeQueryRunner() {}
 
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static Builder builder(Session defaultSession)
+    {
+        return new Builder(defaultSession);
+    }
+
+    public static class Builder
+            extends DistributedQueryRunner.Builder<Builder>
+    {
+        private String catalogName = DELTA_CATALOG;
+        private ImmutableMap.Builder<String, String> deltaProperties = ImmutableMap.builder();
+
+        protected Builder()
+        {
+            super(createSession());
+        }
+
+        protected Builder(Session defaultSession)
+        {
+            super(defaultSession);
+        }
+
+        public Builder setCatalogName(String catalogName)
+        {
+            this.catalogName = catalogName;
+            return self();
+        }
+
+        public Builder setDeltaProperties(Map<String, String> deltaProperties)
+        {
+            this.deltaProperties = ImmutableMap.<String, String>builder()
+                    .putAll(requireNonNull(deltaProperties, "deltaProperties is null"));
+            return self();
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                queryRunner.installPlugin(new TestingDeltaLakePlugin());
+                Map<String, String> deltaProperties = new HashMap<>(this.deltaProperties.buildOrThrow());
+                if (!deltaProperties.containsKey("hive.metastore.uri")) {
+                    Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve(DELTA_CATALOG);
+                    deltaProperties.put("hive.metastore", "file");
+                    deltaProperties.put("hive.metastore.catalog.dir", dataDir.toString());
+                }
+
+                queryRunner.createCatalog(catalogName, CONNECTOR_NAME, deltaProperties);
+
+                return queryRunner;
+            }
+            catch (Exception e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
+    }
+
     public static DistributedQueryRunner createDeltaLakeQueryRunner()
             throws Exception
     {
@@ -61,26 +130,10 @@ public final class DeltaLakeQueryRunner
     public static DistributedQueryRunner createDeltaLakeQueryRunner(Map<String, String> extraProperties, Map<String, String> connectorProperties)
             throws Exception
     {
-        Session session = testSessionBuilder()
-                .setCatalog(DELTA_CATALOG)
-                .setSchema("tpch")
+        DistributedQueryRunner queryRunner = builder(createSession())
+                .setExtraProperties(extraProperties)
+                .setDeltaProperties(connectorProperties)
                 .build();
-
-        DistributedQueryRunner.Builder<?> builder = DistributedQueryRunner.builder(session);
-        extraProperties.forEach(builder::addExtraProperty);
-        DistributedQueryRunner queryRunner = builder.build();
-
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
-
-        Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve(DELTA_CATALOG);
-
-        connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-        connectorProperties.putIfAbsent("hive.metastore", "file");
-        connectorProperties.putIfAbsent("hive.metastore.catalog.dir", dataDir.toString());
-
-        queryRunner.installPlugin(new TestingDeltaLakePlugin());
-        queryRunner.createCatalog(DELTA_CATALOG, CONNECTOR_NAME, connectorProperties);
 
         queryRunner.execute("CREATE SCHEMA tpch");
 
@@ -157,23 +210,18 @@ public final class DeltaLakeQueryRunner
                 .setSchema(schemaName)
                 .build();
 
-        DistributedQueryRunner.Builder<?> builder = DistributedQueryRunner.builder(session);
+        Builder builder = builder(session);
         extraProperties.forEach(builder::addExtraProperty);
         coordinatorProperties.forEach(builder::setSingleCoordinatorProperty);
-        builder.setAdditionalSetup(additionalSetup);
-        DistributedQueryRunner queryRunner = builder.build();
-
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
-
-        queryRunner.installPlugin(new TestingDeltaLakePlugin());
-        Map<String, String> deltaLakeProperties = ImmutableMap.<String, String>builder()
-                .put("hive.metastore.uri", testingHadoop.getMetastoreAddress())
-                .put("hive.s3.streaming.part-size", "5MB") //must be at least 5MB according to annotations on io.trino.plugin.hive.s3.HiveS3Config.getS3StreamingPartSize
-                .putAll(connectorProperties)
-                .buildOrThrow();
-
-        queryRunner.createCatalog(catalogName, CONNECTOR_NAME, deltaLakeProperties);
+        DistributedQueryRunner queryRunner = builder
+                .setCatalogName(catalogName)
+                .setAdditionalSetup(additionalSetup)
+                .setDeltaProperties(ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", testingHadoop.getMetastoreAddress())
+                        .put("hive.s3.streaming.part-size", "5MB") //must be at least 5MB according to annotations on io.trino.plugin.hive.s3.HiveS3Config.getS3StreamingPartSize
+                        .putAll(connectorProperties)
+                        .buildOrThrow())
+                .build();
         return queryRunner;
     }
 
