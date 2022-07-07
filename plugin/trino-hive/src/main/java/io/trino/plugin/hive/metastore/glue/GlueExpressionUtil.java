@@ -204,6 +204,10 @@ public final class GlueExpressionUtil
             disjuncts.add(inClause);
         }
 
+        if (domain.isNullAllowed()) {
+            disjuncts.add(format("(%s = '%s')", columnName, NULL_STRING));
+        }
+
         return Optional.of("(" + DISJUNCT_JOINER.join(disjuncts) + ")");
     }
 }

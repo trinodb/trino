@@ -145,6 +145,28 @@ public class TestGlueExpressionUtil
     }
 
     @Test
+    public void testBuildGlueExpressionTupleDomainEqualsOrIsNull()
+    {
+        TupleDomain<String> filter = new PartitionFilterBuilder()
+                .addStringValues("col1", "2020-01-01")
+                .addDomain("col1", Domain.onlyNull(VarcharType.VARCHAR))
+                .build();
+        String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
+        assertEquals(expression, format("((col1 = '2020-01-01') OR (col1 = '%s'))", GlueExpressionUtil.NULL_STRING));
+    }
+
+    @Test
+    public void testBuildGlueExpressionTupleDomainEqualsAndIsNotNull()
+    {
+        TupleDomain<String> filter = new PartitionFilterBuilder()
+                .addStringValues("col1", "2020-01-01")
+                .addDomain("col2", Domain.notNull(VarcharType.VARCHAR))
+                .build();
+        String expression = buildGlueExpression(ImmutableList.of("col1", "col2"), filter, true);
+        assertEquals(expression, format("((col1 = '2020-01-01')) AND (col2 <> '%s')", GlueExpressionUtil.NULL_STRING));
+    }
+
+    @Test
     public void testBuildGlueExpressionMaxLengthNone()
     {
         TupleDomain<String> filter = new PartitionFilterBuilder()
