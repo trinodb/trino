@@ -56,6 +56,14 @@ infinite number of schemas for any scale factor, not just the few common
 ones listed by ``SHOW SCHEMAS``. The ``tiny`` schema is an alias for scale
 factor ``0.01``, which is a very small data set useful for testing.
 
+.. _tpch-type-mapping:
+
+Type mapping
+------------
+
+Trino supports all data types used within the TPCH schemas so no mapping
+is required.
+
 .. _tpch-sql-support:
 
 SQL support
