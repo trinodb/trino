@@ -1,0 +1,105 @@
+# zookeeper
+docker run -it --rm --name zookeeper -p 2181:2181 -p 2888:2888 -p 3888:3888 quay.io/debezium/zookeeper:1.9
+# kafka
+docker run -it --rm --name kafka --hostname kafka --env KAFKA_INTER_BROKER_LISTENER_NAME=FROM_DOCKER_NETWORK --env KAFKA_LISTENERS="FROM_DOCKER_NETWORK://kafka:9092,FROM_HOST://0.0.0.0:9094" --env KAFKA_LISTENER_SECURITY_PROTOCOL_MAP="PLAINTEXT:PLAINTEXT,FROM_DOCKER_NETWORK:PLAINTEXT,FROM_HOST:PLAINTEXT" --env KAFKA_ADVERTISED_LISTENERS="FROM_DOCKER_NETWORK://kafka:9092,FROM_HOST://localhost:9094" -p 9092:9092 -p 9094:9094 --link zookeeper:zookeeper quay.io/debezium/kafka:1.9
+# mysql
+docker run -it --rm --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=debezium -e MYSQL_USER=mysqluser -e MYSQL_PASSWORD=mysqlpw quay.io/debezium/example-mysql:1.9
+# kafka sink
+docker run -it --rm --name connect -p 8083:8083 -e GROUP_ID=1 -e CONFIG_STORAGE_TOPIC=my_connect_configs -e OFFSET_STORAGE_TOPIC=my_connect_offsets -e STATUS_STORAGE_TOPIC=my_connect_statuses --link zookeeper:zookeeper --link kafka:kafka --link mysql:mysql quay.io/debezium/connect:1.9
+# register mysql connector
+curl -i -X POST -H "Accept:application/json" -H "Content-Type:application/json" localhost:8083/connectors/ -d '{ "name": "inventory-connector", "config": { "connector.class": "io.debezium.connector.mysql.MySqlConnector", "tasks.max": "1", "database.hostname": "mysql", "database.port": "3306", "database.user": "debezium", "database.password": "dbz", "database.server.id": "184054", "database.server.name": "dbserver1", "database.include.list": "inventory", "database.history.kafka.bootstrap.servers": "kafka:9092", "database.history.kafka.topic": "dbhistory.inventory" } }'
+
+# watch topic
+docker run -it --rm -e KAFKA_ADVERTISED_HOST_NAME=kafka --name watcher --link zookeeper:zookeeper --link kafka:kafka quay.io/debezium/kafka:1.9 watch-topic -a -k dbserver1.inventory.customers
+
+# mysql client
+docker run -it --rm --name mysqlterm --link mysql --rm mysql:8.0 sh -c 'exec mysql -h"$MYSQL_PORT_3306_TCP_ADDR" -P"$MYSQL_PORT_3306_TCP_PORT" -uroot -p"$MYSQL_ENV_MYSQL_ROOT_PASSWORD"'
+
+# MySQL preparation
+USE inventory;
+CREATE TABLE addr (
+  id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  street VARCHAR(20));
+INSERT INTO addr VALUES(1, 'Otwocka');
+INSERT INTO addr VALUES(2, 'Marszalkowska');
+
+CREATE TABLE users (
+  id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(20),
+  addr_id INT(6) UNSIGNED,
+  CONSTRAINT fk_addr FOREIGN KEY (addr_id) REFERENCES addr(id));
+INSERT INTO users VALUES(1, 'Karol', 1);
+INSERT INTO users VALUES(2, 'Marek', 2);
+
+# Trino
+SELECT * FROM mysql.inventory.users;
+SELECT * FROM mysql.inventory.addr;
+
+# versioning
+EXPLAIN SELECT * FROM mysql.inventory.users;
+SELECT * FROM mysql.inventory.users FOR VERSION AS OF BIGINT '1';
+SELECT * FROM mysql.inventory.users FOR VERSION AS OF BIGINT '2';
+
+# MV on join
+CREATE MATERIALIZED VIEW memory_versioned.default.user_addr AS
+SELECT u.name, a.street
+FROM mysql.inventory.users u, mysql.inventory.addr a
+WHERE u.addr_id = a.id;
+# show that there are no source table versions
+SHOW CREATE MATERIALIZED VIEW memory_versioned.default.user_addr;
+
+EXPLAIN SELECT * FROM memory_versioned.default.user_addr;
+SELECT * FROM memory_versioned.default.user_addr;
+
+# refresh MV on join
+REFRESH MATERIALIZED VIEW memory_versioned.default.user_addr;
+
+EXPLAIN SELECT * FROM memory_versioned.default.user_addr;
+SELECT * FROM memory_versioned.default.user_addr;
+# show that source table versions changed
+SHOW CREATE MATERIALIZED VIEW memory_versioned.default.user_addr;
+
+# SHOW ENGINE VERSION CHECK
+#!!!MYSQL
+INSERT INTO users VALUES(3, 'Beata', 1);
+# BACK TO TRINO
+# MV will resolve to plain view
+EXPLAIN SELECT * FROM memory_versioned.default.user_addr;
+REFRESH MATERIALIZED VIEW memory_versioned.default.user_addr;
+# MV uses storage table again
+EXPLAIN SELECT * FROM memory_versioned.default.user_addr;
+SELECT * FROM memory_versioned.default.user_addr;
+
+# CREATE "IMPORT" MV
+CREATE MATERIALIZED VIEW memory_versioned.default.user_name AS
+SELECT name FROM mysql.inventory.users;
+
+# layout is present
+SHOW CREATE MATERIALIZED VIEW memory_versioned.default.user_name;
+EXPLAIN SELECT * FROM memory_versioned.default.user_name;
+SELECT * FROM memory_versioned.default.user_name;
+
+# REFRESH IMPORT MV
+EXPLAIN REFRESH MATERIALIZED VIEW memory_versioned.default.user_name;
+REFRESH MATERIALIZED VIEW memory_versioned.default.user_name;
+# storage table is used
+EXPLAIN SELECT * FROM memory_versioned.default.user_name;
+SELECT * FROM memory_versioned.default.user_name;
+
+# DELETE ROW IN MYSQL
+#!!!MYSQL
+DELETE FROM users WHERE name='Beata';
+# BACK TO TRINO
+# show delete rows
+SELECT * FROM mysql.inventory."users$delete";
+
+# REFRESH IMPORT MV
+EXPLAIN SELECT * FROM memory_versioned.default.user_name;
+EXPLAIN REFRESH MATERIALIZED VIEW memory_versioned.default.user_name;
+REFRESH MATERIALIZED VIEW memory_versioned.default.user_name;
+
+# storage table is used
+EXPLAIN SELECT * FROM memory_versioned.default.user_name;
+SELECT * FROM memory_versioned.default.user_name;
+
+# storage table versioning
