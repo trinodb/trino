@@ -68,7 +68,7 @@
         <dep.casandra.version>4.14.0</dep.casandra.version>
         <dep.minio.version>7.1.4</dep.minio.version>
 
-        <dep.docker.images.version>63</dep.docker.images.version>
+        <dep.docker.images.version>64</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
