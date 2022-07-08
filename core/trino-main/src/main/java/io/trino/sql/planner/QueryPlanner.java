@@ -84,7 +84,6 @@ import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Update;
@@ -115,15 +114,16 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
 import static io.trino.SystemSessionProperties.isSkipRedundantSort;
+import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.isNumericType;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
+import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.OrderingScheme.sortItemToSortOrder;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
@@ -296,7 +296,6 @@ class QueryPlanner
                 0);
 
         // 2. append filter to fail on non-empty result
-        ResolvedFunction fail = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
         String recursionLimitExceededMessage = format("Recursion depth limit exceeded (%s). Use 'max_recursion_depth' session property to modify the limit.", maxRecursionDepth);
         Expression predicate = new IfExpression(
                 new ComparisonExpression(
@@ -304,9 +303,7 @@ class QueryPlanner
                         countSymbol.toSymbolReference(),
                         new GenericLiteral("BIGINT", "0")),
                 new Cast(
-                        new FunctionCall(
-                                fail.toQualifiedName(),
-                                ImmutableList.of(new Cast(new StringLiteral(recursionLimitExceededMessage), toSqlType(VARCHAR)))),
+                        failFunction(plannerContext.getMetadata(), session, NOT_SUPPORTED, recursionLimitExceededMessage),
                         toSqlType(BOOLEAN)),
                 TRUE_LITERAL);
         FilterNode filterNode = new FilterNode(idAllocator.getNextId(), windowNode, predicate);
@@ -1052,7 +1049,6 @@ class QueryPlanner
         // First, append filter to validate offset values. They mustn't be negative or null.
         Symbol offsetSymbol = coercions.get(frameOffset.get());
         Expression zeroOffset = zeroOfType(symbolAllocator.getTypes().get(offsetSymbol));
-        ResolvedFunction fail = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
         Expression predicate = new IfExpression(
                 new ComparisonExpression(
                         GREATER_THAN_OR_EQUAL,
@@ -1060,9 +1056,7 @@ class QueryPlanner
                         zeroOffset),
                 TRUE_LITERAL,
                 new Cast(
-                        new FunctionCall(
-                                fail.toQualifiedName(),
-                                ImmutableList.of(new Cast(new StringLiteral("Window frame offset value must not be negative or null"), toSqlType(VARCHAR)))),
+                        failFunction(plannerContext.getMetadata(), session, INVALID_WINDOW_FRAME, "Window frame offset value must not be negative or null"),
                         toSqlType(BOOLEAN)));
         subPlan = subPlan.withNewRoot(new FilterNode(
                 idAllocator.getNextId(),
@@ -1158,14 +1152,11 @@ class QueryPlanner
 
         // Append filter to validate offset values. They mustn't be negative or null.
         Expression zeroOffset = zeroOfType(offsetType);
-        ResolvedFunction fail = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("fail"), fromTypes(VARCHAR));
         Expression predicate = new IfExpression(
                 new ComparisonExpression(GREATER_THAN_OR_EQUAL, offsetSymbol.toSymbolReference(), zeroOffset),
                 TRUE_LITERAL,
                 new Cast(
-                        new FunctionCall(
-                                fail.toQualifiedName(),
-                                ImmutableList.of(new Cast(new StringLiteral("Window frame offset value must not be negative or null"), toSqlType(VARCHAR)))),
+                        failFunction(plannerContext.getMetadata(), session, INVALID_WINDOW_FRAME, "Window frame offset value must not be negative or null"),
                         toSqlType(BOOLEAN)));
         subPlan = subPlan.withNewRoot(new FilterNode(
                 idAllocator.getNextId(),

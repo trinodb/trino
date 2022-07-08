@@ -201,7 +201,7 @@ public class TestDecorrelateUnnest
                         project(// restore semantics of INNER unnest after it was rewritten to LEFT
                                 ImmutableMap.of("corr", expression("corr"), "unnested_corr", expression("IF((ordinality IS NULL), CAST(null AS bigint), unnested_corr)")),
                                 filter(
-                                        "IF((row_number > BIGINT '1'), CAST(\"@fail@52QIVV94JMEG607IGOBHL05P1613CN1P9T92HEMH7BITOAOHO6M5DJCDG6AVS0EF51Q4I3398DN9SEQVJ68ED8D9AA82LGAE01OA96R7FI8O05GF5V71FKQKBAP7GSQ55HDD19GI0FESCSJFDP48HV1S2NABNSUSOP897D7E08301TKKLOLOGECE3MO5MF6NVBB4I1GJJ9N18===\"(CAST('Scalar sub-query has returned multiple rows' AS varchar)) AS boolean), true)",
+                                        "IF((row_number > BIGINT '1'), CAST(\"@fail@52QIVV94JMEG607IGOBHL05P1613CN1P9T92HEMH7BITOAOHO6M5DJCDG6AVS0EF51Q4I3398DN9SEQVJ68ED8D9AA82LGAE01OA96R7FI8O05GF5V71FKQKBAP7GSQ55HDD19GI0FESCSJFDP48HV1S2NABNSUSOP897D7E08301TKKLOLOGECE3MO5MF6NVBB4I1GJJ9N18===\"(INTEGER '28', VARCHAR 'Scalar sub-query has returned multiple rows') AS boolean), true)",
                                         rowNumber(
                                                 builder -> builder
                                                         .partitionBy(ImmutableList.of("unique"))
@@ -416,7 +416,7 @@ public class TestDecorrelateUnnest
                 .matches(
                         project(
                                 filter(// enforce single row
-                                        "IF((row_number > BIGINT '1'), CAST(\"@fail@52QIVV94JMEG607IGOBHL05P1613CN1P9T92HEMH7BITOAOHO6M5DJCDG6AVS0EF51Q4I3398DN9SEQVJ68ED8D9AA82LGAE01OA96R7FI8O05GF5V71FKQKBAP7GSQ55HDD19GI0FESCSJFDP48HV1S2NABNSUSOP897D7E08301TKKLOLOGECE3MO5MF6NVBB4I1GJJ9N18===\"(CAST('Scalar sub-query has returned multiple rows' AS varchar)) AS boolean), true)",
+                                        "IF((row_number > BIGINT '1'), CAST(\"@fail@52QIVV94JMEG607IGOBHL05P1613CN1P9T92HEMH7BITOAOHO6M5DJCDG6AVS0EF51Q4I3398DN9SEQVJ68ED8D9AA82LGAE01OA96R7FI8O05GF5V71FKQKBAP7GSQ55HDD19GI0FESCSJFDP48HV1S2NABNSUSOP897D7E08301TKKLOLOGECE3MO5MF6NVBB4I1GJJ9N18===\"(INTEGER '28', VARCHAR 'Scalar sub-query has returned multiple rows') AS boolean), true)",
                                         project(// second projection
                                                 ImmutableMap.of("corr", expression("corr"), "unique", expression("unique"), "ordinality", expression("ordinality"), "row_number", expression("row_number"), "integer_result", expression("IF(boolean_result, 1, -1)")),
                                                 filter(// limit
