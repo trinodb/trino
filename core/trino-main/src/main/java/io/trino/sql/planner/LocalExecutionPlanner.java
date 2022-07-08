@@ -2787,7 +2787,7 @@ public class LocalExecutionPlanner
 
             int taskConcurrency = getTaskConcurrency(session);
             OperatorFactory hashBuilderOperatorFactory;
-            if (useSpillingJoinOperator()) {
+            if (useSpillingJoinOperator(session)) {
                 hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                         buildContext.getNextOperatorId(),
                         node.getId(),
@@ -2967,7 +2967,7 @@ public class LocalExecutionPlanner
                             outputSingleMatch,
                             waitForBuild,
                             node.getFilter().isPresent(),
-                            useSpillingJoinOperator(),
+                            useSpillingJoinOperator(session),
                             probeTypes,
                             probeJoinChannels,
                             probeHashChannel,
@@ -2982,7 +2982,7 @@ public class LocalExecutionPlanner
                             lookupSourceFactoryManager,
                             outputSingleMatch,
                             node.getFilter().isPresent(),
-                            useSpillingJoinOperator(),
+                            useSpillingJoinOperator(session),
                             probeTypes,
                             probeJoinChannels,
                             probeHashChannel,
@@ -2997,7 +2997,7 @@ public class LocalExecutionPlanner
                             lookupSourceFactoryManager,
                             waitForBuild,
                             node.getFilter().isPresent(),
-                            useSpillingJoinOperator(),
+                            useSpillingJoinOperator(session),
                             probeTypes,
                             probeJoinChannels,
                             probeHashChannel,
@@ -3011,7 +3011,7 @@ public class LocalExecutionPlanner
                             node.getId(),
                             lookupSourceFactoryManager,
                             node.getFilter().isPresent(),
-                            useSpillingJoinOperator(),
+                            useSpillingJoinOperator(session),
                             probeTypes,
                             probeJoinChannels,
                             probeHashChannel,
@@ -3021,11 +3021,6 @@ public class LocalExecutionPlanner
                             blockTypeOperators);
             }
             throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
-        }
-
-        private boolean useSpillingJoinOperator()
-        {
-            return isSpillEnabled(session) || isForceSpillingOperator(session);
         }
 
         private Map<Symbol, Integer> createJoinSourcesLayout(Map<Symbol, Integer> lookupSourceLayout, Map<Symbol, Integer> probeSourceLayout)
@@ -3886,7 +3881,7 @@ public class LocalExecutionPlanner
             List<Type> buildTypes,
             Session session)
     {
-        if (isSpillEnabled(session) && !isForceSpillingOperator(session)) {
+        if (useSpillingJoinOperator(session)) {
             return new PartitionedLookupSourceFactory(
                     buildTypes,
                     buildOutputTypes,
@@ -4297,5 +4292,10 @@ public class LocalExecutionPlanner
                     .add("boundSignature", boundSignature)
                     .toString();
         }
+    }
+
+    private boolean useSpillingJoinOperator(Session session)
+    {
+        return isSpillEnabled(session) || isForceSpillingOperator(session);
     }
 }
