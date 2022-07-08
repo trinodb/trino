@@ -1273,6 +1273,14 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
+    @Test
+    public void testExplainAnalyzePhysicalReadWallTime()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
+                "'Physical input read time' = \\{duration=.*}");
+    }
+
     protected QueryAssert assertConditionallyPushedDown(
             Session session,
             @Language("SQL") String query,
