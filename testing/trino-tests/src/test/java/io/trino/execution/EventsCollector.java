@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -36,6 +37,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 final class EventsCollector
 {
     private final ConcurrentHashMap<QueryId, QueryEvents> queryEvents = new ConcurrentHashMap<>();
+    private final AtomicBoolean requiresAnonymizedPlan = new AtomicBoolean(false);
 
     public synchronized void addQueryCreated(QueryCreatedEvent event)
     {
@@ -50,6 +52,16 @@ final class EventsCollector
     public synchronized void addSplitCompleted(SplitCompletedEvent event)
     {
         getQueryEvents(new QueryId(event.getQueryId())).addSplitCompleted(event);
+    }
+
+    public void setRequiresAnonymizedPlan(boolean value)
+    {
+        requiresAnonymizedPlan.set(value);
+    }
+
+    public boolean requiresAnonymizedPlan()
+    {
+        return requiresAnonymizedPlan.get();
     }
 
     public QueryEvents getQueryEvents(QueryId queryId)

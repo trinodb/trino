@@ -49,6 +49,13 @@ class EventsAwaitingQueries
         return runQueryAndWaitForEvents(sql, session, Optional.empty());
     }
 
+    MaterializedResultWithEvents runQueryAndWaitForEvents(@Language("SQL") String sql, Session session, boolean requireAnonymizedPlan)
+            throws Exception
+    {
+        eventsCollector.setRequiresAnonymizedPlan(requireAnonymizedPlan);
+        return runQueryAndWaitForEvents(sql, session, Optional.empty());
+    }
+
     MaterializedResultWithEvents runQueryAndWaitForEvents(@Language("SQL") String sql, Session session, Optional<String> expectedExceptionRegEx)
             throws Exception
     {

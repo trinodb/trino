@@ -36,7 +36,7 @@ public class JsonRenderer
         return CODEC.toJson(renderJson(plan, plan.getRoot()));
     }
 
-    private JsonRenderedNode renderJson(PlanRepresentation plan, NodeRepresentation node)
+    protected JsonRenderedNode renderJson(PlanRepresentation plan, NodeRepresentation node)
     {
         List<JsonRenderedNode> children = node.getChildren().stream()
                 .map(plan::getNode)

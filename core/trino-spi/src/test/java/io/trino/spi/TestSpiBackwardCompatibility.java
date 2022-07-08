@@ -63,6 +63,7 @@ public class TestSpiBackwardCompatibility
             .put("393", "Method: public abstract java.util.function.ToIntFunction<io.trino.spi.connector.ConnectorSplit> io.trino.spi.connector.ConnectorNodePartitioningProvider.getSplitBucketFunction(io.trino.spi.connector.ConnectorTransactionHandle,io.trino.spi.connector.ConnectorSession,io.trino.spi.connector.ConnectorPartitioningHandle)")
             .put("394", "Method: public abstract io.trino.spi.exchange.Exchange io.trino.spi.exchange.ExchangeManager.createExchange(io.trino.spi.exchange.ExchangeContext,int)")
             .put("394", "Method: public abstract io.trino.spi.exchange.ExchangeSink io.trino.spi.exchange.ExchangeManager.createSink(io.trino.spi.exchange.ExchangeSinkInstanceHandle,boolean)")
+            .put("394", "Constructor: public io.trino.spi.eventlistener.QueryMetadata(java.lang.String,java.util.Optional<java.lang.String>,java.lang.String,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.lang.String,java.util.List<io.trino.spi.eventlistener.TableInfo>,java.util.List<io.trino.spi.eventlistener.RoutineInfo>,java.net.URI,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>)")
             .build();
 
     @Test
