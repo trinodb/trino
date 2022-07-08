@@ -16,12 +16,14 @@ import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.assertj.core.api.Assertions;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_INSERT;
@@ -303,6 +305,18 @@ public class TestSynapseConnectorTest
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return format("(?s)Cannot insert the value NULL into column '%s'.*", columnName);
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(128);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        Assertions.assertThat(e).hasMessageMatching("Parse Error: Identifier '.*' exceeded the maximum length of 128.");
     }
 
     @DataProvider
