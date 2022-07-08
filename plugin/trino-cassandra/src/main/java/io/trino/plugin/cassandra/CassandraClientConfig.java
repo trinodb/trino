@@ -43,7 +43,8 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner", "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options",
         "cassandra.no-host-available-retry-count", "cassandra.max-schema-refresh-threads", "cassandra.schema-cache-ttl",
-        "cassandra.schema-refresh-interval", "cassandra.load-policy.use-white-list", "cassandra.load-policy.white-list.addresses"})
+        "cassandra.schema-refresh-interval", "cassandra.load-policy.use-white-list", "cassandra.load-policy.white-list.addresses",
+        "cassandra.load-policy.use-token-aware", "cassandra.load-policy.token-aware.shuffle-replicas", "cassandra.load-policy.allowed-addresses"})
 public class CassandraClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
@@ -67,9 +68,6 @@ public class CassandraClientConfig
     private String dcAwareLocalDC;
     private int dcAwareUsedHostsPerRemoteDc;
     private boolean dcAwareAllowRemoteDCsForLocal;
-    private boolean useTokenAware;
-    private boolean tokenAwareShuffleReplicas;
-    private List<String> allowedAddresses = ImmutableList.of();
     private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
     private Optional<Integer> speculativeExecutionLimit = Optional.empty();
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
@@ -329,42 +327,6 @@ public class CassandraClientConfig
     {
         this.dcAwareAllowRemoteDCsForLocal = dcAwareAllowRemoteDCsForLocal;
         return this;
-    }
-
-    public boolean isUseTokenAware()
-    {
-        return this.useTokenAware;
-    }
-
-    @Config("cassandra.load-policy.use-token-aware")
-    public CassandraClientConfig setUseTokenAware(boolean useTokenAware)
-    {
-        this.useTokenAware = useTokenAware;
-        return this;
-    }
-
-    public boolean isTokenAwareShuffleReplicas()
-    {
-        return this.tokenAwareShuffleReplicas;
-    }
-
-    @Config("cassandra.load-policy.token-aware.shuffle-replicas")
-    public CassandraClientConfig setTokenAwareShuffleReplicas(boolean tokenAwareShuffleReplicas)
-    {
-        this.tokenAwareShuffleReplicas = tokenAwareShuffleReplicas;
-        return this;
-    }
-
-    @Config("cassandra.load-policy.allowed-addresses")
-    public CassandraClientConfig setAllowedAddresses(String allowedAddresses)
-    {
-        this.allowedAddresses = SPLITTER.splitToList(allowedAddresses);
-        return this;
-    }
-
-    public List<String> getAllowedAddresses()
-    {
-        return allowedAddresses;
     }
 
     @NotNull
