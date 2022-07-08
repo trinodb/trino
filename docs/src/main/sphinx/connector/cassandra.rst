@@ -144,13 +144,6 @@ Property name                                                 Description
 ``cassandra.load-policy.dc-aware.allow-remote-dc-for-local``  Set to ``true`` to allow to use hosts of
                                                               remote datacenter for local consistency level.
 
-``cassandra.load-policy.use-token-aware``                     Set to ``true`` to use ``TokenAwarePolicy`` (defaults to ``false``).
-
-``cassandra.load-policy.shuffle-replicas``                    Set to ``true`` to use ``TokenAwarePolicy`` with shuffling of replicas,
-                                                              defaults to ``false``.
-
-``cassandra.load-policy.allowed-addresses``                   Comma-separated list of hosts to allow.
-
 ``cassandra.no-host-available-retry-timeout``                 Retry timeout for ``AllNodesFailedException``, defaults to ``1m``.
 
 ``cassandra.speculative-execution.limit``                     The number of speculative executions. This is disabled by default.
