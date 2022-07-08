@@ -19,7 +19,6 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.BigintType;
-import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -31,10 +30,7 @@ import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SimpleCaseExpression;
-import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.WhenClause;
 
 import java.util.Optional;
@@ -42,9 +38,8 @@ import java.util.Optional;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
@@ -163,11 +158,7 @@ public class TransformCorrelatedScalarSubquery
                         ImmutableList.of(
                                 new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
                         Optional.of(new Cast(
-                                FunctionCallBuilder.resolve(context.getSession(), metadata)
-                                        .setName(QualifiedName.of("fail"))
-                                        .addArgument(INTEGER, new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())))
-                                        .addArgument(VARCHAR, new StringLiteral("Scalar sub-query has returned multiple rows"))
-                                        .build(),
+                                failFunction(metadata, context.getSession(), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                                 toSqlType(BOOLEAN)))));
 
         return Result.ofPlanNode(new ProjectNode(

@@ -30,14 +30,13 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
-import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
@@ -252,9 +251,7 @@ public class TestMergeProjectWithValues
     @Test
     public void testFailingExpression()
     {
-        FunctionCall failFunction = new FunctionCall(
-                tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("fail"), fromTypes(VARCHAR)).toQualifiedName(),
-                ImmutableList.of(new StringLiteral("message")));
+        FunctionCall failFunction = failFunction(tester().getMetadata(), tester().getSession(), GENERIC_USER_ERROR, "message");
 
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> p.project(

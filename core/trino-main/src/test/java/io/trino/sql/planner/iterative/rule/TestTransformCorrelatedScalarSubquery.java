@@ -16,8 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.TestingFunctionResolution;
-import io.trino.spi.StandardErrorCode;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -26,9 +24,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SimpleCaseExpression;
-import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
 import org.testng.annotations.Test;
@@ -37,10 +33,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -209,11 +205,7 @@ public class TestTransformCorrelatedScalarSubquery
                 new SymbolReference("is_distinct"),
                 ImmutableList.of(new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
                 Optional.of(new Cast(
-                        new TestingFunctionResolution()
-                                .functionCallBuilder(QualifiedName.of("fail"))
-                                .addArgument(INTEGER, new LongLiteral(Long.toString(StandardErrorCode.SUBQUERY_MULTIPLE_ROWS.ordinal())))
-                                .addArgument(VARCHAR, new StringLiteral("Scalar sub-query has returned multiple rows"))
-                                .build(),
+                        failFunction(tester().getMetadata(), tester().getSession(), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                         toSqlType(BOOLEAN))));
     }
 }

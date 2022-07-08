@@ -30,6 +30,7 @@ import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -47,6 +48,7 @@ import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.trino.sql.tree.FrameBound.Type.PRECEDING;
 import static io.trino.sql.tree.WindowFrame.Type.RANGE;
+import static java.lang.String.format;
 
 public class TestWindowFrameRange
         extends BasePlanTest
@@ -86,7 +88,8 @@ public class TestWindowFrameRange
                                                         filter(// validate offset values
                                                                 "IF((x >= CAST(0 AS DECIMAL(2,1))), " +
                                                                         "true, " +
-                                                                        "CAST(fail(CAST('Window frame offset value must not be negative or null' AS varchar)) AS boolean))",
+                                                                        format("CAST(fail(INTEGER '%d', VARCHAR 'Window frame offset value must not be negative or null') AS boolean))",
+                                                                                INVALID_WINDOW_FRAME.toErrorCode().getCode()),
                                                                 anyTree(
                                                                         values(
                                                                                 ImmutableList.of("key", "x"),
@@ -130,7 +133,8 @@ public class TestWindowFrameRange
                                                 filter(// validate offset values
                                                         "IF((offset >= CAST(0 AS DECIMAL(10, 0))), " +
                                                                 "true, " +
-                                                                "CAST(fail(CAST('Window frame offset value must not be negative or null' AS varchar)) AS boolean))",
+                                                                format("CAST(fail(INTEGER '%d', VARCHAR 'Window frame offset value must not be negative or null') AS boolean))",
+                                                                        INVALID_WINDOW_FRAME.toErrorCode().getCode()),
                                                         project(// coerce offset value to calculate frame end values
                                                                 ImmutableMap.of("offset", expression("CAST(x AS decimal(10, 0))")),
                                                                 anyTree(
@@ -174,13 +178,15 @@ public class TestWindowFrameRange
                                         filter(// validate frame end offset values
                                                 "IF((y >= CAST(0 AS INTEGER)), " +
                                                         "true, " +
-                                                        "CAST(fail(CAST('Window frame offset value must not be negative or null' AS varchar)) AS boolean))",
+                                                        format("CAST(fail(INTEGER '%d', VARCHAR 'Window frame offset value must not be negative or null') AS boolean))",
+                                                                INVALID_WINDOW_FRAME.toErrorCode().getCode()),
                                                 project(// calculate frame start value (sort key - frame start offset)
                                                         ImmutableMap.of("frame_start_value", expression(new FunctionCall(QualifiedName.of("$operator$subtract"), ImmutableList.of(new SymbolReference("key"), new SymbolReference("x"))))),
                                                         filter(// validate frame start offset values
                                                                 "IF((x >= CAST(0 AS INTEGER)), " +
                                                                         "true, " +
-                                                                        "CAST(fail(CAST('Window frame offset value must not be negative or null' AS varchar)) AS boolean))",
+                                                                        format("CAST(fail(INTEGER '%d', VARCHAR 'Window frame offset value must not be negative or null') AS boolean))",
+                                                                                INVALID_WINDOW_FRAME.toErrorCode().getCode()),
                                                                 anyTree(
                                                                         values(
                                                                                 ImmutableList.of("key", "x", "y"),
