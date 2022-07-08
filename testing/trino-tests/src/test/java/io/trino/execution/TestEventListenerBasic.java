@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
@@ -56,6 +57,7 @@ import java.io.File;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -67,12 +69,15 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
+import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.execution.TestQueues.createResourceGroupId;
 import static io.trino.spi.metrics.Metrics.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
+import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol.typedSymbol;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
@@ -85,6 +90,7 @@ import static org.testng.Assert.assertTrue;
 public class TestEventListenerBasic
         extends AbstractTestQueryFramework
 {
+    private static final JsonCodec<Map<String, JsonRenderedNode>> ANONYMIZED_PLAN_JSON_CODEC = mapJsonCodec(String.class, JsonRenderedNode.class);
     private static final String IGNORE_EVENT_MARKER = " -- ignore_generated_event";
     private static final String VARCHAR_TYPE = "varchar(15)";
     private static final String BIGINT_TYPE = BIGINT.getDisplayName();
@@ -1138,6 +1144,69 @@ public class TestEventListenerBasic
                 {"INTERSECT ALL"},
                 {"EXCEPT"},
                 {"EXCEPT ALL"}};
+    }
+
+    @Test
+    public void testAnonymizedJsonPlan()
+            throws Exception
+    {
+        QueryEvents queryEvents = queries.runQueryAndWaitForEvents("SELECT quantity FROM lineitem LIMIT 10", getSession(), true).getQueryEvents();
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+        Map<String, JsonRenderedNode> anonymizedPlan = ImmutableMap.of(
+                "0", new JsonRenderedNode(
+                        "6",
+                        "Output",
+                        ImmutableMap.of("columnNames", "[column_1]"),
+                        ImmutableList.of(typedSymbol("symbol_1", "double")),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        ImmutableList.of(new JsonRenderedNode(
+                                "98",
+                                "Limit",
+                                ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
+                                ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                ImmutableList.of(new JsonRenderedNode(
+                                        "171",
+                                        "LocalExchange",
+                                        ImmutableMap.of(
+                                                "partitioning", "[connectorHandleType = SystemPartitioningHandle, partitioning = SINGLE, function = SINGLE]",
+                                                "isReplicateNullsAndAny", "",
+                                                "hashColumn", "[]",
+                                                "arguments", "[]"),
+                                        ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                        ImmutableList.of(),
+                                        ImmutableList.of(),
+                                        ImmutableList.of(new JsonRenderedNode(
+                                                "138",
+                                                "RemoteSource",
+                                                ImmutableMap.of("sourceFragmentIds", "[1]"),
+                                                ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                                ImmutableList.of(),
+                                                ImmutableList.of(),
+                                                ImmutableList.of()))))))),
+                "1", new JsonRenderedNode(
+                        "137",
+                        "LimitPartial",
+                        ImmutableMap.of(
+                                "count", "10",
+                                "withTies", "",
+                                "inputPreSortedBy", "[]"),
+                        ImmutableList.of(typedSymbol("symbol_1", "double")),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        ImmutableList.of(new JsonRenderedNode(
+                                "0",
+                                "TableScan",
+                                ImmutableMap.of(
+                                        "table", "[table = catalog_1.schema_1.table_1, connector = tpch]"),
+                                ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                ImmutableList.of("symbol_1 := column_2"),
+                                ImmutableList.of(),
+                                ImmutableList.of()))));
+        assertThat(event.getMetadata().getJsonPlan())
+                .isEqualTo(Optional.of(ANONYMIZED_PLAN_JSON_CODEC.toJson(anonymizedPlan)));
     }
 
     private void assertLineage(String baseQuery, Set<String> inputTables, OutputColumnMetadata... outputColumnMetadata)
