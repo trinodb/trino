@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
@@ -283,7 +284,7 @@ public abstract class AbstractMapBlock
         if (clazz != Block.class) {
             throw new IllegalArgumentException("clazz must be Block.class");
         }
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
 
         int startEntryOffset = getOffset(position);
         int endEntryOffset = getOffset(position + 1);
@@ -296,7 +297,7 @@ public abstract class AbstractMapBlock
     @Override
     public Block getSingleValueBlock(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + 1);
@@ -323,7 +324,7 @@ public abstract class AbstractMapBlock
     @Override
     public long getEstimatedDataSizeForStats(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
 
         if (isNull(position)) {
             return 0;
@@ -345,7 +346,7 @@ public abstract class AbstractMapBlock
     @Override
     public boolean isNull(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         boolean[] mapIsNull = getMapIsNull();
         return mapIsNull != null && mapIsNull[position + getOffsetBase()];
     }
@@ -354,12 +355,5 @@ public abstract class AbstractMapBlock
     public boolean isHashTablesPresent()
     {
         return getHashTables().tryGet().isPresent();
-    }
-
-    private void checkReadablePosition(int position)
-    {
-        if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
-        }
     }
 }
