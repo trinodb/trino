@@ -27,6 +27,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.Int96ArrayBlock.INT96_BYTES;
@@ -228,7 +229,7 @@ public class Int96ArrayBlockBuilder
     @Override
     public long getLong(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be 0");
         }
@@ -239,7 +240,7 @@ public class Int96ArrayBlockBuilder
     @Override
     public int getInt(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         if (offset != 8) {
             throw new IllegalArgumentException("offset must be 8");
         }
@@ -256,14 +257,14 @@ public class Int96ArrayBlockBuilder
     @Override
     public boolean isNull(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return valueIsNull[position];
     }
 
     @Override
     public Block getSingleValueBlock(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return new Int96ArrayBlock(
                 0,
                 1,
@@ -288,7 +289,7 @@ public class Int96ArrayBlockBuilder
         int[] newLow = new int[length];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            checkReadablePosition(position);
+            checkReadablePosition(this, position);
             if (hasNullValue) {
                 newValueIsNull[i] = valueIsNull[position];
             }
@@ -349,12 +350,5 @@ public class Int96ArrayBlockBuilder
     Slice getLowSlice()
     {
         return Slices.wrappedIntArray(low, 0, positionCount);
-    }
-
-    private void checkReadablePosition(int position)
-    {
-        if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
-        }
     }
 }

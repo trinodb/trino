@@ -20,6 +20,7 @@ import java.util.OptionalInt;
 
 import static io.trino.spi.block.BlockUtil.arraySame;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
@@ -86,7 +87,7 @@ public abstract class AbstractRowBlock
             newRowIsNull = null;
             for (int i = 0; i < fieldBlockPositions.length; i++) {
                 int position = positions[offset + i];
-                checkReadablePosition(position);
+                checkReadablePosition(this, position);
                 fieldBlockPositions[i] = getFieldBlockOffset(position);
             }
             fieldBlockPositionCount = fieldBlockPositions.length;
@@ -288,7 +289,7 @@ public abstract class AbstractRowBlock
         if (clazz != Block.class) {
             throw new IllegalArgumentException("clazz must be Block.class");
         }
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
 
         return clazz.cast(new SingleRowBlock(getFieldBlockOffset(position), getRawFieldBlocks()));
     }
@@ -296,7 +297,7 @@ public abstract class AbstractRowBlock
     @Override
     public Block getSingleValueBlock(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
 
         int startFieldBlockOffset = getFieldBlockOffset(position);
         int endFieldBlockOffset = getFieldBlockOffset(position + 1);
@@ -314,7 +315,7 @@ public abstract class AbstractRowBlock
     @Override
     public long getEstimatedDataSizeForStats(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
 
         if (isNull(position)) {
             return 0;
@@ -331,15 +332,8 @@ public abstract class AbstractRowBlock
     @Override
     public boolean isNull(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         boolean[] rowIsNull = getRowIsNull();
         return rowIsNull != null && rowIsNull[position + getOffsetBase()];
-    }
-
-    private void checkReadablePosition(int position)
-    {
-        if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
-        }
     }
 }
