@@ -347,7 +347,10 @@ public class PostgreSqlClient
     {
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
-            return varcharType.getLength().map(length -> format("varchar(%d)", length)).or(() -> Optional.of("varchar"));
+            if (varcharType.getLength().isPresent() && varcharType.getLength().get() <= 10485760) {
+                return Optional.of(format("varchar(%d)", varcharType.getLength().get()));
+            }
+            return Optional.of("varchar");
         }
 
         if (type instanceof CharType) {

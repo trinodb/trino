@@ -862,6 +862,24 @@ public class TestPostgreSqlConnectorTest
         }
     }
 
+    @Test
+    public void tmpTest()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_cast_pushdown",
+                "(id bigint, id2 varchar(10485761))",
+                List.of(
+                        "1, 'b'",
+                        "2, 'c'",
+                        "3, 'c'",
+                        "4, 'd'",
+                        "5, 'f'"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE CAST(id AS VARCHAR(1)) = '2' OR id2 = 'd'"))
+                    .isFullyPushedDown();
+        }
+    }
+
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {

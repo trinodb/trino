@@ -68,6 +68,7 @@ public class RewriteCast
         if (translatedArgument.isEmpty()) {
             return Optional.empty();
         }
+        // todo ...
 
         return Optional.of(format("CAST(%s AS %s)", translatedArgument.get(), typeCast.get()));
     }
