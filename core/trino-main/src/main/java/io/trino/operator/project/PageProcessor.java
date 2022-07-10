@@ -330,8 +330,9 @@ public class PageProcessor
                 }
                 else {
                     if (pageProjectWork == null) {
+                        Page inputPage = projection.getInputChannels().getInputChannels(page);
                         expressionProfiler.start();
-                        pageProjectWork = projection.project(session, yieldSignal, projection.getInputChannels().getInputChannels(page), positionsBatch);
+                        pageProjectWork = projection.project(session, yieldSignal, inputPage, positionsBatch);
                         expressionProfiler.stop(positionsBatch.size());
                     }
                     if (!pageProjectWork.process()) {
