@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 import java.util.Map;
@@ -28,8 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class IcebergWritableTableHandle
         implements ConnectorInsertTableHandle, ConnectorOutputTableHandle
 {
-    private final String schemaName;
-    private final String tableName;
+    private final SchemaTableName name;
     private final String schemaAsJson;
     private final String partitionSpecAsJson;
     private final List<IcebergColumnHandle> inputColumns;
@@ -40,8 +40,7 @@ public class IcebergWritableTableHandle
 
     @JsonCreator
     public IcebergWritableTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
+            @JsonProperty("name") SchemaTableName name,
             @JsonProperty("schemaAsJson") String schemaAsJson,
             @JsonProperty("partitionSpecAsJson") String partitionSpecAsJson,
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
@@ -50,8 +49,7 @@ public class IcebergWritableTableHandle
             @JsonProperty("properties") Map<String, String> storageProperties,
             @JsonProperty("retryMode") RetryMode retryMode)
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.name = requireNonNull(name, "name is null");
         this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
         this.partitionSpecAsJson = requireNonNull(partitionSpecAsJson, "partitionSpecAsJson is null");
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
@@ -62,15 +60,9 @@ public class IcebergWritableTableHandle
     }
 
     @JsonProperty
-    public String getSchemaName()
+    public SchemaTableName getName()
     {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
+        return name;
     }
 
     @JsonProperty
@@ -118,6 +110,6 @@ public class IcebergWritableTableHandle
     @Override
     public String toString()
     {
-        return schemaName + "." + tableName;
+        return name.toString();
     }
 }

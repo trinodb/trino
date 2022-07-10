@@ -648,8 +648,7 @@ public class IcebergMetadata
                         "to use unique table locations for every table.", location));
             }
             return new IcebergWritableTableHandle(
-                    tableMetadata.getTable().getSchemaName(),
-                    tableMetadata.getTable().getTableName(),
+                    tableMetadata.getTable(),
                     SchemaParser.toJson(transaction.table().schema()),
                     PartitionSpecParser.toJson(transaction.table().spec()),
                     getColumns(transaction.table().schema(), typeManager),
@@ -722,8 +721,7 @@ public class IcebergMetadata
         beginTransaction(icebergTable);
 
         return new IcebergWritableTableHandle(
-                table.getSchemaName(),
-                table.getTableName(),
+                table.getSchemaTableName(),
                 SchemaParser.toJson(icebergTable.schema()),
                 PartitionSpecParser.toJson(icebergTable.spec()),
                 getColumns(icebergTable.schema(), typeManager),
@@ -1993,8 +1991,7 @@ public class IcebergMetadata
         beginTransaction(icebergTable);
 
         return new IcebergWritableTableHandle(
-                table.getSchemaName(),
-                table.getTableName(),
+                table.getSchemaTableName(),
                 SchemaParser.toJson(icebergTable.schema()),
                 PartitionSpecParser.toJson(icebergTable.spec()),
                 getColumns(icebergTable.schema(), typeManager),
