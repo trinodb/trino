@@ -25,6 +25,7 @@ import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
@@ -129,7 +130,7 @@ public class Int128ArrayBlock
     @Override
     public long getLong(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         if (offset == 0) {
             return values[(position + positionOffset) * 2];
         }
@@ -148,14 +149,14 @@ public class Int128ArrayBlock
     @Override
     public boolean isNull(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return valueIsNull != null && valueIsNull[position + positionOffset];
     }
 
     @Override
     public Block getSingleValueBlock(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return new Int128ArrayBlock(
                 0,
                 1,
@@ -177,7 +178,7 @@ public class Int128ArrayBlock
         long[] newValues = new long[length * 2];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            checkReadablePosition(position);
+            checkReadablePosition(this, position);
             if (valueIsNull != null) {
                 newValueIsNull[i] = valueIsNull[position + positionOffset];
             }
@@ -236,12 +237,5 @@ public class Int128ArrayBlock
     Slice getValuesSlice()
     {
         return Slices.wrappedLongArray(values, positionOffset * 2, positionCount * 2);
-    }
-
-    private void checkReadablePosition(int position)
-    {
-        if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
-        }
     }
 }

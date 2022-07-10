@@ -25,6 +25,7 @@ import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.String.format;
@@ -178,98 +179,98 @@ public class RunLengthEncodedBlock
     @Override
     public int getSliceLength(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return value.getSliceLength(0);
     }
 
     @Override
     public byte getByte(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return value.getByte(0, offset);
     }
 
     @Override
     public short getShort(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return value.getShort(0, offset);
     }
 
     @Override
     public int getInt(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return value.getInt(0, offset);
     }
 
     @Override
     public long getLong(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return value.getLong(0, offset);
     }
 
     @Override
     public Slice getSlice(int position, int offset, int length)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return value.getSlice(0, offset, length);
     }
 
     @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return value.getObject(0, clazz);
     }
 
     @Override
     public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return value.bytesEqual(0, offset, otherSlice, otherOffset, length);
     }
 
     @Override
     public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return value.bytesCompare(0, offset, length, otherSlice, otherOffset, otherLength);
     }
 
     @Override
     public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         value.writeBytesTo(0, offset, length, blockBuilder);
     }
 
     @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return value.equals(0, offset, otherBlock, otherPosition, otherOffset, length);
     }
 
     @Override
     public long hash(int position, int offset, int length)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return value.hash(0, offset, length);
     }
 
     @Override
     public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
     {
-        checkReadablePosition(leftPosition);
+        checkReadablePosition(this, leftPosition);
         return value.compareTo(0, leftOffset, leftLength, rightBlock, rightPosition, rightOffset, rightLength);
     }
 
     @Override
     public Block getSingleValueBlock(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return value;
     }
 
@@ -282,7 +283,7 @@ public class RunLengthEncodedBlock
     @Override
     public boolean isNull(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return value.isNull(0);
     }
 
@@ -324,12 +325,5 @@ public class RunLengthEncodedBlock
             return this;
         }
         return new RunLengthEncodedBlock(loadedValueBlock, positionCount);
-    }
-
-    private void checkReadablePosition(int position)
-    {
-        if (position < 0 || position >= positionCount) {
-            throw new IllegalArgumentException("position is not valid");
-        }
     }
 }

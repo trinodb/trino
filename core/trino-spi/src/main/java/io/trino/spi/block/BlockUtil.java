@@ -73,6 +73,11 @@ final class BlockUtil
         }
     }
 
+    static void checkReadablePosition(Block block, int position)
+    {
+        checkValidPosition(position, block.getPositionCount());
+    }
+
     static int calculateNewArraySize(int currentSize)
     {
         // grow array by 50%
