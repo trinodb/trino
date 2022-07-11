@@ -227,6 +227,9 @@ public abstract class BaseHiveConnectorTest
             case SUPPORTS_MULTI_STATEMENT_WRITES:
                 return true;
 
+            case SUPPORTS_COMMENT_ON_VIEW:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
