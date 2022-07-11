@@ -3872,7 +3872,6 @@ public class LocalExecutionPlanner
         }
     }
 
-    // TODO comment
     private JoinBridge createLookupSourceFactory(
             List<Integer> buildChannels,
             boolean buildOuter,
