@@ -25,7 +25,7 @@ public abstract class BucketNodeMap
 {
     private final ToIntFunction<Split> splitToBucket;
 
-    public BucketNodeMap(ToIntFunction<Split> splitToBucket)
+    protected BucketNodeMap(ToIntFunction<Split> splitToBucket)
     {
         this.splitToBucket = requireNonNull(splitToBucket, "splitToBucket is null");
     }
