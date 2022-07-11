@@ -36,9 +36,9 @@ import org.apache.iceberg.TableScan;
 import org.apache.iceberg.transforms.Transforms;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -69,12 +69,12 @@ public class FilesTable
                         .add(new ColumnMetadata("file_format", VARCHAR))
                         .add(new ColumnMetadata("record_count", BIGINT))
                         .add(new ColumnMetadata("file_size_in_bytes", BIGINT))
-                        .add(new ColumnMetadata("column_sizes", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("null_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("nan_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("lower_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
-                        .add(new ColumnMetadata("upper_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
+                        .add(new ColumnMetadata("column_sizes", typeManager.getType(mapType(VARCHAR.getTypeSignature(), BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata("value_counts", typeManager.getType(mapType(VARCHAR.getTypeSignature(), BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata("null_value_counts", typeManager.getType(mapType(VARCHAR.getTypeSignature(), BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata("nan_value_counts", typeManager.getType(mapType(VARCHAR.getTypeSignature(), BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata("lower_bounds", typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()))))
+                        .add(new ColumnMetadata("upper_bounds", typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()))))
                         .add(new ColumnMetadata("key_metadata", VARBINARY))
                         .add(new ColumnMetadata("split_offsets", new ArrayType(BIGINT)))
                         .add(new ColumnMetadata("equality_ids", new ArrayType(INTEGER)))
@@ -107,6 +107,7 @@ public class FilesTable
     {
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
         Map<Integer, Type> idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
+        Map<Integer, String> idToQualifiedNameMapping = TypeUtil.indexNameById(icebergTable.schema().asStruct());
 
         TableScan tableScan = icebergTable.newScan()
                 .useSnapshot(snapshotId)
@@ -122,30 +123,30 @@ public class FilesTable
             pagesBuilder.appendBigint(dataFile.recordCount());
             pagesBuilder.appendBigint(dataFile.fileSizeInBytes());
             if (checkNonNull(dataFile.columnSizes(), pagesBuilder)) {
-                pagesBuilder.appendIntegerBigintMap(dataFile.columnSizes());
+                pagesBuilder.appendVarcharBigintMap(remapToQualifiedFieldName(idToQualifiedNameMapping, dataFile.columnSizes()));
             }
             if (checkNonNull(dataFile.valueCounts(), pagesBuilder)) {
-                pagesBuilder.appendIntegerBigintMap(dataFile.valueCounts());
+                pagesBuilder.appendVarcharBigintMap(remapToQualifiedFieldName(idToQualifiedNameMapping, dataFile.valueCounts()));
             }
             if (checkNonNull(dataFile.nullValueCounts(), pagesBuilder)) {
-                pagesBuilder.appendIntegerBigintMap(dataFile.nullValueCounts());
+                pagesBuilder.appendVarcharBigintMap(remapToQualifiedFieldName(idToQualifiedNameMapping, dataFile.nullValueCounts()));
             }
             if (checkNonNull(dataFile.nanValueCounts(), pagesBuilder)) {
-                pagesBuilder.appendIntegerBigintMap(dataFile.nanValueCounts());
+                pagesBuilder.appendVarcharBigintMap(remapToQualifiedFieldName(idToQualifiedNameMapping, dataFile.nanValueCounts()));
             }
             if (checkNonNull(dataFile.lowerBounds(), pagesBuilder)) {
-                pagesBuilder.appendIntegerVarcharMap(dataFile.lowerBounds().entrySet().stream()
+                pagesBuilder.appendVarcharVarcharMap(dataFile.lowerBounds().entrySet().stream()
                         .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
                         .collect(toImmutableMap(
-                                Map.Entry<Integer, ByteBuffer>::getKey,
+                                entry -> idToQualifiedNameMapping.get(entry.getKey()),
                                 entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
                                         Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
             }
             if (checkNonNull(dataFile.upperBounds(), pagesBuilder)) {
-                pagesBuilder.appendIntegerVarcharMap(dataFile.upperBounds().entrySet().stream()
+                pagesBuilder.appendVarcharVarcharMap(dataFile.upperBounds().entrySet().stream()
                         .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
                         .collect(toImmutableMap(
-                                Map.Entry<Integer, ByteBuffer>::getKey,
+                                entry -> idToQualifiedNameMapping.get(entry.getKey()),
                                 entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
                                         Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
             }
@@ -180,6 +181,15 @@ public class FilesTable
             populateIcebergIdToTypeMapping(field, icebergIdToTypeMapping);
         }
         return icebergIdToTypeMapping.buildOrThrow();
+    }
+
+    private static Map<String, Long> remapToQualifiedFieldName(Map<Integer, String> idToFieldPathMapping, Map<Integer, Long> idToValueMapping)
+    {
+        return idToValueMapping.entrySet().stream()
+                .filter(e -> idToFieldPathMapping.containsKey(e.getKey()))
+                .collect(toImmutableMap(
+                    entry -> idToFieldPathMapping.get(entry.getKey()),
+                    Map.Entry::getValue));
     }
 
     private static void populateIcebergIdToTypeMapping(Types.NestedField field, ImmutableMap.Builder<Integer, Type> icebergIdToTypeMapping)

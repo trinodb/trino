@@ -27,12 +27,12 @@ public class DataFileRecord
     private final String fileFormat;
     private final long recordCount;
     private final long fileSizeInBytes;
-    private final Map<Integer, Long> columnSizes;
-    private final Map<Integer, Long> valueCounts;
-    private final Map<Integer, Long> nullValueCounts;
-    private final Map<Integer, Long> nanValueCounts;
-    private final Map<Integer, String> lowerBounds;
-    private final Map<Integer, String> upperBounds;
+    private final Map<String, Long> columnSizes;
+    private final Map<String, Long> valueCounts;
+    private final Map<String, Long> nullValueCounts;
+    private final Map<String, Long> nanValueCounts;
+    private final Map<String, String> lowerBounds;
+    private final Map<String, String> upperBounds;
 
     public static DataFileRecord toDataFileRecord(MaterializedRow row)
     {
@@ -43,12 +43,12 @@ public class DataFileRecord
                 (String) row.getField(2),
                 (long) row.getField(3),
                 (long) row.getField(4),
-                row.getField(5) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(5)) : null,
-                row.getField(6) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(6)) : null,
-                row.getField(7) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(7)) : null,
-                row.getField(8) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(8)) : null,
-                row.getField(9) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(9)) : null,
-                row.getField(10) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(10)) : null);
+                row.getField(5) != null ? ImmutableMap.copyOf((Map<String, Long>) row.getField(5)) : null,
+                row.getField(6) != null ? ImmutableMap.copyOf((Map<String, Long>) row.getField(6)) : null,
+                row.getField(7) != null ? ImmutableMap.copyOf((Map<String, Long>) row.getField(7)) : null,
+                row.getField(8) != null ? ImmutableMap.copyOf((Map<String, Long>) row.getField(8)) : null,
+                row.getField(9) != null ? ImmutableMap.copyOf((Map<String, String>) row.getField(9)) : null,
+                row.getField(10) != null ? ImmutableMap.copyOf((Map<String, String>) row.getField(10)) : null);
     }
 
     private DataFileRecord(
@@ -57,12 +57,12 @@ public class DataFileRecord
             String fileFormat,
             long recordCount,
             long fileSizeInBytes,
-            Map<Integer, Long> columnSizes,
-            Map<Integer, Long> valueCounts,
-            Map<Integer, Long> nullValueCounts,
-            Map<Integer, Long> nanValueCounts,
-            Map<Integer, String> lowerBounds,
-            Map<Integer, String> upperBounds)
+            Map<String, Long> columnSizes,
+            Map<String, Long> valueCounts,
+            Map<String, Long> nullValueCounts,
+            Map<String, Long> nanValueCounts,
+            Map<String, String> lowerBounds,
+            Map<String, String> upperBounds)
     {
         this.content = content;
         this.filePath = filePath;
@@ -102,32 +102,32 @@ public class DataFileRecord
         return fileSizeInBytes;
     }
 
-    public Map<Integer, Long> getColumnSizes()
+    public Map<String, Long> getColumnSizes()
     {
         return columnSizes;
     }
 
-    public Map<Integer, Long> getValueCounts()
+    public Map<String, Long> getValueCounts()
     {
         return valueCounts;
     }
 
-    public Map<Integer, Long> getNullValueCounts()
+    public Map<String, Long> getNullValueCounts()
     {
         return nullValueCounts;
     }
 
-    public Map<Integer, Long> getNanValueCounts()
+    public Map<String, Long> getNanValueCounts()
     {
         return nanValueCounts;
     }
 
-    public Map<Integer, String> getLowerBounds()
+    public Map<String, String> getLowerBounds()
     {
         return lowerBounds;
     }
 
-    public Map<Integer, String> getUpperBounds()
+    public Map<String, String> getUpperBounds()
     {
         return upperBounds;
     }

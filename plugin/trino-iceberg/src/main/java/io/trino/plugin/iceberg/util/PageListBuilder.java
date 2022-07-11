@@ -155,24 +155,13 @@ public final class PageListBuilder
         column.closeEntry();
     }
 
-    public void appendIntegerBigintMap(Map<Integer, Long> values)
+    public void appendVarcharBigintMap(Map<String, Long> values)
     {
         BlockBuilder column = nextColumn();
         BlockBuilder map = column.beginBlockEntry();
         values.forEach((key, value) -> {
-            INTEGER.writeLong(map, key);
+            VARCHAR.writeString(map, key);
             BIGINT.writeLong(map, value);
-        });
-        column.closeEntry();
-    }
-
-    public void appendIntegerVarcharMap(Map<Integer, String> values)
-    {
-        BlockBuilder column = nextColumn();
-        BlockBuilder map = column.beginBlockEntry();
-        values.forEach((key, value) -> {
-            INTEGER.writeLong(map, key);
-            VARCHAR.writeString(map, value);
         });
         column.closeEntry();
     }
