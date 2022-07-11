@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.connector.TestingTableFunctions.SimpleTableFunction;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.procedure.TestProcedure;
@@ -113,6 +114,7 @@ public class TestMockConnector
                                 .withMetrics(schemaTableName -> new Metrics(ImmutableMap.of("test_metric", new LongCount(1))))
                                 .withProcedures(ImmutableSet.of(new TestProcedure().get()))
                                 .withTableProcedures(ImmutableSet.of(new TableProcedureMetadata("TESTING_TABLE_PROCEDURE", coordinatorOnly(), ImmutableList.of())))
+                                .withTableFunctions(ImmutableSet.of(new SimpleTableFunction()))
                                 .withSchemaProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
                                         .add(booleanProperty("boolean_schema_property", "description", false, false))
                                         .build())
@@ -232,6 +234,15 @@ public class TestMockConnector
     {
         assertQuerySucceeds("ALTER TABLE mock.default.test_table EXECUTE TESTING_TABLE_PROCEDURE()");
         assertQueryFails("ALTER TABLE mock.default.test_table EXECUTE NON_EXISTING_TABLE_PROCEDURE()", "Table procedure not registered: NON_EXISTING_TABLE_PROCEDURE");
+    }
+
+    @Test
+    public void testTableFunction()
+    {
+        assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.simple_table_function())"))
+                .hasMessage("execution by operator is not yet implemented for table function simple_table_function");
+        assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.non_existing_table_function())"))
+                .hasMessageContaining("Table function mock.system.non_existing_table_function not registered");
     }
 
     @Test
