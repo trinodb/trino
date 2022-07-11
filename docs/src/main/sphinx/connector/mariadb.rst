@@ -177,6 +177,42 @@ Performance
 The connector includes a number of performance improvements, detailed in the
 following sections.
 
+.. _mariadb-table-statistics:
+
+Table statistics
+^^^^^^^^^^^^^^^^
+
+The MariaDB connector can use :doc:`table and column statistics
+</optimizer/statistics>` for :doc:`cost based optimizations
+</optimizer/cost-based-optimizations>`, to improve query processing performance
+based on the actual data in the data source.
+
+The statistics are collected by MariaDB and retrieved by the connector.
+
+The table-level statistics are based on MariaDB's ``mysql.table_stats``
+table. The column-level statistics are based on MariaDB's table statistics
+``mysql.column_stats`` table. The connector can return column-level
+statistics after run the ``ANALYZE TABLE`` command in MariaDB. You can do
+that by executing the following statement in MariaDB Database.
+
+.. code-block:: text
+
+    ANALYZE TABLE table_name PERSISTENT FOR ALL;
+
+.. note::
+
+    MariaDB and Trino may use statistics information in different ways. For this
+    reason, the accuracy of table and column statistics returned by the MariaDB
+    connector might be lower than that of others connectors.
+
+**Improving statistics accuracy**
+
+More statistics accuracy with histogram statistics with ``histogram_type=JSON_HB`` (
+available since MariaDB 10.8).
+
+Refer to MariaDB documentation for information about options, limitations
+and additional considerations.
+
 .. _mariadb-pushdown:
 
 Pushdown

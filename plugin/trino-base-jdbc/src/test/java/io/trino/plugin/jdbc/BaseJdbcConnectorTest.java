@@ -1323,7 +1323,7 @@ public abstract class BaseJdbcConnectorTest
         throw new AssertionError(); // unreachable
     }
 
-    private boolean expectVarcharJoinPushdown(String operator)
+    protected boolean expectVarcharJoinPushdown(String operator)
     {
         if ("IS NOT DISTINCT FROM".equals(operator)) {
             // TODO (https://github.com/trinodb/trino/issues/6967) support join pushdown for IS NOT DISTINCT FROM

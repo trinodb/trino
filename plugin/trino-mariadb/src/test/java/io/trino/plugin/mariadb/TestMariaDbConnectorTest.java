@@ -16,6 +16,7 @@ package io.trino.plugin.mariadb;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
+import org.testng.SkipException;
 
 import static io.trino.plugin.mariadb.MariaDbQueryRunner.createMariaDbQueryRunner;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,5 +43,26 @@ public class TestMariaDbConnectorTest
     {
         assertThatThrownBy(super::testRenameColumn)
                 .hasMessageContaining("Rename column not supported for the MariaDB server version");
+    }
+
+    @Override
+    public void testJoinPushdown()
+    {
+        // Currently only the histogram_type=JSON_HB which enabled from MariaDB 10.8
+        throw new SkipException("Not support");
+    }
+
+    @Override
+    public void testLimitPushdown()
+    {
+        // Currently only the histogram_type=JSON_HB which enabled from MariaDB 10.8
+        throw new SkipException("Not support");
+    }
+
+    @Override
+    public void testAggregationPushdown()
+    {
+        // Currently only the histogram_type=JSON_HB which enabled from MariaDB 10.8
+        throw new SkipException("Not support");
     }
 }

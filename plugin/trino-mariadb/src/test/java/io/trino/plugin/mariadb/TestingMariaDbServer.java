@@ -34,16 +34,21 @@ public class TestingMariaDbServer
 
     public TestingMariaDbServer()
     {
-        this(DEFAULT_VERSION);
+        this(DEFAULT_VERSION, null);
     }
 
-    public TestingMariaDbServer(String tag)
+    public TestingMariaDbServer(String tag, String histogramType)
     {
         container = new MariaDBContainer<>(DockerImageName.parse("mariadb").withTag(tag))
                 .withDatabaseName("tpch");
         // character-set-server：the default character set is latin1
         // explicit-defaults-for-timestamp: 1 is ON, the default set is 0 (OFF)
-        container.withCommand("--character-set-server", "utf8mb4", "--explicit-defaults-for-timestamp=1");
+        if (histogramType == null) {
+            container.withCommand("--character-set-server", "utf8mb4", "--explicit-defaults-for-timestamp=1");
+        }
+        else {
+            container.withCommand("--character-set-server", "utf8mb4", "--explicit-defaults-for-timestamp=1", format("--histogram_type=%s", histogramType));
+        }
         container.start();
         execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()), "root", container.getPassword());
     }
@@ -51,6 +56,12 @@ public class TestingMariaDbServer
     public void execute(String sql)
     {
         execute(sql, getUsername(), getPassword());
+    }
+
+    public Connection createConnection()
+            throws SQLException
+    {
+        return container.createConnection("");
     }
 
     private void execute(String sql, String user, String password)
