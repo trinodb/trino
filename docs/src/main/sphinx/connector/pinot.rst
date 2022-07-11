@@ -37,27 +37,27 @@ Configuration properties
 
 The following configuration properties are available:
 
-============================================= ========== ==============================================================================
-Property name                                 Required   Description
-============================================= ========== ==============================================================================
-``pinot.controller-urls``                     Yes        A comma separated list of controller hosts. If Pinot is deployed via
-                                                         `Kubernetes <https://kubernetes.io/>`_ this needs to point to the controller
-                                                         service endpoint. The Pinot broker and server must be accessible via DNS as
-                                                         Pinot returns hostnames and not IP addresses.
-``pinot.segments-per-split``                  No         The number of segments processed in a split. Setting this higher reduces the
-                                                         number of requests made to Pinot. This is useful for smaller Pinot clusters.
-``pinot.request-timeout``                     No         The timeout for Pinot requests. Increasing this can reduce timeouts if DNS
-                                                         resolution is slow.
-``pinot.controller.authentication.type``      No         Pinot authentication method for controller requests. Allowed values are
-                                                         ``NONE`` and ``PASSWORD`` - defaults to ``NONE`` which is no authentication.
-``pinot.controller.authentication.user``      No         Controller username for basic authentication method.
-``pinot.controller.authentication.password``  No         Controller password for basic authentication method.
-``pinot.broker.authentication.type``          No         Pinot authentication method for broker requests. Allowed values are
-                                                         ``NONE`` and ``PASSWORD`` - defaults to ``NONE`` which is no
-                                                         authentication.
-``pinot.broker.authentication.user``          No         Broker username for basic authentication method.
-``pinot.broker.authentication.password``      No         Broker password for basic authentication method.
-============================================= ========== ==============================================================================
+========================================================= ========== ==============================================================================
+Property name                                             Required   Description
+========================================================= ========== ==============================================================================
+``pinot.controller-urls``                                 Yes        A comma separated list of controller hosts. If Pinot is deployed via
+                                                                     `Kubernetes <https://kubernetes.io/>`_ this needs to point to the controller
+                                                                     service endpoint. The Pinot broker and server must be accessible via DNS as
+                                                                     Pinot returns hostnames and not IP addresses.
+``pinot.segments-per-split``                              No         The number of segments processed in a split. Setting this higher reduces the
+                                                                     number of requests made to Pinot. This is useful for smaller Pinot clusters.
+``pinot.request-timeout``                                 No         The timeout for Pinot requests. Increasing this can reduce timeouts if DNS
+                                                                     resolution is slow.
+``pinot.controller.authentication.type``                  No         Pinot authentication method for controller requests. Allowed values are
+                                                                     ``NONE`` and ``PASSWORD`` - defaults to ``NONE`` which is no authentication.
+``pinot.controller.authentication.user``                  No         Controller username for basic authentication method.
+``pinot.controller.authentication.password``              No         Controller password for basic authentication method.
+``pinot.broker.authentication.type``                      No         Pinot authentication method for broker requests. Allowed values are
+                                                                     ``NONE`` and ``PASSWORD`` - defaults to ``NONE`` which is no
+                                                                     authentication.
+``pinot.broker.authentication.user``                      No         Broker username for basic authentication method.
+``pinot.broker.authentication.password``                  No         Broker password for basic authentication method.
+========================================================= ========== ==============================================================================
 
 If ``pinot.controller.authentication.type`` is set to ``PASSWORD`` then both ``pinot.controller.authentication.user`` and
 ``pinot.controller.authentication.password`` are required.
