@@ -50,6 +50,9 @@ public class TestIcebergSystemTables
         assertUpdate("INSERT INTO test_schema.test_table VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
         assertQuery("SELECT count(*) FROM test_schema.test_table", "VALUES 6");
 
+        assertUpdate("CREATE TABLE test_schema.test_table_case_sensitivity(lower_case VARCHAR, UPPER_CASE VARCHAR, MiXeD_cAsE VARCHAR)");
+        assertUpdate("INSERT INTO test_schema.test_table_case_sensitivity VALUES ('a', 'b', 'c')", 1);
+
         assertUpdate("CREATE TABLE test_schema.test_table_multilevel_partitions (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
         assertUpdate("INSERT INTO test_schema.test_table_multilevel_partitions VALUES ('a', 0, CAST('2019-09-08' AS DATE)), ('a', 1, CAST('2019-09-08' AS DATE)), ('a', 0, CAST('2019-09-09' AS DATE))", 3);
         assertQuery("SELECT count(*) FROM test_schema.test_table_multilevel_partitions", "VALUES 3");
@@ -70,6 +73,7 @@ public class TestIcebergSystemTables
     public void tearDown()
     {
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_case_sensitivity");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_drop_column");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_nan");
@@ -226,15 +230,22 @@ public class TestIcebergSystemTables
                         "('file_format', 'varchar', '', '')," +
                         "('record_count', 'bigint', '', '')," +
                         "('file_size_in_bytes', 'bigint', '', '')," +
-                        "('column_sizes', 'map(integer, bigint)', '', '')," +
-                        "('value_counts', 'map(integer, bigint)', '', '')," +
-                        "('null_value_counts', 'map(integer, bigint)', '', '')," +
-                        "('nan_value_counts', 'map(integer, bigint)', '', '')," +
-                        "('lower_bounds', 'map(integer, varchar)', '', '')," +
-                        "('upper_bounds', 'map(integer, varchar)', '', '')," +
+                        "('column_sizes', 'map(varchar, bigint)', '', '')," +
+                        "('value_counts', 'map(varchar, bigint)', '', '')," +
+                        "('null_value_counts', 'map(varchar, bigint)', '', '')," +
+                        "('nan_value_counts', 'map(varchar, bigint)', '', '')," +
+                        "('lower_bounds', 'map(varchar, varchar)', '', '')," +
+                        "('upper_bounds', 'map(varchar, varchar)', '', '')," +
                         "('key_metadata', 'varbinary', '', '')," +
                         "('split_offsets', 'array(bigint)', '', '')," +
                         "('equality_ids', 'array(integer)', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
+    }
+
+    @Test
+    public void testFilesTableCaseSensitivity()
+    {
+        assertQuery("SELECT array_sort(map_keys(value_counts)) FROM test_schema.\"test_table_case_sensitivity$files\"",
+                "VALUES ARRAY['lower_case', 'mixed_case', 'upper_case']");
     }
 }
