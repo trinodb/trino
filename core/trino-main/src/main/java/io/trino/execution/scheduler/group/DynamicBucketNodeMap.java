@@ -16,21 +16,16 @@ package io.trino.execution.scheduler.group;
 import io.trino.execution.scheduler.BucketNodeMap;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
 
 public class DynamicBucketNodeMap
         extends BucketNodeMap
 {
     private final int bucketCount;
-    private final Int2ObjectMap<InternalNode> bucketToNode = new Int2ObjectOpenHashMap<>();
 
     public DynamicBucketNodeMap(ToIntFunction<Split> splitToBucket, int bucketCount)
     {
@@ -42,28 +37,13 @@ public class DynamicBucketNodeMap
     @Override
     public Optional<InternalNode> getAssignedNode(int bucketedId)
     {
-        return Optional.ofNullable(bucketToNode.get(bucketedId));
+        return Optional.empty();
     }
 
     @Override
     public int getBucketCount()
     {
         return bucketCount;
-    }
-
-    @Override
-    public int getNodeCount()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void assignBucketToNode(int bucketedId, InternalNode node)
-    {
-        checkArgument(bucketedId >= 0 && bucketedId < bucketCount);
-        requireNonNull(node, "node is null");
-        checkState(!bucketToNode.containsKey(bucketedId), "bucket already assigned");
-        bucketToNode.put(bucketedId, node);
     }
 
     @Override
