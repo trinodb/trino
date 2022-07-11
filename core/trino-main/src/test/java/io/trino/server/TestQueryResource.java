@@ -288,14 +288,13 @@ public class TestQueryResource
         String queryString = "SELECT x FROM y";
         runToCompletion(queryString);
         String truncatedQuery = queryString.substring(0, TRUNCATION_LENGTH);
-
-        // TODO: test for /ui/api/query once UI disabling in PRESTO-2272 is removed
+        
         List<BasicQueryInfo> infos = getQueryInfos("/v1/query");
         assertEquals(infos.stream()
                 .filter(info -> info.getQuery().equals(truncatedQuery))
                 .collect(Collectors.toList()).size(), 1);
     }
-    
+
     private List<BasicQueryInfo> getQueryInfos(String path)
     {
         Request request = prepareGet()

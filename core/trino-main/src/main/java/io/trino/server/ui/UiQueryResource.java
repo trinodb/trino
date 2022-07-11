@@ -153,8 +153,6 @@ public class UiQueryResource
 
     private static BasicQueryInfo truncateQueryInfo(BasicQueryInfo queryInfo, int queryMaxDisplayLength)
     {
-        // Truncate the query if it is too long. TODO: this is a temporary fix to avoid returning over-sized response to /v1/query
-        // https://jira01.corp.linkedin.com:8443/browse/PRESTO-1275
         if (queryInfo.getQuery().length() > queryMaxDisplayLength) {
             return new BasicQueryInfo(queryInfo.getQueryId(),
                     queryInfo.getSession(),
