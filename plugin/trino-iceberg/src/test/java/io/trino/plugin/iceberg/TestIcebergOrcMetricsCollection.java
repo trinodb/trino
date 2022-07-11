@@ -254,28 +254,28 @@ public class TestIcebergOrcMetricsCollection
         assertNull(datafile.getNanValueCounts());
 
         // Check per-column lower bound
-        Map<Integer, String> lowerBounds = datafile.getLowerBounds();
-        assertEquals(lowerBounds.get(1), "1");
-        assertEquals(lowerBounds.get(2), "1");
-        assertEquals(lowerBounds.get(3), "F");
-        assertEquals(lowerBounds.get(4), "874.89");
-        assertEquals(lowerBounds.get(5), "1992-01-01");
-        assertEquals(lowerBounds.get(6), "1-URGENT");
-        assertEquals(lowerBounds.get(7), "Clerk#000000001");
-        assertEquals(lowerBounds.get(8), "0");
-        assertEquals(lowerBounds.get(9), " about the accou");
+        Map<String, String> lowerBounds = datafile.getLowerBounds();
+        assertEquals(lowerBounds.get("orderkey"), "1");
+        assertEquals(lowerBounds.get("custkey"), "1");
+        assertEquals(lowerBounds.get("orderstatus"), "F");
+        assertEquals(lowerBounds.get("totalprice"), "874.89");
+        assertEquals(lowerBounds.get("orderdate"), "1992-01-01");
+        assertEquals(lowerBounds.get("orderpriority"), "1-URGENT");
+        assertEquals(lowerBounds.get("clerk"), "Clerk#000000001");
+        assertEquals(lowerBounds.get("shippriority"), "0");
+        assertEquals(lowerBounds.get("comment"), " about the accou");
 
         // Check per-column upper bound
-        Map<Integer, String> upperBounds = datafile.getUpperBounds();
-        assertEquals(upperBounds.get(1), "60000");
-        assertEquals(upperBounds.get(2), "1499");
-        assertEquals(upperBounds.get(3), "P");
-        assertEquals(upperBounds.get(4), "466001.28");
-        assertEquals(upperBounds.get(5), "1998-08-02");
-        assertEquals(upperBounds.get(6), "5-LOW");
-        assertEquals(upperBounds.get(7), "Clerk#000001000");
-        assertEquals(upperBounds.get(8), "0");
-        assertEquals(upperBounds.get(9), "zzle. carefully!");
+        Map<String, String> upperBounds = datafile.getUpperBounds();
+        assertEquals(upperBounds.get("orderkey"), "60000");
+        assertEquals(upperBounds.get("custkey"), "1499");
+        assertEquals(upperBounds.get("orderstatus"), "P");
+        assertEquals(upperBounds.get("totalprice"), "466001.28");
+        assertEquals(upperBounds.get("orderdate"), "1998-08-02");
+        assertEquals(upperBounds.get("orderpriority"), "5-LOW");
+        assertEquals(upperBounds.get("clerk"), "Clerk#000001000");
+        assertEquals(upperBounds.get("shippriority"), "0");
+        assertEquals(upperBounds.get("comment"), "zzle. carefully!");
 
         assertUpdate("DROP TABLE orders");
     }
@@ -297,16 +297,16 @@ public class TestIcebergOrcMetricsCollection
         datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 4L));
 
         // Check per-column null value count
-        assertEquals(datafile.getNullValueCounts().get(1), (Long) 1L);
-        assertEquals(datafile.getNullValueCounts().get(2), (Long) 2L);
-        assertEquals(datafile.getNullValueCounts().get(3), (Long) 0L);
-        assertEquals(datafile.getNullValueCounts().get(4), (Long) 2L);
+        assertEquals(datafile.getNullValueCounts().get("_integer"), (Long) 1L);
+        assertEquals(datafile.getNullValueCounts().get("_real"), (Long) 2L);
+        assertEquals(datafile.getNullValueCounts().get("_string"), (Long) 0L);
+        assertEquals(datafile.getNullValueCounts().get("_timestamp"), (Long) 2L);
 
         // Check per-column lower bound
-        assertEquals(datafile.getLowerBounds().get(1), "3");
-        assertEquals(datafile.getLowerBounds().get(2), "3.4");
-        assertEquals(datafile.getLowerBounds().get(3), "aaa");
-        assertEquals(datafile.getLowerBounds().get(4), "2020-01-01T00:00:00.123");
+        assertEquals(datafile.getLowerBounds().get("_integer"), "3");
+        assertEquals(datafile.getLowerBounds().get("_real"), "3.4");
+        assertEquals(datafile.getLowerBounds().get("_string"), "aaa");
+        assertEquals(datafile.getLowerBounds().get("_timestamp"), "2020-01-01T00:00:00.123");
 
         assertUpdate("DROP TABLE test_with_nulls");
 
@@ -317,10 +317,10 @@ public class TestIcebergOrcMetricsCollection
         datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
 
         // Check per-column value count
-        assertEquals(datafile.getValueCounts().get(1), (Long) 3L);
+        assertEquals(datafile.getValueCounts().get("_integer"), (Long) 3L);
 
         // Check per-column null value count
-        assertEquals(datafile.getNullValueCounts().get(1), (Long) 3L);
+        assertEquals(datafile.getNullValueCounts().get("_integer"), (Long) 3L);
 
         // Check that lower bounds and upper bounds are nulls. (There's no non-null record)
         assertNull(datafile.getLowerBounds());
@@ -343,13 +343,13 @@ public class TestIcebergOrcMetricsCollection
 
         // Check per-column nan value count
         assertEquals(datafile.getNanValueCounts().size(), 2);
-        assertEquals(datafile.getNanValueCounts().get(2), (Long) 1L);
-        assertEquals(datafile.getNanValueCounts().get(3), (Long) 1L);
+        assertEquals(datafile.getNanValueCounts().get("_real"), (Long) 1L);
+        assertEquals(datafile.getNanValueCounts().get("_double"), (Long) 1L);
 
-        assertNull(datafile.getLowerBounds().get(2));
-        assertNull(datafile.getLowerBounds().get(3));
-        assertNull(datafile.getUpperBounds().get(2));
-        assertNull(datafile.getUpperBounds().get(3));
+        assertNull(datafile.getLowerBounds().get("_real"));
+        assertNull(datafile.getLowerBounds().get("_double"));
+        assertNull(datafile.getUpperBounds().get("_real"));
+        assertNull(datafile.getUpperBounds().get("_double"));
 
         assertUpdate("DROP TABLE test_with_nans");
     }
@@ -367,8 +367,8 @@ public class TestIcebergOrcMetricsCollection
         assertEquals(materializedResult.getRowCount(), 1);
         DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
 
-        Map<Integer, String> lowerBounds = datafile.getLowerBounds();
-        Map<Integer, String> upperBounds = datafile.getUpperBounds();
+        Map<String, String> lowerBounds = datafile.getLowerBounds();
+        Map<String, String> upperBounds = datafile.getUpperBounds();
 
         // Only
         // 1. top-level primitive columns
@@ -378,16 +378,16 @@ public class TestIcebergOrcMetricsCollection
         assertEquals(upperBounds.size(), 3);
 
         // col1
-        assertEquals(lowerBounds.get(1), "-9");
-        assertEquals(upperBounds.get(1), "8");
+        assertEquals(lowerBounds.get("col1"), "-9");
+        assertEquals(upperBounds.get("col1"), "8");
 
         // col2.f1 (key in lowerBounds/upperBounds is Iceberg ID)
-        assertEquals(lowerBounds.get(3), "0");
-        assertEquals(upperBounds.get(3), "10");
+        assertEquals(lowerBounds.get("col2.f1"), "0");
+        assertEquals(upperBounds.get("col2.f1"), "10");
 
         // col2.f3 (key in lowerBounds/upperBounds is Iceberg ID)
-        assertEquals(lowerBounds.get(5), "-2.9");
-        assertEquals(upperBounds.get(5), "4.9");
+        assertEquals(lowerBounds.get("col2.f3"), "-2.9");
+        assertEquals(upperBounds.get("col2.f3"), "4.9");
 
         assertUpdate("DROP TABLE test_nested_types");
     }
@@ -417,11 +417,11 @@ public class TestIcebergOrcMetricsCollection
         datafile.getNullValueCounts().values().forEach(nullValueCount -> assertEquals(nullValueCount, (Long) 0L));
 
         // Check column lower bound. Min timestamp doesn't rely on file-level statistics and will not be truncated to milliseconds.
-        assertEquals(datafile.getLowerBounds().get(1), "2021-01-01T00:00:00.111");
+        assertEquals(datafile.getLowerBounds().get("_timestamp"), "2021-01-01T00:00:00.111");
         assertQuery("SELECT min(_timestamp) FROM test_timestamp", "VALUES '2021-01-01 00:00:00.111111'");
 
         // Check column upper bound. Max timestamp doesn't rely on file-level statistics and will not be truncated to milliseconds.
-        assertEquals(datafile.getUpperBounds().get(1), "2021-01-31T00:00:00.333999");
+        assertEquals(datafile.getUpperBounds().get("_timestamp"), "2021-01-31T00:00:00.333999");
         assertQuery("SELECT max(_timestamp) FROM test_timestamp", "VALUES '2021-01-31 00:00:00.333333'");
 
         assertUpdate("DROP TABLE test_timestamp");

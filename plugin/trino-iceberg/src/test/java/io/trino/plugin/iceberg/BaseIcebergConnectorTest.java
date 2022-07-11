@@ -3102,7 +3102,7 @@ public abstract class BaseIcebergConnectorTest
         long fullTableScan = (Long) computeActual("SELECT count(*) FROM linetime_multiple_file_backed").getOnlyValue();
         // Pick a value for totalprice where file level stats will not be able to filter out any data
         // This assumes the totalprice ranges in every file have some overlap, otherwise this test will fail.
-        MaterializedRow range = getOnlyElement(computeActual("SELECT max(lower_bounds[4]), min(upper_bounds[4]) FROM \"orders_multiple_file_backed$files\"").getMaterializedRows());
+        MaterializedRow range = getOnlyElement(computeActual("SELECT max(lower_bounds['totalprice']), min(upper_bounds['totalprice']) FROM \"orders_multiple_file_backed$files\"").getMaterializedRows());
         double totalPrice = (Double) computeActual(format(
                 "SELECT totalprice FROM orders_multiple_file_backed WHERE totalprice > %s AND totalprice < %s LIMIT 1",
                 range.getField(0),
