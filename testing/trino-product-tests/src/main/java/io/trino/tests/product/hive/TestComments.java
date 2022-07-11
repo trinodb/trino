@@ -20,24 +20,28 @@ import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import static io.trino.tests.product.TestGroups.COMMENT;
+import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestComments
         extends ProductTest
 {
     private static final String COMMENT_TABLE_NAME = "comment_test";
+    private static final String COMMENT_VIEW_NAME = "comment_view_test";
     private static final String COMMENT_COLUMN_NAME = "comment_column_test";
+    private static final String COMMENT_HIVE_VIEW_NAME = "comment_hive_view_test";
 
     @BeforeTestWithContext
     @AfterTestWithContext
     public void dropTestTable()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS " + COMMENT_TABLE_NAME);
+        onTrino().executeQuery("DROP VIEW IF EXISTS " + COMMENT_VIEW_NAME);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + COMMENT_COLUMN_NAME);
+        onHive().executeQuery("DROP VIEW IF EXISTS " + COMMENT_HIVE_VIEW_NAME);
     }
 
     @Test(groups = COMMENT)
@@ -64,6 +68,33 @@ public class TestComments
 
         onTrino().executeQuery(format("COMMENT ON TABLE %s IS NULL", COMMENT_TABLE_NAME));
         assertThat(getTableComment("hive", "default", COMMENT_TABLE_NAME)).isNull();
+    }
+
+    @Test(groups = COMMENT)
+    public void testCommentView()
+    {
+        String createViewSql = format("" +
+                        "CREATE VIEW hive.default.%s " +
+                        "COMMENT 'old comment' " +
+                        "AS SELECT 1 AS col",
+                COMMENT_VIEW_NAME);
+        onTrino().executeQuery(createViewSql);
+
+        assertThat(getTableComment("hive", "default", COMMENT_VIEW_NAME)).isEqualTo("old comment");
+
+        onTrino().executeQuery(format("COMMENT ON VIEW %s IS 'new comment'", COMMENT_VIEW_NAME));
+        assertThat(getTableComment("hive", "default", COMMENT_VIEW_NAME)).isEqualTo("new comment");
+
+        onTrino().executeQuery(format("COMMENT ON VIEW %s IS ''", COMMENT_VIEW_NAME));
+        assertThat(getTableComment("hive", "default", COMMENT_VIEW_NAME)).isEmpty();
+
+        onTrino().executeQuery(format("COMMENT ON VIEW %s IS NULL", COMMENT_VIEW_NAME));
+        assertThat(getTableComment("hive", "default", COMMENT_VIEW_NAME)).isNull();
+
+        onTrino().executeQuery(format("CREATE TABLE hive.default.%s (col int)", COMMENT_TABLE_NAME));
+        onHive().executeQuery(format("CREATE VIEW default.%s AS SELECT * FROM default.%s", COMMENT_HIVE_VIEW_NAME, COMMENT_TABLE_NAME));
+        assertThatThrownBy(() -> onTrino().executeQuery(format("COMMENT ON VIEW %s IS NULL", COMMENT_HIVE_VIEW_NAME)))
+                .hasMessageContaining("Hive views are not supported");
     }
 
     private static String getTableComment(String catalogName, String schemaName, String tableName)
