@@ -88,14 +88,12 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
         hiveMinioDataLake.start();
         ImmutableMap.Builder<String, String> queryRunnerProperties = ImmutableMap.builder();
         queryRunnerProperties.putAll(additionalProperties());
-        QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
+        return DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 queryRunnerProperties.buildOrThrow(),
                 hiveMinioDataLake.getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
-
-        return queryRunner;
     }
 
     @Test
