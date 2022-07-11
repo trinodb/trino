@@ -30,15 +30,19 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.transforms.Transforms;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -113,54 +117,59 @@ public class FilesTable
                 .useSnapshot(snapshotId)
                 .includeColumnStats();
 
-        tableScan.planFiles().forEach(fileScanTask -> {
-            DataFile dataFile = fileScanTask.file();
+        try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
+            for (FileScanTask fileScanTask : fileScanTasks) {
+                DataFile dataFile = fileScanTask.file();
 
-            pagesBuilder.beginRow();
-            pagesBuilder.appendInteger(dataFile.content().id());
-            pagesBuilder.appendVarchar(dataFile.path().toString());
-            pagesBuilder.appendVarchar(dataFile.format().name());
-            pagesBuilder.appendBigint(dataFile.recordCount());
-            pagesBuilder.appendBigint(dataFile.fileSizeInBytes());
-            if (checkNonNull(dataFile.columnSizes(), pagesBuilder)) {
-                pagesBuilder.appendVarcharBigintMap(remapToQualifiedFieldName(idToQualifiedNameMapping, dataFile.columnSizes()));
+                pagesBuilder.beginRow();
+                pagesBuilder.appendInteger(dataFile.content().id());
+                pagesBuilder.appendVarchar(dataFile.path().toString());
+                pagesBuilder.appendVarchar(dataFile.format().name());
+                pagesBuilder.appendBigint(dataFile.recordCount());
+                pagesBuilder.appendBigint(dataFile.fileSizeInBytes());
+                if (checkNonNull(dataFile.columnSizes(), pagesBuilder)) {
+                    pagesBuilder.appendVarcharBigintMap(remapToQualifiedFieldName(idToQualifiedNameMapping, dataFile.columnSizes()));
+                }
+                if (checkNonNull(dataFile.valueCounts(), pagesBuilder)) {
+                    pagesBuilder.appendVarcharBigintMap(remapToQualifiedFieldName(idToQualifiedNameMapping, dataFile.valueCounts()));
+                }
+                if (checkNonNull(dataFile.nullValueCounts(), pagesBuilder)) {
+                    pagesBuilder.appendVarcharBigintMap(remapToQualifiedFieldName(idToQualifiedNameMapping, dataFile.nullValueCounts()));
+                }
+                if (checkNonNull(dataFile.nanValueCounts(), pagesBuilder)) {
+                    pagesBuilder.appendVarcharBigintMap(remapToQualifiedFieldName(idToQualifiedNameMapping, dataFile.nanValueCounts()));
+                }
+                if (checkNonNull(dataFile.lowerBounds(), pagesBuilder)) {
+                    pagesBuilder.appendVarcharVarcharMap(dataFile.lowerBounds().entrySet().stream()
+                            .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
+                            .collect(toImmutableMap(
+                                    entry -> idToQualifiedNameMapping.get(entry.getKey()),
+                                    entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
+                                            Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
+                }
+                if (checkNonNull(dataFile.upperBounds(), pagesBuilder)) {
+                    pagesBuilder.appendVarcharVarcharMap(dataFile.upperBounds().entrySet().stream()
+                            .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
+                            .collect(toImmutableMap(
+                                    entry -> idToQualifiedNameMapping.get(entry.getKey()),
+                                    entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
+                                            Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
+                }
+                if (checkNonNull(dataFile.keyMetadata(), pagesBuilder)) {
+                    pagesBuilder.appendVarbinary(Slices.wrappedBuffer(dataFile.keyMetadata()));
+                }
+                if (checkNonNull(dataFile.splitOffsets(), pagesBuilder)) {
+                    pagesBuilder.appendBigintArray(dataFile.splitOffsets());
+                }
+                if (checkNonNull(dataFile.equalityFieldIds(), pagesBuilder)) {
+                    pagesBuilder.appendIntegerArray(dataFile.equalityFieldIds());
+                }
+                pagesBuilder.endRow();
             }
-            if (checkNonNull(dataFile.valueCounts(), pagesBuilder)) {
-                pagesBuilder.appendVarcharBigintMap(remapToQualifiedFieldName(idToQualifiedNameMapping, dataFile.valueCounts()));
-            }
-            if (checkNonNull(dataFile.nullValueCounts(), pagesBuilder)) {
-                pagesBuilder.appendVarcharBigintMap(remapToQualifiedFieldName(idToQualifiedNameMapping, dataFile.nullValueCounts()));
-            }
-            if (checkNonNull(dataFile.nanValueCounts(), pagesBuilder)) {
-                pagesBuilder.appendVarcharBigintMap(remapToQualifiedFieldName(idToQualifiedNameMapping, dataFile.nanValueCounts()));
-            }
-            if (checkNonNull(dataFile.lowerBounds(), pagesBuilder)) {
-                pagesBuilder.appendVarcharVarcharMap(dataFile.lowerBounds().entrySet().stream()
-                        .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
-                        .collect(toImmutableMap(
-                                entry -> idToQualifiedNameMapping.get(entry.getKey()),
-                                entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
-                                        Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
-            }
-            if (checkNonNull(dataFile.upperBounds(), pagesBuilder)) {
-                pagesBuilder.appendVarcharVarcharMap(dataFile.upperBounds().entrySet().stream()
-                        .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
-                        .collect(toImmutableMap(
-                                entry -> idToQualifiedNameMapping.get(entry.getKey()),
-                                entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
-                                        Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
-            }
-            if (checkNonNull(dataFile.keyMetadata(), pagesBuilder)) {
-                pagesBuilder.appendVarbinary(Slices.wrappedBuffer(dataFile.keyMetadata()));
-            }
-            if (checkNonNull(dataFile.splitOffsets(), pagesBuilder)) {
-                pagesBuilder.appendBigintArray(dataFile.splitOffsets());
-            }
-            if (checkNonNull(dataFile.equalityFieldIds(), pagesBuilder)) {
-                pagesBuilder.appendIntegerArray(dataFile.equalityFieldIds());
-            }
-            pagesBuilder.endRow();
-        });
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
 
         return pagesBuilder.build();
     }
