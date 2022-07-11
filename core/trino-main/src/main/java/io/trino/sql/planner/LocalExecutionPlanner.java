@@ -2768,7 +2768,7 @@ public class LocalExecutionPlanner
             List<Type> buildTypes = buildSource.getTypes();
             JoinBridgeManager<?> lookupSourceFactoryManager = new JoinBridgeManager<>(
                     buildOuter,
-                    createLookupSourceFactory(buildChannels, buildOuter, partitionCount, buildOutputTypes, buildTypes, session),
+                    createLookupSourceFactory(buildChannels, buildOuter, partitionCount, buildOutputTypes, buildTypes, spillEnabled, session),
                     buildOutputTypes);
 
             int operatorId = buildContext.getNextOperatorId();
@@ -2787,7 +2787,7 @@ public class LocalExecutionPlanner
 
             int taskConcurrency = getTaskConcurrency(session);
             OperatorFactory hashBuilderOperatorFactory;
-            if (useSpillingJoinOperator(session)) {
+            if (useSpillingJoinOperator(spillEnabled, session)) {
                 hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                         buildContext.getNextOperatorId(),
                         node.getId(),
@@ -2967,7 +2967,7 @@ public class LocalExecutionPlanner
                             outputSingleMatch,
                             waitForBuild,
                             node.getFilter().isPresent(),
-                            useSpillingJoinOperator(session),
+                            useSpillingJoinOperator(spillEnabled, session),
                             probeTypes,
                             probeJoinChannels,
                             probeHashChannel,
@@ -2982,7 +2982,7 @@ public class LocalExecutionPlanner
                             lookupSourceFactoryManager,
                             outputSingleMatch,
                             node.getFilter().isPresent(),
-                            useSpillingJoinOperator(session),
+                            useSpillingJoinOperator(spillEnabled, session),
                             probeTypes,
                             probeJoinChannels,
                             probeHashChannel,
@@ -2997,7 +2997,7 @@ public class LocalExecutionPlanner
                             lookupSourceFactoryManager,
                             waitForBuild,
                             node.getFilter().isPresent(),
-                            useSpillingJoinOperator(session),
+                            useSpillingJoinOperator(spillEnabled, session),
                             probeTypes,
                             probeJoinChannels,
                             probeHashChannel,
@@ -3011,7 +3011,7 @@ public class LocalExecutionPlanner
                             node.getId(),
                             lookupSourceFactoryManager,
                             node.getFilter().isPresent(),
-                            useSpillingJoinOperator(session),
+                            useSpillingJoinOperator(spillEnabled, session),
                             probeTypes,
                             probeJoinChannels,
                             probeHashChannel,
@@ -3879,9 +3879,10 @@ public class LocalExecutionPlanner
             int partitionCount,
             ImmutableList<Type> buildOutputTypes,
             List<Type> buildTypes,
+            boolean spillEnabled,
             Session session)
     {
-        if (useSpillingJoinOperator(session)) {
+        if (useSpillingJoinOperator(spillEnabled, session)) {
             return new PartitionedLookupSourceFactory(
                     buildTypes,
                     buildOutputTypes,
@@ -4294,8 +4295,8 @@ public class LocalExecutionPlanner
         }
     }
 
-    private boolean useSpillingJoinOperator(Session session)
+    private boolean useSpillingJoinOperator(boolean spillEnabled, Session session)
     {
-        return isSpillEnabled(session) || isForceSpillingOperator(session);
+        return spillEnabled || isForceSpillingOperator(session);
     }
 }
