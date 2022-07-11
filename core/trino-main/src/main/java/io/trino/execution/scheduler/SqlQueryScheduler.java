@@ -1296,23 +1296,19 @@ public class SqlQueryScheduler
             if (partitioningHandle.equals(SOURCE_DISTRIBUTION) || partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
                 return Optional.of(new int[1]);
             }
-            else if (searchFrom(fragmentRoot).where(node -> node instanceof TableScanNode).findFirst().isPresent()) {
+            if (searchFrom(fragmentRoot).where(node -> node instanceof TableScanNode).findFirst().isPresent()) {
                 if (remoteSourceNodes.stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
                     return Optional.empty();
                 }
-                else {
-                    // remote source requires nodePartitionMap
-                    NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
-                    return Optional.of(nodePartitionMap.getBucketToPartition());
-                }
-            }
-            else {
+                // remote source requires nodePartitionMap
                 NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
-                List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
-                // todo this should asynchronously wait a standard timeout period before failing
-                checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
                 return Optional.of(nodePartitionMap.getBucketToPartition());
             }
+            NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
+            List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
+            // todo this should asynchronously wait a standard timeout period before failing
+            checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
+            return Optional.of(nodePartitionMap.getBucketToPartition());
         }
 
         private static Map<PlanFragmentId, OutputBufferManager> createOutputBufferManagers(
@@ -1381,6 +1377,7 @@ public class SqlQueryScheduler
                     }
                 });
             }
+
             if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
                 // nodes are selected dynamically based on the constraints of the splits and the system load
                 Entry<PlanNodeId, SplitSource> entry = getOnlyElement(splitSources.entrySet());
@@ -1401,7 +1398,8 @@ public class SqlQueryScheduler
                         tableExecuteContextManager,
                         () -> childStageExecutions.stream().anyMatch(StageExecution::isAnyTaskBlocked));
             }
-            else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
+
+            if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
                 Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStageExecutions.stream()
                         .map(StageExecution::getTaskStatuses)
                         .flatMap(List::stream)
@@ -1421,49 +1419,47 @@ public class SqlQueryScheduler
 
                 return scheduler;
             }
-            else {
-                if (!splitSources.isEmpty()) {
-                    // contains local source
-                    List<PlanNodeId> schedulingOrder = fragment.getPartitionedSources();
-                    Optional<CatalogName> catalogName = partitioningHandle.getConnectorId();
-                    checkArgument(catalogName.isPresent(), "No connector ID for partitioning handle: %s", partitioningHandle);
 
-                    BucketNodeMap bucketNodeMap;
-                    List<InternalNode> stageNodeList;
-                    if (fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
-                        // no remote source
-                        bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, false);
-
-                        stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogName).allNodes());
-                        Collections.shuffle(stageNodeList);
-                    }
-                    else {
-                        // remote source requires nodePartitionMap
-                        NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
-                        stageNodeList = nodePartitionMap.getPartitionToNode();
-                        bucketNodeMap = nodePartitionMap.asBucketNodeMap();
-                    }
-
-                    return new FixedSourcePartitionedScheduler(
-                            stageExecution,
-                            splitSources,
-                            schedulingOrder,
-                            stageNodeList,
-                            bucketNodeMap,
-                            splitBatchSize,
-                            nodeScheduler.createNodeSelector(session, catalogName),
-                            dynamicFilterService,
-                            tableExecuteContextManager);
-                }
-                else {
-                    // all sources are remote
-                    NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
-                    List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
-                    // todo this should asynchronously wait a standard timeout period before failing
-                    checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
-                    return new FixedCountScheduler(stageExecution, partitionToNode);
-                }
+            if (splitSources.isEmpty()) {
+                // all sources are remote
+                NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
+                List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
+                // todo this should asynchronously wait a standard timeout period before failing
+                checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
+                return new FixedCountScheduler(stageExecution, partitionToNode);
             }
+
+            // contains local source
+            List<PlanNodeId> schedulingOrder = fragment.getPartitionedSources();
+            Optional<CatalogName> catalogName = partitioningHandle.getConnectorId();
+            checkArgument(catalogName.isPresent(), "No connector ID for partitioning handle: %s", partitioningHandle);
+
+            BucketNodeMap bucketNodeMap;
+            List<InternalNode> stageNodeList;
+            if (fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
+                // no remote source
+                bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, false);
+
+                stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogName).allNodes());
+                Collections.shuffle(stageNodeList);
+            }
+            else {
+                // remote source requires nodePartitionMap
+                NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
+                stageNodeList = nodePartitionMap.getPartitionToNode();
+                bucketNodeMap = nodePartitionMap.asBucketNodeMap();
+            }
+
+            return new FixedSourcePartitionedScheduler(
+                    stageExecution,
+                    splitSources,
+                    schedulingOrder,
+                    stageNodeList,
+                    bucketNodeMap,
+                    splitBatchSize,
+                    nodeScheduler.createNodeSelector(session, catalogName),
+                    dynamicFilterService,
+                    tableExecuteContextManager);
         }
 
         private static void closeSplitSources(Collection<SplitSource> splitSources)
@@ -1893,14 +1889,15 @@ public class SqlQueryScheduler
             if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
                 return new BucketToPartition(Optional.of(IntStream.range(0, partitionCount).toArray()), Optional.empty());
             }
-            else if (partitioningHandle.getConnectorId().isPresent()) {
+            if (partitioningHandle.getConnectorId().isPresent()) {
                 BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, true);
                 int bucketCount = bucketNodeMap.getBucketCount();
                 int[] bucketToPartition = new int[bucketCount];
                 if (bucketNodeMap.isDynamic()) {
                     int nextPartitionId = 0;
                     for (int bucket = 0; bucket < bucketCount; bucket++) {
-                        bucketToPartition[bucket] = nextPartitionId++ % partitionCount;
+                        bucketToPartition[bucket] = nextPartitionId % partitionCount;
+                        nextPartitionId++;
                     }
                 }
                 else {
@@ -1912,7 +1909,8 @@ public class SqlQueryScheduler
                                 .orElseThrow(() -> new IllegalStateException("Nodes are expected to be assigned for non dynamic BucketNodeMap"));
                         Integer partitionId = nodeToPartition.get(node);
                         if (partitionId == null) {
-                            partitionId = nextPartitionId++;
+                            partitionId = nextPartitionId;
+                            nextPartitionId++;
                             nodeToPartition.put(node, partitionId);
                         }
                         bucketToPartition[bucket] = partitionId;
@@ -1920,9 +1918,7 @@ public class SqlQueryScheduler
                 }
                 return new BucketToPartition(Optional.of(bucketToPartition), Optional.of(bucketNodeMap));
             }
-            else {
-                return new BucketToPartition(Optional.empty(), Optional.empty());
-            }
+            return new BucketToPartition(Optional.empty(), Optional.empty());
         }
 
         private static class BucketToPartition
