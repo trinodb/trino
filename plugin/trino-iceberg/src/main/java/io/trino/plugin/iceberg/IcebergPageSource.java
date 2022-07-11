@@ -64,9 +64,9 @@ public class IcebergPageSource
     private final Supplier<IcebergPageSink> updatedRowPageSinkSupplier;
     // An array with one element per field in the $row_id column. The value in the array points to the
     // channel where the data can be read from.
-    private int[] updateRowIdChildColumnIndexes = new int[0];
+    private int[] rowIdChildColumnIndexes = new int[0];
     // The $row_id's index in 'expectedColumns', or -1 if there isn't one
-    private int updateRowIdColumnIndex = -1;
+    private int rowIdColumnIndex = -1;
     // Maps the Iceberg field ids of unmodified columns to their indexes in updateRowIdChildColumnIndexes
     private Map<Integer, Integer> icebergIdToRowIdColumnIndex = ImmutableMap.of();
     // Maps the Iceberg field ids of modified columns to their indexes in the updateColumns columnValueAndRowIdChannels array
@@ -99,16 +99,16 @@ public class IcebergPageSource
             checkArgument(expectedColumn.equals(requiredColumns.get(i)), "Expected columns must be a prefix of required columns");
             expectedColumnIndexes[i] = i;
 
-            if (expectedColumn.isUpdateRowIdColumn()) {
-                this.updateRowIdColumnIndex = i;
+            if (expectedColumn.isUpdateRowIdColumn() || expectedColumn.isMergeRowIdColumn()) {
+                this.rowIdColumnIndex = i;
 
                 Map<Integer, Integer> fieldIdToColumnIndex = mapFieldIdsToIndex(requiredColumns);
                 List<ColumnIdentity> rowIdFields = expectedColumn.getColumnIdentity().getChildren();
                 ImmutableMap.Builder<Integer, Integer> fieldIdToRowIdIndex = ImmutableMap.builder();
-                this.updateRowIdChildColumnIndexes = new int[rowIdFields.size()];
+                this.rowIdChildColumnIndexes = new int[rowIdFields.size()];
                 for (int columnIndex = 0; columnIndex < rowIdFields.size(); columnIndex++) {
                     int fieldId = rowIdFields.get(columnIndex).getId();
-                    updateRowIdChildColumnIndexes[columnIndex] = requireNonNull(fieldIdToColumnIndex.get(fieldId), () -> format("Column %s not found in requiredColumns", fieldId));
+                    rowIdChildColumnIndexes[columnIndex] = requireNonNull(fieldIdToColumnIndex.get(fieldId), () -> format("Column %s not found in requiredColumns", fieldId));
                     fieldIdToRowIdIndex.put(fieldId, columnIndex);
                 }
                 this.icebergIdToRowIdColumnIndex = fieldIdToRowIdIndex.buildOrThrow();
@@ -167,7 +167,7 @@ public class IcebergPageSource
                 dataPage = projectionsAdapter.get().adaptPage(dataPage);
             }
 
-            dataPage = setUpdateRowIdBlock(dataPage);
+            dataPage = withRowIdBlock(dataPage);
             dataPage = dataPage.getColumns(expectedColumnIndexes);
 
             return dataPage;
@@ -185,20 +185,20 @@ public class IcebergPageSource
      * @param page The raw Page from the Parquet/ORC reader.
      * @return A Page where the $row_id channel has been populated.
      */
-    private Page setUpdateRowIdBlock(Page page)
+    private Page withRowIdBlock(Page page)
     {
-        if (updateRowIdColumnIndex == -1) {
+        if (rowIdColumnIndex == -1) {
             return page;
         }
 
-        Block[] rowIdFields = new Block[updateRowIdChildColumnIndexes.length];
-        for (int childIndex = 0; childIndex < updateRowIdChildColumnIndexes.length; childIndex++) {
-            rowIdFields[childIndex] = page.getBlock(updateRowIdChildColumnIndexes[childIndex]);
+        Block[] rowIdFields = new Block[rowIdChildColumnIndexes.length];
+        for (int childIndex = 0; childIndex < rowIdChildColumnIndexes.length; childIndex++) {
+            rowIdFields[childIndex] = page.getBlock(rowIdChildColumnIndexes[childIndex]);
         }
 
         Block[] fullPage = new Block[page.getChannelCount()];
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
-            if (channel == updateRowIdColumnIndex) {
+            if (channel == rowIdColumnIndex) {
                 fullPage[channel] = RowBlock.fromFieldBlocks(page.getPositionCount(), Optional.empty(), rowIdFields);
                 continue;
             }
