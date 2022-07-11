@@ -835,6 +835,7 @@ public class TestHiveGlueMetastore
                 .addDomain(PARTITION_KEY, Domain.onlyNull(VarcharType.VARCHAR))
                 .build();
         List<String> partitionList = new ArrayList<>();
+        partitionList.add("100");
         partitionList.add(null);
         doGetPartitionsFilterTest(
                 CREATE_TABLE_COLUMNS_PARTITIONED_VARCHAR,
@@ -842,6 +843,25 @@ public class TestHiveGlueMetastore
                 partitionList,
                 ImmutableList.of(isNullFilter),
                 ImmutableList.of(ImmutableList.of(GlueExpressionUtil.NULL_STRING)));
+    }
+
+    @Test
+    public void testGetPartitionsFilterIsNotNull()
+            throws Exception
+    {
+        TupleDomain<String> isNotNullFilter = new PartitionFilterBuilder()
+                .addDomain(PARTITION_KEY, Domain.notNull(VarcharType.VARCHAR))
+                .build();
+        List<String> partitionList = new ArrayList<>();
+        partitionList.add("100");
+        partitionList.add(null);
+
+        doGetPartitionsFilterTest(
+                CREATE_TABLE_COLUMNS_PARTITIONED_VARCHAR,
+                PARTITION_KEY,
+                partitionList,
+                ImmutableList.of(isNotNullFilter),
+                ImmutableList.of(ImmutableList.of("100")));
     }
 
     @Test(dataProvider = "unsupportedNullPushdownTypes")
