@@ -19,12 +19,12 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static io.trino.tests.product.TestGroups.COMMENT;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public class TestComments
         extends ProductTest
@@ -54,27 +54,23 @@ public class TestComments
                 COMMENT_TABLE_NAME);
         onTrino().executeQuery(createTableSql);
 
-        QueryResult actualResult = onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_TABLE_NAME);
-        assertThat((String) actualResult.row(0).get(0)).matches(tableWithCommentPattern(COMMENT_TABLE_NAME, Optional.of("old comment")));
+        assertThat(getTableComment("hive", "default", COMMENT_TABLE_NAME)).isEqualTo("old comment");
 
         onTrino().executeQuery(format("COMMENT ON TABLE %s IS 'new comment'", COMMENT_TABLE_NAME));
-        actualResult = onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_TABLE_NAME);
-        assertThat((String) actualResult.row(0).get(0)).matches(tableWithCommentPattern(COMMENT_TABLE_NAME, Optional.of("new comment")));
+        assertThat(getTableComment("hive", "default", COMMENT_TABLE_NAME)).isEqualTo("new comment");
 
         onTrino().executeQuery(format("COMMENT ON TABLE %s IS ''", COMMENT_TABLE_NAME));
-        actualResult = onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_TABLE_NAME);
-        assertThat((String) actualResult.row(0).get(0)).matches(tableWithCommentPattern(COMMENT_TABLE_NAME, Optional.of("")));
+        assertThat(getTableComment("hive", "default", COMMENT_TABLE_NAME)).isEmpty();
 
         onTrino().executeQuery(format("COMMENT ON TABLE %s IS NULL", COMMENT_TABLE_NAME));
-        actualResult = onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_TABLE_NAME);
-        assertThat((String) actualResult.row(0).get(0)).matches(tableWithCommentPattern(COMMENT_TABLE_NAME, Optional.empty()));
+        assertThat(getTableComment("hive", "default", COMMENT_TABLE_NAME)).isNull();
     }
 
-    private String tableWithCommentPattern(String tableName, Optional<String> expectedComment)
+    private static String getTableComment(String catalogName, String schemaName, String tableName)
     {
-        return String.format("CREATE TABLE hive.default.\\Q%s\\E \\((?s:[^)]+)\\)\n", tableName) +
-                expectedComment.map(comment -> "COMMENT '" + comment + "'\n").orElse("") +
-                "WITH(?s:.*)";
+        String sql = "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "' AND table_name = '" + tableName + "'";
+        QueryResult result = onTrino().executeQuery(sql);
+        return (String) result.row(0).get(0);
     }
 
     @Test(groups = COMMENT)
