@@ -32,11 +32,7 @@ public abstract class BucketNodeMap
 
     public abstract int getBucketCount();
 
-    public abstract int getNodeCount();
-
     public abstract Optional<InternalNode> getAssignedNode(int bucketedId);
-
-    public abstract void assignBucketToNode(int bucketedId, InternalNode node);
 
     public abstract boolean isDynamic();
 
