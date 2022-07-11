@@ -870,9 +870,9 @@ To retrieve the information about the data files of the Iceberg table ``test_tab
 
 .. code-block:: text
 
-     content  | file_path                                                                                                                     | record_count    | file_format   | file_size_in_bytes   |  column_sizes        |  value_counts     |  null_value_counts | nan_value_counts  | lower_bounds                |  upper_bounds               |  key_metadata  | split_offsets  |  equality_ids
-    ----------+-------------------------------------------------------------------------------------------------------------------------------+-----------------+---------------+----------------------+----------------------+-------------------+--------------------+-------------------+-----------------------------+-----------------------------+----------------+----------------+---------------
-     0        | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/data/c1=3/c2=2021-01-14/af9872b2-40f3-428f-9c87-186d2750d84e.parquet |  1              |  PARQUET      |  442                 | {1=40, 2=40, 3=44}   |  {1=1, 2=1, 3=1}  |  {1=0, 2=0, 3=0}   | <null>            |  {1=3, 2=2021-01-14, 3=1.3} |  {1=3, 2=2021-01-14, 3=1.3} |  <null>        | <null>         |   <null>
+     content  | file_path                                                                                                                     | record_count    | file_format   | file_size_in_bytes   |  column_sizes           |  value_counts        |  null_value_counts    | nan_value_counts  | lower_bounds                   |  upper_bounds                  |  key_metadata  | split_offsets  |  equality_ids
+    ----------+-------------------------------------------------------------------------------------------------------------------------------+-----------------+---------------+----------------------+-------------------------+----------------------+-----------------------+-------------------+--------------------------------+--------------------------------+----------------+----------------+---------------
+     0        | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/data/c1=3/c2=2021-01-14/af9872b2-40f3-428f-9c87-186d2750d84e.parquet |  1              |  PARQUET      |  442                 | {c1=40, c2=40, c3=44}   |  {c1=1, c2=1, c3=1}  |  {c1=0, c2=0, c3=0}   | <null>            |  {c1=3, c2=2021-01-14, c3=1.3} |  {c1=3, c2=2021-01-14, c3=1.3} |  <null>        | <null>         |   <null>
 
 
 
@@ -906,23 +906,23 @@ The output of the query has the following columns:
     - ``bigint``
     - The data file size
   * - ``column_sizes``
-    - ``map(integer, bigint)``
-    - Mapping between the Iceberg column ID and its corresponding size in the file
+    - ``map(varchar, bigint)``
+    - Mapping between the Iceberg qualified field name and its corresponding size in the file
   * - ``value_counts``
-    - ``map(integer, bigint)``
-    - Mapping between the Iceberg column ID and its corresponding count of entries in the file
+    - ``map(varchar, bigint)``
+    - Mapping between the Iceberg qualified field name and its corresponding count of entries in the file
   * - ``null_value_counts``
-    - ``map(integer, bigint)``
-    - Mapping between the Iceberg column ID and its corresponding count of ``NULL`` values in the file
+    - ``map(varchar, bigint)``
+    - Mapping between the Iceberg qualified field name and its corresponding count of ``NULL`` values in the file
   * - ``nan_value_counts``
-    - ``map(integer, bigint)``
-    - Mapping between the Iceberg column ID and its corresponding count of non numerical values in the file
+    - ``map(varchar, bigint)``
+    - Mapping between the Iceberg qualified field name and its corresponding count of non numerical values in the file
   * - ``lower_bounds``
-    - ``map(integer, bigint)``
-    - Mapping between the Iceberg column ID and its corresponding lower bound in the file
+    - ``map(varchar, bigint)``
+    - Mapping between the Iceberg qualified field name and its corresponding lower bound in the file
   * - ``upper_bounds``
-    - ``map(integer, bigint)``
-    - Mapping between the Iceberg column ID and its corresponding upper bound in the file
+    - ``map(varchar, bigint)``
+    - Mapping between the Iceberg qualified field name and its corresponding upper bound in the file
   * - ``key_metadata``
     - ``varbinary``
     - Metadata about the encryption key used to encrypt this file, if applicable
