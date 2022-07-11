@@ -35,7 +35,8 @@ This can be the ip or the FDQN, the url scheme (``http://``) is optional.
 Configuration properties
 ------------------------
 
-The following configuration properties are available:
+General configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ========================================================= ========== ==============================================================================
 Property name                                             Required   Description
@@ -44,8 +45,8 @@ Property name                                             Required   Description
                                                                      `Kubernetes <https://kubernetes.io/>`_ this needs to point to the controller
                                                                      service endpoint. The Pinot broker and server must be accessible via DNS as
                                                                      Pinot returns hostnames and not IP addresses.
-``pinot.segments-per-split``                              No         The number of segments processed in a split. Setting this higher reduces the
-                                                                     number of requests made to Pinot. This is useful for smaller Pinot clusters.
+``pinot.connection-timeout``                              No         Pinot connection timeout, default is ``15s``.
+``pinot.metadata-expiry``                                 No         Pinot metadata expiration time, default is ``2m``.
 ``pinot.request-timeout``                                 No         The timeout for Pinot requests. Increasing this can reduce timeouts if DNS
                                                                      resolution is slow.
 ``pinot.controller.authentication.type``                  No         Pinot authentication method for controller requests. Allowed values are
@@ -57,6 +58,22 @@ Property name                                             Required   Description
                                                                      authentication.
 ``pinot.broker.authentication.user``                      No         Broker username for basic authentication method.
 ``pinot.broker.authentication.password``                  No         Broker password for basic authentication method.
+``pinot.max-rows-per-split-for-segment-queries``          No         Fail query if Pinot server split returns more rows than configured, default to
+                                                                     ``50,000`` for non-gRPC connection, ``2,147,483,647`` for gRPC connection.
+``pinot.estimated-size-in-bytes-for-non-numeric-column``  No         Estimated byte size for non-numeric column for page pre-allocation in non-gRPC
+                                                                     connection, default is ``20``.
+``pinot.prefer-broker-queries``                           No         Pinot query plan prefers to query Pinot broker, default is ``true``.
+``pinot.forbid-segment-queries``                          No         Forbid parallel querying and force all querying to happen via the broker,
+                                                                     default is ``false``.
+``pinot.segments-per-split``                              No         The number of segments processed in a split. Setting this higher reduces the
+                                                                     number of requests made to Pinot. This is useful for smaller Pinot clusters,
+                                                                     default is ``1``.
+``pinot.fetch-retry-count``                               No         Retry count for retriable Pinot data fetch calls, default is ``2``.
+``pinot.non-aggregate-limit-for-broker-queries``          No         Max limit for non aggregate queries to the Pinot broker, default is ``25,000``.
+``pinot.max-rows-for-broker-queries``                     No         Max rows for a broker query can return, default is ``50,000``.
+``pinot.aggregation-pushdown.enabled``                    No         Push down aggregation queries, default is ``true``.
+``pinot.count-distinct-pushdown.enabled``                 No         Push down count distinct queries to Pinot, default is ``true``.
+``pinot.target-segment-page-size``                        No         Max allowed page size for segment query, default is ``1MB``.
 ========================================================= ========== ==============================================================================
 
 If ``pinot.controller.authentication.type`` is set to ``PASSWORD`` then both ``pinot.controller.authentication.user`` and
@@ -64,6 +81,27 @@ If ``pinot.controller.authentication.type`` is set to ``PASSWORD`` then both ``p
 
 If ``pinot.broker.authentication.type`` is set to ``PASSWORD`` then both ``pinot.broker.authentication.user`` and
 ``pinot.broker.authentication.password`` are required.
+
+gRPC configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+========================================================= ========== ==============================================================================
+Property name                                             Required   Description
+========================================================= ========== ==============================================================================
+``pinot.grpc.enabled``                                    No         Use gRPC endpoint for Pinot server queries, default is ``true``.
+``pinot.grpc.port``                                       No         Pinot gRPC port, default to ``8090``.
+``pinot.grpc.max-inbound-message-size``                   No         Max inbound message bytes when init gRPC client, default is ``128MB``.
+``pinot.grpc.use-plain-text``                             No         Use plain text for gRPC communication, default to ``true``.
+``pinot.grpc.tls.keystore-type``                          No         TLS keystore type for gRPC connection, default is ``JKS``.
+``pinot.grpc.tls.keystore-path``                          No         TLS keystore file location for gRPC connection, default is empty.
+``pinot.grpc.tls.keystore-password``                      No         TLS keystore password, default is empty.
+``pinot.grpc.tls.truststore-type``                        No         TLS truststore type for gRPC connection, default is ``JKS``.
+``pinot.grpc.tls.truststore-path``                        No         TLS truststore file location for gRPC connection, default is empty.
+``pinot.grpc.tls.truststore-password``                    No         TLS truststore password, default is empty.
+``pinot.grpc.tls.ssl-provider``                           No         SSL provider, default is ``JDK``.
+========================================================= ========== ==============================================================================
+
+For more Apache Pinot TLS configurations, please also refer to `Configuring TLS/SSL <https://docs.pinot.apache.org/operators/tutorials/configuring-tls-ssl>`_.
 
 You can use :doc:`secrets </security/secrets>` to avoid actual values in the catalog properties files.
 
