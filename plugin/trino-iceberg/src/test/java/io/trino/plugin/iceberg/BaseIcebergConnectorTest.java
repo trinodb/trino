@@ -180,6 +180,7 @@ public abstract class BaseIcebergConnectorTest
 
             case SUPPORTS_DELETE:
             case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
                 return true;
 
             case SUPPORTS_COMMENT_ON_VIEW:

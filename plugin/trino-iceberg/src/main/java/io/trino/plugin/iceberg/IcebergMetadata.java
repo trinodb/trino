@@ -48,9 +48,11 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -66,6 +68,7 @@ import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
@@ -98,6 +101,7 @@ import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -118,7 +122,10 @@ import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Term;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.Types.IntegerType;
+import org.apache.iceberg.types.Types.LongType;
 import org.apache.iceberg.types.Types.NestedField;
+import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.types.Types.StructType;
 
 import java.io.IOException;
@@ -151,6 +158,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.union;
 import static com.google.common.collect.Streams.concat;
@@ -161,8 +169,12 @@ import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariabl
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.ConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_UPDATE_ROW_ID_COLUMN_ID;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_UPDATE_ROW_ID_COLUMN_NAME;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_FILE_RECORD_COUNT;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_DATA;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_SPEC_ID;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_ROW_ID;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_ROW_ID_NAME;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_UPDATE_ROW_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
@@ -203,6 +215,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.UuidType.UUID;
@@ -212,7 +225,6 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
-import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.ReachableFileUtil.metadataFileLocations;
 import static org.apache.iceberg.ReachableFileUtil.versionHintLocation;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
@@ -647,15 +659,7 @@ public class IcebergMetadata
                         "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
                         "to use unique table locations for every table.", location));
             }
-            return new IcebergWritableTableHandle(
-                    tableMetadata.getTable(),
-                    SchemaParser.toJson(transaction.table().schema()),
-                    PartitionSpecParser.toJson(transaction.table().spec()),
-                    getColumns(transaction.table().schema(), typeManager),
-                    location,
-                    getFileFormat(transaction.table()),
-                    transaction.table().properties(),
-                    retryMode);
+            return newWritableTableHandle(tableMetadata.getTable(), transaction.table(), retryMode);
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking new table's location: " + location, e);
@@ -720,14 +724,20 @@ public class IcebergMetadata
 
         beginTransaction(icebergTable);
 
+        return newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
+    }
+
+    private IcebergWritableTableHandle newWritableTableHandle(SchemaTableName name, Table table, RetryMode retryMode)
+    {
         return new IcebergWritableTableHandle(
-                table.getSchemaTableName(),
-                SchemaParser.toJson(icebergTable.schema()),
-                PartitionSpecParser.toJson(icebergTable.spec()),
-                getColumns(icebergTable.schema(), typeManager),
-                icebergTable.location(),
-                getFileFormat(icebergTable),
-                icebergTable.properties(),
+                name,
+                SchemaParser.toJson(table.schema()),
+                transformValues(table.specs(), PartitionSpecParser::toJson),
+                table.spec().specId(),
+                getColumns(table.schema(), typeManager),
+                table.location(),
+                getFileFormat(table),
+                table.properties(),
                 retryMode);
     }
 
@@ -1460,7 +1470,7 @@ public class IcebergMetadata
     @Override
     public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getColumnHandle(ROW_POSITION, typeManager);
+        return getColumnHandle(MetadataColumns.ROW_POSITION, typeManager);
     }
 
     @Override
@@ -1489,7 +1499,7 @@ public class IcebergMetadata
     public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         List<NestedField> unmodifiedColumns = new ArrayList<>();
-        unmodifiedColumns.add(ROW_POSITION);
+        unmodifiedColumns.add(MetadataColumns.ROW_POSITION);
 
         // Include all the non-updated columns. These are needed when writing the new data file with updated column values.
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
@@ -1503,8 +1513,59 @@ public class IcebergMetadata
             }
         }
 
-        NestedField icebergRowIdField = NestedField.required(TRINO_UPDATE_ROW_ID_COLUMN_ID, TRINO_UPDATE_ROW_ID_COLUMN_NAME, StructType.of(unmodifiedColumns));
-        return getColumnHandle(icebergRowIdField, typeManager);
+        NestedField rowIdField = NestedField.required(TRINO_UPDATE_ROW_ID, TRINO_ROW_ID_NAME, StructType.of(unmodifiedColumns));
+        return getColumnHandle(rowIdField, typeManager);
+    }
+
+    @Override
+    public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return DELETE_ROW_AND_INSERT_ROW;
+    }
+
+    @Override
+    public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        StructType type = StructType.of(ImmutableList.<NestedField>builder()
+                .add(MetadataColumns.FILE_PATH)
+                .add(MetadataColumns.ROW_POSITION)
+                .add(NestedField.required(TRINO_MERGE_FILE_RECORD_COUNT, "file_record_count", LongType.get()))
+                .add(NestedField.required(TRINO_MERGE_PARTITION_SPEC_ID, "partition_spec_id", IntegerType.get()))
+                .add(NestedField.required(TRINO_MERGE_PARTITION_DATA, "partition_data", StringType.get()))
+                .build());
+
+        NestedField field = NestedField.required(TRINO_MERGE_ROW_ID, TRINO_ROW_ID_NAME, type);
+        return getColumnHandle(field, typeManager);
+    }
+
+    @Override
+    public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.of(IcebergUpdateHandle.INSTANCE);
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        verifyTableVersionForUpdate(table);
+
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        validateNotModifyingOldSnapshot(table, icebergTable);
+
+        beginTransaction(icebergTable);
+
+        IcebergTableHandle newTableHandle = table.withRetryMode(retryMode);
+        IcebergWritableTableHandle insertHandle = newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
+
+        return new IcebergMergeTableHandle(newTableHandle, insertHandle);
+    }
+
+    @Override
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        IcebergTableHandle handle = ((IcebergMergeTableHandle) tableHandle).getTableHandle();
+        finishWrite(session, handle, fragments, true);
     }
 
     private static void verifyTableVersionForUpdate(IcebergTableHandle table)
@@ -1990,15 +2051,7 @@ public class IcebergMetadata
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         beginTransaction(icebergTable);
 
-        return new IcebergWritableTableHandle(
-                table.getSchemaTableName(),
-                SchemaParser.toJson(icebergTable.schema()),
-                PartitionSpecParser.toJson(icebergTable.spec()),
-                getColumns(icebergTable.schema(), typeManager),
-                icebergTable.location(),
-                getFileFormat(icebergTable),
-                icebergTable.properties(),
-                retryMode);
+        return newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
     }
 
     @Override

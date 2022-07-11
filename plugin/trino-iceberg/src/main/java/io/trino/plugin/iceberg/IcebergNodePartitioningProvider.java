@@ -75,6 +75,10 @@ public class IcebergNodePartitioningProvider
             List<Type> partitionChannelTypes,
             int bucketCount)
     {
+        if (partitioningHandle instanceof IcebergUpdateHandle) {
+            return new IcebergUpdateBucketFunction(bucketCount);
+        }
+
         IcebergPartitioningHandle handle = (IcebergPartitioningHandle) partitioningHandle;
         Schema schema = schemaFromHandles(handle.getPartitioningColumns());
         return new IcebergBucketFunction(

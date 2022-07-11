@@ -35,8 +35,13 @@ public class IcebergColumnHandle
         implements ColumnHandle
 {
     // Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
-    public static final int TRINO_UPDATE_ROW_ID_COLUMN_ID = Integer.MIN_VALUE;
-    public static final String TRINO_UPDATE_ROW_ID_COLUMN_NAME = "$row_id";
+    public static final int TRINO_UPDATE_ROW_ID = Integer.MIN_VALUE;
+    public static final int TRINO_MERGE_ROW_ID = Integer.MIN_VALUE + 1;
+    public static final String TRINO_ROW_ID_NAME = "$row_id";
+
+    public static final int TRINO_MERGE_FILE_RECORD_COUNT = Integer.MIN_VALUE + 2;
+    public static final int TRINO_MERGE_PARTITION_SPEC_ID = Integer.MIN_VALUE + 3;
+    public static final int TRINO_MERGE_PARTITION_DATA = Integer.MIN_VALUE + 4;
 
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;
@@ -156,7 +161,13 @@ public class IcebergColumnHandle
     @JsonIgnore
     public boolean isUpdateRowIdColumn()
     {
-        return id == TRINO_UPDATE_ROW_ID_COLUMN_ID;
+        return id == TRINO_UPDATE_ROW_ID;
+    }
+
+    @JsonIgnore
+    public boolean isMergeRowIdColumn()
+    {
+        return id == TRINO_MERGE_ROW_ID;
     }
 
     /**
