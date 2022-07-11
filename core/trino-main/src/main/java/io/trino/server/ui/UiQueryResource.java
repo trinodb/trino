@@ -62,7 +62,7 @@ public class UiQueryResource
     private final WebUiConfig webUiConfig;
 
     @Inject
-    public UiQueryResource(DispatchManager dispatchManager, AccessControl accessControl, GroupProvider groupProvider, HttpRequestSessionContextFactory sessionContextFactory, ProtocolConfig protocolConfig, WebUiConfig webUiConfig)
+    public UiQueryResource(DispatchManager dispatchManager, AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory, ProtocolConfig protocolConfig, WebUiConfig webUiConfig)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
