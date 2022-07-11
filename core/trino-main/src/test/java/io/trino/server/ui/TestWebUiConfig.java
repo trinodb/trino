@@ -28,7 +28,8 @@ public class TestWebUiConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(WebUiConfig.class)
-                .setEnabled(true));
+                .setEnabled(true)
+                .setQueryMaxDisplayLength(10000));
     }
 
     @Test
@@ -36,10 +37,12 @@ public class TestWebUiConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("web-ui.enabled", "false")
+                .put("web-ui.query.max-display-length", "100")
                 .buildOrThrow();
 
         WebUiConfig expected = new WebUiConfig()
-                .setEnabled(false);
+                .setEnabled(false)
+                .setQueryMaxDisplayLength(100);
 
         assertFullMapping(properties, expected);
     }

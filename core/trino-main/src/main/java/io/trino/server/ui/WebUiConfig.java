@@ -15,9 +15,12 @@ package io.trino.server.ui;
 
 import io.airlift.configuration.Config;
 
+import javax.validation.constraints.Min;
+
 public class WebUiConfig
 {
     private boolean enabled = true;
+    private int queryMaxDisplayLength = 10000;
 
     public boolean isEnabled()
     {
@@ -29,5 +32,18 @@ public class WebUiConfig
     {
         this.enabled = enabled;
         return this;
+    }
+
+    @Config("web-ui.query.max-display-length")
+    public FormWebUiConfig setQueryMaxDisplayLength(int queryMaxDisplayLength)
+    {
+        this.queryMaxDisplayLength = queryMaxDisplayLength;
+        return this;
+    }
+
+    @Min(10)
+    public int getQueryMaxDisplayLength()
+    {
+        return queryMaxDisplayLength;
     }
 }

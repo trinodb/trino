@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -31,6 +32,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
@@ -67,12 +69,15 @@ public class TestQueryResource
 {
     private HttpClient client;
     private TestingTrinoServer server;
+    private static final int TRUNCATION_LENGTH = 10;
 
     @BeforeMethod
     public void setup()
     {
         client = new JettyHttpClient();
-        server = TestingTrinoServer.create();
+        server = TestingTrinoServer.builder()
+            .setProperties(ImmutableMap.of("web-ui.query.max-display-length", Integer.toString(TRUNCATION_LENGTH)))
+            .build();
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
     }
@@ -277,6 +282,20 @@ public class TestQueryResource
         return queryResults.getId();
     }
 
+    @Test
+    public void testTruncatedQuery()
+    {
+        String queryString = "SELECT x FROM y";
+        runToCompletion(queryString);
+        String truncatedQuery = queryString.substring(0, TRUNCATION_LENGTH);
+
+        // TODO: test for /ui/api/query once UI disabling in PRESTO-2272 is removed
+        List<BasicQueryInfo> infos = getQueryInfos("/v1/query");
+        assertEquals(infos.stream()
+                .filter(info -> info.getQuery().equals(truncatedQuery))
+                .collect(Collectors.toList()).size(), 1);
+    }
+    
     private List<BasicQueryInfo> getQueryInfos(String path)
     {
         Request request = prepareGet()
