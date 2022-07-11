@@ -36,6 +36,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -108,11 +109,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
             case SUPPORTS_AGGREGATION_PUSHDOWN:
-            case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
@@ -273,6 +271,36 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                         "WITH (\n" +
                         "   location = 's3://%s/test_schema'\n" +
                         ")", getSession().getCatalog().orElseThrow(), schemaName, bucketName));
+    }
+
+    /**
+     * @see io.trino.plugin.deltalake.BaseDeltaLakeConnectorSmokeTest#testRenameExternalTable for more test coverage
+     */
+    @Override
+    public void testRenameTable()
+    {
+        assertThatThrownBy(super::testRenameTable)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+    }
+
+    /**
+     * @see io.trino.plugin.deltalake.BaseDeltaLakeConnectorSmokeTest#testRenameExternalTableAcrossSchemas for more test coverage
+     */
+    @Override
+    public void testRenameTableAcrossSchema()
+    {
+        assertThatThrownBy(super::testRenameTableAcrossSchema)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+    }
+
+    @Override
+    public void testRenameTableToUnqualifiedPreservesSchema()
+    {
+        assertThatThrownBy(super::testRenameTableToUnqualifiedPreservesSchema)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_source_schema_");
     }
 
     @Override
@@ -470,6 +498,18 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     protected String createSchemaSql(String schemaName)
     {
         return "CREATE SCHEMA " + schemaName + " WITH (location = 's3://" + bucketName + "/" + schemaName + "')";
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(128);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("(?s)(.*Read timed out)|(.*\"`TBL_NAME`\" that has maximum length of 128.*)");
     }
 
     private Set<String> getActiveFiles(String tableName)

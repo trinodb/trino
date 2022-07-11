@@ -19,7 +19,6 @@ import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
 import io.trino.metadata.Split;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import io.trino.operator.project.CursorProcessor;
@@ -253,7 +252,7 @@ public class BenchmarkScanFilterAndProjectOperator
         SourceOperator operator = (SourceOperator) context.getOperatorFactory().createOperator(driverContext);
 
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
-        operator.addSplit(new Split(new CatalogName("test"), createLocalSplit(), Lifespan.taskWide()));
+        operator.addSplit(new Split(new CatalogName("test"), createLocalSplit()));
         operator.noMoreSplits();
 
         for (int loops = 0; !operator.isFinished() && loops < 1_000_000; loops++) {

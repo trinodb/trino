@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.execution.Lifespan;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -30,8 +29,6 @@ import static org.testng.Assert.assertEquals;
 public class TestDriverStats
 {
     public static final DriverStats EXPECTED = new DriverStats(
-            Lifespan.driverGroup(21),
-
             new DateTime(1),
             new DateTime(2),
             new DateTime(3),
@@ -86,8 +83,6 @@ public class TestDriverStats
 
     public static void assertExpectedDriverStats(DriverStats actual)
     {
-        assertEquals(actual.getLifespan(), Lifespan.driverGroup(21));
-
         assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
         assertEquals(actual.getStartTime(), new DateTime(2, UTC));
         assertEquals(actual.getEndTime(), new DateTime(3, UTC));

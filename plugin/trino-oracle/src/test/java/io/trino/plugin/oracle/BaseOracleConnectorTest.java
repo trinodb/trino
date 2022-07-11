@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -473,6 +474,18 @@ public abstract class BaseOracleConnectorTest
     {
         assertThat(e)
                 .hasMessage("ORA-14411: The DDL cannot be run concurrently with other DDLs\n");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(30);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessage("ORA-00972: identifier is too long\n");
     }
 
     private void predicatePushdownTest(String oracleType, String oracleLiteral, String operator, String filterLiteral)

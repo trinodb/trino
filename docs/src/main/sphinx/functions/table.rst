@@ -5,7 +5,7 @@ Table functions
 A table function is a function returning a table. It can be invoked inside the
 ``FROM`` clause of a query::
 
-    SELECT * FROM my_function(1, 100)
+    SELECT * FROM TABLE(my_function(1, 100))
 
 The row type of the returned table can depend on the arguments passed with
 invocation of the function. If different row types can be returned, the
@@ -16,8 +16,7 @@ within the SQL query. They can be used for working with external systems as
 well as for enhancing Trino with capabilities going beyond the SQL standard.
 
 Trino supports adding custom table functions. They are declared by connectors
-through implementing dedicated interfaces. Currently there are no table
-functions added by the supported connectors. For guidance on adding new table
+through implementing dedicated interfaces. For guidance on adding new table
 functions, see the :doc:`developer guide</develop/table-functions>`.
 
 Table function invocation
@@ -33,8 +32,8 @@ Every table function is provided by a catalog, and it belongs to a schema in
 the catalog. You can qualify the function name with a schema name, or with
 catalog and schema names::
 
-    SELECT * FROM schema_name.my_function(1, 100)
-    SELECT * FROM catalog_name.schema_name.my_function(1, 100)
+    SELECT * FROM TABLE(schema_name.my_function(1, 100))
+    SELECT * FROM TABLE(catalog_name.schema_name.my_function(1, 100))
 
 Otherwise, the standard Trino name resolution is applied. The connection
 between the function and the catalog must be identified, because the function
@@ -51,7 +50,7 @@ There are two conventions of passing arguments to a table function:
 
 - **Arguments passed by name**::
 
-    SELECT * FROM my_function("row_count" => 100, "column_count" => 1)
+    SELECT * FROM TABLE(my_function("row_count" => 100, "column_count" => 1))
 
 In this convention, you can pass the arguments in arbitrary order. Arguments
 declared with default values can be skipped. Argument names are resolved
@@ -59,7 +58,7 @@ case-sensitive, and with automatic uppercasing of unquoted names.
 
 - **Arguments passed positionally**::
 
-    SELECT * FROM my_function(1, 100)
+    SELECT * FROM TABLE(my_function(1, 100))
 
 In this convention, you must follow the order in which the arguments are
 declared. You can skip a suffix of the argument list, provided that all the
@@ -75,3 +74,38 @@ parameters in arguments::
     SELECT * FROM TABLE(my_function("row_count" => ? + 1, "column_count" => ?));
 
     EXECUTE stmt USING 100, 1;
+
+List of table functions by connector
+------------------------------------
+
+* Druid
+
+  * :ref:`query <druid-query-function>` for full query pass-through.
+
+* MariaDB
+
+  * :ref:`query <mariadb-query-function>` for full query pass-through.
+
+* MySQL
+
+  * :ref:`query <mysql-query-function>` for full query pass-through.
+
+* Oracle
+
+  * :ref:`query <oracle-query-function>` for full query pass-through.
+
+* PostgreSQL
+
+  * :ref:`query <postgresql-query-function>` for full query pass-through.
+
+* Redshift
+
+  * :ref:`query <redshift-query-function>` for full query pass-through.
+
+* SQL Server
+
+  * :ref:`query <sqlserver-query-function>` for full query pass-through.
+
+
+
+

@@ -173,9 +173,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
-            case SUPPORTS_RENAME_TABLE:
-                return false;
-
             case SUPPORTS_DELETE:
             case SUPPORTS_UPDATE:
                 return true;
@@ -614,6 +611,81 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertQuery(
                 "SELECT DISTINCT regexp_replace(\"$path\", '(.*[/][^/]*)[/][^/]*$', '$1') FROM " + schemaName + "." + tableName2,
                 format("VALUES '%s/%s'", schemaLocation, tableName2));
+    }
+
+    @Override
+    public void testRenameTable()
+    {
+        assertThatThrownBy(super::testRenameTable)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+    }
+
+    @Test
+    public void testRenameExternalTable()
+    {
+        String oldTable = "test_external_table_rename_old_" + randomTableSuffix();
+
+        assertUpdate(format("CREATE TABLE %s (a bigint, b double) WITH (location = '%s')", oldTable, getLocationForTable(bucketName, oldTable)));
+        assertUpdate("INSERT INTO " + oldTable + " VALUES (42, 43)", 1);
+        String oldLocation = (String) computeScalar("SELECT \"$path\" FROM " + oldTable);
+
+        String newTable = "test_rename_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+
+        assertThat(query("SHOW TABLES LIKE '" + oldTable + "'"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT a, b FROM " + newTable))
+                .matches("VALUES (BIGINT '42', DOUBLE '43')");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + newTable))
+                .isEqualTo(oldLocation);
+
+        assertUpdate("INSERT INTO " + newTable + " (a, b) VALUES (42, -38.5)", 1);
+        assertThat(query("SELECT a, b FROM " + newTable))
+                .matches("VALUES (BIGINT '42', DOUBLE '43'), (42, -385e-1)");
+
+        assertUpdate("DROP TABLE " + newTable);
+    }
+
+    @Override
+    public void testRenameTableAcrossSchemas()
+    {
+        assertThatThrownBy(super::testRenameTableAcrossSchemas)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+    }
+
+    @Test
+    public void testRenameExternalTableAcrossSchemas()
+    {
+        String oldTable = "test_rename_old_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b double) WITH (location = '%s')", oldTable, getLocationForTable(bucketName, oldTable)));
+        assertUpdate("INSERT INTO " + oldTable + " VALUES (42, 43)", 1);
+        String oldLocation = (String) computeScalar("SELECT \"$path\" FROM " + oldTable);
+
+        String schemaName = "test_schema_" + randomTableSuffix();
+        assertUpdate(createSchemaSql(schemaName));
+
+        String newTableName = "test_rename_new_" + randomTableSuffix();
+        String newTable = schemaName + "." + newTableName;
+        assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+
+        assertThat(query("SHOW TABLES LIKE '" + oldTable + "'"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT a, b FROM " + newTable))
+                .matches("VALUES (BIGINT '42', DOUBLE '43')");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + newTable))
+                .isEqualTo(oldLocation);
+
+        assertUpdate("INSERT INTO " + newTable + " (a, b) VALUES (42, -38.5)", 1);
+        assertThat(query("SELECT CAST(a AS bigint), b FROM " + newTable))
+                .matches("VALUES (BIGINT '42', DOUBLE '43'), (42, -385e-1)");
+
+        assertUpdate("DROP TABLE " + newTable);
+        assertThat(query("SHOW TABLES LIKE '" + newTable + "'"))
+                .returnsEmptyResult();
+
+        assertUpdate("DROP SCHEMA " + schemaName);
     }
 
     @Test
@@ -1373,7 +1445,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         assertQueryFails(
                 "ALTER TABLE no_such_table_exists EXECUTE OPTIMIZE",
-                format("line 1:1: Table 'delta_lake.%s.no_such_table_exists' does not exist", SCHEMA));
+                format("line 1:7: Table 'delta_lake.%s.no_such_table_exists' does not exist", SCHEMA));
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33')",
                 "\\QUnable to set catalog 'delta_lake' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33']: size is not a valid data size string: 33");

@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
 import io.trino.execution.StageId;
@@ -115,7 +114,7 @@ public class TestMemoryBlocking
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertSame(driver.getDriverContext(), driverContext);
         assertFalse(driver.isFinished());
-        Split testSplit = new Split(new CatalogName("test"), new TestSplit(), Lifespan.taskWide());
+        Split testSplit = new Split(new CatalogName("test"), new TestSplit());
         driver.updateSplitAssignment(new SplitAssignment(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
 
         ListenableFuture<Void> blocked = driver.processForDuration(new Duration(1, NANOSECONDS));

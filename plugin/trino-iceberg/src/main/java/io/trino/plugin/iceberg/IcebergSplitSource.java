@@ -22,10 +22,10 @@ import com.google.common.io.Closer;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.iceberg.delete.TrinoDeleteFile;
+import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
@@ -37,7 +37,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.Path;
-import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -108,7 +107,7 @@ public class IcebergSplitSource
     private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
 
     private final boolean recordScannedFiles;
-    private final ImmutableSet.Builder<DataFile> scannedFiles = ImmutableSet.builder();
+    private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
 
     public IcebergSplitSource(
             IcebergTableHandle tableHandle,
@@ -135,7 +134,7 @@ public class IcebergSplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
         long timeLeft = dynamicFilteringWaitTimeoutMillis - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
         if (dynamicFilter.isAwaitable() && timeLeft > 0) {
@@ -186,7 +185,9 @@ public class IcebergSplitSource
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (fileScanTasks.hasNext()) {
             FileScanTask scanTask = fileScanTasks.next();
-            if (maxScannedFileSizeInBytes.isPresent() && scanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
+            if (scanTask.deletes().isEmpty() &&
+                    maxScannedFileSizeInBytes.isPresent() &&
+                    scanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
                 continue;
             }
 
@@ -232,7 +233,7 @@ public class IcebergSplitSource
                 continue;
             }
             if (recordScannedFiles) {
-                scannedFiles.add(scanTask.file());
+                scannedFiles.add(new DataFileWithDeleteFiles(scanTask.file(), scanTask.deletes()));
             }
             splits.add(icebergSplit);
         }

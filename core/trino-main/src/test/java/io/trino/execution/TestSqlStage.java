@@ -50,7 +50,6 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.SqlStage.createSqlStage;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
-import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -135,7 +134,6 @@ public class TestSqlStage
                             Optional.empty(),
                             createInitialEmptyOutputBuffers(ARBITRARY),
                             ImmutableMultimap.of(),
-                            ImmutableMultimap.of(),
                             ImmutableSet.of(),
                             Optional.empty());
                     latch.countDown();
@@ -184,7 +182,6 @@ public class TestSqlStage
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
-                ungroupedExecution(),
                 StatsAndCosts.empty(),
                 Optional.empty());
     }

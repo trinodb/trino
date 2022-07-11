@@ -34,6 +34,8 @@ public class HydraIdentityProvider
         implements EnvironmentExtender
 {
     private static final int TTL_ACCESS_TOKEN_IN_SECONDS = 5;
+    private static final int TTL_REFRESH_TOKEN_IN_SECONDS = 15;
+
     private static final String HYDRA_IMAGE = "oryd/hydra:v1.10.6";
     private static final String DSN = "postgres://hydra:mysecretpassword@hydra-db:5432/hydra?sslmode=disable";
     private final PortBinder binder;
@@ -84,6 +86,7 @@ public class HydraIdentityProvider
                 .withEnv("SERVE_TLS_CERT_PATH", "/tmp/certs/hydra.pem")
                 .withEnv("STRATEGIES_ACCESS_TOKEN", "jwt")
                 .withEnv("TTL_ACCESS_TOKEN", TTL_ACCESS_TOKEN_IN_SECONDS + "s")
+                .withEnv("TTL_REFRESH_TOKEN", TTL_REFRESH_TOKEN_IN_SECONDS + "s")
                 .withEnv("OAUTH2_ALLOWED_TOP_LEVEL_CLAIMS", "groups")
                 .withCommand("serve", "all", "--dangerous-force-http")
                 .withCopyFileToContainer(forHostPath(configDir.getPath("cert/hydra.pem")), "/tmp/certs/hydra.pem")

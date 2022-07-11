@@ -26,7 +26,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.StageTaskSourceFactory.ArbitraryDistributionTaskSource;
 import io.trino.execution.scheduler.StageTaskSourceFactory.HashDistributionTaskSource;
@@ -928,17 +927,17 @@ public class TestStageTaskSourceFactory
 
     private static Split createSplit(int id, String... addresses)
     {
-        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.empty(), addressesList(addresses)), Lifespan.taskWide());
+        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.empty(), addressesList(addresses)));
     }
 
     private static Split createWeightedSplit(int id, long weight, String... addresses)
     {
-        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.empty(), addressesList(addresses), weight), Lifespan.taskWide());
+        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.empty(), addressesList(addresses), weight));
     }
 
     private static Split createBucketedSplit(int id, int bucket)
     {
-        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.of(bucket), Optional.empty()), Lifespan.taskWide());
+        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.of(bucket), Optional.empty()));
     }
 
     private List<TaskDescriptor> readAllTasks(TaskSource taskSource)

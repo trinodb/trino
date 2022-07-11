@@ -20,6 +20,7 @@ import io.trino.parquet.writer.repdef.DefLevelIterables;
 import io.trino.parquet.writer.repdef.RepLevelIterable;
 import io.trino.parquet.writer.repdef.RepLevelIterables;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
+import io.trino.spi.block.Block;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
@@ -49,7 +50,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.parquet.writer.ParquetCompressor.getCompressor;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
-import static io.trino.parquet.writer.repdef.RepLevelIterables.getIterator;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.bytes.BytesInput.copy;
@@ -93,6 +93,8 @@ public class PrimitiveColumnWriter
 
     private final int pageSizeThreshold;
 
+    private long bufferedBytes;
+
     public PrimitiveColumnWriter(ColumnDescriptor columnDescriptor, PrimitiveValueWriter primitiveValueWriter, ValuesWriter definitionLevelWriter, ValuesWriter repetitionLevelWriter, CompressionCodecName compressionCodecName, int pageSizeThreshold)
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor is null");
@@ -111,39 +113,56 @@ public class PrimitiveColumnWriter
             throws IOException
     {
         checkState(!closed);
-
-        ColumnChunk current = new ColumnChunk(columnChunk.getBlock(),
-                ImmutableList.<DefLevelIterable>builder()
-                        .addAll(columnChunk.getDefLevelIterables())
-                        .add(DefLevelIterables.of(columnChunk.getBlock(), maxDefinitionLevel))
-                        .build(),
-                ImmutableList.<RepLevelIterable>builder()
-                        .addAll(columnChunk.getRepLevelIterables())
-                        .add(RepLevelIterables.of(columnChunk.getBlock()))
-                        .build());
-
         // write values
         primitiveValueWriter.write(columnChunk.getBlock());
 
-        // write definition levels
-        Iterator<Integer> defIterator = DefLevelIterables.getIterator(current.getDefLevelIterables());
-        while (defIterator.hasNext()) {
-            int next = defIterator.next();
-            definitionLevelWriter.writeInteger(next);
-            if (next != maxDefinitionLevel) {
-                currentPageNullCounts++;
+        if (columnChunk.getDefLevelIterables().isEmpty()) {
+            // write definition levels for flat data types
+            Block block = columnChunk.getBlock();
+            if (!block.mayHaveNull()) {
+                for (int position = 0; position < block.getPositionCount(); position++) {
+                    definitionLevelWriter.writeInteger(maxDefinitionLevel);
+                }
             }
-            valueCount++;
+            else {
+                for (int position = 0; position < block.getPositionCount(); position++) {
+                    byte isNull = (byte) (block.isNull(position) ? 1 : 0);
+                    definitionLevelWriter.writeInteger(maxDefinitionLevel - isNull);
+                    currentPageNullCounts += isNull;
+                }
+            }
+            valueCount += block.getPositionCount();
+        }
+        else {
+            // write definition levels for nested data types
+            Iterator<Integer> defIterator = DefLevelIterables.getIterator(ImmutableList.<DefLevelIterable>builder()
+                    .addAll(columnChunk.getDefLevelIterables())
+                    .add(DefLevelIterables.of(columnChunk.getBlock(), maxDefinitionLevel))
+                    .build());
+            while (defIterator.hasNext()) {
+                int next = defIterator.next();
+                definitionLevelWriter.writeInteger(next);
+                if (next != maxDefinitionLevel) {
+                    currentPageNullCounts++;
+                }
+                valueCount++;
+            }
         }
 
-        // write repetition levels
-        Iterator<Integer> repIterator = getIterator(current.getRepLevelIterables());
-        while (repIterator.hasNext()) {
-            int next = repIterator.next();
-            repetitionLevelWriter.writeInteger(next);
+        if (columnDescriptor.getMaxRepetitionLevel() > 0) {
+            // write repetition levels for nested types
+            Iterator<Integer> repIterator = RepLevelIterables.getIterator(ImmutableList.<RepLevelIterable>builder()
+                    .addAll(columnChunk.getRepLevelIterables())
+                    .add(RepLevelIterables.of(columnChunk.getBlock()))
+                    .build());
+            while (repIterator.hasNext()) {
+                int next = repIterator.next();
+                repetitionLevelWriter.writeInteger(next);
+            }
         }
 
-        if (getBufferedBytes() >= pageSizeThreshold) {
+        updateBufferedBytes();
+        if (bufferedBytes >= pageSizeThreshold) {
             flushCurrentPageToBuffer();
         }
     }
@@ -245,6 +264,7 @@ public class PrimitiveColumnWriter
         repetitionLevelWriter.reset();
         definitionLevelWriter.reset();
         primitiveValueWriter.reset();
+        updateBufferedBytes();
     }
 
     private List<ParquetDataOutput> getDataStreams()
@@ -280,6 +300,7 @@ public class PrimitiveColumnWriter
             dictionaryPagesWithEncoding.merge(new ParquetMetadataConverter().getEncoding(dictionaryPage.getEncoding()), 1, Integer::sum);
 
             primitiveValueWriter.resetDictionary();
+            updateBufferedBytes();
         }
         getDataStreamsCalled = true;
 
@@ -292,10 +313,7 @@ public class PrimitiveColumnWriter
     @Override
     public long getBufferedBytes()
     {
-        return pageBuffer.stream().mapToLong(ParquetDataOutput::size).sum() +
-                definitionLevelWriter.getBufferedSize() +
-                repetitionLevelWriter.getBufferedSize() +
-                primitiveValueWriter.getBufferedSize();
+        return bufferedBytes;
     }
 
     @Override
@@ -305,5 +323,18 @@ public class PrimitiveColumnWriter
                 primitiveValueWriter.getAllocatedSize() +
                 definitionLevelWriter.getAllocatedSize() +
                 repetitionLevelWriter.getAllocatedSize();
+    }
+
+    private void updateBufferedBytes()
+    {
+        // Avoid using streams here for performance reasons
+        long pageBufferedBytes = 0;
+        for (ParquetDataOutput output : pageBuffer) {
+            pageBufferedBytes += output.size();
+        }
+        bufferedBytes = pageBufferedBytes +
+                definitionLevelWriter.getBufferedSize() +
+                repetitionLevelWriter.getBufferedSize() +
+                primitiveValueWriter.getBufferedSize();
     }
 }

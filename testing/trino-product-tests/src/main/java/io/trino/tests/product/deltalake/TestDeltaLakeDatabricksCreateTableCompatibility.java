@@ -15,7 +15,6 @@ package io.trino.tests.product.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.assertions.QueryAssert;
-import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -26,6 +25,7 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnDelta;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnDelta;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -196,15 +196,6 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
         }
-    }
-
-    private static String getTableCommentOnDelta(String schemaName, String tableName)
-    {
-        QueryResult result = onDelta().executeQuery(format("DESCRIBE EXTENDED %s.%s", schemaName, tableName));
-        return (String) result.rows().stream()
-                .filter(row -> row.get(0).equals("Comment"))
-                .map(row -> row.get(1))
-                .findFirst().orElseThrow();
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})

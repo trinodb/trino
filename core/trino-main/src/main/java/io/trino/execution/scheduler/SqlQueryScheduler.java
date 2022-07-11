@@ -61,7 +61,6 @@ import io.trino.server.DynamicFilterService;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeId;
@@ -122,7 +121,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.trino.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerStage;
 import static io.trino.SystemSessionProperties.getQueryRetryAttempts;
@@ -152,7 +150,6 @@ import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
@@ -1042,7 +1039,6 @@ public class SqlQueryScheduler
                 Optional<RemoteTask> remoteTask = stageExecution.scheduleTask(
                         coordinator,
                         0,
-                        ImmutableMultimap.of(),
                         ImmutableMultimap.of());
                 stageExecution.schedulingComplete();
                 remoteTask.ifPresent(task -> coordinatorTaskManager.addSourceTaskFailureListener(task.getTaskId(), failureReporter));
@@ -1394,8 +1390,6 @@ public class SqlQueryScheduler
                 NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, catalogName);
                 SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
-                checkArgument(!fragment.getStageExecutionDescriptor().isStageGroupedExecution());
-
                 return newSourcePartitionedSchedulerAsStageScheduler(
                         stageExecution,
                         planNodeId,
@@ -1432,38 +1426,19 @@ public class SqlQueryScheduler
                     List<PlanNodeId> schedulingOrder = fragment.getPartitionedSources();
                     Optional<CatalogName> catalogName = partitioningHandle.getConnectorId();
                     checkArgument(catalogName.isPresent(), "No connector ID for partitioning handle: %s", partitioningHandle);
-                    List<ConnectorPartitionHandle> connectorPartitionHandles;
-                    boolean groupedExecutionForStage = fragment.getStageExecutionDescriptor().isStageGroupedExecution();
-                    if (groupedExecutionForStage) {
-                        connectorPartitionHandles = nodePartitioningManager.listPartitionHandles(session, partitioningHandle);
-                        checkState(!ImmutableList.of(NOT_PARTITIONED).equals(connectorPartitionHandles));
-                    }
-                    else {
-                        connectorPartitionHandles = ImmutableList.of(NOT_PARTITIONED);
-                    }
 
                     BucketNodeMap bucketNodeMap;
                     List<InternalNode> stageNodeList;
                     if (fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
                         // no remote source
-                        boolean dynamicLifespanSchedule = fragment.getStageExecutionDescriptor().isDynamicLifespanSchedule();
-                        bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, dynamicLifespanSchedule);
-
-                        // verify execution is consistent with planner's decision on dynamic lifespan schedule
-                        verify(bucketNodeMap.isDynamic() == dynamicLifespanSchedule);
+                        bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, false);
 
                         stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogName).allNodes());
                         Collections.shuffle(stageNodeList);
                     }
                     else {
-                        // cannot use dynamic lifespan schedule
-                        verify(!fragment.getStageExecutionDescriptor().isDynamicLifespanSchedule());
-
                         // remote source requires nodePartitionMap
                         NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
-                        if (groupedExecutionForStage) {
-                            checkState(connectorPartitionHandles.size() == nodePartitionMap.getBucketToPartition().length);
-                        }
                         stageNodeList = nodePartitionMap.getPartitionToNode();
                         bucketNodeMap = nodePartitionMap.asBucketNodeMap();
                     }
@@ -1471,14 +1446,11 @@ public class SqlQueryScheduler
                     return new FixedSourcePartitionedScheduler(
                             stageExecution,
                             splitSources,
-                            fragment.getStageExecutionDescriptor(),
                             schedulingOrder,
                             stageNodeList,
                             bucketNodeMap,
                             splitBatchSize,
-                            getConcurrentLifespansPerNode(session),
                             nodeScheduler.createNodeSelector(session, catalogName),
-                            connectorPartitionHandles,
                             dynamicFilterService,
                             tableExecuteContextManager);
                 }

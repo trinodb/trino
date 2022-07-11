@@ -213,7 +213,6 @@ public final class SqlStage
             Optional<int[]> bucketToPartition,
             OutputBuffers outputBuffers,
             Multimap<PlanNodeId, Split> splits,
-            Multimap<PlanNodeId, Lifespan> noMoreSplitsForLifespan,
             Set<PlanNodeId> noMoreSplits,
             Optional<DataSize> estimatedMemory)
     {
@@ -237,7 +236,6 @@ public final class SqlStage
                 estimatedMemory,
                 summarizeTaskInfo);
 
-        noMoreSplitsForLifespan.forEach(task::noMoreSplits);
         noMoreSplits.forEach(task::noMoreSplits);
 
         tasks.put(taskId, task);

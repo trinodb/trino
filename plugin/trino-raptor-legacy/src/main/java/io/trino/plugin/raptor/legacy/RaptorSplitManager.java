@@ -23,7 +23,6 @@ import io.trino.plugin.raptor.legacy.util.SynchronizedResultIterator;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -97,7 +96,6 @@ public class RaptorSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle handle,
-            SplitSchedulingStrategy splitSchedulingStrategy,
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
@@ -163,7 +161,7 @@ public class RaptorSplitManager
         }
 
         @Override
-        public synchronized CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+        public synchronized CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
         {
             checkState((future == null) || future.isDone(), "previous batch not completed");
             future = supplyAsync(batchSupplier(maxSize), executor);

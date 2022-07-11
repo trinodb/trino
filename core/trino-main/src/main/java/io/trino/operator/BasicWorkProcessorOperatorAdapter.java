@@ -13,7 +13,6 @@
  */
 package io.trino.operator;
 
-import io.trino.execution.Lifespan;
 import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
 import io.trino.spi.Page;
@@ -90,12 +89,6 @@ public class BasicWorkProcessorOperatorAdapter
         public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
         {
             return new BasicWorkProcessorOperatorAdapter(processorContext, operatorFactory);
-        }
-
-        @Override
-        public void lifespanFinished(Lifespan lifespan)
-        {
-            operatorFactory.lifespanFinished(lifespan);
         }
 
         @Override

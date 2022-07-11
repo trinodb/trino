@@ -69,6 +69,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -3615,7 +3616,7 @@ public abstract class BaseIcebergConnectorTest
                 .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
 
         // optimize with delimited procedure name
-        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Procedure optimize not registered for catalog iceberg");
+        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Table procedure not registered: optimize");
         assertUpdate("ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\"");
         // optimize with delimited parameter name (and procedure name)
         assertUpdate("ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"file_size_threshold\" => '33B')"); // TODO (https://github.com/trinodb/trino/issues/11326) this should fail
@@ -3786,6 +3787,61 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testOptimizeCleansUpDeleteFiles()
+            throws IOException
+    {
+        String tableName = "test_optimize_" + randomTableSuffix();
+        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM nation", 25);
+
+        List<String> allDataFilesInitially = getAllDataFilesFromTableDirectory(tableName);
+        assertThat(allDataFilesInitially).hasSize(5);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 7", 1);
+
+        assertQuery(
+                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
+                "VALUES '1'");
+
+        List<String> allDataFilesAfterDelete = getAllDataFilesFromTableDirectory(tableName);
+        assertThat(allDataFilesAfterDelete).hasSize(6);
+
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 4");
+        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
+        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
+
+        assertQuery(
+                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
+                "VALUES '1'");
+        List<String> allDataFilesAfterOptimizeWithWhere = getAllDataFilesFromTableDirectory(tableName);
+        assertThat(allDataFilesAfterOptimizeWithWhere)
+                .hasSize(6)
+                .doesNotContain(allDataFilesInitially.stream().filter(file -> file.contains("regionkey=4"))
+                        .collect(toImmutableList())
+                        .toArray(new String[0]));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("SELECT * FROM nation WHERE nationkey != 7");
+
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
+        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
+
+        assertQuery(
+                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
+                "VALUES '0'");
+        List<String> allDataFilesAfterFullOptimize = getAllDataFilesFromTableDirectory(tableName);
+        assertThat(allDataFilesAfterFullOptimize)
+                .hasSize(5)
+                .doesNotContain(allDataFilesInitially.toArray(new String[0]));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("SELECT * FROM nation WHERE nationkey != 7");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private List<String> getActiveFiles(String tableName)
     {
         return computeActual(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumn()
@@ -3812,7 +3868,7 @@ public abstract class BaseIcebergConnectorTest
     {
         assertQueryFails(
                 "ALTER TABLE no_such_table_exists EXECUTE OPTIMIZE",
-                "\\Qline 1:1: Table 'iceberg.tpch.no_such_table_exists' does not exist");
+                "\\Qline 1:7: Table 'iceberg.tpch.no_such_table_exists' does not exist");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33')",
                 "\\QUnable to set catalog 'iceberg' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33']: size is not a valid data size string: 33");
@@ -3964,7 +4020,7 @@ public abstract class BaseIcebergConnectorTest
     {
         assertQueryFails(
                 "ALTER TABLE no_such_table_exists EXECUTE EXPIRE_SNAPSHOTS",
-                "\\Qline 1:1: Table 'iceberg.tpch.no_such_table_exists' does not exist");
+                "\\Qline 1:7: Table 'iceberg.tpch.no_such_table_exists' does not exist");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '33')",
                 "\\QUnable to set catalog 'iceberg' table procedure 'EXPIRE_SNAPSHOTS' property 'retention_threshold' to ['33']: duration is not a valid data duration string: 33");
@@ -4088,7 +4144,7 @@ public abstract class BaseIcebergConnectorTest
     {
         assertQueryFails(
                 "ALTER TABLE no_such_table_exists EXECUTE REMOVE_ORPHAN_FILES",
-                "\\Qline 1:1: Table 'iceberg.tpch.no_such_table_exists' does not exist");
+                "\\Qline 1:7: Table 'iceberg.tpch.no_such_table_exists' does not exist");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '33')",
                 "\\QUnable to set catalog 'iceberg' table procedure 'REMOVE_ORPHAN_FILES' property 'retention_threshold' to ['33']: duration is not a valid data duration string: 33");
@@ -4341,6 +4397,19 @@ public abstract class BaseIcebergConnectorTest
                 format("SELECT * FROM %1$s EXCEPT (SELECT * FROM \"%1$s@%2$d\" EXCEPT SELECT * FROM \"%1$s@%3$d\")", tableName, ids.get(2), ids.get(1)),
                 "SELECT * FROM (VALUES(1,1), (3,3))");
         assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        // This value depends on metastore type
+        return OptionalInt.of(255);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Failed to create file");
     }
 
     private Session prepareCleanUpSession()

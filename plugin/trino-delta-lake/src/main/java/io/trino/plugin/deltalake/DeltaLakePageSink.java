@@ -28,8 +28,6 @@ import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HivePartitionKey;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.HiveTypeName;
 import io.trino.plugin.hive.RecordFileWriter;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.util.HiveWriteUtils;
@@ -47,7 +45,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
-import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.joda.time.DateTimeZone;
@@ -67,6 +64,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
+import static io.trino.plugin.deltalake.DeltaLakeSchemaProperties.buildHiveSchema;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
@@ -80,7 +78,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.escapePathName;
 
@@ -508,7 +505,7 @@ public class DeltaLakePageSink
 
     private FileWriter createRecordFileWriter(Path path)
     {
-        Properties schema = buildSchemaProperties(dataColumnNames, dataColumnTypes);
+        Properties schema = buildHiveSchema(dataColumnNames, dataColumnTypes);
         return new RecordFileWriter(
                 path,
                 dataColumnNames,
@@ -519,18 +516,6 @@ public class DeltaLakePageSink
                 typeManager,
                 DateTimeZone.UTC,
                 session);
-    }
-
-    static Properties buildSchemaProperties(List<String> columnNames, List<Type> columnTypes)
-    {
-        Properties schema = new Properties();
-        schema.setProperty(IOConstants.COLUMNS, String.join(",", columnNames));
-        schema.setProperty(IOConstants.COLUMNS_TYPES, columnTypes.stream()
-                .map(DeltaHiveTypeTranslator::toHiveType)
-                .map(HiveType::getHiveTypeName)
-                .map(HiveTypeName::toString)
-                .collect(joining(":")));
-        return schema;
     }
 
     private Page getDataPage(Page page)

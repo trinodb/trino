@@ -28,6 +28,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
@@ -706,6 +707,18 @@ public class TestBigQueryConnectorTest
     {
         assertThatThrownBy(() -> query("SELECT * FROM test.\"test_missing_wildcard_table_*\""))
                 .hasMessageEndingWith("does not match any table.");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(1024);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Invalid table ID");
     }
 
     private void onBigQuery(@Language("SQL") String sql)

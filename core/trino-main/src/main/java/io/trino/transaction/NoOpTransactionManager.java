@@ -42,6 +42,12 @@ public class NoOpTransactionManager
     }
 
     @Override
+    public Optional<TransactionInfo> getTransactionInfoIfExist(TransactionId transactionId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<TransactionInfo> getAllTransactionInfos()
     {
         throw new UnsupportedOperationException();

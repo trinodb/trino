@@ -23,7 +23,6 @@ import io.airlift.stats.CounterStat;
 import io.airlift.stats.Distribution;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.execution.Lifespan;
 import io.trino.execution.TaskId;
 import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.LocalMemoryContext;
@@ -147,10 +146,10 @@ public class PipelineContext
 
     public DriverContext addDriverContext()
     {
-        return addDriverContext(Lifespan.taskWide(), 0);
+        return addDriverContext(0);
     }
 
-    public DriverContext addDriverContext(Lifespan lifespan, long splitWeight)
+    public DriverContext addDriverContext(long splitWeight)
     {
         checkArgument(partitioned || splitWeight == 0, "Only partitioned splits should have weights");
         DriverContext driverContext = new DriverContext(
@@ -158,7 +157,6 @@ public class PipelineContext
                 notificationExecutor,
                 yieldExecutor,
                 pipelineMemoryContext.newMemoryTrackingContext(),
-                lifespan,
                 splitWeight);
         drivers.add(driverContext);
         return driverContext;

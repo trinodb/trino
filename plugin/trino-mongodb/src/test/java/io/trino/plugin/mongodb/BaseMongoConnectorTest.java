@@ -37,6 +37,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -574,6 +575,18 @@ public abstract class BaseMongoConnectorTest
     {
         // TODO: Enable after supporting multi-document transaction https://www.mongodb.com/docs/manual/core/transactions/
         throw new SkipException("TODO");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(120 - "tpch.".length());
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching(".*fully qualified namespace .* is too long.*");
     }
 
     private void assertOneNotNullResult(String query)

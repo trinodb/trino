@@ -14,6 +14,7 @@
 package io.trino.spi.connector;
 
 @SuppressWarnings("ClassMayBeInterface")
+@Deprecated
 public abstract class ConnectorPartitionHandle
 {
     @Override

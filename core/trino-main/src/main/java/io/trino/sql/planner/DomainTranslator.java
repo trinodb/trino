@@ -21,6 +21,7 @@ import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
@@ -314,12 +315,12 @@ public final class DomainTranslator
                         new AllowAllAccessControl(),
                         new NoOpTransactionManager(),
                         user -> ImmutableSet.of(),
-                        new TableProceduresRegistry(),
-                        new TableFunctionRegistry(),
+                        new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in domain translator")),
+                        new TableFunctionRegistry(CatalogServiceProvider.fail("table functions are not supported in domain translator")),
                         new SessionPropertyManager(),
-                        new TablePropertyManager(),
-                        new AnalyzePropertyManager(),
-                        new TableProceduresPropertyManager()));
+                        new TablePropertyManager(CatalogServiceProvider.fail("table properties not supported in domain translator")),
+                        new AnalyzePropertyManager(CatalogServiceProvider.fail("analyze properties not supported in domain translator")),
+                        new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in domain translator"))));
         return new Visitor(plannerContext, session, types, typeAnalyzer).process(predicate, false);
     }
 

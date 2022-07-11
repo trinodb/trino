@@ -17,9 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
 import io.trino.metadata.Split;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.split.SplitSource;
 
 import java.util.Iterator;
@@ -66,7 +64,7 @@ public class TestingSplitSource
     }
 
     @Override
-    public ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize)
+    public ListenableFuture<SplitBatch> getNextBatch(int maxSize)
     {
         if (isFinished()) {
             return immediateFuture(new SplitBatch(ImmutableList.of(), true));

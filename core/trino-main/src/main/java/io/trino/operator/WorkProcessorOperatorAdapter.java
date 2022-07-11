@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.execution.Lifespan;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.Page;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -86,12 +85,6 @@ public class WorkProcessorOperatorAdapter
         }
 
         @Override
-        public void noMoreOperators(Lifespan lifespan)
-        {
-            lifespanFinished(lifespan);
-        }
-
-        @Override
         public OperatorFactory duplicate()
         {
             return new Factory(operatorFactory.duplicate());
@@ -121,12 +114,6 @@ public class WorkProcessorOperatorAdapter
         public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
         {
             return operatorFactory.create(processorContext, sourcePages);
-        }
-
-        @Override
-        public void lifespanFinished(Lifespan lifespan)
-        {
-            operatorFactory.lifespanFinished(lifespan);
         }
 
         @Override

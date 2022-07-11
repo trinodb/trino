@@ -25,7 +25,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.operator.index.PageBufferOperator.PageBufferOperatorFactory;
 import static io.trino.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
 import static java.util.Objects.requireNonNull;
@@ -85,8 +84,7 @@ public class IndexBuildDriverFactoryProvider
                         .addAll(coreOperatorFactories)
                         .add(new PagesIndexBuilderOperatorFactory(outputOperatorId, planNodeId, indexSnapshotBuilder, "IndexBuilder"))
                         .build(),
-                OptionalInt.empty(),
-                UNGROUPED_EXECUTION);
+                OptionalInt.empty());
     }
 
     public DriverFactory createStreaming(PageBuffer pageBuffer, Page indexKeyTuple)
@@ -101,6 +99,6 @@ public class IndexBuildDriverFactoryProvider
 
         operatorFactories.add(new PageBufferOperatorFactory(outputOperatorId, planNodeId, pageBuffer, "IndexBuilder"));
 
-        return new DriverFactory(pipelineId, inputDriver, false, operatorFactories.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
+        return new DriverFactory(pipelineId, inputDriver, false, operatorFactories.build(), OptionalInt.empty());
     }
 }

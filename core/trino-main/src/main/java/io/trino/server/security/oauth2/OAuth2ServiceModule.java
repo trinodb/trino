@@ -14,15 +14,22 @@
 package io.trino.server.security.oauth2;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
+import com.google.inject.Key;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.server.ui.OAuth2WebUiInstalled;
+
+import java.time.Duration;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.trino.server.security.oauth2.TokenPairSerializer.ACCESS_TOKEN_ONLY_SERIALIZER;
 
 public class OAuth2ServiceModule
         extends AbstractConfigurationAwareModule
@@ -42,6 +49,7 @@ public class OAuth2ServiceModule
                 .to(NimbusOAuth2Client.class)
                 .in(Scopes.SINGLETON);
         install(conditionalModule(OAuth2Config.class, OAuth2Config::isEnableDiscovery, this::bindOidcDiscovery, this::bindStaticConfiguration));
+        install(conditionalModule(OAuth2Config.class, OAuth2Config::isEnableRefreshTokens, this::enableRefreshTokens, this::disableRefreshTokens));
         httpClientBinder(binder)
                 .bindHttpClient("oauth2-jwk", ForOAuth2.class)
                 // Reset to defaults to override InternalCommunicationModule changes to this client default configuration.
@@ -54,6 +62,25 @@ public class OAuth2ServiceModule
                         .setTrustStorePath(null)
                         .setTrustStorePassword(null)
                         .setAutomaticHttpsSharedSecret(null));
+    }
+
+    private void enableRefreshTokens(Binder binder)
+    {
+        install(new JweTokenSerializerModule());
+    }
+
+    private void disableRefreshTokens(Binder binder)
+    {
+        binder.bind(TokenPairSerializer.class).toInstance(ACCESS_TOKEN_ONLY_SERIALIZER);
+        newOptionalBinder(binder, Key.get(Duration.class, ForRefreshTokens.class));
+    }
+
+    @Singleton
+    @Provides
+    @Inject
+    public TokenRefresher getTokenRefresher(TokenPairSerializer tokenAssembler, OAuth2TokenHandler tokenHandler, OAuth2Client oAuth2Client)
+    {
+        return new TokenRefresher(tokenAssembler, tokenHandler, oAuth2Client);
     }
 
     private void bindStaticConfiguration(Binder binder)

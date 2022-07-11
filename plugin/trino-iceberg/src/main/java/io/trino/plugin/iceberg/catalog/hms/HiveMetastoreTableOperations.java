@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -61,16 +60,14 @@ public class HiveMetastoreTableOperations
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
-        HiveIdentity identity = new HiveIdentity(session.getIdentity());
 
         long lockId = thriftMetastore.acquireTableExclusiveLock(
-                identity,
                 new AcidTransactionOwner(session.getUser()),
                 session.getQueryId(),
                 database,
                 tableName);
         try {
-            Table currentTable = fromMetastoreApiTable(thriftMetastore.getTable(identity, database, tableName)
+            Table currentTable = fromMetastoreApiTable(thriftMetastore.getTable(database, tableName)
                     .orElseThrow(() -> new TableNotFoundException(getSchemaTableName())));
 
             checkState(currentMetadataLocation != null, "No current metadata location for existing table");
@@ -98,7 +95,7 @@ public class HiveMetastoreTableOperations
             }
         }
         finally {
-            thriftMetastore.releaseTableLock(identity, lockId);
+            thriftMetastore.releaseTableLock(lockId);
         }
 
         shouldRefresh = true;

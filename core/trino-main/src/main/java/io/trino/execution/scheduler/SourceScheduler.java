@@ -14,11 +14,7 @@
 
 package io.trino.execution.scheduler;
 
-import io.trino.execution.Lifespan;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import java.util.List;
 
 public interface SourceScheduler
 {
@@ -29,10 +25,4 @@ public interface SourceScheduler
     void close();
 
     PlanNodeId getPlanNodeId();
-
-    void startLifespan(Lifespan lifespan, ConnectorPartitionHandle partitionHandle);
-
-    void noMoreLifespans();
-
-    List<Lifespan> drainCompletedLifespans();
 }

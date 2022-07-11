@@ -40,6 +40,7 @@ import static com.google.common.hash.Hashing.sha256;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
+import static io.trino.server.security.oauth2.TokenPairSerializer.TokenPair.fromOAuth2Response;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -61,6 +62,8 @@ public class OAuth2Service
     public static final String HANDLER_STATE_CLAIM = "handler_state";
 
     private final OAuth2Client client;
+    private final Optional<Duration> tokenExpiration;
+    private final TokenPairSerializer tokenPairSerializer;
 
     private final String successHtml;
     private final String failureHtml;
@@ -78,6 +81,8 @@ public class OAuth2Service
             OAuth2Client client,
             OAuth2Config oauth2Config,
             OAuth2TokenHandler tokenHandler,
+            TokenPairSerializer tokenPairSerializer,
+            @ForRefreshTokens Optional<Duration> tokenExpiration,
             Optional<OAuth2WebUiInstalled> webUiOAuthEnabled)
             throws IOException
     {
@@ -98,7 +103,9 @@ public class OAuth2Service
                 .build();
 
         this.tokenHandler = requireNonNull(tokenHandler, "tokenHandler is null");
+        this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
 
+        this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
         this.webUiOAuthEnabled = requireNonNull(webUiOAuthEnabled, "webUiOAuthEnabled is null").isPresent();
     }
 
@@ -166,15 +173,26 @@ public class OAuth2Service
             if (handlerState.isEmpty()) {
                 return Response
                         .seeOther(URI.create(UI_LOCATION))
-                        .cookie(OAuthWebUiCookie.create(oauth2Response.getAccessToken(), oauth2Response.getExpiration()), NonceCookie.delete())
+                        .cookie(
+                                OAuthWebUiCookie.create(
+                                        tokenPairSerializer.serialize(
+                                                fromOAuth2Response(oauth2Response)),
+                                                tokenExpiration
+                                                        .map(expiration -> Instant.now().plus(expiration))
+                                                        .orElse(oauth2Response.getExpiration())),
+                                NonceCookie.delete())
                         .build();
             }
 
-            tokenHandler.setAccessToken(handlerState.get(), oauth2Response.getAccessToken());
+            tokenHandler.setAccessToken(handlerState.get(), tokenPairSerializer.serialize(fromOAuth2Response(oauth2Response)));
 
             Response.ResponseBuilder builder = Response.ok(getSuccessHtml());
             if (webUiOAuthEnabled) {
-                builder.cookie(OAuthWebUiCookie.create(oauth2Response.getAccessToken(), oauth2Response.getExpiration()));
+                builder.cookie(
+                        OAuthWebUiCookie.create(
+                                tokenPairSerializer.serialize(fromOAuth2Response(oauth2Response)),
+                                tokenExpiration.map(expiration -> Instant.now().plus(expiration))
+                                        .orElse(oauth2Response.getExpiration())));
             }
             return builder.cookie(NonceCookie.delete()).build();
         }

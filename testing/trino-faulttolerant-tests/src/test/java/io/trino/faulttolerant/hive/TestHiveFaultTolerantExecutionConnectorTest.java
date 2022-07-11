@@ -48,12 +48,6 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     }
 
     @Override
-    public void testGroupedExecution()
-    {
-        // grouped execution is not supported (and not needed) with batch execution enabled
-    }
-
-    @Override
     public void testScaleWriters()
     {
         testWithAllStorageFormats(this::testSingleWriter);

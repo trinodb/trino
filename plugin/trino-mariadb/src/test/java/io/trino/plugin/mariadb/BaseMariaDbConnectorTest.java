@@ -21,6 +21,7 @@ import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -301,5 +302,17 @@ public abstract class BaseMariaDbConnectorTest
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return format("Failed to insert data: .* \\(conn=.*\\) Field '%s' doesn't have a default value", columnName);
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(64);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Incorrect table name");
     }
 }

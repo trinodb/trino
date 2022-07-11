@@ -36,6 +36,7 @@ import static io.airlift.joni.constants.SyntaxProperties.OP_DOT_ANYCHAR;
 import static io.airlift.joni.constants.SyntaxProperties.OP_LINE_ANCHOR;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.util.Failures.checkCondition;
@@ -85,7 +86,7 @@ public final class LikeFunctions
             offset = 0;
             matcher = pattern.matcher(value.getBytes());
         }
-        return matcher.match(offset, offset + value.length(), Option.NONE) != -1;
+        return getMatchingOffset(matcher, offset, offset + value.length()) != -1;
     }
 
     @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)
@@ -244,5 +245,21 @@ public final class LikeFunctions
             return escapeString.charAt(0);
         }
         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
+    }
+
+    private static int getMatchingOffset(Matcher matcher, int at, int range)
+    {
+        try {
+            return matcher.matchInterruptible(at, range, Option.NONE);
+        }
+        catch (InterruptedException interruptedException) {
+            // The JONI library is compliant with the InterruptedException contract. They reset the interrupted flag before throwing an exception.
+            // Since the InterruptedException is being caught the interrupt flag must either be recovered or the thread must be terminated.
+            // Since we are simply throwing a different exception, the interrupt flag must be recovered to propagate the interrupted status to the upper level code.
+            Thread.currentThread().interrupt();
+            throw new TrinoException(GENERIC_USER_ERROR, "" +
+                    "Regular expression matching was interrupted, likely because it took too long. " +
+                    "Regular expression in the worst case can have a catastrophic amount of backtracking and having exponential time complexity");
+        }
     }
 }

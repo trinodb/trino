@@ -168,7 +168,6 @@ public class TestingRemoteTaskFactory
                     state,
                     location,
                     nodeId,
-                    ImmutableSet.of(),
                     failures,
                     0,
                     0,
@@ -215,11 +214,6 @@ public class TestingRemoteTaskFactory
         public Set<PlanNodeId> getNoMoreSplits()
         {
             return ImmutableSet.copyOf(noMoreSplits);
-        }
-
-        @Override
-        public void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan)
-        {
         }
 
         @Override

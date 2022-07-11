@@ -13,13 +13,18 @@
  */
 package io.trino.metadata;
 
+import io.trino.connector.CatalogServiceProvider;
+import io.trino.spi.session.PropertyMetadata;
+
+import java.util.Map;
+
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 
 public class SchemaPropertyManager
         extends AbstractCatalogPropertyManager
 {
-    public SchemaPropertyManager()
+    public SchemaPropertyManager(CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorProperties)
     {
-        super("schema", INVALID_SCHEMA_PROPERTY);
+        super("schema", INVALID_SCHEMA_PROPERTY, connectorProperties);
     }
 }

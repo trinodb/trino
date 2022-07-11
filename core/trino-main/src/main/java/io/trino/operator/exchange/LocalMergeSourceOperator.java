@@ -21,7 +21,6 @@ import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PageWithPositionComparator;
 import io.trino.operator.WorkProcessor;
-import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
@@ -44,7 +43,7 @@ public class LocalMergeSourceOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final LocalExchangeFactory localExchangeFactory;
+        private final LocalExchange localExchange;
         private final List<Type> types;
         private final OrderingCompiler orderingCompiler;
         private final List<Integer> sortChannels;
@@ -54,7 +53,7 @@ public class LocalMergeSourceOperator
         public LocalMergeSourceOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                LocalExchangeFactory localExchangeFactory,
+                LocalExchange localExchange,
                 List<Type> types,
                 OrderingCompiler orderingCompiler,
                 List<Integer> sortChannels,
@@ -62,7 +61,7 @@ public class LocalMergeSourceOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.localExchangeFactory = requireNonNull(localExchangeFactory, "localExchangeFactory is null");
+            this.localExchange = requireNonNull(localExchange, "localExchange is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
@@ -73,8 +72,6 @@ public class LocalMergeSourceOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-
-            LocalExchange localExchange = localExchangeFactory.getLocalExchange(driverContext.getLifespan());
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LocalMergeSourceOperator.class.getSimpleName());
             PageWithPositionComparator comparator = orderingCompiler.compilePageWithPositionComparator(types, sortChannels, orderings);

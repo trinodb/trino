@@ -32,7 +32,9 @@ import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorManager;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.event.SplitMonitor;
@@ -61,10 +63,8 @@ import io.trino.memory.MemoryInfo;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.MemoryResource;
 import io.trino.memory.NodeMemoryConfig;
-import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.CatalogManager;
-import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.DiscoveryNodeManager;
 import io.trino.metadata.ForNodeManager;
@@ -76,20 +76,15 @@ import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.LiteralFunction;
-import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ProcedureRegistry;
-import io.trino.metadata.SchemaPropertyManager;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.StaticCatalogStore;
 import io.trino.metadata.StaticCatalogStoreConfig;
 import io.trino.metadata.SystemFunctionBundle;
 import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.metadata.TableFunctionRegistry;
-import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
-import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.operator.DirectExchangeClientConfig;
 import io.trino.operator.DirectExchangeClientFactory;
@@ -243,27 +238,8 @@ public class ServerMainModule
 
         // session properties
         newSetBinder(binder, SystemSessionPropertiesProvider.class).addBinding().to(SystemSessionProperties.class);
-        binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(SessionPropertyDefaults.class).in(Scopes.SINGLETON);
-
-        // schema properties
-        binder.bind(SchemaPropertyManager.class).in(Scopes.SINGLETON);
-
-        // table properties
-        binder.bind(TablePropertyManager.class).in(Scopes.SINGLETON);
-
-        // materialized view properties
-        binder.bind(MaterializedViewPropertyManager.class).in(Scopes.SINGLETON);
-
-        // column properties
-        binder.bind(ColumnPropertyManager.class).in(Scopes.SINGLETON);
-
-        // analyze properties
-        binder.bind(AnalyzePropertyManager.class).in(Scopes.SINGLETON);
-
-        // table procedures properties
-        binder.bind(TableProceduresPropertyManager.class).in(Scopes.SINGLETON);
 
         // node manager
         discoveryBinder(binder).bindSelector("trino");
@@ -424,6 +400,8 @@ public class ServerMainModule
 
         // connector
         binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorServicesProvider.class).to(ConnectorManager.class).in(Scopes.SINGLETON);
+        binder.install(new CatalogServiceProviderModule());
 
         // system connector
         binder.install(new SystemConnectorModule());

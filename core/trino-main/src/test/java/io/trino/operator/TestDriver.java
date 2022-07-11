@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.Duration;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
 import io.trino.memory.context.LocalMemoryContext;
@@ -302,7 +301,7 @@ public class TestDriver
 
     private static Split newMockSplit()
     {
-        return new Split(new CatalogName("test"), new MockSplit(), Lifespan.taskWide());
+        return new Split(new CatalogName("test"), new MockSplit());
     }
 
     private PageConsumerOperator createSinkOperator(List<Type> types)

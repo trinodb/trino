@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
@@ -139,7 +140,11 @@ public class TestCreateMaterializedViewTask
         metadata = new MockMetadata(new CatalogName(CATALOG_NAME));
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         parser = queryRunner.getSqlParser();
-        analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(plannerContext, new AllowAllAccessControl(), new TablePropertyManager(), new AnalyzePropertyManager()), new StatementRewrite(ImmutableSet.of()));
+        analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(plannerContext,
+                new AllowAllAccessControl(),
+                queryRunner.getTablePropertyManager(),
+                queryRunner.getAnalyzePropertyManager()),
+                new StatementRewrite(ImmutableSet.of()));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl());
     }
 
@@ -251,8 +256,8 @@ public class TestCreateMaterializedViewTask
         StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(
                 plannerContext,
                 accessControl,
-                new TablePropertyManager(),
-                new AnalyzePropertyManager());
+                new TablePropertyManager(CatalogServiceProvider.fail()),
+                new AnalyzePropertyManager(CatalogServiceProvider.fail()));
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, new StatementRewrite(ImmutableSet.of()));
         assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, accessControl, parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))

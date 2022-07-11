@@ -206,7 +206,7 @@ public class MongoSession
             throw new SchemaNotFoundException(name.getSchemaName());
         }
         createTableMetadata(name, columns, comment);
-        // collection is created implicitly
+        client.getDatabase(name.getSchemaName()).createCollection(name.getTableName());
     }
 
     public void dropTable(SchemaTableName tableName)

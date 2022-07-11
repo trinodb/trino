@@ -39,7 +39,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
@@ -61,8 +60,6 @@ public final class SystemSessionProperties
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
-    public static final String GROUPED_EXECUTION = "grouped_execution";
-    public static final String DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION = "dynamic_schedule_for_grouped_execution";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
@@ -89,7 +86,6 @@ public final class SystemSessionProperties
     public static final String SPATIAL_JOIN = "spatial_join";
     public static final String SPATIAL_PARTITIONING_TABLE_NAME = "spatial_partitioning_table_name";
     public static final String COLOCATED_JOIN = "colocated_join";
-    public static final String CONCURRENT_LIFESPANS_PER_NODE = "concurrent_lifespans_per_task";
     public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
     public static final String MAX_REORDERED_JOINS = "max_reordered_joins";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
@@ -166,12 +162,13 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR = "fault_tolerant_execution_task_memory_growth_factor";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE = "fault_tolerant_execution_task_memory_estimation_quantile";
     public static final String FAULT_TOLERANT_EXECUTION_PARTITION_COUNT = "fault_tolerant_execution_partition_count";
-
     public static final String FAULT_TOLERANT_EXECUTION_PRESERVE_INPUT_PARTITIONS_IN_WRITE_STAGE = "fault_tolerant_execution_preserve_input_partitions_in_write_stage";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT = "join_partitioned_build_min_row_count";
+    public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
+    public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -239,16 +236,6 @@ public final class SystemSessionProperties
                         HASH_PARTITION_COUNT,
                         "Number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getHashPartitionCount(),
-                        false),
-                booleanProperty(
-                        GROUPED_EXECUTION,
-                        "Use grouped execution when possible",
-                        featuresConfig.isGroupedExecutionEnabled(),
-                        false),
-                booleanProperty(
-                        DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION,
-                        "Experimental: Use dynamic schedule for grouped execution when possible",
-                        featuresConfig.isDynamicScheduleForGroupedExecutionEnabled(),
                         false),
                 booleanProperty(
                         PREFER_STREAMING_OPERATORS,
@@ -422,11 +409,6 @@ public final class SystemSessionProperties
                         SPATIAL_PARTITIONING_TABLE_NAME,
                         "Name of the table containing spatial partitioning scheme",
                         null,
-                        false),
-                integerProperty(
-                        CONCURRENT_LIFESPANS_PER_NODE,
-                        "Experimental: Run a fixed number of groups concurrently for eligible JOINs",
-                        featuresConfig.getConcurrentLifespansPerTask(),
                         false),
                 booleanProperty(
                         SPILL_ENABLED,
@@ -837,6 +819,16 @@ public final class SystemSessionProperties
                         "Minimum number of join build side rows required to use partitioned join lookup",
                         optimizerConfig.getJoinPartitionedBuildMinRowCount(),
                         value -> validateNonNegativeLongValue(value, JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT),
+                        false),
+                booleanProperty(
+                        USE_EXACT_PARTITIONING,
+                        "When enabled this forces data repartitioning unless the partitioning of upstream stage matches exactly what downstream stage expects",
+                        optimizerConfig.isUseExactPartitioning(),
+                        false),
+                booleanProperty(
+                        FORCE_SPILLING_JOIN,
+                        "Force the usage of spliing join operator in favor of the non-spilling one, even if spill is not enabled",
+                        featuresConfig.isForceSpillingJoin(),
                         false));
     }
 
@@ -879,16 +871,6 @@ public final class SystemSessionProperties
     public static int getHashPartitionCount(Session session)
     {
         return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
-    }
-
-    public static boolean isGroupedExecutionEnabled(Session session)
-    {
-        return session.getSystemProperty(GROUPED_EXECUTION, Boolean.class);
-    }
-
-    public static boolean isDynamicScheduleForGroupedExecution(Session session)
-    {
-        return session.getSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, Boolean.class);
     }
 
     public static boolean preferStreamingOperators(Session session)
@@ -1019,16 +1001,6 @@ public final class SystemSessionProperties
     public static Optional<String> getSpatialPartitioningTableName(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(SPATIAL_PARTITIONING_TABLE_NAME, String.class));
-    }
-
-    public static OptionalInt getConcurrentLifespansPerNode(Session session)
-    {
-        Integer result = session.getSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, Integer.class);
-        if (result == 0) {
-            return OptionalInt.empty();
-        }
-        checkArgument(result > 0, "Concurrent lifespans per node is negative: %s", result);
-        return OptionalInt.of(result);
     }
 
     public static int getInitialSplitsPerNode(Session session)
@@ -1397,13 +1369,7 @@ public final class SystemSessionProperties
 
     public static RetryPolicy getRetryPolicy(Session session)
     {
-        RetryPolicy retryPolicy = session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
-        if (retryPolicy == RetryPolicy.TASK) {
-            if (isGroupedExecutionEnabled(session) || isDynamicScheduleForGroupedExecution(session)) {
-                throw new TrinoException(NOT_SUPPORTED, "Grouped execution is not supported with task level retries enabled");
-            }
-        }
-        return retryPolicy;
+        return session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
     }
 
     public static int getQueryRetryAttempts(Session session)
@@ -1509,5 +1475,15 @@ public final class SystemSessionProperties
     public static long getJoinPartitionedBuildMinRowCount(Session session)
     {
         return session.getSystemProperty(JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT, Long.class);
+    }
+
+    public static boolean isUseExactPartitioning(Session session)
+    {
+        return session.getSystemProperty(USE_EXACT_PARTITIONING, Boolean.class);
+    }
+
+    public static boolean isForceSpillingOperator(Session session)
+    {
+        return session.getSystemProperty(FORCE_SPILLING_JOIN, Boolean.class);
     }
 }

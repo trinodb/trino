@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.QualifiedObjectName;
@@ -56,7 +57,13 @@ public class TestCreateViewTask
     {
         super.setUp();
         parser = new SqlParser();
-        analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(plannerContext, new AllowAllAccessControl(), new TablePropertyManager(), new AnalyzePropertyManager()), new StatementRewrite(ImmutableSet.of()));
+        analyzerFactory = new AnalyzerFactory(
+                createTestingStatementAnalyzerFactory(
+                        plannerContext,
+                        new AllowAllAccessControl(),
+                        new TablePropertyManager(CatalogServiceProvider.fail()),
+                        new AnalyzePropertyManager(CatalogServiceProvider.fail())),
+                new StatementRewrite(ImmutableSet.of()));
         QualifiedObjectName tableName = qualifiedObjectName("mock_table");
         metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
     }

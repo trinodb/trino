@@ -324,6 +324,40 @@ supports the following features:
 
 .. include:: alter-table-limitation.fragment
 
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access SQL Server.
+
+.. _sqlserver-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to SQL Server, because the full query is pushed down and
+processed in SQL Server. This can be useful for accessing native features which
+are not implemented in Trino or for improving query performance in situations
+where running a query natively may be faster.
+
+For example, select the top 10 percent of nations by population::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        sqlserver.system.query(
+          query => 'SELECT
+            TOP(10) PERCENT
+          FROM
+            tpch.nation
+          ORDER BY
+            population DESC'
+        )
+      );
+
+
 Performance
 -----------
 

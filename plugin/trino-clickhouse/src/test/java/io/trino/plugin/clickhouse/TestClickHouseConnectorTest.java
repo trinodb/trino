@@ -16,6 +16,8 @@ package io.trino.plugin.clickhouse;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
+import java.util.OptionalInt;
+
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -57,5 +59,12 @@ public class TestClickHouseConnectorTest
         // Table comment is unsupported in old ClickHouse version
         assertThatThrownBy(super::testCreateTableAsSelectWithTableComment)
                 .hasMessageMatching("(?s).* Syntax error: .* COMMENT 'test comment'.*");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        // The numeric value depends on file system
+        return OptionalInt.of(255 - ".sql.tmp".length());
     }
 }

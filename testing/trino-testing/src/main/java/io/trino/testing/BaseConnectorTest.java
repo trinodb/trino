@@ -1416,7 +1416,7 @@ public abstract class BaseConnectorTest
         Runnable writeInitialized = writeTasksInitialized::countDown;
         Supplier<Boolean> done = () -> incompleteReadTasks.get() == 0;
         List<Callable<Void>> writeTasks = new ArrayList<>();
-        writeTasks.add(createDropRepeatedly(writeInitialized, done, "concur_table", "CREATE TABLE %s(a integer)", "DROP TABLE %s"));
+        writeTasks.add(createDropRepeatedly(writeInitialized, done, "concur_table", createTableSqlTemplateForConcurrentModifications(), "DROP TABLE %s"));
         if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
             writeTasks.add(createDropRepeatedly(writeInitialized, done, "concur_view", "CREATE VIEW %s AS SELECT 1 a", "DROP VIEW %s"));
         }
@@ -1449,6 +1449,12 @@ public abstract class BaseConnectorTest
             executor.shutdownNow();
         }
         assertTrue(executor.awaitTermination(10, SECONDS));
+    }
+
+    @Language("SQL")
+    protected String createTableSqlTemplateForConcurrentModifications()
+    {
+        return "CREATE TABLE %s(a integer)";
     }
 
     /**
@@ -1981,6 +1987,47 @@ public abstract class BaseConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableNameLike));
     }
 
+    // TODO https://github.com/trinodb/trino/issues/13073 Add RENAME TABLE test with long table name
+    @Test
+    public void testCreateTableWithLongTableName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        String baseTableName = "test_create_" + randomTableSuffix();
+
+        int maxLength = maxTableNameLength()
+                // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
+                .orElse(65536 + 5);
+
+        String validTableName = baseTableName + "z".repeat(maxLength - baseTableName.length());
+        assertUpdate("CREATE TABLE " + validTableName + " (a bigint)");
+        assertTrue(getQueryRunner().tableExists(getSession(), validTableName));
+        assertUpdate("DROP TABLE " + validTableName);
+
+        if (maxTableNameLength().isEmpty()) {
+            return;
+        }
+
+        String invalidTableName = validTableName + "z";
+        try {
+            assertUpdate("CREATE TABLE " + invalidTableName + " (a bigint)");
+        }
+        catch (Throwable e) {
+            verifyTableNameLengthFailurePermissible(e);
+        }
+        assertFalse(getQueryRunner().tableExists(getSession(), validTableName));
+    }
+
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.empty();
+    }
+
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        throw new AssertionError("Unexpected table name length failure", e);
+    }
+
     @Test
     public void testCreateTableWithTableComment()
     {
@@ -2203,6 +2250,7 @@ public abstract class BaseConnectorTest
 
     @Test
     public void testRenameTable()
+            throws Exception
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
         String tableName = "test_rename_" + randomTableSuffix();
@@ -2215,7 +2263,14 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
+        try {
+            assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
+        }
+        catch (Throwable e) {
+            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + tableName)) {
+                throw e;
+            }
+        }
         assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
 
         String testExistsTableName = "test_rename_exists_" + randomTableSuffix();
@@ -2240,6 +2295,7 @@ public abstract class BaseConnectorTest
 
     @Test
     public void testRenameTableAcrossSchema()
+            throws Exception
     {
         if (!hasBehavior(SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS)) {
             if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
@@ -2264,7 +2320,14 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE SCHEMA " + schemaName);
 
         String renamedTable = "test_rename_new_" + randomTableSuffix();
-        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + schemaName + "." + renamedTable);
+        try {
+            assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + schemaName + "." + renamedTable);
+        }
+        catch (Throwable e) {
+            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + tableName)) {
+                throw e;
+            }
+        }
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
         assertQuery("SELECT x FROM " + schemaName + "." + renamedTable, "VALUES 123");
@@ -2278,6 +2341,7 @@ public abstract class BaseConnectorTest
 
     @Test
     public void testRenameTableToUnqualifiedPreservesSchema()
+            throws Exception
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA) && hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_RENAME_TABLE));
 
@@ -2288,7 +2352,14 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE TABLE " + sourceSchemaName + "." + tableName + " AS SELECT 123 x", 1);
 
         String renamedTable = "test_rename_unqualified_name_new_" + randomTableSuffix();
-        assertUpdate("ALTER TABLE " + sourceSchemaName + "." + tableName + " RENAME TO " + renamedTable);
+        try {
+            assertUpdate("ALTER TABLE " + sourceSchemaName + "." + tableName + " RENAME TO " + renamedTable);
+        }
+        catch (Throwable e) {
+            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + tableName)) {
+                throw e;
+            }
+        }
         assertQuery("SELECT x FROM " + sourceSchemaName + "." + renamedTable, "VALUES 123");
 
         assertUpdate("DROP TABLE " + sourceSchemaName + "." + renamedTable);
@@ -2984,7 +3055,7 @@ public abstract class BaseConnectorTest
         int threads = 4;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert", "(col integer)")) {
+        try (TestTable table = createTableWithOneIntegerColumn("test_insert")) {
             String tableName = table.getName();
 
             List<Future<OptionalInt>> futures = IntStream.range(0, threads)
@@ -3052,7 +3123,7 @@ public abstract class BaseConnectorTest
         int threads = 4;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column", "(col integer)")) {
+        try (TestTable table = createTableWithOneIntegerColumn("test_add_column")) {
             String tableName = table.getName();
 
             List<Future<Optional<String>>> futures = IntStream.range(0, threads)
@@ -3102,6 +3173,11 @@ public abstract class BaseConnectorTest
     {
         // By default, do not expect ALTER TABLE ADD COLUMN to fail in case of concurrent inserts
         throw new AssertionError("Unexpected concurrent add column failure", e);
+    }
+
+    protected TestTable createTableWithOneIntegerColumn(String namePrefix)
+    {
+        return new TestTable(getQueryRunner()::execute, namePrefix, "(col integer)");
     }
 
     @Test

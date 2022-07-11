@@ -18,10 +18,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSplit;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -33,7 +31,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.split.MockSplitSource.Action.DO_NOTHING;
 import static io.trino.split.MockSplitSource.Action.FINISH;
 
@@ -41,7 +38,7 @@ import static io.trino.split.MockSplitSource.Action.FINISH;
 public class MockSplitSource
         implements SplitSource
 {
-    private static final Split SPLIT = new Split(new CatalogName("test"), new MockConnectorSplit(), Lifespan.taskWide());
+    private static final Split SPLIT = new Split(new CatalogName("test"), new MockConnectorSplit());
     private static final SettableFuture<List<Split>> COMPLETED_FUTURE = SettableFuture.create();
 
     static {
@@ -115,13 +112,8 @@ public class MockSplitSource
     }
 
     @Override
-    public ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize)
+    public ListenableFuture<SplitBatch> getNextBatch(int maxSize)
     {
-        if (partitionHandle != NOT_PARTITIONED) {
-            throw new UnsupportedOperationException();
-        }
-        checkArgument(Lifespan.taskWide().equals(lifespan));
-
         checkState(nextBatchFuture.isDone(), "concurrent getNextBatch invocation");
         nextBatchFuture = SettableFuture.create();
         nextBatchMaxSize = maxSize;

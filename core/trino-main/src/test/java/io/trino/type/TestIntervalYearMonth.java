@@ -215,7 +215,7 @@ public class TestIntervalYearMonth
     }
 
     @Test
-    public void testCastToSlice()
+    public void testCastToVarchar()
     {
         assertFunction("cast(INTERVAL '124-30' YEAR TO MONTH as varchar)", VARCHAR, "126-6");
         assertFunction("cast(INTERVAL '124-30' YEAR TO MONTH as varchar)", VARCHAR, new SqlIntervalYearMonth(124, 30).toString());

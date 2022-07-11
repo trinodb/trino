@@ -34,6 +34,7 @@ import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockReset
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 
 public class SlicePositionsAppender
         implements PositionsAppender
@@ -47,7 +48,6 @@ public class SlicePositionsAppender
     private int initialBytesSize;
 
     private byte[] bytes = new byte[0];
-    private int currentOffset;
 
     private boolean hasNullValue;
     private boolean hasNonNullValue;
@@ -123,21 +123,18 @@ public class SlicePositionsAppender
         if (rlePositionCount == 0) {
             return;
         }
-        int sourcePosition = 0;
         ensurePositionCapacity(positionCount + rlePositionCount);
-        if (block.isNull(sourcePosition)) {
-            int offset = offsets[positionCount];
+        if (block.isNull(0)) {
             Arrays.fill(valueIsNull, positionCount, positionCount + rlePositionCount, true);
-            Arrays.fill(offsets, positionCount + 1, positionCount + rlePositionCount + 1, offset);
+            Arrays.fill(offsets, positionCount + 1, positionCount + rlePositionCount + 1, getCurrentOffset());
             positionCount += rlePositionCount;
 
             hasNullValue = true;
             updateSize(rlePositionCount, 0);
         }
         else {
-            int startOffset = offsets[positionCount];
             hasNonNullValue = true;
-            duplicateBytes(block.getValue(), sourcePosition, rlePositionCount, startOffset);
+            duplicateBytes(block.getValue(), 0, rlePositionCount);
         }
     }
 
@@ -148,7 +145,7 @@ public class SlicePositionsAppender
         if (hasNonNullValue) {
             result = new VariableWidthBlock(
                     positionCount,
-                    Slices.wrappedBuffer(bytes, 0, currentOffset),
+                    Slices.wrappedBuffer(bytes, 0, getCurrentOffset()),
                     offsets,
                     hasNullValue ? Optional.of(valueIsNull) : Optional.empty());
         }
@@ -173,7 +170,7 @@ public class SlicePositionsAppender
 
     private void copyBytes(Block block, int[] lengths, int[] positions, int count, int[] targetOffsets, int targetOffsetsIndex, int newByteCount)
     {
-        ensureBytesCapacity(currentOffset + newByteCount);
+        ensureBytesCapacity(getCurrentOffset() + newByteCount);
 
         for (int i = 0; i < count; i++) {
             int position = positions[i];
@@ -185,18 +182,18 @@ public class SlicePositionsAppender
         }
 
         positionCount += count;
-        currentOffset += newByteCount;
         updateSize(count, newByteCount);
     }
 
     /**
      * Copy {@code length} bytes from {@code block}, at position {@code position} to {@code count} consecutive positions in the {@link #bytes} array.
      */
-    private void duplicateBytes(Block block, int position, int count, int startOffset)
+    private void duplicateBytes(Block block, int position, int count)
     {
         int length = block.getSliceLength(position);
-        int newByteCount = count * length;
-        ensureBytesCapacity(currentOffset + newByteCount);
+        int newByteCount = toIntExact((long) count * length);
+        int startOffset = getCurrentOffset();
+        ensureBytesCapacity(startOffset + newByteCount);
 
         Slice slice = block.getSlice(position, 0, length);
         for (int i = 0; i < count; i++) {
@@ -205,24 +202,27 @@ public class SlicePositionsAppender
         }
 
         positionCount += count;
-        currentOffset += newByteCount;
         updateSize(count, newByteCount);
     }
 
     private void reset()
     {
         initialEntryCount = calculateBlockResetSize(positionCount);
-        initialBytesSize = calculateBlockResetBytes(currentOffset);
+        initialBytesSize = calculateBlockResetBytes(getCurrentOffset());
         initialized = false;
         valueIsNull = new boolean[0];
         offsets = new int[1];
         bytes = new byte[0];
         positionCount = 0;
-        currentOffset = 0;
         sizeInBytes = 0;
         hasNonNullValue = false;
         hasNullValue = false;
         updateRetainedSize();
+    }
+
+    private int getCurrentOffset()
+    {
+        return offsets[positionCount];
     }
 
     private void updateSize(long positionsSize, int bytesWritten)

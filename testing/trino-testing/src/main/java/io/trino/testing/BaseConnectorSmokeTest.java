@@ -133,10 +133,15 @@ public abstract class BaseConnectorSmokeTest
         }
 
         String tableName = "test_create_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double)");
+        assertUpdate("CREATE TABLE " + tableName + " " + getCreateTableDefaultDefinition());
         assertThat(query("SELECT a, b FROM " + tableName))
                 .returnsEmptyResult();
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    protected String getCreateTableDefaultDefinition()
+    {
+        return "(a bigint, b double)";
     }
 
     @Test
@@ -166,7 +171,7 @@ public abstract class BaseConnectorSmokeTest
             throw new AssertionError("Cannot test INSERT without CREATE TABLE, the test needs to be implemented in a connector-specific way");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", "(a bigint, b double)")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", getCreateTableDefaultDefinition())) {
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (42, -38.5)", 1);
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches("VALUES (BIGINT '42', -385e-1)");
@@ -289,6 +294,7 @@ public abstract class BaseConnectorSmokeTest
 
     @Test
     public void testRenameTable()
+            throws Exception
     {
         if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
             assertQueryFails("ALTER TABLE nation RENAME TO yyyy", "This connector does not support renaming tables");
@@ -300,10 +306,17 @@ public abstract class BaseConnectorSmokeTest
         }
 
         String oldTable = "test_rename_old_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + oldTable + " (a bigint, b double)");
+        assertUpdate("CREATE TABLE " + oldTable + " " + getCreateTableDefaultDefinition());
 
         String newTable = "test_rename_new_" + randomTableSuffix();
-        assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+        try {
+            assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+        }
+        catch (Throwable e) {
+            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + oldTable)) {
+                throw e;
+            }
+        }
 
         assertThat(query("SHOW TABLES LIKE '" + oldTable + "'"))
                 .returnsEmptyResult();
@@ -323,6 +336,7 @@ public abstract class BaseConnectorSmokeTest
 
     @Test
     public void testRenameTableAcrossSchemas()
+            throws Exception
     {
         if (!hasBehavior(SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS)) {
             if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
@@ -341,13 +355,20 @@ public abstract class BaseConnectorSmokeTest
         }
 
         String oldTable = "test_rename_old_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + oldTable + " (a bigint, b double)");
+        assertUpdate("CREATE TABLE " + oldTable + " " + getCreateTableDefaultDefinition());
 
         String schemaName = "test_schema_" + randomTableSuffix();
         assertUpdate(createSchemaSql(schemaName));
 
         String newTable = schemaName + ".test_rename_new_" + randomTableSuffix();
-        assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+        try {
+            assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+        }
+        catch (Throwable e) {
+            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + oldTable)) {
+                throw e;
+            }
+        }
 
         assertThat(query("SHOW TABLES LIKE '" + oldTable + "'"))
                 .returnsEmptyResult();

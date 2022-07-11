@@ -60,18 +60,29 @@ public class TestDeltaLakeDropTableCompatibility
                 {TRINO, DELTA, true},
                 {TRINO, DELTA, false},
                 {DELTA, TRINO, true},
-                {DELTA, TRINO, false},
                 {DELTA, DELTA, true},
                 {DELTA, DELTA, false},
         };
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "engineConfigurations")
-    public void testDatabricksManagedTableDroppedFromTrino(Engine creator, Engine dropper, boolean explicitLocation)
+    public void testDropTable(Engine creator, Engine dropper, boolean explicitLocation)
     {
-        String schemaName = "schema_with_location_" + randomTableSuffix();
+        testDropTableAccuracy(creator, dropper, explicitLocation);
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateManagedTableInDeltaDropTableInTrino()
+    {
+        //TODO Integrate this method into `engineConfigurations()` data provider method after dealing with https://github.com/trinodb/trino/issues/13017
+        testDropTableAccuracy(DELTA, TRINO, false);
+    }
+
+    private void testDropTableAccuracy(Engine creator, Engine dropper, boolean explicitLocation)
+    {
+        String schemaName = "test_schema_with_location_" + randomTableSuffix();
         String schemaLocation = format("s3://%s/databricks-compatibility-test-%s", bucketName, schemaName);
-        String tableName = explicitLocation ? "external_table" : "managed_table";
+        String tableName = explicitLocation ? "test_external_table" : "test_managed_table";
         Optional<String> tableLocation = explicitLocation
                 ? Optional.of(format("s3://" + bucketName + "/databricks-compatibility-test-%s/%s", schemaName, tableName))
                 : Optional.empty();

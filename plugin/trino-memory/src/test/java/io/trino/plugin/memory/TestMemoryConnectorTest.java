@@ -26,7 +26,6 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
@@ -45,7 +44,6 @@ import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
@@ -141,11 +139,11 @@ public class TestMemoryConnectorTest
 
         assertQuery("SELECT * FROM test_select ORDER BY nationkey", "SELECT * FROM nation ORDER BY nationkey");
 
-        assertQueryResult("INSERT INTO test_select SELECT * FROM tpch.tiny.nation", 25L);
+        assertUpdate("INSERT INTO test_select SELECT * FROM tpch.tiny.nation", 25L);
 
-        assertQueryResult("INSERT INTO test_select SELECT * FROM tpch.tiny.nation", 25L);
+        assertUpdate("INSERT INTO test_select SELECT * FROM tpch.tiny.nation", 25L);
 
-        assertQueryResult("SELECT count(*) FROM test_select", 75L);
+        assertThat(computeScalar("SELECT count(*) FROM test_select")).isEqualTo(75L);
     }
 
     @Test
@@ -248,11 +246,11 @@ public class TestMemoryConnectorTest
     @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
     public void testJoinDynamicFilteringSingleValue(JoinDistributionType joinDistributionType)
     {
-        assertQueryResult("SELECT orderkey FROM orders WHERE comment = 'nstructions sleep furiously among '", 1L);
-        assertQueryResult("SELECT COUNT() FROM lineitem WHERE orderkey = 1", 6L);
+        assertThat(computeScalar("SELECT orderkey FROM orders WHERE comment = 'nstructions sleep furiously among '")).isEqualTo(1L);
+        assertThat(computeScalar("SELECT COUNT() FROM lineitem WHERE orderkey = 1")).isEqualTo(6L);
 
-        assertQueryResult("SELECT partkey FROM part WHERE comment = 'onic deposits'", 1552L);
-        assertQueryResult("SELECT COUNT() FROM lineitem WHERE partkey = 1552", 39L);
+        assertThat(computeScalar("SELECT partkey FROM part WHERE comment = 'onic deposits'")).isEqualTo(1552L);
+        assertThat(computeScalar("SELECT COUNT() FROM lineitem WHERE partkey = 1552")).isEqualTo(39L);
 
         // Join lineitem with a single row of orders
         assertDynamicFiltering(
@@ -490,18 +488,18 @@ public class TestMemoryConnectorTest
     public void testCreateTableWithNoData()
     {
         assertUpdate("CREATE TABLE test_empty (a BIGINT)");
-        assertQueryResult("SELECT count(*) FROM test_empty", 0L);
-        assertQueryResult("INSERT INTO test_empty SELECT nationkey FROM tpch.tiny.nation", 25L);
-        assertQueryResult("SELECT count(*) FROM test_empty", 25L);
+        assertThat(computeScalar("SELECT count(*) FROM test_empty")).isEqualTo(0L);
+        assertUpdate("INSERT INTO test_empty SELECT nationkey FROM tpch.tiny.nation", 25L);
+        assertThat(computeScalar("SELECT count(*) FROM test_empty")).isEqualTo(25L);
     }
 
     @Test
     public void testCreateFilteredOutTable()
     {
         assertUpdate("CREATE TABLE filtered_out AS SELECT nationkey FROM tpch.tiny.nation WHERE nationkey < 0", "SELECT count(nationkey) FROM nation WHERE nationkey < 0");
-        assertQueryResult("SELECT count(*) FROM filtered_out", 0L);
-        assertQueryResult("INSERT INTO filtered_out SELECT nationkey FROM tpch.tiny.nation", 25L);
-        assertQueryResult("SELECT count(*) FROM filtered_out", 25L);
+        assertThat(computeScalar("SELECT count(*) FROM filtered_out")).isEqualTo(0L);
+        assertUpdate("INSERT INTO filtered_out SELECT nationkey FROM tpch.tiny.nation", 25L);
+        assertThat(computeScalar("SELECT count(*) FROM filtered_out")).isEqualTo(25L);
     }
 
     @Test
@@ -509,7 +507,7 @@ public class TestMemoryConnectorTest
     {
         assertUpdate("CREATE TABLE test_select_empty AS SELECT * FROM tpch.tiny.nation WHERE nationkey > 1000", "SELECT count(*) FROM nation WHERE nationkey > 1000");
 
-        assertQueryResult("SELECT count(*) FROM test_select_empty", 0L);
+        assertThat(computeScalar("SELECT count(*) FROM test_select_empty")).isEqualTo(0L);
     }
 
     @Test
@@ -530,12 +528,14 @@ public class TestMemoryConnectorTest
         assertUpdate("CREATE SCHEMA schema1");
         assertUpdate("CREATE SCHEMA schema2");
 
-        assertQueryResult("SHOW SCHEMAS", "default", "information_schema", "schema1", "schema2");
+        assertThat(query("SHOW SCHEMAS"))
+                .skippingTypesCheck()
+                .matches("VALUES 'default', 'information_schema', 'schema1', 'schema2'");
         assertUpdate("CREATE TABLE schema1.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 0", "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 0");
         assertUpdate("CREATE TABLE schema2.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 1", "SELECT count(*) FROM nation WHERE MOD(nationkey, 2) = 1");
 
-        assertQueryResult("SELECT count(*) FROM schema1.nation", 13L);
-        assertQueryResult("SELECT count(*) FROM schema2.nation", 12L);
+        assertThat(computeScalar("SELECT count(*) FROM schema1.nation")).isEqualTo(13L);
+        assertThat(computeScalar("SELECT count(*) FROM schema2.nation")).isEqualTo(12L);
     }
 
     @Test
@@ -584,20 +584,5 @@ public class TestMemoryConnectorTest
 
         assertUpdate("DROP VIEW test_different_schema.test_view_renamed");
         assertUpdate("DROP SCHEMA test_different_schema");
-    }
-
-    private void assertQueryResult(@Language("SQL") String sql, Object... expected)
-    {
-        MaterializedResult rows = computeActual(sql);
-        assertEquals(rows.getRowCount(), expected.length);
-
-        for (int i = 0; i < expected.length; i++) {
-            MaterializedRow materializedRow = rows.getMaterializedRows().get(i);
-            int fieldCount = materializedRow.getFieldCount();
-            assertEquals(fieldCount, 1, format("Expected only one column, but got '%d'", fieldCount));
-            Object value = materializedRow.getField(0);
-            assertEquals(value, expected[i]);
-            assertEquals(materializedRow.getFieldCount(), 1);
-        }
     }
 }

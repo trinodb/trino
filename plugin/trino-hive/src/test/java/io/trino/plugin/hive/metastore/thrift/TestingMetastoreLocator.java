@@ -27,7 +27,7 @@ public class TestingMetastoreLocator
         implements MetastoreLocator
 {
     private static final HiveMetastoreAuthentication AUTHENTICATION = new NoHiveMetastoreAuthentication();
-    private static final Duration TIMEOUT = new Duration(10, SECONDS);
+    private static final Duration TIMEOUT = new Duration(20, SECONDS);
 
     private final DefaultThriftMetastoreClientFactory factory;
     private final HostAndPort address;

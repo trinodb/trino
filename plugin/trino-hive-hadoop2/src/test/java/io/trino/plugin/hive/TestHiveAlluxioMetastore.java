@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import alluxio.client.table.TableMasterClient;
 import alluxio.conf.PropertyKey;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.alluxio.AlluxioHiveMetastore;
 import io.trino.plugin.hive.metastore.alluxio.AlluxioHiveMetastoreConfig;
@@ -27,6 +26,7 @@ import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 
 public class TestHiveAlluxioMetastore
         extends AbstractTestHive
@@ -60,7 +60,7 @@ public class TestHiveAlluxioMetastore
         AlluxioHiveMetastoreConfig alluxioConfig = new AlluxioHiveMetastoreConfig();
         alluxioConfig.setMasterAddress(this.alluxioAddress);
         TableMasterClient client = AlluxioMetastoreModule.createCatalogMasterClient(alluxioConfig);
-        hdfsEnvironment = new HdfsEnvironment(createTestHdfsConfiguration(), new HdfsConfig(), new NoHdfsAuthentication());
+        hdfsEnvironment = HDFS_ENVIRONMENT;
         setup(SCHEMA, hiveConfig, new AlluxioHiveMetastore(client, new HiveMetastoreConfig()), hdfsEnvironment);
     }
 

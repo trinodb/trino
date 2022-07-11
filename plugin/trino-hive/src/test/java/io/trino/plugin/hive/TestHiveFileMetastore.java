@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
@@ -30,7 +29,7 @@ public class TestHiveFileMetastore
         extends AbstractTestHiveLocal
 {
     @Override
-    protected HiveMetastore createMetastore(File tempDir, HiveIdentity identity)
+    protected HiveMetastore createMetastore(File tempDir)
     {
         File baseDir = new File(tempDir, "metastore");
         return new FileHiveMetastore(

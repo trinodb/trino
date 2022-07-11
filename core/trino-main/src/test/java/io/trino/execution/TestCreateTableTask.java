@@ -16,6 +16,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
@@ -29,7 +30,6 @@ import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -82,9 +82,7 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.emptySet;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -130,11 +128,7 @@ public class TestCreateTableTask
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        metadata = new MockMetadata(
-                Map.of(
-                        CATALOG_NAME, new CatalogName(CATALOG_NAME),
-                        OTHER_CATALOG_NAME, new CatalogName(OTHER_CATALOG_NAME)),
-                emptySet());
+        metadata = new MockMetadata();
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
     }
 
@@ -325,12 +319,12 @@ public class TestCreateTableTask
                 .hasMessageContaining("Cannot reference properties of table");
     }
 
-    private CreateTable getCreateLikeStatement(boolean includingProperties)
+    private static CreateTable getCreateLikeStatement(boolean includingProperties)
     {
         return getCreateLikeStatement(QualifiedName.of("test_table"), includingProperties);
     }
 
-    private CreateTable getCreateLikeStatement(QualifiedName name, boolean includingProperties)
+    private static CreateTable getCreateLikeStatement(QualifiedName name, boolean includingProperties)
     {
         return new CreateTable(
                 name,
@@ -343,15 +337,8 @@ public class TestCreateTableTask
     private static class MockMetadata
             extends AbstractMockMetadata
     {
-        private final Map<String, CatalogName> catalogHandles;
         private final List<ConnectorTableMetadata> tables = new CopyOnWriteArrayList<>();
-        private Set<ConnectorCapabilities> connectorCapabilities;
-
-        public MockMetadata(Map<String, CatalogName> catalogHandles, Set<ConnectorCapabilities> connectorCapabilities)
-        {
-            this.catalogHandles = requireNonNull(catalogHandles, "catalogHandles is null");
-            this.connectorCapabilities = immutableEnumSet(requireNonNull(connectorCapabilities, "connectorCapabilities is null"));
-        }
+        private Set<ConnectorCapabilities> connectorCapabilities = ImmutableSet.of();
 
         @Override
         public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
@@ -365,7 +352,10 @@ public class TestCreateTableTask
         @Override
         public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
         {
-            return Optional.ofNullable(catalogHandles.get(catalogName));
+            if (catalogName.equals(CATALOG_NAME) || catalogName.equals(OTHER_CATALOG_NAME)) {
+                return Optional.of(new CatalogName(catalogName));
+            }
+            return Optional.empty();
         }
 
         @Override
@@ -401,12 +391,6 @@ public class TestCreateTableTask
         public List<ConnectorTableMetadata> getReceivedTableMetadata()
         {
             return tables;
-        }
-
-        @Override
-        public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
-        {
-            throw new UnsupportedOperationException();
         }
 
         @Override

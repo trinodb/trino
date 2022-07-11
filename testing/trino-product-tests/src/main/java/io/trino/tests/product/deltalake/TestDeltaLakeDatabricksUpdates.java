@@ -74,26 +74,23 @@ public class TestDeltaLakeDatabricksUpdates
             QueryResult prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
             assertThat(databricksResult).containsExactly(toRows(prestoResult));
 
-            assertThat(onDelta().executeQuery(format("UPDATE default.%s SET value = 'France' WHERE id = 2", tableName)))
-                    .containsOnly(row(-1));
+            onDelta().executeQuery(format("UPDATE default.%s SET value = 'France' WHERE id = 2", tableName));
             databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
             prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
             assertThat(databricksResult).containsExactly(toRows(prestoResult));
 
-            assertThat(onDelta().executeQuery(format("UPDATE default.%s SET value = 'Spain' WHERE id = 2", tableName)))
-                    .containsOnly(row(-1));
+            onDelta().executeQuery(format("UPDATE default.%s SET value = 'Spain' WHERE id = 2", tableName));
             databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
             prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
             assertThat(databricksResult).containsExactly(toRows(prestoResult));
 
-            assertThat(onDelta().executeQuery(format("UPDATE default.%s SET value = 'Portugal' WHERE id = 2", tableName)))
-                    .containsOnly(row(-1));
+            onDelta().executeQuery(format("UPDATE default.%s SET value = 'Portugal' WHERE id = 2", tableName));
             databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
             prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
             assertThat(databricksResult).containsExactly(toRows(prestoResult));
         }
         finally {
-            assertThat(onDelta().executeQuery("DROP TABLE default." + tableName)).containsExactly(row(-1));
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 

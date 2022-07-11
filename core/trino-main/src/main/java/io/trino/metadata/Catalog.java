@@ -14,7 +14,7 @@
 package io.trino.metadata;
 
 import io.trino.connector.CatalogName;
-import io.trino.connector.ConnectorManager.MaterializedConnector;
+import io.trino.connector.ConnectorManager.ConnectorServices;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
@@ -28,18 +28,18 @@ public class Catalog
 {
     private final CatalogName catalogName;
     private final String connectorName;
-    private final MaterializedConnector catalogConnector;
-    private final MaterializedConnector informationSchemaConnector;
-    private final MaterializedConnector systemConnector;
+    private final ConnectorServices catalogConnector;
+    private final ConnectorServices informationSchemaConnector;
+    private final ConnectorServices systemConnector;
 
     public Catalog(
             CatalogName catalogName,
             String connectorName,
-            MaterializedConnector catalogConnector,
+            ConnectorServices catalogConnector,
             CatalogName informationSchemaName,
-            MaterializedConnector informationSchemaConnector,
+            ConnectorServices informationSchemaConnector,
             CatalogName systemName,
-            MaterializedConnector systemConnector)
+            ConnectorServices systemConnector)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.connectorName = requireNonNull(connectorName, "connectorName is null");
@@ -77,13 +77,13 @@ public class Catalog
     }
 
     private static CatalogTransaction beginTransaction(
-            MaterializedConnector materializedConnector,
+            ConnectorServices connectorServices,
             TransactionId transactionId,
             IsolationLevel isolationLevel,
             boolean readOnly,
             boolean autoCommitContext)
     {
-        Connector connector = materializedConnector.getConnector();
+        Connector connector = connectorServices.getConnector();
         ConnectorTransactionHandle transactionHandle;
         if (connector instanceof InternalConnector) {
             transactionHandle = ((InternalConnector) connector).beginTransaction(transactionId, isolationLevel, readOnly);
@@ -92,7 +92,7 @@ public class Catalog
             transactionHandle = connector.beginTransaction(isolationLevel, readOnly, autoCommitContext);
         }
 
-        return new CatalogTransaction(materializedConnector.getCatalogName(), connector, transactionHandle);
+        return new CatalogTransaction(connectorServices.getCatalogName(), connector, transactionHandle);
     }
 
     @Override

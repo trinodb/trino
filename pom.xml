@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>127</version>
+        <version>128</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>388-SNAPSHOT</version>
+    <version>390-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -68,7 +68,7 @@
         <dep.casandra.version>4.14.0</dep.casandra.version>
         <dep.minio.version>7.1.4</dep.minio.version>
 
-        <dep.docker.images.version>61</dep.docker.images.version>
+        <dep.docker.images.version>64</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -105,6 +105,8 @@
         <module>lib/trino-memory-context</module>
         <module>lib/trino-orc</module>
         <module>lib/trino-parquet</module>
+        <!-- TODO(https://github.com/trinodb/trino/issues/13051): Remove whole module when Phoenix5 is released -->
+        <module>lib/trino-phoenix5-patched</module>
         <module>lib/trino-plugin-toolkit</module>
         <module>lib/trino-rcfile</module>
         <module>lib/trino-record-decoder</module>
@@ -440,6 +442,13 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <!-- TODO(https://github.com/trinodb/trino/issues/13051): Remove when Phoenix5 is released -->
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-phoenix5-patched</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-pinot</artifactId>
@@ -630,7 +639,7 @@
             <dependency>
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-19</version>
+                <version>3.1.2-20</version>
             </dependency>
 
             <dependency>
@@ -1574,13 +1583,6 @@
                 <version>7.15.0</version>
             </dependency>
 
-            <dependency>
-                <!-- TODO remove once we upgrade to airbase with https://github.com/airlift/airbase/pull/298 -->
-                <groupId>org.gaul</groupId>
-                <artifactId>modernizer-maven-annotations</artifactId>
-                <version>2.3.0</version>
-            </dependency>
-
             <!-- force newer version to be used for dependencies -->
             <dependency>
                 <groupId>org.javassist</groupId>
@@ -1979,7 +1981,7 @@
                     <plugin>
                         <groupId>io.github.gitflow-incremental-builder</groupId>
                         <artifactId>gitflow-incremental-builder</artifactId>
-                        <version>4.1.0</version>
+                        <version>4.1.1</version>
                         <extensions>true</extensions>
                         <configuration>
                             <disableIfBranchMatches>master</disableIfBranchMatches>

@@ -20,10 +20,12 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -31,6 +33,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
@@ -57,10 +60,12 @@ import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -90,7 +95,10 @@ public class TestPositionsAppender
                 input(rleBlock(dictionaryBlock(rleBlock(type, 4), 1), 3), 1), // rle -> dict -> rle
                 input(dictionaryBlock(dictionaryBlock(type, 5, 4, 0.5F), 3), 2), // dict -> dict
                 input(dictionaryBlock(dictionaryBlock(dictionaryBlock(type, 5, 4, 0.5F), 3), 3), 2), // dict -> dict -> dict
-                input(dictionaryBlock(rleBlock(type, 4), 3), 0, 2)); // dict -> rle
+                input(dictionaryBlock(rleBlock(type, 4), 3), 0, 2), // dict -> rle
+                input(notNullBlock(type, 4).getRegion(2, 2), 0, 1), // not null block with offset
+                input(partiallyNullBlock(type, 4).getRegion(2, 2), 0, 1), // nullable block with offset
+                input(rleBlock(notNullBlock(type, 4).getRegion(2, 1), 3), 1)); // rle block with offset
 
         testAppend(type, input);
     }
@@ -100,6 +108,7 @@ public class TestPositionsAppender
     {
         testNullRle(type, nullBlock(type, 2));
         testNullRle(type, nullRleBlock(type, 2));
+        testNullRle(type, createRandomBlockForType(type, 4, 0.5f));
     }
 
     @Test(dataProvider = "types")
@@ -112,7 +121,7 @@ public class TestPositionsAppender
 
         List<BlockView> dictionaryInputs = ImmutableList.of(
                 input(rleBlock(type, 3), 0, 1),
-                input(dictionaryBlock(type, 2, 4, 0.5F), 0, 1));
+                input(dictionaryBlock(type, 2, 4, 0), 0, 1));
         testAppend(type, dictionaryInputs);
     }
 
@@ -125,7 +134,7 @@ public class TestPositionsAppender
         testAppend(type, inputs);
 
         List<BlockView> dictionaryInputs = ImmutableList.of(
-                input(dictionaryBlock(type, 2, 4, 0.5F), 0, 1),
+                input(dictionaryBlock(type, 2, 4, 0), 0, 1),
                 input(rleBlock(type, 3), 0, 1));
         testAppend(type, dictionaryInputs);
     }
@@ -215,6 +224,41 @@ public class TestPositionsAppender
         assertEquals(positionsAppender.build().getPositionCount(), 0);
     }
 
+    // testcase for jit bug described https://github.com/trinodb/trino/issues/12821.
+    // this test needs to be run first (hence lowest priority) as order of tests
+    // influence jit compilation making this problem to not occur if other tests are run first.
+    @Test(priority = Integer.MIN_VALUE)
+    public void testSliceRle()
+    {
+        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(VARCHAR, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+
+        // first append some not empty value to avoid RleAwarePositionsAppender for the empty value
+        positionsAppender.appendRle(new RunLengthEncodedBlock(singleValueBlock("some value"), 1));
+        // append empty value multiple times to trigger jit compilation
+        Block emptyStringBlock = singleValueBlock("");
+        for (int i = 0; i < 1000; i++) {
+            positionsAppender.appendRle(new RunLengthEncodedBlock(emptyStringBlock, 2000));
+        }
+    }
+
+    @Test
+    public void testRowWithNestedFields()
+    {
+        RowType type = anonymousRow(BIGINT, BIGINT, VARCHAR);
+        Block rowBLock = RowBlock.fromFieldBlocks(2, Optional.empty(), new Block[] {
+                notNullBlock(BIGINT, 2),
+                dictionaryBlock(BIGINT, 2, 2, 0.5F),
+                rleBlock(VARCHAR, 2)
+        });
+
+        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+
+        positionsAppender.append(allPositions(2), rowBLock);
+        Block actual = positionsAppender.build();
+
+        assertBlockEquals(type, actual, rowBLock);
+    }
+
     @DataProvider(name = "nullRleTypes")
     public static Object[][] nullRleTypes()
     {
@@ -230,7 +274,8 @@ public class TestPositionsAppender
                         {TINYINT},
                         {VARBINARY},
                         {createDecimalType(Decimals.MAX_SHORT_PRECISION + 1)},
-                        {createTimestampType(9)}
+                        {createTimestampType(9)},
+                        {anonymousRow(BIGINT, VARCHAR)}
                 };
     }
 
@@ -250,8 +295,16 @@ public class TestPositionsAppender
                         {VARBINARY},
                         {createDecimalType(Decimals.MAX_SHORT_PRECISION + 1)},
                         {new ArrayType(BIGINT)},
-                        {createTimestampType(9)}
+                        {createTimestampType(9)},
+                        {anonymousRow(BIGINT, VARCHAR)}
                 };
+    }
+
+    private static Block singleValueBlock(String value)
+    {
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1);
+        VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(value));
+        return blockBuilder.build();
     }
 
     private IntArrayList allPositions(int count)
@@ -329,13 +382,19 @@ public class TestPositionsAppender
     private void testNullRle(Type type, Block source)
     {
         PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
-
+        // extract null positions
+        IntArrayList positions = new IntArrayList(source.getPositionCount());
+        for (int i = 0; i < source.getPositionCount(); i++) {
+            if (source.isNull(i)) {
+                positions.add(i);
+            }
+        }
         // append twice to trigger RleAwarePositionsAppender.equalOperator call
-        positionsAppender.append(new IntArrayList(IntStream.range(0, source.getPositionCount()).toArray()), source);
-        positionsAppender.append(new IntArrayList(IntStream.range(0, source.getPositionCount()).toArray()), source);
+        positionsAppender.append(positions, source);
+        positionsAppender.append(positions, source);
         Block actual = positionsAppender.build();
         assertTrue(actual.isNull(0));
-        assertEquals(actual.getPositionCount(), source.getPositionCount() * 2);
+        assertEquals(actual.getPositionCount(), positions.size() * 2);
         assertInstanceOf(actual, RunLengthEncodedBlock.class);
     }
 

@@ -131,9 +131,6 @@ public class TestTableScanNodePartitioning
                 .withNodeCountForStats(10)
                 .build();
         queryRunner.createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
-        queryRunner.getNodePartitioningManager().addPartitioningProvider(
-                new CatalogName(MOCK_CATALOG),
-                new TestPartitioningProvider(new InMemoryNodeManager()));
         return queryRunner;
     }
 
@@ -201,6 +198,7 @@ public class TestTableScanNodePartitioning
     public static MockConnectorFactory createMockFactory()
     {
         return MockConnectorFactory.builder()
+                .withPartitionProvider(new TestPartitioningProvider(new InMemoryNodeManager()))
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata(COLUMN_A, BIGINT),
                         new ColumnMetadata(COLUMN_B, VARCHAR)))

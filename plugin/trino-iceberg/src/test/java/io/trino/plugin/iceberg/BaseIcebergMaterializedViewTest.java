@@ -51,6 +51,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public abstract class BaseIcebergMaterializedViewTest
         extends AbstractTestQueryFramework
 {
+    protected final String storageSchemaName = "testing_storage_schema_" + randomTableSuffix();
+
     protected abstract String getSchemaName();
 
     protected abstract String getSchemaDirectory();
@@ -169,7 +171,8 @@ public abstract class BaseIcebergMaterializedViewTest
                                 "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+\\Q',\n" +
                                 "   orc_bloom_filter_columns = ARRAY['_date'],\n" +
                                 "   orc_bloom_filter_fpp = 1E-1,\n" +
-                                "   partitioning = ARRAY['_date']\n" +
+                                "   partitioning = ARRAY['_date'],\n" +
+                                "   storage_schema = '" + getSchemaName() + "'\n" +
                                 ") AS\n" +
                                 "SELECT\n" +
                                 "  _bigint\n" +
@@ -441,7 +444,8 @@ public abstract class BaseIcebergMaterializedViewTest
                         "   format = 'ORC',\n" +
                         "   format_version = 2,\n" +
                         "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+\\Q',\n" +
-                        "   partitioning = ARRAY['_date']\n" +
+                        "   partitioning = ARRAY['_date'],\n" +
+                        "   storage_schema = '" + getSchemaName() + "'\n" +
                         ") AS\n" +
                         "SELECT\n" +
                         "  _date\n" +
@@ -546,6 +550,48 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("DROP TABLE IF EXISTS base_table5");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_level1");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_level2");
+    }
+
+    @Test
+    public void testStorageSchemaProperty()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String viewName = "storage_schema_property_test";
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS " + catalogName + "." + storageSchemaName);
+        assertUpdate(
+                "CREATE MATERIALIZED VIEW " + viewName + " " +
+                        "WITH (storage_schema = '" + storageSchemaName + "') AS " +
+                        "SELECT * FROM base_table1");
+        SchemaTableName storageTable = getStorageTable(catalogName, viewName);
+        assertThat(storageTable.getSchemaName()).isEqualTo(storageSchemaName);
+
+        assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 6);
+        assertThat(computeActual("SELECT * FROM " + viewName).getRowCount()).isEqualTo(6);
+        assertThat(getExplainPlan("SELECT * FROM " + viewName, ExplainType.Type.IO))
+                .doesNotContain("base_table1")
+                .contains(storageSchemaName);
+
+        assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName))
+                .contains("storage_schema = '" + storageSchemaName + "'");
+
+        Set<String> storageSchemaTables = computeActual("SHOW TABLES IN " + storageSchemaName).getOnlyColumnAsSet().stream()
+                .map(String.class::cast)
+                .collect(toImmutableSet());
+        assertThat(storageSchemaTables).contains(storageTable.getTableName());
+
+        assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+        storageSchemaTables = computeActual("SHOW TABLES IN " + storageSchemaName).getOnlyColumnAsSet().stream()
+                .map(String.class::cast)
+                .collect(toImmutableSet());
+        assertThat(storageSchemaTables).doesNotContain(storageTable.getTableName());
+
+        assertThatThrownBy(() -> query(
+                "CREATE MATERIALIZED VIEW " + viewName + " " +
+                        "WITH (storage_schema = 'non_existent') AS " +
+                        "SELECT * FROM base_table1"))
+                .hasMessageContaining("non_existent not found");
+        assertThatThrownBy(() -> query("DESCRIBE " + viewName))
+                .hasMessageContaining(format("'iceberg.%s.%s' does not exist", getSchemaName(), viewName));
     }
 
     private SchemaTableName getStorageTable(String catalogName, String objectName)

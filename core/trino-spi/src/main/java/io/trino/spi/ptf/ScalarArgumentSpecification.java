@@ -29,7 +29,7 @@ public class ScalarArgumentSpecification
         super(name, required, defaultValue);
         this.type = requireNonNull(type, "type is null");
         if (defaultValue != null) {
-            checkArgument(type.getJavaType().equals(defaultValue.getClass()), format("default value %s does not match the declared type: %s", defaultValue, type));
+            checkArgument(Primitives.wrap(type.getJavaType()).isInstance(defaultValue), format("default value %s does not match the declared type: %s", defaultValue, type));
         }
     }
 

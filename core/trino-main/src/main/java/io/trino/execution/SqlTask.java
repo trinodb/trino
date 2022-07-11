@@ -292,8 +292,6 @@ public class SqlTask
         DataSize userMemoryReservation = DataSize.ofBytes(0);
         DataSize peakUserMemoryReservation = DataSize.ofBytes(0);
         DataSize revocableMemoryReservation = DataSize.ofBytes(0);
-        // TODO: add a mechanism to avoid sending the whole completedDriverGroups set over the wire for every task status reply
-        Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
         Duration fullGcTime = new Duration(0, MILLISECONDS);
         long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
@@ -325,7 +323,6 @@ public class SqlTask
             physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
             userMemoryReservation = taskContext.getMemoryReservation();
             revocableMemoryReservation = taskContext.getRevocableMemoryReservation();
-            completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
             dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
@@ -337,7 +334,6 @@ public class SqlTask
                 state,
                 location,
                 nodeId,
-                completedDriverGroups,
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,

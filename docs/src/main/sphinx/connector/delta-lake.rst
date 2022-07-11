@@ -173,10 +173,11 @@ connector.
       - Description
       - Default
     * - ``delta.domain-compaction-threshold``
-      - Sets the number of transactions to act as threshold. Once reached the
-        connector initiates compaction of the underlying files and the delta
-        files. A higher compaction threshold means reading less data from the
-        underlying data source, but a higher memory and network consumption.
+      - Minimum size of query predicates above which Trino compacts the predicates.
+        Pushing a large list of predicates down to the data source can
+        compromise performance. For optimization in that situation, Trino can
+        compact the large predicates. If necessary, adjust the threshold to
+        ensure a balance between performance and predicate pushdown.
       - 100
     * - ``delta.max-outstanding-splits``
       - The target number of buffered splits for each table scan in a query,
@@ -343,6 +344,7 @@ statements, the connector supports the following features:
 * :doc:`/sql/drop-schema`
 * :doc:`/sql/show-create-schema`
 * :doc:`/sql/show-create-table`
+* :doc:`/sql/comment`
 
 .. _delta-lake-alter-table-execute:
 

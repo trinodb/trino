@@ -101,7 +101,7 @@ public class Query
                     .map(column -> new Field(column.getColumnName(), Optional.of(column.getColumnType())))
                     .collect(toImmutableList()));
 
-            QueryHandle handle = new QueryHandle(tableHandle);
+            QueryFunctionHandle handle = new QueryFunctionHandle(tableHandle);
 
             return TableFunctionAnalysis.builder()
                     .returnedType(returnedType)
@@ -110,13 +110,13 @@ public class Query
         }
     }
 
-    public static class QueryHandle
+    public static class QueryFunctionHandle
             implements ConnectorTableFunctionHandle
     {
         private final JdbcTableHandle tableHandle;
 
         @JsonCreator
-        public QueryHandle(@JsonProperty("tableHandle") JdbcTableHandle tableHandle)
+        public QueryFunctionHandle(@JsonProperty("tableHandle") JdbcTableHandle tableHandle)
         {
             this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         }

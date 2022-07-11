@@ -23,7 +23,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.ExceededMemoryLimitException;
 import io.trino.RowPagesBuilder;
-import io.trino.execution.Lifespan;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -167,7 +167,10 @@ public class TestHashJoinOperator
                 new InMemoryNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(new FinalizerService())));
-        nodePartitioningManager = new NodePartitioningManager(nodeScheduler, new BlockTypeOperators(new TypeOperators()));
+        nodePartitioningManager = new NodePartitioningManager(
+                nodeScheduler,
+                new BlockTypeOperators(new TypeOperators()),
+                CatalogServiceProvider.fail());
     }
 
     @AfterMethod(alwaysRun = true)
@@ -297,6 +300,7 @@ public class TestHashJoinOperator
                 false,
                 false,
                 true,
+                true,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -350,6 +354,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 false,
                 false,
+                true,
                 true,
                 probePages.getTypes(),
                 Ints.asList(0),
@@ -520,7 +525,7 @@ public class TestHashJoinOperator
         List<Driver> buildDrivers = buildSideSetup.getBuildDrivers();
         int buildOperatorCount = buildDrivers.size();
         checkState(buildOperatorCount == whenSpill.size());
-        LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide());
+        LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge();
 
         try (Operator joinOperator = joinOperatorFactory.createOperator(joinDriverContext)) {
             // build lookup source
@@ -670,7 +675,7 @@ public class TestHashJoinOperator
         instantiateBuildDrivers(buildSideSetup, taskContext);
 
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
-        PartitionedLookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide());
+        PartitionedLookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge();
 
         // finish probe before any build partition is spilled
         lookupSourceFactory.finishProbeOperator(OptionalInt.of(1));
@@ -1237,6 +1242,7 @@ public class TestHashJoinOperator
                 false,
                 false,
                 false,
+                true,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1276,6 +1282,7 @@ public class TestHashJoinOperator
                 lookupSourceFactoryManager,
                 false,
                 false,
+                true,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1321,6 +1328,7 @@ public class TestHashJoinOperator
                 lookupSourceFactoryManager,
                 false,
                 false,
+                true,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1368,6 +1376,7 @@ public class TestHashJoinOperator
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
                 false,
+                true,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1416,6 +1425,7 @@ public class TestHashJoinOperator
                 false,
                 false,
                 false,
+                true,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1609,6 +1619,7 @@ public class TestHashJoinOperator
                 false,
                 waitForBuild,
                 false,
+                true,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1661,6 +1672,7 @@ public class TestHashJoinOperator
                 lookupSourceFactoryManager,
                 false,
                 hasFilter,
+                true,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
