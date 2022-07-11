@@ -134,7 +134,8 @@ public class NodePartitioningManager
             InternalNode node = bucketToNode.get(bucket);
             Integer partitionId = nodeToPartition.get(node);
             if (partitionId == null) {
-                partitionId = nextPartitionId++;
+                partitionId = nextPartitionId;
+                nextPartitionId++;
                 nodeToPartition.put(node, partitionId);
             }
             bucketToPartition[bucket] = partitionId;
