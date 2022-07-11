@@ -22,7 +22,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
@@ -76,7 +75,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -132,7 +130,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 public abstract class BaseIcebergConnectorTest
         extends BaseConnectorTest
@@ -179,6 +176,7 @@ public abstract class BaseIcebergConnectorTest
 
             case SUPPORTS_DELETE:
             case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
                 return true;
 
             case SUPPORTS_COMMENT_ON_VIEW:
@@ -1144,7 +1142,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO test_in_predicate_large_set VALUES (1, 10)", 1L);
         assertUpdate("INSERT INTO test_in_predicate_large_set VALUES (2, 20)", 1L);
 
-        List<String> predicates = IntStream.range(0, 25_000).boxed()
+        List<String> predicates = range(0, 25_000).boxed()
                 .map(Object::toString)
                 .collect(toImmutableList());
         String filter = format("col2 IN (%s)", join(",", predicates));
@@ -3142,7 +3140,7 @@ public abstract class BaseIcebergConnectorTest
 
             Optional<ConstraintApplicationResult<TableHandle>> result = metadata.applyFilter(session, table, new Constraint(domains));
 
-            assertTrue(result.isEmpty() == (expectedUnenforcedPredicate == null && expectedEnforcedPredicate == null));
+            assertEquals((expectedUnenforcedPredicate == null && expectedEnforcedPredicate == null), result.isEmpty());
 
             if (result.isPresent()) {
                 IcebergTableHandle newTable = (IcebergTableHandle) result.get().getHandle().getConnectorHandle();
@@ -3417,11 +3415,11 @@ public abstract class BaseIcebergConnectorTest
         // Alter data file entry to store incorrect file size
         GenericData.Record dataFile = (GenericData.Record) entry.get("data_file");
         long alteredValue = 50L;
-        assertNotEquals((long) dataFile.get("file_size_in_bytes"), alteredValue);
+        assertNotEquals(dataFile.get("file_size_in_bytes"), alteredValue);
         dataFile.put("file_size_in_bytes", alteredValue);
 
         // Replace the file through HDFS client. This is required for correct checksums.
-        HdfsEnvironment.HdfsContext context = new HdfsContext(getSession().toConnectorSession());
+        HdfsContext context = new HdfsContext(getSession().toConnectorSession());
         org.apache.hadoop.fs.Path manifestFilePath = new org.apache.hadoop.fs.Path(manifestFile);
         FileSystem fs = HDFS_ENVIRONMENT.getFileSystem(context, manifestFilePath);
 
@@ -3888,7 +3886,7 @@ public abstract class BaseIcebergConnectorTest
                                     nCopies(100, testSetup.getSampleValueLiteral()).stream(),
                                     nCopies(100, testSetup.getHighValueLiteral()).stream())
                             .map(value -> "(" + value + ", rand())")
-                            .collect(Collectors.joining(", "));
+                            .collect(joining(", "));
             assertUpdate(withSmallRowGroups(getSession()), "INSERT INTO " + tableName + " VALUES " + values, 200);
 
             String query = "SELECT * FROM " + tableName + " WHERE col = " + testSetup.getSampleValueLiteral();
@@ -5219,6 +5217,254 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF " + timestampLiteral(v2EpochMillis, 9), "No version history table .* at or before .*");
         assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v1SnapshotId, "Iceberg snapshot ID does not exists\\: " + v1SnapshotId);
         assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF " + timestampLiteral(v1EpochMillis, 9), "No version history table .* at or before .*");
+    }
+
+    @Test
+    public void testMergeSimpleSelectPartitioned()
+    {
+        String targetTable = "merge_simple_target_" + randomTableSuffix();
+        String sourceTable = "merge_simple_source_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['address'])", targetTable));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable), 4);
+
+        String sql = format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
+                "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
+                "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
+
+        assertUpdate(sql, 4);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Arches'), ('Ed', 7, 'Etherville'), ('Bill', 7, 'Buena'), ('Dave', 22, 'Darbyshire')");
+
+        assertUpdate("DROP TABLE " + sourceTable);
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test(dataProvider = "partitionedAndBucketedProvider")
+    public void testMergeUpdateWithVariousLayouts(String partitionPhase)
+    {
+        String targetTable = "merge_formats_target_" + randomTableSuffix();
+        String sourceTable = "merge_formats_source_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) %s", targetTable, partitionPhase));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable), 3);
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')");
+
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR)", sourceTable));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Craig', 'candles'), ('Len', 'limes'), ('Joe', 'jellybeans')", sourceTable), 3);
+
+        String sql = format("MERGE INTO %s t USING %s s ON (t.purchase = s.purchase)", targetTable, sourceTable) +
+                "    WHEN MATCHED AND s.purchase = 'limes' THEN DELETE" +
+                "    WHEN MATCHED THEN UPDATE SET customer = CONCAT(t.customer, '_', s.customer)" +
+                "    WHEN NOT MATCHED THEN INSERT (customer, purchase) VALUES(s.customer, s.purchase)";
+
+        assertUpdate(sql, 3);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Dave', 'dates'), ('Carol_Craig', 'candles'), ('Joe', 'jellybeans')");
+        assertUpdate("DROP TABLE " + sourceTable);
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @DataProvider
+    public Object[][] partitionedAndBucketedProvider()
+    {
+        return new Object[][] {
+                {"WITH (partitioning = ARRAY['customer'])"},
+                {"WITH (partitioning = ARRAY['purchase'])"},
+                {"WITH (partitioning = ARRAY['bucket(customer, 3)'])"},
+                {"WITH (partitioning = ARRAY['bucket(purchase, 4)'])"},
+        };
+    }
+
+    @Test(dataProvider = "partitionedAndBucketedProvider")
+    public void testMergeMultipleOperations(String partitioning)
+    {
+        int targetCustomerCount = 32;
+        String targetTable = "merge_multiple_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (purchase INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer VARCHAR) %s", targetTable, partitioning));
+        String originalInsertFirstHalf = range(1, targetCustomerCount / 2)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 1000, 91000, intValue, intValue))
+                .collect(joining(", "));
+        String originalInsertSecondHalf = range(targetCustomerCount / 2, targetCustomerCount)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 2000, 92000, intValue, intValue))
+                .collect(joining(", "));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchase, zipcode, spouse, address) VALUES %s, %s", targetTable, originalInsertFirstHalf, originalInsertSecondHalf), targetCustomerCount - 1);
+
+        String firstMergeSource = range(targetCustomerCount / 2, targetCustomerCount)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 83000, intValue, intValue))
+                .collect(joining(", "));
+
+        assertUpdate(format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, firstMergeSource) +
+                        "    ON t.customer = s.customer" +
+                        "    WHEN MATCHED THEN UPDATE SET purchase = s.purchase, zipcode = s.zipcode, spouse = s.spouse, address = s.address",
+                targetCustomerCount / 2);
+
+        assertQuery(
+                "SELECT customer, purchase, zipcode, spouse, address FROM " + targetTable,
+                format("VALUES %s, %s", originalInsertFirstHalf, firstMergeSource));
+
+        String nextInsert = range(targetCustomerCount, targetCustomerCount * 3 / 2)
+                .mapToObj(intValue -> format("('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 4000, 74000, intValue, intValue))
+                .collect(joining(", "));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchase, zipcode, spouse, address) VALUES %s", targetTable, nextInsert), targetCustomerCount / 2);
+
+        String secondMergeSource = range(1, targetCustomerCount * 3 / 2)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
+                .collect(joining(", "));
+
+        assertUpdate(format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, secondMergeSource) +
+                        "    ON t.customer = s.customer" +
+                        "    WHEN MATCHED AND t.zipcode = 91000 THEN DELETE" +
+                        "    WHEN MATCHED AND s.zipcode = 85000 THEN UPDATE SET zipcode = 60000" +
+                        "    WHEN MATCHED THEN UPDATE SET zipcode = s.zipcode, spouse = s.spouse, address = s.address" +
+                        "    WHEN NOT MATCHED THEN INSERT (customer, purchase, zipcode, spouse, address) VALUES(s.customer, s.purchase, s.zipcode, s.spouse, s.address)",
+                targetCustomerCount * 3 / 2 - 1);
+
+        String updatedBeginning = range(targetCustomerCount / 2, targetCustomerCount)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 60000, intValue, intValue))
+                .collect(joining(", "));
+        String updatedMiddle = range(targetCustomerCount, targetCustomerCount * 3 / 2)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
+                .collect(joining(", "));
+        String updatedEnd = range(targetCustomerCount, targetCustomerCount * 3 / 2)
+                .mapToObj(intValue -> format("('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 4000, 74000, intValue, intValue))
+                .collect(joining(", "));
+
+        assertQuery(
+                "SELECT customer, purchase, zipcode, spouse, address FROM " + targetTable,
+                format("VALUES %s, %s, %s", updatedBeginning, updatedMiddle, updatedEnd));
+
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
+    public void testMergeSimpleQueryPartitioned()
+    {
+        String targetTable = "merge_simple_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['address'])", targetTable));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+
+        @Language("SQL") String query = format("MERGE INTO %s t USING ", targetTable) +
+                "(SELECT * FROM (VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire'), ('Ed', 7, 'Etherville'))) AS s(customer, purchases, address)" +
+                "    " +
+                "ON (t.customer = s.customer)" +
+                "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
+                "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
+                "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
+        assertUpdate(query, 4);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Arches'), ('Bill', 7, 'Buena'), ('Dave', 22, 'Darbyshire'), ('Ed', 7, 'Etherville')");
+
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test(dataProvider = "partitionedBucketedFailure")
+    public void testMergeMultipleRowsMatchFails(String createTableSql)
+    {
+        String targetTable = "merge_multiple_target_" + randomTableSuffix();
+        String sourceTable = "merge_multiple_source_" + randomTableSuffix();
+        assertUpdate(format(createTableSql, targetTable));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch')", targetTable), 2);
+
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Adelphi'), ('Aaron', 8, 'Ashland')", sourceTable), 2);
+
+        assertThatThrownBy(() -> computeActual(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                "    WHEN MATCHED THEN UPDATE SET address = s.address"))
+                .hasMessage("One MERGE target table row matched more than one source row");
+
+        assertUpdate(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                "    WHEN MATCHED AND s.address = 'Adelphi' THEN UPDATE SET address = s.address",
+                1);
+        assertQuery("SELECT customer, purchases, address FROM " + targetTable, "VALUES ('Aaron', 5, 'Adelphi'), ('Bill', 7, 'Antioch')");
+        assertUpdate("DROP TABLE " + sourceTable);
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @DataProvider
+    public Object[][] partitionedBucketedFailure()
+    {
+        return new Object[][] {
+                {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)"},
+                {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['bucket(customer, 3)'])"},
+                {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['customer'])"},
+                {"CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (partitioning = ARRAY['address'])"},
+                {"CREATE TABLE %s (purchases INT, customer VARCHAR, address VARCHAR) WITH (partitioning = ARRAY['address', 'customer'])"}
+        };
+    }
+
+    @Test(dataProvider = "targetAndSourceWithDifferentPartitioning")
+    public void testMergeWithDifferentPartitioning(String testDescription, String createTargetTableSql, String createSourceTableSql)
+    {
+        String targetTable = format("%s_target_%s", testDescription, randomTableSuffix());
+        String sourceTable = format("%s_source_%s", testDescription, randomTableSuffix());
+
+        assertUpdate(format(createTargetTableSql, targetTable));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+
+        assertUpdate(format(createSourceTableSql, sourceTable));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable), 4);
+
+        @Language("SQL") String sql = format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
+                "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
+                "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
+        assertUpdate(sql, 4);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Arches'), ('Bill', 7, 'Buena'), ('Dave', 22, 'Darbyshire'), ('Ed', 7, 'Etherville')");
+
+        assertUpdate("DROP TABLE " + sourceTable);
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @DataProvider
+    public Object[][] targetAndSourceWithDifferentPartitioning()
+    {
+        return new Object[][] {
+                {
+                        "target_partitioned_source_and_target_partitioned_and_bucketed",
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['address', 'bucket(customer, 3)'])",
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['address', 'bucket(customer, 3)'])",
+                },
+                {
+                        "target_flat_source_partitioned_by_customer",
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)",
+                        "CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (partitioning = ARRAY['customer'])"
+                },
+                {
+                        "target_partitioned_by_customer_source_flat",
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['customer'])",
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)",
+                },
+                {
+                        "target_bucketed_by_customer_source_flat",
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['bucket(customer, 3)'])",
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)",
+                },
+                {
+                        "target_partitioned_source_partitioned_and_bucketed",
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['customer'])",
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['address', 'bucket(customer, 3)'])",
+                },
+                {
+                        "target_partitioned_target_partitioned_and_bucketed",
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['address', 'bucket(customer, 3)'])",
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['customer'])",
+                }
+        };
     }
 
     @Override

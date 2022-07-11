@@ -89,6 +89,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
+import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -143,6 +144,9 @@ import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_FILE_RECORD_COUNT;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_DATA;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_SPEC_ID;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
@@ -177,6 +181,7 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -277,19 +282,32 @@ public class IcebergPageSourceProvider
                 .forEach(requiredColumns::add);
 
         icebergColumns.stream()
-                .filter(IcebergColumnHandle::isUpdateRowIdColumn)
-                .findFirst().ifPresent(updateRowIdColumn -> {
+                .filter(column -> column.isUpdateRowIdColumn() || column.isMergeRowIdColumn())
+                .findFirst().ifPresent(rowIdColumn -> {
                     Set<Integer> alreadyRequiredColumnIds = requiredColumns.stream()
                             .map(IcebergColumnHandle::getId)
                             .collect(toImmutableSet());
-                    for (ColumnIdentity requiredColumnIdentity : updateRowIdColumn.getColumnIdentity().getChildren()) {
-                        if (!alreadyRequiredColumnIds.contains(requiredColumnIdentity.getId())) {
-                            if (requiredColumnIdentity.getId() == ROW_POSITION.fieldId()) {
-                                requiredColumns.add(new IcebergColumnHandle(requiredColumnIdentity, BIGINT, ImmutableList.of(), BIGINT, Optional.empty()));
-                            }
-                            else {
-                                requiredColumns.add(getColumnHandle(tableSchema.findField(requiredColumnIdentity.getId()), typeManager));
-                            }
+                    for (ColumnIdentity identity : rowIdColumn.getColumnIdentity().getChildren()) {
+                        if (alreadyRequiredColumnIds.contains(identity.getId())) {
+                            // ignore
+                        }
+                        else if (identity.getId() == MetadataColumns.FILE_PATH.fieldId()) {
+                            requiredColumns.add(new IcebergColumnHandle(identity, VARCHAR, ImmutableList.of(), VARCHAR, Optional.empty()));
+                        }
+                        else if (identity.getId() == ROW_POSITION.fieldId()) {
+                            requiredColumns.add(new IcebergColumnHandle(identity, BIGINT, ImmutableList.of(), BIGINT, Optional.empty()));
+                        }
+                        else if (identity.getId() == TRINO_MERGE_FILE_RECORD_COUNT) {
+                            requiredColumns.add(new IcebergColumnHandle(identity, BIGINT, ImmutableList.of(), BIGINT, Optional.empty()));
+                        }
+                        else if (identity.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
+                            requiredColumns.add(new IcebergColumnHandle(identity, INTEGER, ImmutableList.of(), INTEGER, Optional.empty()));
+                        }
+                        else if (identity.getId() == TRINO_MERGE_PARTITION_DATA) {
+                            requiredColumns.add(new IcebergColumnHandle(identity, VARCHAR, ImmutableList.of(), VARCHAR, Optional.empty()));
+                        }
+                        else {
+                            requiredColumns.add(getColumnHandle(tableSchema.findField(identity.getId()), typeManager));
                         }
                     }
                 });
@@ -328,6 +346,9 @@ public class IcebergPageSourceProvider
                 split.getLength(),
                 fileSize,
                 fileModifiedTime,
+                split.getFileRecordCount(),
+                partitionSpec.specId(),
+                split.getPartitionDataJson(),
                 split.getFileFormat(),
                 split.getSchemaAsJson().map(SchemaParser::fromJson),
                 requiredColumns,
@@ -460,6 +481,9 @@ public class IcebergPageSourceProvider
                 delete.fileSizeInBytes(),
                 delete.fileSizeInBytes(),
                 OptionalLong.empty(),
+                delete.recordCount(),
+                0,
+                "",
                 IcebergFileFormat.fromIceberg(delete.format()),
                 Optional.of(schemaFromHandles(columns)),
                 columns,
@@ -477,6 +501,9 @@ public class IcebergPageSourceProvider
             long length,
             long fileSize,
             OptionalLong fileModifiedTime,
+            long fileRecordCount,
+            int partitionSpecId,
+            String partitionData,
             IcebergFileFormat fileFormat,
             Optional<Schema> fileSchema,
             List<IcebergColumnHandle> dataColumns,
@@ -497,6 +524,9 @@ public class IcebergPageSourceProvider
                         length,
                         fileSize,
                         fileModifiedTime,
+                        fileRecordCount,
+                        partitionSpecId,
+                        partitionData,
                         dataColumns,
                         predicate,
                         orcReaderOptions
@@ -523,6 +553,9 @@ public class IcebergPageSourceProvider
                         length,
                         fileSize,
                         fileModifiedTime,
+                        fileRecordCount,
+                        partitionSpecId,
+                        partitionData,
                         dataColumns,
                         parquetReaderOptions
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
@@ -538,6 +571,9 @@ public class IcebergPageSourceProvider
                         start,
                         length,
                         fileModifiedTime,
+                        fileRecordCount,
+                        partitionSpecId,
+                        partitionData,
                         fileSchema.orElseThrow(),
                         nameMapping,
                         dataColumns);
@@ -556,6 +592,9 @@ public class IcebergPageSourceProvider
             long length,
             long fileSize,
             OptionalLong fileModifiedTime,
+            long fileRecordCount,
+            int partitionSpecId,
+            String partitionData,
             List<IcebergColumnHandle> columns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             OrcReaderOptions options,
@@ -625,12 +664,21 @@ public class IcebergPageSourceProvider
                 else if (column.isFileModifiedTimeColumn()) {
                     columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(fileModifiedTime.orElseThrow(), UTC_KEY))));
                 }
-                else if (column.isUpdateRowIdColumn()) {
+                else if (column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()) {
                     // $row_id is a composite of multiple physical columns. It is assembled by the IcebergPageSource
                     columnAdaptations.add(ColumnAdaptation.nullColumn(column.getType()));
                 }
                 else if (column.isRowPositionColumn()) {
                     columnAdaptations.add(ColumnAdaptation.positionColumn());
+                }
+                else if (column.getId() == TRINO_MERGE_FILE_RECORD_COUNT) {
+                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(column.getType(), fileRecordCount)));
+                }
+                else if (column.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
+                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(column.getType(), (long) partitionSpecId)));
+                }
+                else if (column.getId() == TRINO_MERGE_PARTITION_DATA) {
+                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(column.getType(), utf8Slice(partitionData))));
                 }
                 else if (orcColumn != null) {
                     Type readType = getOrcReadType(column.getType(), typeManager);
@@ -832,7 +880,7 @@ public class IcebergPageSourceProvider
 
             ImmutableMap.Builder<Integer, Map<String, Integer>> mapping = ImmutableMap.builder();
             for (IcebergColumnHandle column : columns) {
-                if (column.isUpdateRowIdColumn()) {
+                if (column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()) {
                     // The update $row_id column contains fields which should not be accounted for in the mapping.
                     continue;
                 }
@@ -904,6 +952,9 @@ public class IcebergPageSourceProvider
             long length,
             long fileSize,
             OptionalLong fileModifiedTime,
+            long fileRecordCount,
+            int partitionSpecId,
+            String partitionData,
             List<IcebergColumnHandle> regularColumns,
             ParquetReaderOptions options,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
@@ -993,7 +1044,7 @@ public class IcebergPageSourceProvider
                 else if (column.isFileModifiedTimeColumn()) {
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(fileModifiedTime.orElseThrow(), UTC_KEY)));
                 }
-                else if (column.isUpdateRowIdColumn()) {
+                else if (column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()) {
                     // $row_id is a composite of multiple physical columns, it is assembled by the IcebergPageSource
                     trinoTypes.add(column.getType());
                     internalFields.add(Optional.empty());
@@ -1007,6 +1058,15 @@ public class IcebergPageSourceProvider
                     rowIndexChannels.add(true);
                     constantPopulatingPageSourceBuilder.addDelegateColumn(parquetSourceChannel);
                     parquetSourceChannel++;
+                }
+                else if (column.getId() == TRINO_MERGE_FILE_RECORD_COUNT) {
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), fileRecordCount));
+                }
+                else if (column.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), (long) partitionSpecId));
+                }
+                else if (column.getId() == TRINO_MERGE_PARTITION_DATA) {
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), utf8Slice(partitionData)));
                 }
                 else {
                     rowIndexChannels.add(false);
@@ -1066,6 +1126,9 @@ public class IcebergPageSourceProvider
             long start,
             long length,
             OptionalLong fileModifiedTime,
+            long fileRecordCount,
+            int partitionSpecId,
+            String partitionData,
             Schema fileSchema,
             Optional<NameMapping> nameMapping,
             List<IcebergColumnHandle> columns)
@@ -1112,6 +1175,15 @@ public class IcebergPageSourceProvider
                     columnTypes.add(BIGINT);
                     constantPopulatingPageSourceBuilder.addDelegateColumn(avroSourceChannel);
                     avroSourceChannel++;
+                }
+                else if (column.getId() == TRINO_MERGE_FILE_RECORD_COUNT) {
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), fileRecordCount));
+                }
+                else if (column.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), (long) partitionSpecId));
+                }
+                else if (column.getId() == TRINO_MERGE_PARTITION_DATA) {
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), utf8Slice(partitionData)));
                 }
                 else if (field == null) {
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), null));
