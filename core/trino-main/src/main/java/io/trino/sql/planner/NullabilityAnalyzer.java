@@ -65,7 +65,7 @@ public final class NullabilityAnalyzer
             // except for the CAST(NULL AS x) case -- we should fix this at some point)
             //
             // Also, try_cast (i.e., safe cast) can return null
-            result.set(node.isSafe() || !node.isTypeOnly());
+            result.compareAndSet(false, node.isSafe() || !node.isTypeOnly());
             return null;
         }
 
