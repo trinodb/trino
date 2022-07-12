@@ -1905,8 +1905,7 @@ public class SqlQueryScheduler
                     Map<InternalNode, Integer> nodeToPartition = new HashMap<>();
                     int nextPartitionId = 0;
                     for (int bucket = 0; bucket < bucketCount; bucket++) {
-                        InternalNode node = bucketNodeMap.getAssignedNode(bucket)
-                                .orElseThrow(() -> new IllegalStateException("Nodes are expected to be assigned for non dynamic BucketNodeMap"));
+                        InternalNode node = bucketNodeMap.getAssignedNode(bucket);
                         Integer partitionId = nodeToPartition.get(node);
                         if (partitionId == null) {
                             partitionId = nextPartitionId;

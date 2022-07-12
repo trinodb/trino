@@ -165,7 +165,7 @@ public class NodeScheduler
         Set<InternalNode> blockedNodes = new HashSet<>();
         for (Split split : splits) {
             // node placement is forced by the bucket to node map
-            InternalNode node = bucketNodeMap.getAssignedNode(split).get();
+            InternalNode node = bucketNodeMap.getAssignedNode(split);
             SplitWeight splitWeight = split.getSplitWeight();
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
