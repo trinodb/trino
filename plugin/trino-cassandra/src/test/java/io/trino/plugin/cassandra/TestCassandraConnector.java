@@ -16,6 +16,7 @@ package io.trino.plugin.cassandra;
 import com.datastax.oss.protocol.internal.util.Bytes;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.net.InetAddresses;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.trino.spi.block.Block;
@@ -47,10 +48,13 @@ import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
+import io.trino.type.IpAddressType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -299,6 +303,7 @@ public class TestCassandraConnector
 
     @Test
     public void testGetUserDefinedType()
+            throws UnknownHostException
     {
         ConnectorTableHandle tableHandle = getTableHandle(tableUdt);
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
@@ -342,7 +347,7 @@ public class TestCassandraConnector
                     assertEquals(DOUBLE.getDouble(udtValue, 8), 99999999999999997748809823456034029568D);
                     assertEquals(DOUBLE.getDouble(udtValue, 9), 4.9407e-324);
                     assertEquals(REAL.getObjectValue(SESSION, udtValue, 10), 1.4E-45f);
-                    assertEquals(VARCHAR.getSlice(udtValue, 11).toStringUtf8(), "0.0.0.0");
+                    assertEquals(InetAddresses.toAddrString(InetAddress.getByAddress(IpAddressType.IPADDRESS.getSlice(udtValue, 11).getBytes())), "0.0.0.0");
                     assertEquals(VARCHAR.getSlice(udtValue, 12).toStringUtf8(), "varchar");
                     assertEquals(VARCHAR.getSlice(udtValue, 13).toStringUtf8(), "-9223372036854775808");
                     assertEquals(trinoUuidToJavaUuid(UUID.getSlice(udtValue, 14)).toString(), "d2177dd0-eaa2-11de-a572-001b779c76e3");
@@ -411,6 +416,9 @@ public class TestCassandraConnector
                     cursor.getObject(columnIndex);
                 }
                 else if (UuidType.UUID.equals(type)) {
+                    cursor.getSlice(columnIndex);
+                }
+                else if (IpAddressType.IPADDRESS.equals(type)) {
                     cursor.getSlice(columnIndex);
                 }
                 else {
