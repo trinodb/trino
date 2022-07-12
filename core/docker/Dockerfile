@@ -11,16 +11,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM registry.access.redhat.com/ubi8/ubi
+ARG AZUL_DOCKER_TAG=17.0.3
+FROM azul/zulu-openjdk:$AZUL_DOCKER_TAG
 
 ENV JAVA_HOME /usr/lib/jvm/zulu17
+
 RUN \
     set -xeu && \
-    yum -y -q install https://cdn.azul.com/zulu/bin/zulu-repo-1.0.0-1.noarch.rpm && \
-    yum -y -q install python3 zulu17-jdk less && \
-    yum -q clean all && \
-    rm -rf /var/cache/yum && \
-    alternatives --set python /usr/bin/python3 && \
+    apt-get update -q && \
+    apt-get install -y -q less python curl && \
+    rm -rf /var/lib/apt/lists/* && \
     groupadd trino --gid 1000 && \
     useradd trino --uid 1000 --gid 1000 && \
     mkdir -p /usr/lib/trino /data/trino && \
