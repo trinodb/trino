@@ -24,6 +24,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -49,7 +50,8 @@ public class JoinHashSupplier
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
-            HashArraySizeSupplier hashArraySizeSupplier)
+            HashArraySizeSupplier hashArraySizeSupplier,
+            OptionalInt singleBigintJoinChannel)
     {
         this.session = requireNonNull(session, "session is null");
         this.addresses = requireNonNull(addresses, "addresses is null");
@@ -71,7 +73,12 @@ public class JoinHashSupplier
         }
 
         this.pages = channelsToPages(channels);
-        this.pagesHash = new DefaultPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier);
+        if (singleBigintJoinChannel.isPresent()) {
+            this.pagesHash = new BigintPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier, pages, singleBigintJoinChannel.getAsInt());
+        }
+        else {
+            this.pagesHash = new DefaultPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier);
+        }
         this.positionLinks = positionLinksFactoryBuilder.isEmpty() ? Optional.empty() : Optional.of(positionLinksFactoryBuilder.build());
     }
 
