@@ -808,6 +808,7 @@ public final class ThriftMetastoreUtil
             case SHORT:
             case INT:
             case LONG:
+            case TIMESTAMP:
                 return createLongStatistics(columnName, columnType, statistics);
             case FLOAT:
             case DOUBLE:
@@ -818,8 +819,6 @@ public final class ThriftMetastoreUtil
                 return createStringStatistics(columnName, columnType, statistics, rowCount);
             case DATE:
                 return createDateStatistics(columnName, columnType, statistics);
-            case TIMESTAMP:
-                return createLongStatistics(columnName, columnType, statistics);
             case BINARY:
                 return createBinaryStatistics(columnName, columnType, statistics, rowCount);
             case DECIMAL:
