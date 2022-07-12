@@ -17,7 +17,6 @@ import io.trino.execution.scheduler.BucketNodeMap;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 
-import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -35,9 +34,9 @@ public class DynamicBucketNodeMap
     }
 
     @Override
-    public Optional<InternalNode> getAssignedNode(int bucketedId)
+    public InternalNode getAssignedNode(int bucketedId)
     {
-        return Optional.empty();
+        throw new UnsupportedOperationException("DynamicBucketNodeMap does not support assigned nodes");
     }
 
     @Override
