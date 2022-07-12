@@ -30,7 +30,7 @@ public class CassandraRecordSet
     private final CassandraSession cassandraSession;
     private final CassandraTypeManager cassandraTypeManager;
     private final String cql;
-    private final List<CassandraTypeMapping> cassandraTypes;
+    private final List<CassandraType> cassandraTypes;
     private final List<Type> columnTypes;
 
     public CassandraRecordSet(CassandraSession cassandraSession, CassandraTypeManager cassandraTypeManager, String cql, List<CassandraColumnHandle> cassandraColumns)
