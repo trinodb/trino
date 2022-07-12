@@ -189,8 +189,8 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test
-    public void testInnerJoinWithRunLengthEncodedProbe()
+    @Test(dataProvider = "singleBigintLookupSourceProvider")
+    public void testInnerJoinWithRunLengthEncodedProbe(boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -198,7 +198,7 @@ public class TestHashJoinOperator
         RowPagesBuilder buildPages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT))
                 .addSequencePage(10, 20)
                 .addSequencePage(10, 21);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, false, taskContext, buildPages, Optional.empty());
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, false, taskContext, buildPages, Optional.empty(), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -226,8 +226,8 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test
-    public void testUnwrapsLazyBlocks()
+    @Test(dataProvider = "singleBigintLookupSourceProvider")
+    public void testUnwrapsLazyBlocks(boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
@@ -240,7 +240,7 @@ public class TestHashJoinOperator
                 }));
 
         RowPagesBuilder buildPages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT)).addSequencePage(1, 0);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, true, taskContext, buildPages, Optional.of(filterFunction));
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, true, taskContext, buildPages, Optional.of(filterFunction), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT, BIGINT));
@@ -276,8 +276,8 @@ public class TestHashJoinOperator
         assertFalse(output.getBlock(1) instanceof LazyBlock);
     }
 
-    @Test
-    public void testYield()
+    @Test(dataProvider = "singleBigintLookupSourceProvider")
+    public void testYield(boolean singleBigintLookupSource)
     {
         // create a filter function that yields for every probe match
         // verify we will yield #match times totally
@@ -298,7 +298,7 @@ public class TestHashJoinOperator
         int entries = 40;
         RowPagesBuilder buildPages = rowPagesBuilder(true, Ints.asList(0), ImmutableList.of(BIGINT))
                 .addSequencePage(entries, 42);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, true, taskContext, buildPages, Optional.of(filterFunction));
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, true, taskContext, buildPages, Optional.of(filterFunction), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe matching the above 40 entries
@@ -349,8 +349,8 @@ public class TestHashJoinOperator
         assertEquals(output.getPositionCount(), entries);
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testInnerJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testInnerJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -360,7 +360,7 @@ public class TestHashJoinOperator
                 .row(1L)
                 .row(2L)
                 .row(3L);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty());
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty(), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -389,8 +389,8 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testInnerJoinWithOutputSingleMatch(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testInnerJoinWithOutputSingleMatch(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
         // build factory
@@ -399,7 +399,7 @@ public class TestHashJoinOperator
                 .row(1L)
                 .row(1L)
                 .row(2L);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty());
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty(), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -425,8 +425,8 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testInnerJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testInnerJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -465,8 +465,8 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testInnerJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testInnerJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -601,8 +601,8 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testOuterJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testOuterJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -612,7 +612,7 @@ public class TestHashJoinOperator
                 .row(1L)
                 .row(2L)
                 .row(3L);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty());
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty(), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -643,8 +643,8 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testOuterJoinWithNullProbeAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testOuterJoinWithNullProbeAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -657,7 +657,7 @@ public class TestHashJoinOperator
                 .row(1L)
                 .row(2L)
                 .row(3L);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.of(filterFunction));
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.of(filterFunction), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -688,8 +688,8 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testOuterJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testOuterJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -701,7 +701,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row(1L)
                 .row(2L);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty());
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty(), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -729,8 +729,8 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testOuterJoinWithNullBuildAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testOuterJoinWithNullBuildAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -746,7 +746,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row(1L)
                 .row(2L);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.of(filterFunction));
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.of(filterFunction), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -774,8 +774,8 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testOuterJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testOuterJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -786,7 +786,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row(1L)
                 .row(2L);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty());
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty(), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -816,8 +816,8 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testOuterJoinWithNullOnBothSidesAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testOuterJoinWithNullOnBothSidesAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -832,7 +832,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row(1L)
                 .row(2L);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.of(filterFunction));
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.of(filterFunction), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -877,15 +877,15 @@ public class TestHashJoinOperator
                 .hasMessageMatching("Query exceeded per-node memory limit of.*");
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testInnerJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testInnerJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(BIGINT);
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty());
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty(), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -918,15 +918,15 @@ public class TestHashJoinOperator
         assertNull(outputPage);
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testLookupOuterJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testLookupOuterJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(BIGINT);
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty());
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty(), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -958,15 +958,15 @@ public class TestHashJoinOperator
         assertNull(outputPage);
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testProbeOuterJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testProbeOuterJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(BIGINT);
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty());
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty(), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -1007,15 +1007,15 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testFullOuterJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testFullOuterJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(BIGINT);
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty());
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty(), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -1055,8 +1055,8 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public void testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -1067,7 +1067,7 @@ public class TestHashJoinOperator
                 .row(2L)
                 .row((String) null)
                 .row(3L);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty());
+        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, Optional.empty(), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
@@ -1303,6 +1303,22 @@ public class TestHashJoinOperator
     public static Object[][] testMemoryLimitProvider()
     {
         return DataProviders.cartesianProduct(
+                new Object[][] {{true}, {false}},
+                new Object[][] {{true}, {false}});
+    }
+
+    @DataProvider(name = "singleBigintLookupSourceProvider")
+    public static Object[][] singleBigintLookupSourceProvider()
+    {
+        return new Object[][] {{true}, {false}};
+    }
+
+    @DataProvider(name = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
+    public static Object[][] hashJoinTestValuesAndsingleBigintLookupSourceProvider()
+    {
+        return DataProviders.cartesianProduct(
+                new Object[][] {{true}, {false}},
+                new Object[][] {{true}, {false}},
                 new Object[][] {{true}, {false}},
                 new Object[][] {{true}, {false}});
     }
