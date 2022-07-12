@@ -174,6 +174,9 @@ public abstract class BaseIcebergConnectorTest
             case SUPPORTS_DELETE:
             case SUPPORTS_UPDATE:
                 return true;
+
+            case SUPPORTS_COMMENT_ON_VIEW:
+                return true;
             default:
                 return super.hasBehavior(connectorBehavior);
         }
