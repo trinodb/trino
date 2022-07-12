@@ -70,10 +70,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.plugin.cassandra.CassandraTypeMapping.Kind.DATE;
-import static io.trino.plugin.cassandra.CassandraTypeMapping.Kind.TIMESTAMP;
-import static io.trino.plugin.cassandra.CassandraTypeMapping.Kind.TUPLE;
-import static io.trino.plugin.cassandra.CassandraTypeMapping.Kind.UDT;
+import static io.trino.plugin.cassandra.CassandraType.Kind.DATE;
+import static io.trino.plugin.cassandra.CassandraType.Kind.TIMESTAMP;
+import static io.trino.plugin.cassandra.CassandraType.Kind.TUPLE;
+import static io.trino.plugin.cassandra.CassandraType.Kind.UDT;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -90,7 +90,7 @@ import static java.lang.String.format;
 
 public class CassandraTypeManager
 {
-    public Optional<CassandraTypeMapping> toCassandraType(DataType dataType)
+    public Optional<CassandraType> toCassandraType(DataType dataType)
     {
         switch (dataType.getProtocolCode()) {
             case ProtocolConstants.DataType.ASCII:
@@ -146,10 +146,10 @@ public class CassandraTypeManager
         }
     }
 
-    private Optional<CassandraTypeMapping> createTypeForTuple(DataType dataType)
+    private Optional<CassandraType> createTypeForTuple(DataType dataType)
     {
         TupleType tupleType = (TupleType) dataType;
-        List<Optional<CassandraTypeMapping>> argumentTypesOptionals = tupleType.getComponentTypes().stream()
+        List<Optional<CassandraType>> argumentTypesOptionals = tupleType.getComponentTypes().stream()
                 .map(componentType -> toCassandraType(componentType))
                 .collect(toImmutableList());
 
@@ -157,23 +157,23 @@ public class CassandraTypeManager
             return Optional.empty();
         }
 
-        List<CassandraTypeMapping> argumentTypes = argumentTypesOptionals.stream()
+        List<CassandraType> argumentTypes = argumentTypesOptionals.stream()
                 .map(Optional::get)
                 .collect(toImmutableList());
 
         RowType trinoType = RowType.anonymous(
                 argumentTypes.stream()
-                        .map(CassandraTypeMapping::getTrinoType)
+                        .map(CassandraType::getTrinoType)
                         .collect(toImmutableList()));
 
-        return Optional.of(new CassandraTypeMapping(TUPLE, trinoType, argumentTypes));
+        return Optional.of(new CassandraType(TUPLE, trinoType, argumentTypes));
     }
 
-    private Optional<CassandraTypeMapping> createTypeForUserType(DataType dataType)
+    private Optional<CassandraType> createTypeForUserType(DataType dataType)
     {
         UserDefinedType userDefinedType = (UserDefinedType) dataType;
         // Using ImmutableMap is important as we exploit the fact that entries iteration order matches the order of putting values via builder
-        ImmutableMap.Builder<String, CassandraTypeMapping> argumentTypes = ImmutableMap.builder();
+        ImmutableMap.Builder<String, CassandraType> argumentTypes = ImmutableMap.builder();
 
         List<CqlIdentifier> fieldNames = userDefinedType.getFieldNames();
         List<DataType> fieldTypes = userDefinedType.getFieldTypes();
@@ -181,7 +181,7 @@ public class CassandraTypeManager
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Mismatch between the number of field names (%s) and the number of field types (%s) for the data type %s", fieldNames.size(), fieldTypes.size(), dataType));
         }
         for (int i = 0; i < fieldNames.size(); i++) {
-            Optional<CassandraTypeMapping> cassandraType = toCassandraType(fieldTypes.get(i));
+            Optional<CassandraType> cassandraType = toCassandraType(fieldTypes.get(i));
             if (cassandraType.isEmpty()) {
                 return Optional.empty();
             }
@@ -193,15 +193,15 @@ public class CassandraTypeManager
                         .map(field -> new RowType.Field(Optional.of(field.getKey()), field.getValue().getTrinoType()))
                         .collect(toImmutableList()));
 
-        return Optional.of(new CassandraTypeMapping(UDT, trinoType, argumentTypes.buildOrThrow().values().stream().collect(toImmutableList())));
+        return Optional.of(new CassandraType(UDT, trinoType, argumentTypes.buildOrThrow().values().stream().collect(toImmutableList())));
     }
 
-    public NullableValue getColumnValue(CassandraTypeMapping cassandraType, Row row, int position)
+    public NullableValue getColumnValue(CassandraType cassandraType, Row row, int position)
     {
         return getColumnValue(cassandraType, row, position, () -> row.getColumnDefinitions().get(position).getType());
     }
 
-    public NullableValue getColumnValue(CassandraTypeMapping cassandraType, GettableByIndex row, int position, Supplier<DataType> dataTypeSupplier)
+    public NullableValue getColumnValue(CassandraType cassandraType, GettableByIndex row, int position, Supplier<DataType> dataTypeSupplier)
     {
         Type trinoType = cassandraType.getTrinoType();
         if (row.isNull(position)) {
@@ -310,14 +310,14 @@ public class CassandraTypeManager
         return sb.toString();
     }
 
-    private Block buildTupleValue(CassandraTypeMapping type, GettableByIndex row, int position)
+    private Block buildTupleValue(CassandraType type, GettableByIndex row, int position)
     {
         verify(type.getKind() == TUPLE, "Not a TUPLE type");
         TupleValue tupleValue = row.getTupleValue(position);
         RowBlockBuilder blockBuilder = (RowBlockBuilder) type.getTrinoType().createBlockBuilder(null, 1);
         SingleRowBlockWriter singleRowBlockWriter = blockBuilder.beginBlockEntry();
         int tuplePosition = 0;
-        for (CassandraTypeMapping argumentType : type.getArgumentTypes()) {
+        for (CassandraType argumentType : type.getArgumentTypes()) {
             int finalTuplePosition = tuplePosition;
             NullableValue value = getColumnValue(argumentType, tupleValue, tuplePosition, () -> tupleValue.getType().getComponentTypes().get(finalTuplePosition));
             writeNativeValue(argumentType.getTrinoType(), singleRowBlockWriter, value.getValue());
@@ -328,7 +328,7 @@ public class CassandraTypeManager
         return (Block) type.getTrinoType().getObject(blockBuilder, 0);
     }
 
-    private Block buildUserTypeValue(CassandraTypeMapping type, GettableByIndex row, int position)
+    private Block buildUserTypeValue(CassandraType type, GettableByIndex row, int position)
     {
         verify(type.getKind() == UDT, "Not a user defined type: %s", type.getKind());
         UdtValue udtValue = row.getUdtValue(position);
@@ -336,7 +336,7 @@ public class CassandraTypeManager
         SingleRowBlockWriter singleRowBlockWriter = blockBuilder.beginBlockEntry();
         int tuplePosition = 0;
         List<DataType> udtTypeFieldTypes = udtValue.getType().getFieldTypes();
-        for (CassandraTypeMapping argumentType : type.getArgumentTypes()) {
+        for (CassandraType argumentType : type.getArgumentTypes()) {
             int finalTuplePosition = tuplePosition;
             NullableValue value = getColumnValue(argumentType, udtValue, tuplePosition, () -> udtTypeFieldTypes.get(finalTuplePosition));
             writeNativeValue(argumentType.getTrinoType(), singleRowBlockWriter, value.getValue());
@@ -348,7 +348,7 @@ public class CassandraTypeManager
     }
 
     // TODO unify with toCqlLiteral
-    public String getColumnValueForCql(CassandraTypeMapping type, Row row, int position)
+    public String getColumnValueForCql(CassandraType type, Row row, int position)
     {
         if (row.isNull(position)) {
             return null;
@@ -403,9 +403,9 @@ public class CassandraTypeManager
     }
 
     // TODO unify with getColumnValueForCql
-    public String toCqlLiteral(CassandraTypeMapping type, Object trinoNativeValue)
+    public String toCqlLiteral(CassandraType type, Object trinoNativeValue)
     {
-        CassandraTypeMapping.Kind kind = type.getKind();
+        CassandraType.Kind kind = type.getKind();
         if (kind == DATE) {
             LocalDate date = LocalDate.ofEpochDay(toIntExact((long) trinoNativeValue));
             return quoteStringLiteral(date.toString());
@@ -437,7 +437,7 @@ public class CassandraTypeManager
 
     private String objectToJson(Object cassandraValue, DataType dataType)
     {
-        CassandraTypeMapping cassandraType = toCassandraType(dataType)
+        CassandraType cassandraType = toCassandraType(dataType)
                 .orElseThrow(() -> new IllegalStateException("Unsupported type: " + dataType));
 
         switch (cassandraType.getKind()) {
@@ -484,7 +484,7 @@ public class CassandraTypeManager
         throw new IllegalStateException("Unsupported type: " + cassandraType);
     }
 
-    public Object getJavaValue(CassandraTypeMapping.Kind kind, Object trinoNativeValue)
+    public Object getJavaValue(CassandraType.Kind kind, Object trinoNativeValue)
     {
         switch (kind) {
             case ASCII:
@@ -531,7 +531,7 @@ public class CassandraTypeManager
         throw new IllegalStateException("Back conversion not implemented for " + this);
     }
 
-    public boolean isSupportedPartitionKey(CassandraTypeMapping.Kind kind)
+    public boolean isSupportedPartitionKey(CassandraType.Kind kind)
     {
         switch (kind) {
             case ASCII:
@@ -598,7 +598,7 @@ public class CassandraTypeManager
         return true;
     }
 
-    public CassandraTypeMapping toCassandraType(Type type, ProtocolVersion protocolVersion)
+    public CassandraType toCassandraType(Type type, ProtocolVersion protocolVersion)
     {
         if (type.equals(BooleanType.BOOLEAN)) {
             return CassandraTypes.BOOLEAN;

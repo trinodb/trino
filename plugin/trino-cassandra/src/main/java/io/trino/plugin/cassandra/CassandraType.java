@@ -24,7 +24,7 @@ import java.util.Objects;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class CassandraTypeMapping
+public class CassandraType
 {
     public enum Kind
     {
@@ -57,9 +57,9 @@ public class CassandraTypeMapping
 
     private final Kind kind;
     private final Type trinoType;
-    private final List<CassandraTypeMapping> argumentTypes;
+    private final List<CassandraType> argumentTypes;
 
-    public CassandraTypeMapping(
+    public CassandraType(
             Kind kind,
             Type trinoType)
     {
@@ -67,10 +67,10 @@ public class CassandraTypeMapping
     }
 
     @JsonCreator
-    public CassandraTypeMapping(
+    public CassandraType(
             @JsonProperty("kind") Kind kind,
             @JsonProperty("trinoType") Type trinoType,
-            @JsonProperty("argumentTypes") List<CassandraTypeMapping> argumentTypes)
+            @JsonProperty("argumentTypes") List<CassandraType> argumentTypes)
     {
         this.kind = requireNonNull(kind, "kind is null");
         this.trinoType = requireNonNull(trinoType, "trinoType is null");
@@ -90,7 +90,7 @@ public class CassandraTypeMapping
     }
 
     @JsonProperty
-    public List<CassandraTypeMapping> getArgumentTypes()
+    public List<CassandraType> getArgumentTypes()
     {
         return argumentTypes;
     }
@@ -109,7 +109,7 @@ public class CassandraTypeMapping
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        CassandraTypeMapping that = (CassandraTypeMapping) o;
+        CassandraType that = (CassandraType) o;
         return kind == that.kind && Objects.equals(trinoType, that.trinoType) && Objects.equals(argumentTypes, that.argumentTypes);
     }
 

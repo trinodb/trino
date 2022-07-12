@@ -16,7 +16,7 @@ package io.trino.plugin.cassandra;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import io.airlift.slice.Slice;
-import io.trino.plugin.cassandra.CassandraTypeMapping.Kind;
+import io.trino.plugin.cassandra.CassandraType.Kind;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.TimeZoneKey;
@@ -31,12 +31,12 @@ import static java.lang.Float.floatToRawIntBits;
 public class CassandraRecordCursor
         implements RecordCursor
 {
-    private final List<CassandraTypeMapping> cassandraTypes;
+    private final List<CassandraType> cassandraTypes;
     private final CassandraTypeManager cassandraTypeManager;
     private final ResultSet rs;
     private Row currentRow;
 
-    public CassandraRecordCursor(CassandraSession cassandraSession, CassandraTypeManager cassandraTypeManager, List<CassandraTypeMapping> cassandraTypes, String cql)
+    public CassandraRecordCursor(CassandraSession cassandraSession, CassandraTypeManager cassandraTypeManager, List<CassandraType> cassandraTypes, String cql)
     {
         this.cassandraTypes = cassandraTypes;
         this.cassandraTypeManager = cassandraTypeManager;
@@ -117,7 +117,7 @@ public class CassandraRecordCursor
         }
     }
 
-    private CassandraTypeMapping getCassandraType(int i)
+    private CassandraType getCassandraType(int i)
     {
         return cassandraTypes.get(i);
     }
@@ -138,7 +138,7 @@ public class CassandraRecordCursor
     @Override
     public Object getObject(int i)
     {
-        CassandraTypeMapping cassandraType = cassandraTypes.get(i);
+        CassandraType cassandraType = cassandraTypes.get(i);
         switch (cassandraType.getKind()) {
             case TUPLE:
             case UDT:

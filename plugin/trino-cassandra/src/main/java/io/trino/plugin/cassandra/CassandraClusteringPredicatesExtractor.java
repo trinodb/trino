@@ -141,7 +141,7 @@ public class CassandraClusteringPredicatesExtractor
 
     private String translateRangeIntoCql(CassandraColumnHandle columnHandle, Range range)
     {
-        if (columnHandle.getCassandraType().getKind() == CassandraTypeMapping.Kind.TUPLE || columnHandle.getCassandraType().getKind() == CassandraTypeMapping.Kind.UDT) {
+        if (columnHandle.getCassandraType().getKind() == CassandraType.Kind.TUPLE || columnHandle.getCassandraType().getKind() == CassandraType.Kind.UDT) {
             // Building CQL literals for TUPLE and UDT type is not supported
             return null;
         }
