@@ -25,6 +25,7 @@ import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestView;
 import org.apache.iceberg.FileFormat;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Parameters;
@@ -131,6 +132,37 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     {
         assertThatThrownBy(super::testRenameSchema)
                 .hasStackTraceContaining("renameNamespace is not supported for Iceberg Glue catalogs");
+    }
+
+    @Test
+    public void testCommentView()
+    {
+        // TODO: Consider moving to BaseConnectorSmokeTest
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM region")) {
+            // comment set
+            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'new comment'");
+            assertThat((String) computeScalar("SHOW CREATE VIEW " + view.getName())).contains("COMMENT 'new comment'");
+            assertThat(getTableComment(view.getName())).isEqualTo("new comment");
+
+            // comment updated
+            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'updated comment'");
+            assertThat(getTableComment(view.getName())).isEqualTo("updated comment");
+
+            // comment set to empty
+            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS ''");
+            assertThat(getTableComment(view.getName())).isEmpty();
+
+            // comment deleted
+            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'a comment'");
+            assertThat(getTableComment(view.getName())).isEqualTo("a comment");
+            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS NULL");
+            assertThat(getTableComment(view.getName())).isNull();
+        }
+    }
+
+    private String getTableComment(String tableName)
+    {
+        return (String) computeScalar("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'iceberg' AND schema_name = '" + schemaName + "' AND table_name = '" + tableName + "'");
     }
 
     private String schemaPath()

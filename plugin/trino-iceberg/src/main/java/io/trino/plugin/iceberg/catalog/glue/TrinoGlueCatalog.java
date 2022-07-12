@@ -579,6 +579,33 @@ public class TrinoGlueCatalog
     }
 
     @Override
+    public void updateViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        ConnectorViewDefinition definition = getView(session, viewName)
+                .orElseThrow(() -> new ViewNotFoundException(viewName));
+        ConnectorViewDefinition newDefinition = new ConnectorViewDefinition(
+                definition.getOriginalSql(),
+                definition.getCatalog(),
+                definition.getSchema(),
+                definition.getColumns(),
+                comment,
+                definition.getOwner(),
+                definition.isRunAsInvoker());
+
+        TableInput viewTableInput = getViewTableInput(viewName.getTableName(), encodeViewData(newDefinition), session.getUser(), createViewProperties(session));
+
+        try {
+            stats.getUpdateTable().call(() ->
+                    glueClient.updateTable(new UpdateTableRequest()
+                            .withDatabaseName(viewName.getSchemaName())
+                            .withTableInput(viewTableInput)));
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
+        }
+    }
+
+    @Override
     public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace)
     {
         try {
