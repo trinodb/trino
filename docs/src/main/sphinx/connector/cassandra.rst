@@ -214,7 +214,7 @@ DATE              DATE
 DECIMAL           DOUBLE
 DOUBLE            DOUBLE
 FLOAT             REAL
-INET              VARCHAR(45)
+INET              IPADDRESS
 INT               INTEGER
 LIST<?>           VARCHAR
 MAP<?, ?>         VARCHAR
