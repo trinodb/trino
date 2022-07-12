@@ -24,8 +24,8 @@ public class IncrementalLoadFactorHashArraySizeSupplier
     // Threshold values provide good performance for smaller hash arrays
     // while keeping memory usage limited for larger hash arrays.
     // This is tuned based on TPC-DS SF1000.
-    static final int THRESHOLD_25 = 1 << 16; // 65536
-    static final int THRESHOLD_50 = 1 << 20; // 1048576
+    public static final int THRESHOLD_25 = 1 << 16; // 65536
+    public static final int THRESHOLD_50 = 1 << 20; // 1048576
 
     private final int multiplier;
 
