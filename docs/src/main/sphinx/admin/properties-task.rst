@@ -124,3 +124,47 @@ of additional CPU for parallel writes. Some connectors can be bottlenecked on CP
 writing due to compression or other factors. Setting this too high may cause the cluster
 to become overloaded due to excessive resource utilization. This can also be specified on
 a per-query basis using the ``task_writer_count`` session property.
+
+``task.interrupt-stuck-split-tasks-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``true``
+
+Enables Trino detecting and failing tasks containing splits that have been stuck. Can be
+specified by ``task.interrupt-stuck-split-tasks-timeout`` and
+``task.interrupt-stuck-split-tasks-detection-interval``. Only applies to threads that
+are blocked by the third-party Joni regular expression library.
+
+
+``task.interrupt-stuck-split-tasks-warning-threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Minimum value:** ``1m``
+* **Default value:** ``10m``
+
+Print out call stacks at ``/v1/maxActiveSplits`` endpoint and generate JMX metrics
+for splits running longer than the threshold.
+
+``task.interrupt-stuck-split-tasks-timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Minimum value:** ``3m``
+* **Default value:** ``10m``
+
+The length of time Trino waits for a blocked split processing thread before failing the
+task. Only applies to threads that are blocked by the third-party Joni regular
+expression library.
+
+``task.interrupt-stuck-split-tasks-detection-interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Minimum value:** ``1m``
+* **Default value:** ``2m``
+
+The interval of Trino checks for splits that have processing time exceeding
+``task.interrupt-stuck-split-tasks-timeout``. Only applies to threads that are blocked
+by the third-party Joni regular expression library.

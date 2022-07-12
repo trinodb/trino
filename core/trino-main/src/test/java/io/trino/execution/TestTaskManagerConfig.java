@@ -65,7 +65,11 @@ public class TestTaskManagerConfig
                 .setTaskNotificationThreads(5)
                 .setTaskYieldThreads(3)
                 .setLevelTimeMultiplier(new BigDecimal("2"))
-                .setStatisticsCpuTimerEnabled(true));
+                .setStatisticsCpuTimerEnabled(true)
+                .setInterruptStuckSplitTasksEnabled(true)
+                .setInterruptStuckSplitTasksWarningThreshold(new Duration(10, TimeUnit.MINUTES))
+                .setInterruptStuckSplitTasksTimeout(new Duration(15, TimeUnit.MINUTES))
+                .setInterruptStuckSplitTasksDetectionInterval(new Duration(2, TimeUnit.MINUTES)));
     }
 
     @Test
@@ -101,6 +105,10 @@ public class TestTaskManagerConfig
                 .put("task.task-yield-threads", "8")
                 .put("task.level-time-multiplier", "2.1")
                 .put("task.statistics-cpu-timer-enabled", "false")
+                .put("task.interrupt-stuck-split-tasks-enabled", "false")
+                .put("task.interrupt-stuck-split-tasks-warning-threshold", "3m")
+                .put("task.interrupt-stuck-split-tasks-timeout", "4m")
+                .put("task.interrupt-stuck-split-tasks-detection-interval", "10m")
                 .buildOrThrow();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -131,7 +139,11 @@ public class TestTaskManagerConfig
                 .setTaskNotificationThreads(13)
                 .setTaskYieldThreads(8)
                 .setLevelTimeMultiplier(new BigDecimal("2.1"))
-                .setStatisticsCpuTimerEnabled(false);
+                .setStatisticsCpuTimerEnabled(false)
+                .setInterruptStuckSplitTasksEnabled(false)
+                .setInterruptStuckSplitTasksWarningThreshold(new Duration(3, TimeUnit.MINUTES))
+                .setInterruptStuckSplitTasksTimeout(new Duration(4, TimeUnit.MINUTES))
+                .setInterruptStuckSplitTasksDetectionInterval(new Duration(10, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);
     }
