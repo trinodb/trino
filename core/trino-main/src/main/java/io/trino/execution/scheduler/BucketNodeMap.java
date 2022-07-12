@@ -16,7 +16,6 @@ package io.trino.execution.scheduler;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 
-import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 import static java.util.Objects.requireNonNull;
@@ -32,11 +31,11 @@ public abstract class BucketNodeMap
 
     public abstract int getBucketCount();
 
-    public abstract Optional<InternalNode> getAssignedNode(int bucketedId);
+    public abstract InternalNode getAssignedNode(int bucketedId);
 
     public abstract boolean isDynamic();
 
-    public final Optional<InternalNode> getAssignedNode(Split split)
+    public final InternalNode getAssignedNode(Split split)
     {
         return getAssignedNode(splitToBucket.applyAsInt(split));
     }
