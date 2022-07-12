@@ -30,6 +30,7 @@ import com.datastax.oss.protocol.internal.util.Bytes;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.InetAddresses;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -44,16 +45,21 @@ import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -77,6 +83,7 @@ import static io.trino.plugin.cassandra.CassandraType.Kind.UDT;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -87,9 +94,20 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.System.arraycopy;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraTypeManager
 {
+    private final Type ipAddressType;
+
+    @Inject
+    public CassandraTypeManager(TypeManager typeManager)
+    {
+        requireNonNull(typeManager, "typeManager is null");
+        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
+    }
+
     public Optional<CassandraType> toCassandraType(DataType dataType)
     {
         switch (dataType.getProtocolCode()) {
@@ -114,7 +132,9 @@ public class CassandraTypeManager
             case ProtocolConstants.DataType.FLOAT:
                 return Optional.of(CassandraTypes.FLOAT);
             case ProtocolConstants.DataType.INET:
-                return Optional.of(CassandraTypes.INET);
+                return Optional.of(new CassandraType(
+                    CassandraType.Kind.INET,
+                    ipAddressType));
             case ProtocolConstants.DataType.INT:
                 return Optional.of(CassandraTypes.INT);
             case ProtocolConstants.DataType.LIST:
@@ -238,7 +258,7 @@ public class CassandraTypeManager
             case DATE:
                 return NullableValue.of(trinoType, row.getLocalDate(position).toEpochDay());
             case INET:
-                return NullableValue.of(trinoType, utf8Slice(toAddrString(row.getInetAddress(position))));
+                return NullableValue.of(trinoType, castFromVarcharToIpAddress(utf8Slice(toAddrString(row.getInetAddress(position)))));
             case VARINT:
                 return NullableValue.of(trinoType, utf8Slice(row.getBigInteger(position).toString()));
             case BLOB:
@@ -497,7 +517,12 @@ public class CassandraTypeManager
             case COUNTER:
                 return trinoNativeValue;
             case INET:
-                return InetAddresses.forString(((Slice) trinoNativeValue).toStringUtf8());
+                try {
+                    return InetAddress.getByAddress(((Slice) trinoNativeValue).getBytes());
+                }
+                catch (UnknownHostException e) {
+                    throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid IP address binary length: " + ((Slice) trinoNativeValue).length(), e);
+                }
             case INT:
             case SMALLINT:
             case TINYINT:
@@ -638,6 +663,44 @@ public class CassandraTypeManager
         if (type.equals(UuidType.UUID)) {
             return CassandraTypes.UUID;
         }
+        if (type.equals(ipAddressType)) {
+            return new CassandraType(
+                    CassandraType.Kind.INET,
+                    ipAddressType);
+        }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
+    }
+
+    public boolean isIpAddressType(Type type)
+    {
+        return type.equals(ipAddressType);
+    }
+
+    // This is a copy of IpAddressOperators.castFromVarcharToIpAddress method
+    private static Slice castFromVarcharToIpAddress(Slice slice)
+    {
+        byte[] address;
+        try {
+            address = InetAddresses.forString(slice.toStringUtf8()).getAddress();
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPADDRESS: " + slice.toStringUtf8());
+        }
+
+        byte[] bytes;
+        if (address.length == 4) {
+            bytes = new byte[16];
+            bytes[10] = (byte) 0xff;
+            bytes[11] = (byte) 0xff;
+            arraycopy(address, 0, bytes, 12, 4);
+        }
+        else if (address.length == 16) {
+            bytes = address;
+        }
+        else {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid InetAddress length: " + address.length);
+        }
+
+        return wrappedBuffer(bytes);
     }
 }

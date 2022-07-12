@@ -22,6 +22,7 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.querybuilder.term.Term;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.net.InetAddresses;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
@@ -71,6 +72,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class CassandraPageSink
         implements ConnectorPageSink
 {
+    private final CassandraTypeManager cassandraTypeManager;
     private final CassandraSession cassandraSession;
     private final PreparedStatement insert;
     private final List<Type> columnTypes;
@@ -80,6 +82,7 @@ public class CassandraPageSink
     private final BatchStatementBuilder batchStatement = BatchStatement.builder(DefaultBatchType.LOGGED);
 
     public CassandraPageSink(
+            CassandraTypeManager cassandraTypeManager,
             CassandraSession cassandraSession,
             ProtocolVersion protocolVersion,
             String schemaName,
@@ -89,6 +92,7 @@ public class CassandraPageSink
             boolean generateUuid,
             int batchSize)
     {
+        this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession");
         requireNonNull(schemaName, "schemaName is null");
         requireNonNull(tableName, "tableName is null");
@@ -184,6 +188,9 @@ public class CassandraPageSink
         }
         else if (UuidType.UUID.equals(type)) {
             values.add(trinoUuidToJavaUuid(type.getSlice(block, position)));
+        }
+        else if (cassandraTypeManager.isIpAddressType(type)) {
+            values.add(InetAddresses.forString((String) type.getObjectValue(null, block, position)));
         }
         else {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
