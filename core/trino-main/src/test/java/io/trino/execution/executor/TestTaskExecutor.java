@@ -14,6 +14,7 @@
 package io.trino.execution.executor;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.testing.TestingTicker;
@@ -52,6 +53,8 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
+        Duration splitProcessingDurationThreshold = new Duration(10, MINUTES);
+
         TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
@@ -78,9 +81,12 @@ public class TestTaskExecutor
             assertEquals(driver1.getCompletedPhases(), 0);
             assertEquals(driver2.getCompletedPhases(), 0);
             ticker.increment(60, SECONDS);
+            assertTrue(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true).isEmpty());
             assertEquals(taskExecutor.getRunAwaySplitCount(), 0);
             ticker.increment(600, SECONDS);
             assertEquals(taskExecutor.getRunAwaySplitCount(), 2);
+            assertEquals(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true), ImmutableSet.of(taskId));
+
             verificationComplete.arriveAndAwaitAdvance();
 
             // advance one phase and verify
@@ -135,6 +141,7 @@ public class TestTaskExecutor
 
             // no splits remaining
             ticker.increment(610, SECONDS);
+            assertTrue(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true).isEmpty());
             assertEquals(taskExecutor.getRunAwaySplitCount(), 0);
         }
         finally {
