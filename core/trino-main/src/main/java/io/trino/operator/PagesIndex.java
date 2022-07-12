@@ -133,19 +133,25 @@ public class PagesIndex
     {
         public static final TypeOperators TYPE_OPERATORS = new TypeOperators();
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler(TYPE_OPERATORS);
-        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
+        private final JoinCompiler joinCompiler;
         private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(TYPE_OPERATORS);
         private final boolean eagerCompact;
 
         public TestingFactory(boolean eagerCompact)
         {
+            this(eagerCompact, true);
+        }
+
+        public TestingFactory(boolean eagerCompact, boolean enableSingleChannelBigintLookupSource)
+        {
             this.eagerCompact = eagerCompact;
+            joinCompiler = new JoinCompiler(TYPE_OPERATORS, enableSingleChannelBigintLookupSource);
         }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, TYPE_OPERATOR_FACTORY, types, expectedPositions, eagerCompact);
+            return new PagesIndex(ORDERING_COMPILER, joinCompiler, TYPE_OPERATOR_FACTORY, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -544,7 +550,8 @@ public class PagesIndex
                 filterFunctionFactory,
                 sortChannel,
                 searchFunctionFactories,
-                hashArraySizeSupplier);
+                hashArraySizeSupplier,
+                OptionalInt.empty());
     }
 
     private static List<Integer> rangeList(int endExclusive)
