@@ -2443,7 +2443,12 @@ public class HiveMetadata
         if (isHiveSystemSchema(viewName.getSchemaName())) {
             return Optional.empty();
         }
-        return metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
+        return toConnectorViewDefinition(session, viewName, metastore.getTable(viewName.getSchemaName(), viewName.getTableName()));
+    }
+
+    private Optional<ConnectorViewDefinition> toConnectorViewDefinition(ConnectorSession session, SchemaTableName viewName, Optional<Table> table)
+    {
+        return table
                 .filter(ViewReaderUtil::canDecodeView)
                 .map(view -> {
                     if (!translateHiveViews && !isPrestoView(view)) {
