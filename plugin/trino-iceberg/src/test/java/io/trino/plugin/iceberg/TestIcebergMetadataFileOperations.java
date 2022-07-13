@@ -40,6 +40,7 @@ import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.SNAPSHOT;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.fromFilePath;
 import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_GET_LENGTH;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_LOCATION;
 import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_NEW_STREAM;
 import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE;
 import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
@@ -129,9 +130,11 @@ public class TestIcebergMetadataFileOperations
         assertUpdate("CREATE TABLE test_select AS SELECT 1 col_name", 1);
         assertFileSystemAccesses("SELECT * FROM test_select",
                 ImmutableMultiset.builder()
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_LOCATION), 2)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 2)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_LOCATION), 2)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
                         .build());
@@ -143,9 +146,11 @@ public class TestIcebergMetadataFileOperations
         assertUpdate("CREATE TABLE test_select_with_filter AS SELECT 1 col_name", 1);
         assertFileSystemAccesses("SELECT * FROM test_select_with_filter WHERE col_name = 1",
                 ImmutableMultiset.builder()
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_LOCATION), 2)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 2)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_LOCATION), 2)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
                         .build());
@@ -159,9 +164,11 @@ public class TestIcebergMetadataFileOperations
 
         assertFileSystemAccesses("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
                 ImmutableMultiset.builder()
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_LOCATION), 10)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 10)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 10)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 2)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_LOCATION), 4)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 2)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 2)
                         .build());
@@ -177,9 +184,11 @@ public class TestIcebergMetadataFileOperations
 
         assertFileSystemAccesses("SELECT count(*) FROM test_join_partitioned_t1 t1 join test_join_partitioned_t2 t2 on t1.a = t2.foo",
                 ImmutableMultiset.builder()
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_LOCATION), 10)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 10)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 10)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 2)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_LOCATION), 4)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 2)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 2)
                         .build());
@@ -192,9 +201,11 @@ public class TestIcebergMetadataFileOperations
 
         assertFileSystemAccesses("EXPLAIN SELECT * FROM test_explain",
                 ImmutableMultiset.builder()
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_LOCATION), 2)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 2)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_LOCATION), 2)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
                         .build());
@@ -207,9 +218,11 @@ public class TestIcebergMetadataFileOperations
 
         assertFileSystemAccesses("SHOW STATS FOR test_show_stats",
                 ImmutableMultiset.builder()
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_LOCATION), 4)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 4)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 4)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_LOCATION), 2)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
                         .build());
@@ -224,9 +237,11 @@ public class TestIcebergMetadataFileOperations
 
         assertFileSystemAccesses("SHOW STATS FOR test_show_stats_partitioned",
                 ImmutableMultiset.builder()
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_LOCATION), 4)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 4)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 4)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_LOCATION), 2)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
                         .build());
@@ -239,9 +254,11 @@ public class TestIcebergMetadataFileOperations
 
         assertFileSystemAccesses("SHOW STATS FOR (SELECT * FROM test_show_stats_with_filter WHERE age >= 2)",
                 ImmutableMultiset.builder()
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_LOCATION), 4)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 4)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 4)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_LOCATION), 2)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
                         .build());

@@ -32,6 +32,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_EXISTS;
 import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_GET_LENGTH;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_LOCATION;
 import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_NEW_STREAM;
 import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE;
 import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
@@ -47,6 +48,7 @@ public class TrackingFileIoProvider
         INPUT_FILE_GET_LENGTH,
         INPUT_FILE_NEW_STREAM,
         INPUT_FILE_EXISTS,
+        INPUT_FILE_LOCATION,
         OUTPUT_FILE_CREATE,
         OUTPUT_FILE_CREATE_OR_OVERWRITE,
         OUTPUT_FILE_LOCATION,
@@ -158,6 +160,7 @@ public class TrackingFileIoProvider
         @Override
         public String location()
         {
+            tracker.accept(INPUT_FILE_LOCATION);
             return delegate.location();
         }
 
