@@ -392,6 +392,18 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public void setTableComment(Session session, TableHandle tableHandle, Optional<String> comment)
+        {
+            ConnectorTableMetadata tableMetadata = getTableMetadata(tableHandle);
+            ConnectorTableMetadata newTableMetadata = new ConnectorTableMetadata(
+                    tableMetadata.getTable(),
+                    tableMetadata.getColumns(),
+                    tableMetadata.getProperties(),
+                    comment);
+            tables.put(tableMetadata.getTable(), newTableMetadata);
+        }
+
+        @Override
         public void setViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
         {
             ViewDefinition view = views.get(viewName.asSchemaTableName());
