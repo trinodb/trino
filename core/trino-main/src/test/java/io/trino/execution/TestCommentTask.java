@@ -102,7 +102,7 @@ public class TestCommentTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(VIEW, asQualifiedName(materializedViewName), Optional.of("new comment"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("View '%s' does not exist, but a materialized view with that name exists.", materializedViewName);
+                .hasMessage("View '%s' does not exist, but a materialized view with that name exists. Setting comments on materialized views is unsupported.", materializedViewName);
     }
 
     private ListenableFuture<Void> setComment(Comment.Type type, QualifiedName viewName, Optional<String> comment)
