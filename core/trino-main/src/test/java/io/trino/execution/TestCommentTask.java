@@ -26,6 +26,7 @@ import java.util.Optional;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.sql.tree.Comment.Type.TABLE;
 import static io.trino.sql.tree.Comment.Type.VIEW;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,7 +35,42 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestCommentTask
         extends BaseDataDefinitionTaskTest
 {
-    // TODO: Add test for 'COMMENT ON TABLE' and 'COMMENT ON COLUMN' statements
+    // TODO: Add test for 'COMMENT ON COLUMN' statements
+
+    @Test
+    public void testCommentTable()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
+        assertThat(metadata.getTableMetadata(testSession, metadata.getTableHandle(testSession, tableName).get()).getMetadata().getComment())
+                .isEmpty();
+
+        getFutureValue(setComment(TABLE, asQualifiedName(tableName), Optional.of("new comment")));
+        assertThat(metadata.getTableMetadata(testSession, metadata.getTableHandle(testSession, tableName).get()).getMetadata().getComment())
+                .isEqualTo(Optional.of("new comment"));
+    }
+
+    @Test
+    public void testCommentTableOnView()
+    {
+        QualifiedObjectName viewName = qualifiedObjectName("existing_view");
+        metadata.createView(testSession, viewName, someView(), false);
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(TABLE, asQualifiedName(viewName), Optional.of("new comment"))))
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("Table '%1$s' does not exist, but a view with that name exists. Did you mean COMMENT ON VIEW %1$s IS ...?", viewName);
+    }
+
+    @Test
+    public void testCommentTableOnMaterializedView()
+    {
+        QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
+        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), false, false);
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(TABLE, asQualifiedName(materializedViewName), Optional.of("new comment"))))
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Setting comments on materialized views is unsupported.", materializedViewName);
+    }
 
     @Test
     public void testCommentView()
