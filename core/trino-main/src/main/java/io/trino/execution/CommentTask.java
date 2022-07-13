@@ -119,7 +119,7 @@ public class CommentTask
         if (metadata.getView(session, viewName).isEmpty()) {
             String exceptionMessage = format("View '%s' does not exist", viewName);
             if (metadata.getMaterializedView(session, viewName).isPresent()) {
-                exceptionMessage += ", but a materialized view with that name exists.";
+                exceptionMessage += ", but a materialized view with that name exists. Setting comments on materialized views is unsupported.";
             }
             else if (metadata.getTableHandle(session, viewName).isPresent()) {
                 exceptionMessage += ", but a table with that name exists. Did you mean COMMENT ON TABLE " + viewName + " IS ...?";
