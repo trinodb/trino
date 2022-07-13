@@ -33,6 +33,7 @@ import javax.ws.rs.core.Response;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -94,9 +95,10 @@ public class OAuth2WebUiAuthenticationFilter
             request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
             return;
         }
-        Optional<Map<String, Object>> claims;
         Optional<TokenPair> tokenPair = getTokenPair(request);
-        claims = tokenPair.flatMap(this::getAccessTokenClaims);
+        Optional<Map<String, Object>> claims = tokenPair
+                .filter(this::tokenNotExpired)
+                .flatMap(this::getAccessTokenClaims);
         if (claims.isEmpty()) {
             needAuthentication(request, tokenPair);
             return;
@@ -133,6 +135,11 @@ public class OAuth2WebUiAuthenticationFilter
         }
     }
 
+    private boolean tokenNotExpired(TokenPair tokenPair)
+    {
+        return tokenPair.getExpiration().after(Date.from(Instant.now()));
+    }
+
     private Optional<Map<String, Object>> getAccessTokenClaims(TokenPair tokenPair)
     {
         return client.getClaims(tokenPair.getAccessToken());
@@ -148,20 +155,27 @@ public class OAuth2WebUiAuthenticationFilter
         Optional<String> refreshToken = tokenPair.flatMap(TokenPair::getRefreshToken);
         if (refreshToken.isPresent()) {
             try {
-                OAuth2Client.Response response = client.refreshTokens(refreshToken.get());
-                String serializedToken = tokenPairSerializer.serialize(TokenPair.fromOAuth2Response(response));
-                request.abortWith(Response.seeOther(request.getUriInfo().getRequestUri())
-                        .cookie(OAuthWebUiCookie.create(serializedToken, tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration())))
-                        .build());
+                redirectForNewToken(request, refreshToken.get());
             }
             catch (ChallengeFailedException e) {
                 LOG.debug(e, "Tokens refresh challenge has failed");
-                startOAuth2Challenge(request);
+                sendWwwAuthenticate(request, "Refresh token flow failed", ImmutableSet.of(TRINO_FORM_LOGIN));
             }
+            return;
         }
         else {
             startOAuth2Challenge(request);
         }
+    }
+
+    private void redirectForNewToken(ContainerRequestContext request, String refreshToken)
+            throws ChallengeFailedException
+    {
+        OAuth2Client.Response response = client.refreshTokens(refreshToken);
+        String serializedToken = tokenPairSerializer.serialize(TokenPair.fromOAuth2Response(response));
+        request.abortWith(Response.seeOther(request.getUriInfo().getRequestUri())
+                .cookie(OAuthWebUiCookie.create(serializedToken, tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration())))
+                .build());
     }
 
     private void startOAuth2Challenge(ContainerRequestContext request)
