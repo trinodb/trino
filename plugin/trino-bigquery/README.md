@@ -20,6 +20,8 @@ You can follow the steps below to be able to run the integration tests locally.
 * Run the script `plugin/trino-bigquery/bin/import-tpch-to-bigquery.sh` and pass your Google Cloud project id to it as
   an argument. e.g. `plugin/trino-bigquery/bin/import-tpch-to-bigquery.sh trino-bigquery-07` where `trino-bigquery-07`
   is your Google Cloud project id.
+* Run `gsutil cp src/test/resources/region.csv gs://DESTINATION_BUCKET_NAME/tpch/tiny/region.csv` 
+  (replace `DESTINATION_BUCKET_NAME` with the target bucket name).
 * [Create a service account](https://cloud.google.com/docs/authentication/getting-started) in Google Cloud with the
   **BigQuery Admin** role assigned.
 * Get the base64 encoded text of the service account credentials file using `base64
