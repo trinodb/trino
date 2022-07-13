@@ -80,6 +80,6 @@ public class TestIcebergDeleteFilter
                 .entrySet().stream()
                 .filter(entry -> entry.getKey().getFilePath().contains("/data/") && entry.getKey().getFilePath().endsWith(".orc"))
                 .count();
-        assertThat(deleteFilterCount).isEqualTo(25);
+        assertThat(deleteFilterCount).isEqualTo(1);
     }
 }

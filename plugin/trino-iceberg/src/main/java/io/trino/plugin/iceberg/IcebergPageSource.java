@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hive.ReaderProjectionsAdapter;
 import io.trino.plugin.iceberg.delete.IcebergPositionDeletePageSink;
+import io.trino.plugin.iceberg.delete.TrinoDeleteFilter;
 import io.trino.plugin.iceberg.delete.TrinoRow;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -29,7 +30,6 @@ import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.data.DeleteFilter;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Types;
 
@@ -63,7 +63,7 @@ public class IcebergPageSource
     private final int[] expectedColumnIndexes;
     private final ConnectorPageSource delegate;
     private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
-    private final Optional<DeleteFilter<TrinoRow>> deleteFilter;
+    private final Optional<TrinoDeleteFilter> deleteFilter;
     private final Supplier<IcebergPositionDeletePageSink> positionDeleteSinkSupplier;
     private final Supplier<IcebergPageSink> updatedRowPageSinkSupplier;
     // An array with one element per field in the $row_id column. The value in the array points to the
@@ -88,7 +88,7 @@ public class IcebergPageSource
             List<IcebergColumnHandle> readColumns,
             ConnectorPageSource delegate,
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
-            Optional<DeleteFilter<TrinoRow>> deleteFilter,
+            Optional<TrinoDeleteFilter> deleteFilter,
             Supplier<IcebergPositionDeletePageSink> positionDeleteSinkSupplier,
             Supplier<IcebergPageSink> updatedRowPageSinkSupplier,
             List<IcebergColumnHandle> updatedColumns)
@@ -170,7 +170,7 @@ public class IcebergPageSource
             if (deleteFilter.isPresent()) {
                 int positionCount = dataPage.getPositionCount();
                 int[] positionsToKeep = new int[positionCount];
-                try (CloseableIterable<TrinoRow> filteredRows = deleteFilter.get().filter(CloseableIterable.withNoopClose(TrinoRow.fromPage(columnTypes, dataPage, positionCount)))) {
+                try (CloseableIterable<TrinoRow> filteredRows = deleteFilter.get().filterCached(CloseableIterable.withNoopClose(TrinoRow.fromPage(columnTypes, dataPage, positionCount)))) {
                     int positionsToKeepCount = 0;
                     for (TrinoRow rowToKeep : filteredRows) {
                         positionsToKeep[positionsToKeepCount] = rowToKeep.getPosition();

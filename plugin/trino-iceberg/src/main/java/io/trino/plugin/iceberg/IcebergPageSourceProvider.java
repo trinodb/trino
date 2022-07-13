@@ -54,7 +54,6 @@ import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DummyFileScanTask;
 import io.trino.plugin.iceberg.delete.IcebergPositionDeletePageSink;
 import io.trino.plugin.iceberg.delete.TrinoDeleteFilter;
-import io.trino.plugin.iceberg.delete.TrinoRow;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -86,7 +85,6 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
-import org.apache.iceberg.data.DeleteFilter;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.mapping.MappedField;
@@ -299,7 +297,7 @@ public class IcebergPageSourceProvider
         List<IcebergColumnHandle> readColumns = dataPageSource.getReaderColumns()
                 .map(readerColumns -> readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toList()))
                 .orElse(requiredColumns);
-        DeleteFilter<TrinoRow> deleteFilter = new TrinoDeleteFilter(
+        TrinoDeleteFilter deleteFilter = new TrinoDeleteFilter(
                 dummyFileScanTask,
                 tableSchema,
                 readColumns,
