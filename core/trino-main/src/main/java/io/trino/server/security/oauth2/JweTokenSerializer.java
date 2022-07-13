@@ -22,6 +22,7 @@ import com.nimbusds.jose.KeyLengthException;
 import com.nimbusds.jose.Payload;
 import com.nimbusds.jose.crypto.AESDecrypter;
 import com.nimbusds.jose.crypto.AESEncrypter;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.CompressionCodec;
@@ -49,6 +50,7 @@ import static java.util.Objects.requireNonNull;
 public class JweTokenSerializer
         implements TokenPairSerializer
 {
+    private static final Logger LOG = Logger.get(JweTokenSerializer.class);
     private static final JWEAlgorithm ALGORITHM = JWEAlgorithm.A256KW;
     private static final EncryptionMethod ENCRYPTION_METHOD = EncryptionMethod.A256CBC_HS512;
     private static final CompressionCodec COMPRESSION_CODEC = new ZstdCodec();
@@ -135,8 +137,14 @@ public class JweTokenSerializer
                 .setIssuer(issuer)
                 .claim(ACCESS_TOKEN_KEY, tokenPair.getAccessToken())
                 .claim(EXPIRATION_TIME_KEY, tokenPair.getExpiration())
-                .claim(REFRESH_TOKEN_KEY, tokenPair.getRefreshToken().orElseThrow(JweTokenSerializer::throwExceptionForNonExistingRefreshToken))
                 .compressWith(COMPRESSION_CODEC);
+
+        if (tokenPair.getRefreshToken().isPresent()) {
+            jwt.claim(REFRESH_TOKEN_KEY, tokenPair.getRefreshToken().orElseThrow());
+        }
+        else {
+            LOG.info("No refresh token has been issued, although coordinator expects one. Please check your IdP whether that is correct behaviour");
+        }
 
         try {
             JWEObject jwe = new JWEObject(
@@ -160,11 +168,6 @@ public class JweTokenSerializer
             return generator.generateKey();
         }
         return signingKey;
-    }
-
-    private static RuntimeException throwExceptionForNonExistingRefreshToken()
-    {
-        throw new IllegalStateException("Expected refresh token to be present. Please check your identity provider setup, or disable refresh tokens");
     }
 
     private static CompressionCodec resolveCompressionCodec(Header header)
