@@ -20,6 +20,7 @@ import io.trino.plugin.iceberg.CatalogType;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.glue.IcebergGlueCatalogModule;
+import io.trino.plugin.iceberg.catalog.hadoop.IcebergHadoopCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogModule;
 import io.trino.plugin.iceberg.catalog.nessie.IcebergNessieCatalogModule;
@@ -27,6 +28,7 @@ import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogModule;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.trino.plugin.iceberg.CatalogType.GLUE;
+import static io.trino.plugin.iceberg.CatalogType.HADOOP;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.CatalogType.JDBC;
 import static io.trino.plugin.iceberg.CatalogType.NESSIE;
@@ -44,6 +46,7 @@ public class IcebergCatalogModule
         bindCatalogModule(GLUE, new IcebergGlueCatalogModule());
         bindCatalogModule(REST, new IcebergRestCatalogModule());
         bindCatalogModule(JDBC, new IcebergJdbcCatalogModule());
+        bindCatalogModule(HADOOP, new IcebergHadoopCatalogModule());
         bindCatalogModule(NESSIE, new IcebergNessieCatalogModule());
     }
 

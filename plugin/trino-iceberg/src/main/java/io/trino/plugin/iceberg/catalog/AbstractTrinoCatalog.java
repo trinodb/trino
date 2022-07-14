@@ -105,7 +105,7 @@ public abstract class AbstractTrinoCatalog
     protected static final String TRINO_CREATED_BY = HiveMetadata.TRINO_CREATED_BY;
     protected static final String PRESTO_QUERY_ID_NAME = HiveMetadata.PRESTO_QUERY_ID_NAME;
 
-    private final CatalogName catalogName;
+    protected final CatalogName catalogName;
     private final TypeManager typeManager;
     protected final IcebergTableOperationsProvider tableOperationsProvider;
     private final boolean useUniqueTableLocation;
