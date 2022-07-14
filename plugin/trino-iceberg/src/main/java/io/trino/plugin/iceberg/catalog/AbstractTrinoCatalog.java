@@ -84,7 +84,7 @@ public abstract class AbstractTrinoCatalog
     protected static final String PRESTO_QUERY_ID_NAME = HiveMetadata.PRESTO_QUERY_ID_NAME;
     protected static final String PRESTO_VIEW_EXPANDED_TEXT_MARKER = HiveMetadata.PRESTO_VIEW_EXPANDED_TEXT_MARKER;
 
-    private final CatalogName catalogName;
+    protected final CatalogName catalogName;
     private final TypeManager typeManager;
     protected final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;

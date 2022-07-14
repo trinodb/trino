@@ -28,6 +28,7 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.glue.IcebergGlueCatalogModule;
+import io.trino.plugin.iceberg.catalog.hadoop.IcebergHadoopCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalogFactory;
 
@@ -35,6 +36,7 @@ import java.util.Optional;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.trino.plugin.iceberg.CatalogType.GLUE;
+import static io.trino.plugin.iceberg.CatalogType.HADOOP;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
 import static java.util.Objects.requireNonNull;
@@ -63,6 +65,7 @@ public class IcebergCatalogModule
             bindCatalogModule(HIVE_METASTORE, new IcebergHiveMetastoreCatalogModule());
             bindCatalogModule(TESTING_FILE_METASTORE, new IcebergFileMetastoreCatalogModule());
             bindCatalogModule(GLUE, new IcebergGlueCatalogModule());
+            bindCatalogModule(HADOOP, new IcebergHadoopCatalogModule());
         }
     }
 

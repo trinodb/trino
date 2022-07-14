@@ -63,6 +63,8 @@ public class IcebergConfig
     private double minimumAssignedSplitWeight = 0.05;
     private boolean allowLegacySnapshotSyntax;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
+    private String catalogWarehouse;
+    private int catalogCacheSize = 10;
 
     public CatalogType getCatalogType()
     {
@@ -317,6 +319,31 @@ public class IcebergConfig
     public IcebergConfig setMaterializedViewsStorageSchema(String materializedViewsStorageSchema)
     {
         this.materializedViewsStorageSchema = Optional.ofNullable(materializedViewsStorageSchema);
+        return this;
+    }
+
+    public String getCatalogWarehouse()
+    {
+        return catalogWarehouse;
+    }
+
+    @Config("iceberg.catalog.warehouse")
+    public IcebergConfig setCatalogWarehouse(String catalogWarehouse)
+    {
+        this.catalogWarehouse = catalogWarehouse;
+        return this;
+    }
+
+    @Min(1)
+    public int getCatalogCacheSize()
+    {
+        return catalogCacheSize;
+    }
+
+    @Config("iceberg.catalog.cache-size")
+    public IcebergConfig setCatalogCacheSize(int catalogCacheSize)
+    {
+        this.catalogCacheSize = catalogCacheSize;
         return this;
     }
 }
