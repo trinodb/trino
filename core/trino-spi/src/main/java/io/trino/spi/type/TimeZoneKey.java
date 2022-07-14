@@ -125,6 +125,21 @@ public final class TimeZoneKey
                 zoneIdToKey.put(zoneId, new TimeZoneKey(zoneId, zoneKey));
             }
 
+            // Attach mappings for short zone ids aliases
+            for (Entry<String, String> entry : ZoneId.SHORT_IDS.entrySet()) {
+                String shortNameZoneId = entry.getKey();
+                String fullNameZoneId = entry.getValue();
+
+                TimeZoneKey fullNameTimeZoneKey = zoneIdToKey.get(fullNameZoneId);
+                if (fullNameTimeZoneKey == null) {
+                    throw new AssertionError("Zone file must contain a mapping for the zone id " + fullNameZoneId);
+                }
+                if (zoneIdToKey.containsKey(shortNameZoneId)) {
+                    throw new AssertionError("Zone file must not contain a mapping for the short name zone id " + shortNameZoneId);
+                }
+                zoneIdToKey.put(shortNameZoneId, fullNameTimeZoneKey);
+            }
+
             MAX_TIME_ZONE_KEY = maxZoneKey;
             ZONE_ID_TO_KEY = Collections.unmodifiableMap(new LinkedHashMap<>(zoneIdToKey));
             ZONE_KEYS = Collections.unmodifiableSet(new LinkedHashSet<>(zoneIdToKey.values()));

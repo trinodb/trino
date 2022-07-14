@@ -21,6 +21,8 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
+import java.util.Map;
 import java.util.SortedSet;
 
 import static io.trino.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
@@ -233,6 +235,16 @@ public class TestTimeZoneKey
             String json = mapper.writeValueAsString(zoneKey);
             Object value = mapper.readValue(json, zoneKey.getClass());
             assertEquals(value, zoneKey);
+        }
+    }
+
+    @Test
+    public void testShortZoneIds()
+    {
+        for (Map.Entry<String, String> entry : ZoneId.SHORT_IDS.entrySet()) {
+            TimeZoneKey shortNameTimeZoneKey = TimeZoneKey.getTimeZoneKey(entry.getKey());
+            TimeZoneKey fullNameTimeZoneKey = TimeZoneKey.getTimeZoneKey(entry.getValue());
+            assertEquals(shortNameTimeZoneKey, fullNameTimeZoneKey);
         }
     }
 
