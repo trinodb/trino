@@ -20,6 +20,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.deltalake.DeltaLakeSessionProperties.InsertExistingPartitionsBehavior;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.joda.time.DateTimeZone;
 
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -60,6 +62,7 @@ public class DeltaLakeConfig
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
     private double minimumAssignedSplitWeight = 0.05;
     private int maxPartitionsPerWriter = 100;
+    private InsertExistingPartitionsBehavior insertExistingPartitionsBehavior = APPEND;
     private boolean unsafeWritesEnabled;
     private boolean checkpointRowStatisticsWritingEnabled = true;
     private long defaultCheckpointWritingInterval = 10;
@@ -236,6 +239,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
     {
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
+        return this;
+    }
+
+    public InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior()
+    {
+        return insertExistingPartitionsBehavior;
+    }
+
+    @Config("delta.insert-existing-partitions-behavior")
+    @ConfigDescription("Insert existing partitions behavior")
+    public DeltaLakeConfig setInsertExistingPartitionsBehavior(InsertExistingPartitionsBehavior insertExistingPartitionsBehavior)
+    {
+        this.insertExistingPartitionsBehavior = insertExistingPartitionsBehavior;
         return this;
     }
 

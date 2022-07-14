@@ -155,6 +155,14 @@ values. Typical usage does not require you to configure them.
     * - ``delta.unique-table-location``
       - Use randomized, unique table locations.
       - ``true``
+    * - ``delta.insert-existing-partitions-behavior``
+      - What happens when data is inserted into an existing partition?
+        Possible values are
+
+        * ``APPEND`` - appends data to existing partitions
+        * ``OVERWRITE`` - overwrites existing partitions
+        * ``ERROR`` - modifying existing partitions is not allowed
+      - ``APPEND``
 
 The following table describes performance tuning catalog properties for the
 connector.

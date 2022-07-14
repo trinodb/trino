@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.deltalake.DeltaLakeSessionProperties.InsertExistingPartitionsBehavior;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.testng.annotations.Test;
 
@@ -27,6 +28,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.trino.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -51,6 +53,7 @@ public class TestDeltaLakeConfig
                 .setMaxSplitSize(DataSize.of(64, DataSize.Unit.MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.05)
                 .setMaxPartitionsPerWriter(100)
+                .setInsertExistingPartitionsBehavior(APPEND)
                 .setUnsafeWritesEnabled(false)
                 .setDefaultCheckpointWritingInterval(10)
                 .setCheckpointRowStatisticsWritingEnabled(true)
@@ -83,6 +86,7 @@ public class TestDeltaLakeConfig
                 .put("delta.max-split-size", "10 MB")
                 .put("delta.minimum-assigned-split-weight", "0.01")
                 .put("delta.max-partitions-per-writer", "200")
+                .put("delta.insert-existing-partitions-behavior", "OVERWRITE")
                 .put("delta.enable-non-concurrent-writes", "true")
                 .put("delta.default-checkpoint-writing-interval", "15")
                 .put("delta.checkpoint-row-statistics-writing.enabled", "false")
@@ -112,6 +116,7 @@ public class TestDeltaLakeConfig
                 .setMaxSplitSize(DataSize.of(10, DataSize.Unit.MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.01)
                 .setMaxPartitionsPerWriter(200)
+                .setInsertExistingPartitionsBehavior(InsertExistingPartitionsBehavior.OVERWRITE)
                 .setUnsafeWritesEnabled(true)
                 .setDefaultCheckpointWritingInterval(15)
                 .setCheckpointRowStatisticsWritingEnabled(false)

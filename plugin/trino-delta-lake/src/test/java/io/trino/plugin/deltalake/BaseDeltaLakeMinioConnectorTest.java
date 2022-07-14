@@ -853,6 +853,83 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         assertThat(e).hasMessageMatching("Unable to add NOT NULL column '.*' for non-empty table: .*");
     }
 
+    @Test
+    public void testInsertPartitionedTableOverwriteExistingPartition()
+    {
+        Session insertOverwriteExistingPartitionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(DELTA_CATALOG, "insert_existing_partitions_behavior", "OVERWRITE")
+                .build();
+
+        String tableName = "test_insert_partitioned_table_overwrite_existing_partition" + randomTableSuffix();
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "(" +
+                "  order_key BIGINT," +
+                "  comment VARCHAR," +
+                "  order_status VARCHAR" +
+                ") " +
+                "WITH (" +
+                "partitioned_by = ARRAY['order_status']" +
+                ") ";
+
+        assertUpdate(insertOverwriteExistingPartitionSession, createTable);
+
+        for (int i = 0; i < 3; i++) {
+            assertUpdate(
+                    insertOverwriteExistingPartitionSession,
+                    "INSERT INTO " + tableName + " " +
+                            "SELECT orderkey, comment, orderstatus " +
+                            "FROM tpch.tiny.orders " +
+                            "WHERE orderkey % 3 = " + i,
+                    "SELECT count(*) FROM orders WHERE orderkey % 3 = " + i);
+
+            // verify the partition count
+            assertQuery("SELECT count(DISTINCT order_status) FROM " + tableName, "VALUES 3");
+
+            assertQuery(
+                    insertOverwriteExistingPartitionSession,
+                    "SELECT * FROM " + tableName,
+                    "SELECT orderkey, comment, orderstatus FROM orders WHERE orderkey % 3 = " + i);
+        }
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testInsertPartitionedTableErrorExistingPartition()
+    {
+        Session insertErrorExistingPartitionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(DELTA_CATALOG, "insert_existing_partitions_behavior", "ERROR")
+                .build();
+
+        String tableName = "test_insert_partitioned_table_error_existing_partition" + randomTableSuffix();
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "(" +
+                "  order_key BIGINT," +
+                "  comment VARCHAR," +
+                "  order_status VARCHAR" +
+                ") " +
+                "WITH (" +
+                "partitioned_by = ARRAY['order_status']" +
+                ") ";
+
+        assertUpdate(insertErrorExistingPartitionSession, createTable);
+
+        assertUpdate(
+                insertErrorExistingPartitionSession,
+                "INSERT INTO " + tableName + " " + "SELECT orderkey, comment, orderstatus FROM tpch.tiny.orders",
+                "SELECT count(*) FROM orders WHERE orderkey");
+
+        assertThatThrownBy(() -> query(insertErrorExistingPartitionSession, "INSERT INTO " + tableName + " " + "SELECT orderkey, comment, orderstatus FROM tpch.tiny.orders"))
+                .hasStackTraceContaining("Disallowed to overwrite existing partitions when insert_existing_partitions_behavior is ERROR");
+
+        assertQuery("SELECT * FROM " + tableName, "SELECT orderkey, comment, orderstatus FROM orders");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Override
     protected String createSchemaSql(String schemaName)
     {

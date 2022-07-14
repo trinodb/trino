@@ -30,6 +30,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.plugin.deltalake.DeltaLakeSessionProperties.InsertExistingPartitionsBehavior;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.NotADeltaLakeTableException;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
@@ -132,6 +133,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -162,6 +164,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getInsertExistingPartitionsBehavior;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isTableStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTERVAL_PROPERTY;
@@ -1363,7 +1366,24 @@ public class DeltaLakeMetadata
 
             // Note: during writes we want to preserve original case of partition columns
             List<String> partitionColumns = handle.getMetadataEntry().getOriginalPartitionColumns();
-            appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumns, true);
+
+            if (partitionColumns.isEmpty()) {
+                appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumns, true);
+            }
+            else {
+                InsertExistingPartitionsBehavior insertExistingPartitionsBehavior = getInsertExistingPartitionsBehavior(session);
+                switch (insertExistingPartitionsBehavior) {
+                    case APPEND:
+                        appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumns, true);
+                        break;
+                    case OVERWRITE:
+                        overwriteExistingPartitions(session, handle, dataFileInfos, transactionLogWriter, partitionColumns);
+                        break;
+                    case ERROR:
+                        failExistingPartitions(session, handle, dataFileInfos, transactionLogWriter, partitionColumns);
+                        break;
+                }
+            }
 
             transactionLogWriter.flush();
             writeCommitted = true;
@@ -1378,6 +1398,72 @@ public class DeltaLakeMetadata
         }
 
         return Optional.empty();
+    }
+
+    private void overwriteExistingPartitions(ConnectorSession session, DeltaLakeInsertTableHandle handle, List<DataFileInfo> dataFileInfos, TransactionLogWriter transactionLogWriter, List<String> partitionColumns)
+            throws JsonProcessingException
+    {
+        long writeTimestamp = Instant.now().toEpochMilli();
+
+        Map<String, Set<String>> newPartitionValues = toPartitionValues(dataFileInfos, partitionColumns);
+        List<AddFileEntry> validDataFiles = metastore.getValidDataFiles(new SchemaTableName(handle.getSchemaName(), handle.getTableName()), session);
+        for (AddFileEntry addFileEntry : validDataFiles) {
+            Map<String, Optional<String>> existingPartitionValues = addFileEntry.getCanonicalPartitionValues();
+            boolean isExistingPartition = isExistingPartition(existingPartitionValues, newPartitionValues);
+            if (isExistingPartition) {
+                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), writeTimestamp, false));
+            }
+        }
+        appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumns, true);
+    }
+
+    private void failExistingPartitions(ConnectorSession session, DeltaLakeInsertTableHandle handle, List<DataFileInfo> dataFileInfos, TransactionLogWriter transactionLogWriter, List<String> partitionColumns)
+            throws JsonProcessingException
+    {
+        Map<String, Set<String>> newPartitionValues = toPartitionValues(dataFileInfos, partitionColumns);
+        List<AddFileEntry> validDataFiles = metastore.getValidDataFiles(new SchemaTableName(handle.getSchemaName(), handle.getTableName()), session);
+        for (AddFileEntry addFileEntry : validDataFiles) {
+            Map<String, Optional<String>> existingPartitionValues = addFileEntry.getCanonicalPartitionValues();
+            boolean isExistingPartition = isExistingPartition(existingPartitionValues, newPartitionValues);
+            if (isExistingPartition) {
+                throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Disallowed to overwrite existing partitions when insert_existing_partitions_behavior is ERROR");
+            }
+        }
+        appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumns, true);
+    }
+
+    private static Map<String, Set<String>> toPartitionValues(List<DataFileInfo> dataFileInfos, List<String> partitionColumnNames)
+    {
+        // using Hashmap because partition values can be null
+        Map<String, Set<String>> partitionValues = new HashMap<>();
+
+        for (DataFileInfo info : dataFileInfos) {
+            for (int i = 0; i < partitionColumnNames.size(); i++) {
+                String partitionColumnName = partitionColumnNames.get(i);
+                Set<String> values = partitionValues.getOrDefault(partitionColumnName, new HashSet<>());
+                values.add(info.getPartitionValues().get(i));
+                partitionValues.put(partitionColumnName, values);
+            }
+        }
+        return unmodifiableMap(partitionValues);
+    }
+
+    private static boolean isExistingPartition(Map<String, Optional<String>> existingPartitionValues, Map<String, Set<String>> newPartitionValues)
+    {
+        if (existingPartitionValues.isEmpty()) {
+            return false;
+        }
+
+        for (Map.Entry<String, Set<String>> newPartition : newPartitionValues.entrySet()) {
+            Optional<String> existingPartition = existingPartitionValues.getOrDefault(newPartition.getKey(), Optional.empty());
+            if (existingPartition.isEmpty()) {
+                return false;
+            }
+            if (newPartition.getValue().contains(existingPartition.get())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

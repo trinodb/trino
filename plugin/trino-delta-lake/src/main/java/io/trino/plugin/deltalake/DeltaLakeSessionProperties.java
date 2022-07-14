@@ -35,6 +35,7 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public final class DeltaLakeSessionProperties
         implements SessionPropertiesProvider
@@ -48,6 +49,7 @@ public final class DeltaLakeSessionProperties
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+    private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled"; // = HiveSessionProperties#PARQUET_OPTIMIZED_WRITER_ENABLED
     private static final String COMPRESSION_CODEC = "compression_codec";
     // This property is not supported by Delta Lake and exists solely for technical reasons.
@@ -58,6 +60,14 @@ public final class DeltaLakeSessionProperties
     public static final String EXTENDED_STATISTICS_ENABLED = "extended_statistics_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
+
+    public enum InsertExistingPartitionsBehavior
+    {
+        ERROR,
+        APPEND,
+        OVERWRITE,
+        /**/;
+    }
 
     @Inject
     public DeltaLakeSessionProperties(
@@ -113,6 +123,15 @@ public final class DeltaLakeSessionProperties
                         "Target maximum size of written files; the actual size may be larger",
                         deltaLakeConfig.getTargetMaxFileSize(),
                         false),
+                new PropertyMetadata<>(
+                        INSERT_EXISTING_PARTITIONS_BEHAVIOR,
+                        "Behavior on insert existing partitions; this session property doesn't control behavior on insert existing unpartitioned table",
+                        VARCHAR,
+                        InsertExistingPartitionsBehavior.class,
+                        deltaLakeConfig.getInsertExistingPartitionsBehavior(),
+                        false,
+                        value -> InsertExistingPartitionsBehavior.valueOf((String) value),
+                        InsertExistingPartitionsBehavior::toString),
                 booleanProperty(
                         PARQUET_OPTIMIZED_WRITER_ENABLED,
                         "Enable optimized writer",
@@ -202,6 +221,11 @@ public final class DeltaLakeSessionProperties
     public static long getTargetMaxFileSize(ConnectorSession session)
     {
         return session.getProperty(TARGET_MAX_FILE_SIZE, DataSize.class).toBytes();
+    }
+
+    public static InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior(ConnectorSession session)
+    {
+        return session.getProperty(INSERT_EXISTING_PARTITIONS_BEHAVIOR, InsertExistingPartitionsBehavior.class);
     }
 
     public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)
