@@ -494,6 +494,24 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         }
     }
 
+    @Test
+    public void testPathColumn()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_path_column", "(x VARCHAR)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
+            String firstFilePath = (String) computeScalar("SELECT \"$path\" FROM " + table.getName());
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second'", 1);
+            String secondFilePath = (String) computeScalar("SELECT \"$path\" FROM " + table.getName() + " WHERE x = 'second'");
+
+            // Verify predicate correctness on $path column
+            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "'", "VALUES 'first'");
+            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" <> '" + firstFilePath + "'", "VALUES 'second'");
+            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" IN ('" + firstFilePath + "', '" + secondFilePath + "')", "VALUES ('first'), ('second')");
+            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NOT NULL", "VALUES ('first'), ('second')");
+            assertQueryReturnsEmptyResult("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NULL");
+        }
+    }
+
     @Override
     protected String createSchemaSql(String schemaName)
     {
