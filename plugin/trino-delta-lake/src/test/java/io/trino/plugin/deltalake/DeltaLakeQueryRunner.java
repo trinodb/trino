@@ -311,6 +311,7 @@ public final class DeltaLakeQueryRunner
             String bucketName = "test-bucket";
 
             HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
+            hiveMinioDataLake.start();
             DistributedQueryRunner queryRunner = createS3DeltaLakeQueryRunner(
                     DELTA_CATALOG,
                     TPCH_SCHEMA,
