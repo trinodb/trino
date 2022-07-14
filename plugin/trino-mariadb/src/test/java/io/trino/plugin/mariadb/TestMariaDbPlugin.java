@@ -31,6 +31,9 @@ public class TestMariaDbPlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", ImmutableMap.of("connection-url", "jdbc:mariadb://test"), new TestingConnectorContext()).shutdown();
 
+        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext()))
+                .hasMessageContaining("Invalid JDBC URL for MariaDB connector");
+
         assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:mariadb://test/abc"), new TestingConnectorContext()))
                 .hasMessageContaining("Database (catalog) must not be specified in JDBC URL for MariaDB connector");
     }
