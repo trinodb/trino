@@ -53,9 +53,9 @@ change, and verify the results before proceeding.
 Securing client access to the cluster
 -------------------------------------
 
-Trino :doc:`clients </client>` include the Trino :doc:`CLI </installation/cli>`,
+Trino :doc:`clients </client>` include the Trino :doc:`CLI </client/cli>`,
 the :doc:`Web UI </admin/web-interface>`, the :doc:`JDBC driver
-</installation/jdbc>`, `Python, Go, or other clients
+</client/jdbc>`, `Python, Go, or other clients
 <https://trino.io/resources.html>`_, and any applications using these tools.
 
 All access to the Trino cluster is managed by the coordinator. Thus, securing

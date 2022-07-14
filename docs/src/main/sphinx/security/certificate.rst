@@ -100,11 +100,11 @@ The following configuration properties are also available:
 Use certificate authencation with clients
 -----------------------------------------
 
-When using the Trino :doc:`CLI </installation/cli>`, specify the
+When using the Trino :doc:`CLI </client/cli>`, specify the
 ``--keystore-path`` and ``--keystore-password`` options as described
 in :ref:`cli-certificate-auth`.
 
-When using the Trino :doc:`JDBC driver </installation/jdbc>` to connect to a
+When using the Trino :doc:`JDBC driver </client/jdbc>` to connect to a
 cluster with certificate authentication enabled, use the ``SSLKeyStoreType`` and
 ``SSLKeyStorePassword`` :ref:`parameters <jdbc-parameter-reference>` to specify
 the path to the client's certificate and its password, if any.
