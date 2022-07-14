@@ -4,7 +4,7 @@ TLS and HTTPS
 
 Trino runs with no security by default. This allows you to connect to the server
 using URLs that specify the HTTP protocol when using the Trino :doc:`CLI
-</installation/cli>`, the :doc:`Web UI </admin/web-interface>`, or other
+</client/cli>`, the :doc:`Web UI </admin/web-interface>`, or other
 clients.
 
 This topic describes how to configure your Trino server to use :ref:`TLS
@@ -263,7 +263,7 @@ Test configuration
 ^^^^^^^^^^^^^^^^^^
 
 To test your configuration settings, restart the server and try to connect to it
-with the Trino :doc:`CLI </installation/cli>` or :doc:`Web UI
+with the Trino :doc:`CLI </client/cli>` or :doc:`Web UI
 </admin/web-interface>`, using a URL that begins with ``https://``.
 
 Now that TLS is configured, go back and :doc:`configure the authentication
