@@ -147,11 +147,6 @@ public class OAuth2WebUiAuthenticationFilter
 
     private void needAuthentication(ContainerRequestContext request, Optional<TokenPair> tokenPair)
     {
-        // send 401 to REST api calls and redirect to others
-        if (request.getUriInfo().getRequestUri().getPath().startsWith("/ui/api/")) {
-            sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
-            return;
-        }
         Optional<String> refreshToken = tokenPair.flatMap(TokenPair::getRefreshToken);
         if (refreshToken.isPresent()) {
             try {
@@ -162,6 +157,10 @@ public class OAuth2WebUiAuthenticationFilter
                 sendWwwAuthenticate(request, "Refresh token flow failed", ImmutableSet.of(TRINO_FORM_LOGIN));
             }
             return;
+        }
+        // send 401 to REST api calls and redirect to others
+        if (request.getUriInfo().getRequestUri().getPath().startsWith("/ui/api/")) {
+            sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
         }
         else {
             startOAuth2Challenge(request);
