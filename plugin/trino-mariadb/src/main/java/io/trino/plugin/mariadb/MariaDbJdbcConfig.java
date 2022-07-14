@@ -24,6 +24,13 @@ import java.sql.SQLException;
 public class MariaDbJdbcConfig
         extends BaseJdbcConfig
 {
+    @AssertTrue(message = "Invalid JDBC URL for MariaDB connector")
+    public boolean isUrlValid()
+    {
+        Driver driver = new Driver();
+        return driver.acceptsURL(getConnectionUrl());
+    }
+
     @AssertTrue(message = "Database (catalog) must not be specified in JDBC URL for MariaDB connector")
     public boolean isUrlWithoutDatabase()
     {
