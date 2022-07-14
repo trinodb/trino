@@ -18,6 +18,10 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 
+import java.time.ZoneId;
+
+import static io.airlift.slice.Slices.utf8Slice;
+
 /**
  * Translate timezone id used by Hive to canonical form which is understandable by Trino; used in Hive view translation logic
  */
@@ -30,7 +34,12 @@ public final class CanonicalizeHiveTimezoneId
     @SqlType("varchar")
     public static Slice canonicalizeHiveTimezoneId(@SqlType("varchar(x)") Slice hiveTimeZoneId)
     {
-        // TODO(https://github.com/trinodb/trino/issues/8853) no-op for now; actual cannicalization logic to be added
+        if (hiveTimeZoneId != null) {
+            String zoneId = hiveTimeZoneId.toStringUtf8();
+            if (ZoneId.SHORT_IDS.containsKey(zoneId)) {
+                return utf8Slice(ZoneId.SHORT_IDS.get(zoneId));
+            }
+        }
         return hiveTimeZoneId;
     }
 }

@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
@@ -271,31 +272,50 @@ public class TestHiveViews
         onHive().executeQuery("CREATE VIEW " +
                 "test_from_utc_timestamp_view " +
                 "AS SELECT " +
-                // TODO(https://github.com/trinodb/trino/issues/8853) add testcases with 3-letter tz names (like PST) when we have $canonicalize_hive_timezone_id logic in place
                 "   CAST(from_utc_timestamp(source_tinyint, 'America/Los_Angeles') AS STRING) ts_tinyint, " +
+                "   CAST(from_utc_timestamp(source_tinyint, 'PST') AS STRING) ts_tinyint_short_tz, " +
                 "   CAST(from_utc_timestamp(source_smallint, 'America/Los_Angeles') AS STRING) ts_smallint, " +
+                "   CAST(from_utc_timestamp(source_smallint, 'PST') AS STRING) ts_smallint_short_tz, " +
                 "   CAST(from_utc_timestamp(source_integer, 'America/Los_Angeles') AS STRING) ts_integer, " +
+                "   CAST(from_utc_timestamp(source_integer, 'PST') AS STRING) ts_integer_short_tz, " +
                 "   CAST(from_utc_timestamp(source_bigint, 'America/Los_Angeles') AS STRING) ts_bigint, " +
+                "   CAST(from_utc_timestamp(source_bigint, 'PST') AS STRING) ts_bigint_short_tz, " +
                 "   CAST(from_utc_timestamp(source_float, 'America/Los_Angeles') AS STRING) ts_float, " +
+                "   CAST(from_utc_timestamp(source_float, 'PST') AS STRING) ts_float_short_tz, " +
                 "   CAST(from_utc_timestamp(source_double, 'America/Los_Angeles') AS STRING) ts_double, " +
+                "   CAST(from_utc_timestamp(source_double, 'PST') AS STRING) ts_double_short_tz, " +
                 "   CAST(from_utc_timestamp(source_decimal_three, 'America/Los_Angeles') AS STRING) ts_decimal_three, " +
+                "   CAST(from_utc_timestamp(source_decimal_three, 'PST') AS STRING) ts_decimal_three_short_tz, " +
                 "   CAST(from_utc_timestamp(source_decimal_zero, 'America/Los_Angeles') AS STRING) ts_decimal_zero, " +
+                "   CAST(from_utc_timestamp(source_decimal_zero, 'PST') AS STRING) ts_decimal_zero_short_tz, " +
                 "   CAST(from_utc_timestamp(source_timestamp, 'America/Los_Angeles') AS STRING) ts_timestamp, " +
-                "   CAST(from_utc_timestamp(source_date, 'America/Los_Angeles') AS STRING) ts_date " +
+                "   CAST(from_utc_timestamp(source_timestamp, 'PST') AS STRING) ts_timestamp_short_tz, " +
+                "   CAST(from_utc_timestamp(source_date, 'America/Los_Angeles') AS STRING) ts_date, " +
+                "   CAST(from_utc_timestamp(source_date, 'PST') AS STRING) ts_date_short_tz " +
                 "FROM test_from_utc_timestamp_source");
 
         // check result on Trino
         assertThat(onTrino().executeQuery("SELECT * FROM test_from_utc_timestamp_view"))
                 .containsOnly(row(
                         "1969-12-31 16:00:00.123",
+                        "1969-12-31 16:00:00.123",
+                        "1969-12-31 16:00:10.123",
                         "1969-12-31 16:00:10.123",
                         "1970-01-03 16:00:00.123",
+                        "1970-01-03 16:00:00.123",
                         "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.000",
                         "1970-01-30 16:00:00.000",
                         "1970-01-30 16:00:00.123",
                         "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.000",
                         "1970-01-30 16:00:00.000",
                         "1970-01-30 08:00:00.000",
+                        "1970-01-30 08:00:00.000",
+                        "1970-01-29 16:00:00.000",
                         "1970-01-29 16:00:00.000"));
 
         // check result on Hive
@@ -306,30 +326,75 @@ public class TestHiveViews
             assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_view"))
                     .containsOnly(row(
                             "1969-12-31 21:30:00.123",
+                            "1969-12-31 21:30:00.123",
+                            "1969-12-31 21:30:10.123",
                             "1969-12-31 21:30:10.123",
                             "1970-01-03 21:30:00.123",
+                            "1970-01-03 21:30:00.123",
                             "1970-01-30 21:30:00.123",
+                            "1970-01-30 21:30:00.123",
+                            "1970-01-30 21:30:00",
                             "1970-01-30 21:30:00",
                             "1970-01-30 21:30:00.123",
                             "1970-01-30 21:30:00.123",
+                            "1970-01-30 21:30:00.123",
+                            "1970-01-30 21:30:00.123",
+                            "1970-01-30 21:30:00",
                             "1970-01-30 21:30:00",
                             "1970-01-30 08:00:00",
+                            "1970-01-30 08:00:00",
+                            "1970-01-29 16:00:00",
                             "1970-01-29 16:00:00"));
         }
         else {
             assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_view"))
                     .containsOnly(row(
                             "1969-12-31 16:00:00.123",
+                            "1969-12-31 16:00:00.123",
+                            "1969-12-31 16:00:10.123",
                             "1969-12-31 16:00:10.123",
                             "1970-01-03 16:00:00.123",
+                            "1970-01-03 16:00:00.123",
                             "1970-01-30 16:00:00.123",
+                            "1970-01-30 16:00:00.123",
+                            "1970-01-30 16:00:00",
                             "1970-01-30 16:00:00",
                             "1970-01-30 16:00:00.123",
                             "1970-01-30 16:00:00.123",
+                            "1970-01-30 16:00:00.123",
+                            "1970-01-30 16:00:00.123",
+                            "1970-01-30 16:00:00",
                             "1970-01-30 16:00:00",
                             "1970-01-30 08:00:00",
+                            "1970-01-30 08:00:00",
+                            "1970-01-29 16:00:00",
                             "1970-01-29 16:00:00"));
         }
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testFromUtcTimestampInvalidTimeZone()
+    {
+        onTrino().executeQuery("DROP TABLE IF EXISTS test_from_utc_timestamp_invalid_time_zone_source");
+        onHive().executeQuery("CREATE TABLE test_from_utc_timestamp_invalid_time_zone_source (source_timestamp timestamp)");
+
+        // insert via Trino as we noticed problems with creating test table in Hive using CTAS at one go for some Hive distributions
+        onTrino().executeQuery("INSERT INTO test_from_utc_timestamp_invalid_time_zone_source VALUES (timestamp '1970-01-30 16:00:00.000')");
+
+        onHive().executeQuery("DROP VIEW IF EXISTS test_from_utc_timestamp_invalid_time_zone_view");
+        onHive().executeQuery("CREATE VIEW " +
+                "test_from_utc_timestamp_invalid_time_zone_view " +
+                "AS SELECT " +
+                "   CAST(from_utc_timestamp(source_timestamp, 'Matrix/Zion') AS STRING) ts_timestamp " +
+                "FROM test_from_utc_timestamp_invalid_time_zone_source");
+
+        // check result on Trino
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM test_from_utc_timestamp_invalid_time_zone_view"))
+                .hasMessageContaining("'Matrix/Zion' is not a valid time zone");
+        // check result on Hive - Hive falls back to GMT in case of dealing with an invalid time zone
+        assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_invalid_time_zone_view"))
+                .containsOnly(row("1970-01-30 16:00:00"));
+        onTrino().executeQuery("DROP TABLE test_from_utc_timestamp_invalid_time_zone_source");
     }
 
     @Test(groups = HIVE_VIEWS)
