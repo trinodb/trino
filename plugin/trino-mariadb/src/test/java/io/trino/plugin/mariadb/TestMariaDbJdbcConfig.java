@@ -21,6 +21,22 @@ import static org.testng.Assert.assertTrue;
 public class TestMariaDbJdbcConfig
 {
     @Test
+    public void testIsUrlValid()
+    {
+        assertTrue(isUrlValid("jdbc:mariadb://example.net:3306"));
+        assertTrue(isUrlValid("jdbc:mariadb://example.net:3306/"));
+        assertFalse(isUrlValid("jdbc:notmariadb://example.net:3306"));
+        assertFalse(isUrlValid("jdbc:notmariadb://example.net:3306/"));
+    }
+
+    private static boolean isUrlValid(String url)
+    {
+        MariaDbJdbcConfig config = new MariaDbJdbcConfig();
+        config.setConnectionUrl(url);
+        return config.isUrlValid();
+    }
+
+    @Test
     public void testIsUrlWithoutDatabase()
     {
         assertTrue(isUrlWithoutDatabase("jdbc:mariadb://example.net:3306"));
