@@ -720,7 +720,14 @@ jobs:
         run: |
           find . -type f -name \*-executable.jar -exec chmod 0777 {} \;
       - name: Enable impact analysis
-        if: steps.filter.outputs.product-tests == 'false' && !contains(github.event.pull_request.labels.*.name, 'tests:all') && !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        # don't enable this on pushes to master and in PRs in the main repository (not from forks)
+        # because these are most often used to run all tests with additional secrets
+        if: |
+          steps.filter.outputs.product-tests == 'false' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name != github.repository &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
         run: echo "PTL_OPTS=--impacted-features impacted-features.log" >> $GITHUB_ENV
       - name: Product Tests
         env:
