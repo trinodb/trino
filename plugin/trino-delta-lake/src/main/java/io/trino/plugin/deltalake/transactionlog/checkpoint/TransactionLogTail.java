@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
+import io.trino.plugin.deltalake.transactionlog.MissingTransactionLogException;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
@@ -71,14 +72,20 @@ public class TransactionLogTail
 
         boolean endOfTail = false;
         while (!endOfTail) {
-            results = getEntriesFromJson(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber), fileSystem);
+            Path path = getTransactionLogJsonEntryPath(transactionLogDir, entryNumber);
+            results = getEntriesFromJson(path, fileSystem);
             if (results.isPresent()) {
                 entriesBuilder.addAll(results.get());
                 version = entryNumber;
                 entryNumber++;
             }
             else {
-                endOfTail = true;
+                if (endVersion.isPresent()) {
+                    throw new MissingTransactionLogException(path);
+                }
+                else {
+                    endOfTail = true;
+                }
             }
 
             if (endVersion.isPresent() && version == endVersion.get()) {
