@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -98,6 +99,7 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.ReachableFileUtil;
 import org.apache.iceberg.RewriteFiles;
@@ -115,7 +117,6 @@ import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Term;
 import org.apache.iceberg.io.CloseableIterable;
-import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
@@ -1323,7 +1324,7 @@ public class IcebergMetadata
             // UpdateProperties#commit will trigger any necessary metadata updates required for the new spec version
             int formatVersion = (int) properties.get(FORMAT_VERSION_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The format_version property cannot be empty"));
-            updateProperties.set(FORMAT_VERSION, Integer.toString((int) formatVersion));
+            updateProperties.set(FORMAT_VERSION, Integer.toString(formatVersion));
         }
 
         try {

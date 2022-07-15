@@ -155,32 +155,6 @@ public final class IcebergUtil
 
     private IcebergUtil() {}
 
-    public static Namespace toNamespace(CatalogSchemaName catalogSchemaName)
-    {
-        return Namespace.of(catalogSchemaName.getSchemaName());
-    }
-
-    public static String schemaFromTableId(TableIdentifier tableIdentifier)
-    {
-        return tableIdentifier.namespace().toString();
-    }
-
-    public static TableIdentifier toTableId(SchemaTableName schemaTableName)
-    {
-        return TableIdentifier.of(schemaTableName.getSchemaName(), schemaTableName.getTableName());
-    }
-
-    public static TableIdentifier toTableId(ConnectorTableHandle tableHandle)
-    {
-        IcebergTableHandle icebergTable = (IcebergTableHandle) tableHandle;
-        return TableIdentifier.of(icebergTable.getSchemaName(), icebergTable.getTableName());
-    }
-
-    public static SchemaTableName fromTableId(TableIdentifier tableId)
-    {
-        return new SchemaTableName(schemaFromTableId(tableId), tableId.name());
-    }
-
     public static boolean isIcebergTable(io.trino.plugin.hive.metastore.Table table)
     {
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
@@ -665,52 +639,5 @@ public final class IcebergUtil
         if (!allColumns.containsAll(orcBloomFilterColumns)) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Orc bloom filter columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(orcBloomFilterColumns), allColumns)));
         }
-    }
-
-    public static Schema toIcebergSchema(List<ColumnMetadata> columns)
-    {
-        List<Types.NestedField> icebergColumns = new ArrayList<>();
-        for (ColumnMetadata column : columns) {
-            if (!column.isHidden()) {
-                int index = icebergColumns.size();
-                org.apache.iceberg.types.Type type = toIcebergType(column.getType());
-                Types.NestedField field = column.isNullable()
-                        ? Types.NestedField.optional(index, column.getName(), type, column.getComment())
-                        : Types.NestedField.required(index, column.getName(), type, column.getComment());
-                icebergColumns.add(field);
-            }
-        }
-        org.apache.iceberg.types.Type icebergSchema = Types.StructType.of(icebergColumns);
-        AtomicInteger nextFieldId = new AtomicInteger(1);
-        icebergSchema = TypeUtil.assignFreshIds(icebergSchema, nextFieldId::getAndIncrement);
-        return new Schema(icebergSchema.asStructType().fields());
-    }
-
-    public static Transaction getNewCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session)
-    {
-        SchemaTableName schemaTableName = tableMetadata.getTable();
-        TableIdentifier tableId = toTableId(schemaTableName);
-
-        if (catalog.tableExists(tableId, session)) {
-            throw new AlreadyExistsException("Table already exists: %s", tableId);
-        }
-
-        Schema schema = toIcebergSchema(tableMetadata.getColumns());
-
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
-
-        String targetPath = getTableLocation(tableMetadata.getProperties());
-        if (targetPath == null) {
-            targetPath = catalog.defaultTableLocation(tableId, session);
-        }
-
-        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
-        FileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
-        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
-        if (tableMetadata.getComment().isPresent()) {
-            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
-        }
-
-        return catalog.newCreateTableTransaction(tableId, schema, partitionSpec, targetPath, propertiesBuilder.build(), session);
     }
 }
