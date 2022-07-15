@@ -639,7 +639,7 @@ jobs:
             config: hdp3
           - suite: suite-delta-lake-databricks
             ignore exclusion if: >-
-              ${{ needs.build-pt.outputs.have_databricks_secrets == 'true' }}
+              ${{ 'true' == 'true' }}
 
         ignore exclusion if:
           # Do not use this property outside of the matrix configuration.
