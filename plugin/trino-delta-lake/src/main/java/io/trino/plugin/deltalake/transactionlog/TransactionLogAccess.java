@@ -212,12 +212,21 @@ public class TransactionLogAccess
                 return loadActiveFiles(tableSnapshot, session, fileSystem);
             }
             else if (cachedTable.getVersion() < tableSnapshot.getVersion()) {
-                List<DeltaLakeTransactionLogEntry> newEntries = getJsonEntries(
-                        cachedTable.getVersion(),
-                        tableSnapshot.getVersion(),
-                        tableSnapshot,
-                        fileSystem);
-                DeltaLakeDataFileCacheEntry updatedCacheEntry = cachedTable.withUpdatesApplied(newEntries, tableSnapshot.getVersion());
+                DeltaLakeDataFileCacheEntry updatedCacheEntry;
+                try {
+                    List<DeltaLakeTransactionLogEntry> newEntries = getJsonEntries(
+                            cachedTable.getVersion(),
+                            tableSnapshot.getVersion(),
+                            tableSnapshot,
+                            fileSystem);
+                    updatedCacheEntry = cachedTable.withUpdatesApplied(newEntries, tableSnapshot.getVersion());
+                }
+                catch (MissingTransactionLogException e) {
+                    // Reset the cached table when there are transaction files which are newer than
+                    // the cached table version which are already garbage colllected.
+                    List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session, fileSystem);
+                    updatedCacheEntry = new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
+                }
 
                 activeDataFileCache.asMap().replace(tableLocation, cachedTable, updatedCacheEntry);
                 cachedTable = updatedCacheEntry;
