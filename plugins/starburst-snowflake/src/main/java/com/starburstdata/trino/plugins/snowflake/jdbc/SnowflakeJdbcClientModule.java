@@ -46,7 +46,6 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -55,7 +54,6 @@ import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.SNO
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeJdbcSessionProperties.WAREHOUSE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
-import static java.lang.String.format;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
@@ -191,13 +189,11 @@ public class SnowflakeJdbcClientModule
                 .map(matcher -> matcher.group(1))
                 .collect(Collectors.toSet());
 
-        Stream.of("java.base/java.nio", "java.base/sun.nio.ch")
-                .filter(pkg -> !openedModules.contains(pkg))
-                .map(pkg -> format("--add-opens=%s=ALL-UNNAMED", pkg))
-                .reduce((a, b) -> a + ", " + b)
-                .ifPresent(missingArguments -> binder.addError(
-                        "Snowflake connector requires these JVM arguments to run on Java 17: "
-                                + missingArguments));
+        if (!openedModules.contains("java.base/java.nio")) {
+            binder.addError(
+                    "The Snowflake connector requires a JVM argument to run on Java 17: "
+                            + "--add-opens=java.base/java.nio=ALL-UNNAMED");
+        }
     }
 
     @Retention(RUNTIME)

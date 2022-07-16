@@ -20,7 +20,6 @@
         <air.test.jvmsize>4g</air.test.jvmsize>
         <!-- This is required for Snowflake JDBC Driver on JDK 17 -->
         <air.test.jvm.additional-arguments>
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
             --add-opens=java.base/java.nio=ALL-UNNAMED
         </air.test.jvm.additional-arguments>
     </properties>
