@@ -486,10 +486,11 @@ public class SnowflakeClient
             return Optional.of(updatePushdownCotroller(timeColumnMapping()));
         }
 
+        if (typeHandle.getJdbcType() == Types.TIMESTAMP_WITH_TIMEZONE || typeName.equals("TIMESTAMPLTZ")) {
+            return Optional.of(timestampWithTimezoneColumnMapping(getSupportedTimestampPrecision(typeHandle.getRequiredDecimalDigits())));
+        }
+
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
-            if (typeName.equals("TIMESTAMPTZ") || typeName.equals("TIMESTAMPLTZ")) {
-                return Optional.of(timestampWithTimezoneColumnMapping(getSupportedTimestampPrecision(typeHandle.getRequiredDecimalDigits())));
-            }
             return Optional.of(timestampColumnMapping(getSupportedTimestampPrecision(typeHandle.getRequiredDecimalDigits())));
         }
 
