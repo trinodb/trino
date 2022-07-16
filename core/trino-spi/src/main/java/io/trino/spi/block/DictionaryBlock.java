@@ -273,6 +273,12 @@ public class DictionaryBlock
             return logicalSizeInBytes;
         }
 
+        OptionalInt dictionarySizePerPosition = dictionary.fixedSizeInBytesPerPosition();
+        if (dictionarySizePerPosition.isPresent()) {
+            logicalSizeInBytes = dictionarySizePerPosition.getAsInt() * (long) getPositionCount();
+            return logicalSizeInBytes;
+        }
+
         // Calculation of logical size can be performed as part of calculateCompactSize() with minor modifications.
         // Keeping this calculation separate as this is a little more expensive and may not be called as often.
         long sizeInBytes = 0;
