@@ -28,6 +28,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.jsonwebtoken.io.Encoders.BASE64;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestRefreshTokensConfig
 {
@@ -36,6 +38,7 @@ public class TestRefreshTokensConfig
     {
         assertRecordedDefaults(recordDefaults(RefreshTokensConfig.class)
                 .setTokenExpiration(succinctDuration(1, HOURS))
+                .setLastEligibleRefreshTokenTimeout(succinctDuration(0, MILLISECONDS))
                 .setIssuer("Trino_coordinator")
                 .setAudience("Trino_coordinator")
                 .setSecretKey(null));
@@ -49,6 +52,7 @@ public class TestRefreshTokensConfig
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("http-server.authentication.oauth2.refresh-tokens.issued-token.timeout", "24h")
+                .put("http-server.authentication.oauth2.refresh-tokens.last-eligible-refresh-before-timeout", "5s")
                 .put("http-server.authentication.oauth2.refresh-tokens.issued-token.issuer", "issuer")
                 .put("http-server.authentication.oauth2.refresh-tokens.issued-token.audience", "audience")
                 .put("http-server.authentication.oauth2.refresh-tokens.secret-key", encodedBase64SecretKey)
@@ -56,6 +60,7 @@ public class TestRefreshTokensConfig
 
         RefreshTokensConfig expected = new RefreshTokensConfig()
                 .setTokenExpiration(succinctDuration(24, HOURS))
+                .setLastEligibleRefreshTokenTimeout(succinctDuration(5, SECONDS))
                 .setIssuer("issuer")
                 .setAudience("audience")
                 .setSecretKey(encodedBase64SecretKey);

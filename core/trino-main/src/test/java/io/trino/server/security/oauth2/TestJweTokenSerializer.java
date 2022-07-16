@@ -23,9 +23,6 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Map;
@@ -33,7 +30,6 @@ import java.util.Optional;
 
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.server.security.oauth2.TokenPairSerializer.TokenPair.accessAndRefreshTokens;
-import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -137,35 +133,6 @@ public class TestJweTokenSerializer
         public Response refreshTokens(String refreshToken)
         {
             throw new UnsupportedOperationException("operation is not yet supported");
-        }
-    }
-
-    private static class TestingClock
-            extends Clock
-    {
-        private Instant currentTime = ZonedDateTime.of(2022, 5, 6, 10, 15, 0, 0, ZoneId.systemDefault()).toInstant();
-
-        @Override
-        public ZoneId getZone()
-        {
-            return ZoneId.systemDefault();
-        }
-
-        @Override
-        public Clock withZone(ZoneId zone)
-        {
-            return this;
-        }
-
-        @Override
-        public Instant instant()
-        {
-            return currentTime;
-        }
-
-        public void advanceBy(Duration currentTimeDelta)
-        {
-            this.currentTime = currentTime.plus(currentTimeDelta.toMillis(), MILLIS);
         }
     }
 }

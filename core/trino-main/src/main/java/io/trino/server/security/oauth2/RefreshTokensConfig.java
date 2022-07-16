@@ -25,6 +25,7 @@ import javax.validation.constraints.NotEmpty;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class RefreshTokensConfig
 {
@@ -32,6 +33,7 @@ public class RefreshTokensConfig
     private String issuer = "Trino_coordinator";
     private String audience = "Trino_coordinator";
     private SecretKey secretKey;
+    private Duration lastEligibleRefreshTokenTimeout = Duration.succinctDuration(0, MILLISECONDS);
 
     public Duration getTokenExpiration()
     {
@@ -43,6 +45,19 @@ public class RefreshTokensConfig
     public RefreshTokensConfig setTokenExpiration(Duration tokenExpiration)
     {
         this.tokenExpiration = tokenExpiration;
+        return this;
+    }
+
+    public Duration getLastEligibleRefreshTokenTimeout()
+    {
+        return lastEligibleRefreshTokenTimeout;
+    }
+
+    @Config("http-server.authentication.oauth2.refresh-tokens.last-eligible-refresh-before-timeout")
+    @ConfigDescription("Duration to timeout, bellow which no token will be refreshed and client will be asked to re-log. It's to minimize cases for refresh failures due to refresh-token timeout")
+    public RefreshTokensConfig setLastEligibleRefreshTokenTimeout(Duration timeout)
+    {
+        this.lastEligibleRefreshTokenTimeout = timeout;
         return this;
     }
 

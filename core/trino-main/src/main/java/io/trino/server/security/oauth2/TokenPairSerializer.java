@@ -18,6 +18,9 @@ import io.trino.server.security.oauth2.OAuth2Client.Response;
 
 import javax.annotation.Nullable;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
 
@@ -87,6 +90,14 @@ public interface TokenPairSerializer
         public Optional<String> getRefreshToken()
         {
             return refreshToken;
+        }
+
+        public boolean isBeforeExpirationForAtLeast(Duration duration, Clock clock)
+        {
+            requireNonNull(duration, "duration is null");
+            requireNonNull(clock, "clock is null");
+
+            return Instant.now(clock).isBefore(expiration.toInstant().minus(duration));
         }
     }
 }

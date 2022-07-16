@@ -133,8 +133,14 @@ public class TestExternalAuthorizerOAuth2RefreshToken
 
             Assertions.assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
 
-            //Wait until the refresh token expires (15s) . See: HydraIdentityProvider.TTL_REFRESH_TOKEN_IN_SECONDS
-            SECONDS.sleep(20);
+            /**
+             * Wait until the refresh token expires (15s) . See: HydraIdentityProvider.TTL_REFRESH_TOKEN_IN_SECONDS
+             * To make sure that internally issued token will still be valid, last-eligible-refresh-before-timeout has been set to 2s,
+             * which allows us to sleep for 14s, but no refresh-token should be performed.
+             *
+             * Please mind that in production scenario, internal token expiration time should be no further than refresh-token expiration time.
+             */
+            SECONDS.sleep(14);
             try (PreparedStatement repeatedStatement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                     ResultSet repeatedResults = repeatedStatement.executeQuery()) {
                 assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.PRESTO_NATION_RESULT);
@@ -159,7 +165,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
             Assertions.assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
 
             //Wait until the internally issued token expires. See: http-server.authentication.oauth2.refresh-tokens.issued-token.timeout
-            SECONDS.sleep(35);
+            SECONDS.sleep(20);
 
             try (PreparedStatement repeatedStatement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                     ResultSet repeatedResults = repeatedStatement.executeQuery()) {

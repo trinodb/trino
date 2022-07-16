@@ -25,11 +25,13 @@ import io.trino.server.ui.OAuth2WebUiInstalled;
 import java.time.Duration;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.trino.server.security.oauth2.TokenPairSerializer.ACCESS_TOKEN_ONLY_SERIALIZER;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class OAuth2ServiceModule
         extends AbstractConfigurationAwareModule
@@ -73,14 +75,20 @@ public class OAuth2ServiceModule
     {
         binder.bind(TokenPairSerializer.class).toInstance(ACCESS_TOKEN_ONLY_SERIALIZER);
         newOptionalBinder(binder, Key.get(Duration.class, ForRefreshTokens.class));
+        binder.bind(RefreshTokensConfig.class).toInstance(new RefreshTokensConfig());
     }
 
     @Singleton
     @Provides
     @Inject
-    public TokenRefresher getTokenRefresher(TokenPairSerializer tokenAssembler, OAuth2TokenHandler tokenHandler, OAuth2Client oAuth2Client)
+    public TokenRefresher getTokenRefresher(TokenPairSerializer tokenAssembler, OAuth2TokenHandler tokenHandler, OAuth2Client oAuth2Client, RefreshTokensConfig refreshTokensConfig)
     {
-        return new TokenRefresher(tokenAssembler, tokenHandler, oAuth2Client);
+        return new TokenRefresher(
+                tokenAssembler,
+                tokenHandler,
+                oAuth2Client,
+                Duration.ofMillis(refreshTokensConfig.getLastEligibleRefreshTokenTimeout().toMillis()),
+                newCachedThreadPool(daemonThreadsNamed("refresh-token-flow-%s")));
     }
 
     private void bindStaticConfiguration(Binder binder)
