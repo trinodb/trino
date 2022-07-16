@@ -151,20 +151,13 @@ public class OAuth2WebUiAuthenticationFilter
         if (refreshToken.isPresent()) {
             try {
                 redirectForNewToken(request, refreshToken.get());
+                return;
             }
-            catch (ChallengeFailedException e) {
+            catch (Exception e) {
                 LOG.debug(e, "Tokens refresh challenge has failed");
-                sendWwwAuthenticate(request, "Refresh token flow failed", ImmutableSet.of(TRINO_FORM_LOGIN));
             }
-            return;
         }
-        // send 401 to REST api calls and redirect to others
-        if (request.getUriInfo().getRequestUri().getPath().startsWith("/ui/api/")) {
-            sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
-        }
-        else {
-            startOAuth2Challenge(request);
-        }
+        handleAuthenticationFailure(request);
     }
 
     private void redirectForNewToken(ContainerRequestContext request, String refreshToken)
@@ -175,6 +168,17 @@ public class OAuth2WebUiAuthenticationFilter
         request.abortWith(Response.seeOther(request.getUriInfo().getRequestUri())
                 .cookie(OAuthWebUiCookie.create(serializedToken, tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration())))
                 .build());
+    }
+
+    private void handleAuthenticationFailure(ContainerRequestContext request)
+    {
+        // send 401 to REST api calls and redirect to others
+        if (request.getUriInfo().getRequestUri().getPath().startsWith("/ui/api/")) {
+            sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
+        }
+        else {
+            startOAuth2Challenge(request);
+        }
     }
 
     private void startOAuth2Challenge(ContainerRequestContext request)
