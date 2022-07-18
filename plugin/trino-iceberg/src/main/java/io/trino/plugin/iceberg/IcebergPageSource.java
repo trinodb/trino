@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hive.ReaderProjectionsAdapter;
 import io.trino.plugin.iceberg.delete.IcebergPositionDeletePageSink;
-import io.trino.plugin.iceberg.delete.TrinoRow;
+import io.trino.plugin.iceberg.delete.RowPredicate;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -27,10 +27,7 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.metrics.Metrics;
-import io.trino.spi.type.Type;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.data.DeleteFilter;
-import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Types;
 
 import javax.annotation.Nullable;
@@ -59,11 +56,10 @@ public class IcebergPageSource
         implements UpdatablePageSource
 {
     private final Schema schema;
-    private final Type[] columnTypes;
     private final int[] expectedColumnIndexes;
     private final ConnectorPageSource delegate;
     private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
-    private final Optional<DeleteFilter<TrinoRow>> deleteFilter;
+    private final Optional<RowPredicate> deletePredicate;
     private final Supplier<IcebergPositionDeletePageSink> positionDeleteSinkSupplier;
     private final Supplier<IcebergPageSink> updatedRowPageSinkSupplier;
     // An array with one element per field in the $row_id column. The value in the array points to the
@@ -85,10 +81,9 @@ public class IcebergPageSource
             Schema schema,
             List<IcebergColumnHandle> expectedColumns,
             List<IcebergColumnHandle> requiredColumns,
-            List<IcebergColumnHandle> readColumns,
             ConnectorPageSource delegate,
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
-            Optional<DeleteFilter<TrinoRow>> deleteFilter,
+            Optional<RowPredicate> deletePredicate,
             Supplier<IcebergPositionDeletePageSink> positionDeleteSinkSupplier,
             Supplier<IcebergPageSink> updatedRowPageSinkSupplier,
             List<IcebergColumnHandle> updatedColumns)
@@ -120,12 +115,9 @@ public class IcebergPageSource
             }
         }
 
-        this.columnTypes = readColumns.stream()
-                .map(IcebergColumnHandle::getType)
-                .toArray(Type[]::new);
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.projectionsAdapter = requireNonNull(projectionsAdapter, "projectionsAdapter is null");
-        this.deleteFilter = requireNonNull(deleteFilter, "deleteFilter is null");
+        this.deletePredicate = requireNonNull(deletePredicate, "deletePredicate is null");
         this.positionDeleteSinkSupplier = requireNonNull(positionDeleteSinkSupplier, "positionDeleteSinkSupplier is null");
         this.updatedRowPageSinkSupplier = requireNonNull(updatedRowPageSinkSupplier, "updatedRowPageSinkSupplier is null");
         requireNonNull(updatedColumns, "updatedColumnFieldIds is null");
@@ -167,20 +159,8 @@ public class IcebergPageSource
                 return null;
             }
 
-            if (deleteFilter.isPresent()) {
-                int positionCount = dataPage.getPositionCount();
-                int[] positionsToKeep = new int[positionCount];
-                try (CloseableIterable<TrinoRow> filteredRows = deleteFilter.get().filter(CloseableIterable.withNoopClose(TrinoRow.fromPage(columnTypes, dataPage, positionCount)))) {
-                    int positionsToKeepCount = 0;
-                    for (TrinoRow rowToKeep : filteredRows) {
-                        positionsToKeep[positionsToKeepCount] = rowToKeep.getPosition();
-                        positionsToKeepCount++;
-                    }
-                    dataPage = dataPage.getPositions(positionsToKeep, 0, positionsToKeepCount);
-                }
-                catch (IOException e) {
-                    throw new TrinoException(ICEBERG_BAD_DATA, "Failed to filter rows during merge-on-read operation", e);
-                }
+            if (deletePredicate.isPresent()) {
+                dataPage = deletePredicate.get().filterPage(dataPage);
             }
 
             if (projectionsAdapter.isPresent()) {
