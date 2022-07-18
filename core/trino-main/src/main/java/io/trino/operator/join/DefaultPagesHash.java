@@ -31,8 +31,13 @@ import static io.trino.util.HashCollisionsEstimator.estimateNumberOfHashCollisio
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-// This implementation assumes arrays used in the hash are always a power of 2
+/**
+ * The PagesHash object that handles all cases - single/multi channel joins
+ * with any types.
+ * This implementation assumes arrays used in the hash are always a power of 2
+ */
 public final class DefaultPagesHash
+        implements PagesHash
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(DefaultPagesHash.class).instanceSize();
     private static final DataSize CACHE_SIZE = DataSize.of(128, KILOBYTE);
@@ -124,31 +129,37 @@ public final class DefaultPagesHash
         expectedHashCollisions = estimateNumberOfHashCollisions(addresses.size(), hashSize);
     }
 
+    @Override
     public int getPositionCount()
     {
         return addresses.size();
     }
 
+    @Override
     public long getInMemorySizeInBytes()
     {
         return INSTANCE_SIZE + size;
     }
 
+    @Override
     public long getHashCollisions()
     {
         return hashCollisions;
     }
 
+    @Override
     public double getExpectedHashCollisions()
     {
         return expectedHashCollisions;
     }
 
+    @Override
     public int getAddressIndex(int position, Page hashChannelsPage)
     {
         return getAddressIndex(position, hashChannelsPage, pagesHashStrategy.hashRow(position, hashChannelsPage));
     }
 
+    @Override
     public int getAddressIndex(int rightPosition, Page hashChannelsPage, long rawHash)
     {
         int pos = getHashPosition(rawHash, mask);
@@ -163,6 +174,7 @@ public final class DefaultPagesHash
         return -1;
     }
 
+    @Override
     public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
         long pageAddress = addresses.getLong(toIntExact(position));

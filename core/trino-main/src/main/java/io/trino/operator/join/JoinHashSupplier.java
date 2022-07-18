@@ -34,7 +34,7 @@ public class JoinHashSupplier
         implements LookupSourceSupplier
 {
     private final Session session;
-    private final DefaultPagesHash pagesHash;
+    private final PagesHash pagesHash;
     private final LongArrayList addresses;
     private final List<Page> pages;
     private final Optional<PositionLinks.Factory> positionLinks;
