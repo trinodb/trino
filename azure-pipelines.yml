@@ -22,6 +22,7 @@ steps:
     displayName: Maven build
   - bash: |
       cd $(Build.SourcesDirectory)/core/docker
+      chmod +x ./build.sh
       ./build.sh
       if [ $? -ne 0 ]; then
         echo "Docker build failed"
