@@ -85,6 +85,11 @@ public final class SystemPartitioningHandle
         return function;
     }
 
+    public String getPartitioningName()
+    {
+        return partitioning.name();
+    }
+
     @Override
     public boolean isSingleNode()
     {

@@ -67,6 +67,7 @@ import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
+import io.trino.sql.planner.planprinter.NoOpAnonymizer;
 import io.trino.sql.planner.planprinter.ValuePrinter;
 import io.trino.transaction.TransactionId;
 import org.joda.time.DateTime;
@@ -353,7 +354,8 @@ public class QueryMonitor
                         queryInfo.getOutputStage().get(),
                         queryInfo.getQueryStats(),
                         new ValuePrinter(metadata, functionManager, queryInfo.getSession().toSession(sessionPropertyManager)),
-                        false));
+                        false,
+                        new NoOpAnonymizer()));
             }
         }
         catch (Exception e) {
