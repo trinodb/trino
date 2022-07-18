@@ -48,6 +48,7 @@ import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.rcfile.RcFilePageSource;
@@ -615,6 +616,7 @@ public abstract class AbstractTestHive
     protected String database;
     protected SchemaTableName tablePartitionFormat;
     protected SchemaTableName tableUnpartitioned;
+    protected SchemaTableName tablePartitionedWithNull;
     protected SchemaTableName tableOffline;
     protected SchemaTableName tableOfflinePartition;
     protected SchemaTableName tableNotReadable;
@@ -634,6 +636,8 @@ public abstract class AbstractTestHive
     protected ColumnHandle dummyColumn;
     protected ColumnHandle intColumn;
     protected ColumnHandle invalidColumnHandle;
+    protected ColumnHandle pStringColumn;
+    protected ColumnHandle pIntegerColumn;
 
     protected ConnectorTableProperties tablePartitionFormatProperties;
     protected ConnectorTableProperties tableUnpartitionedProperties;
@@ -692,6 +696,7 @@ public abstract class AbstractTestHive
         database = databaseName;
         tablePartitionFormat = new SchemaTableName(database, "trino_test_partition_format");
         tableUnpartitioned = new SchemaTableName(database, "trino_test_unpartitioned");
+        tablePartitionedWithNull = new SchemaTableName(database, "trino_test_partitioned_with_null");
         tableOffline = new SchemaTableName(database, "trino_test_offline");
         tableOfflinePartition = new SchemaTableName(database, "trino_test_offline_partition");
         tableNotReadable = new SchemaTableName(database, "trino_test_not_readable");
@@ -711,6 +716,8 @@ public abstract class AbstractTestHive
         dummyColumn = createBaseColumn("dummy", -1, HIVE_INT, INTEGER, PARTITION_KEY, Optional.empty());
         intColumn = createBaseColumn("t_int", -1, HIVE_INT, INTEGER, PARTITION_KEY, Optional.empty());
         invalidColumnHandle = createBaseColumn(INVALID_COLUMN, 0, HIVE_STRING, VARCHAR, REGULAR, Optional.empty());
+        pStringColumn = createBaseColumn("p_string", -1, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
+        pIntegerColumn = createBaseColumn("p_integer", -1, HIVE_INT, INTEGER, PARTITION_KEY, Optional.empty());
 
         List<ColumnHandle> partitionColumns = ImmutableList.of(dsColumn, fileFormatColumn, dummyColumn);
         tablePartitionFormatPartitions = ImmutableList.<HivePartition>builder()
@@ -783,6 +790,8 @@ public abstract class AbstractTestHive
                 new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
                         .metastoreClient(HostAndPort.fromParts(host, port))
                         .hiveConfig(hiveConfig)
+                        .thriftMetastoreConfig(new ThriftMetastoreConfig()
+                                .setAssumeCanonicalPartitionKeys(true))
                         .hdfsEnvironment(hdfsEnvironment)
                         .build()),
                 executor,
@@ -1112,6 +1121,80 @@ public abstract class AbstractTestHive
             assertExpectedTableProperties(properties, tablePartitionFormatProperties);
             assertExpectedPartitions(tableHandle, tablePartitionFormatPartitions);
         }
+    }
+
+    @Test
+    public void testGetPartitionsWithFilter()
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tablePartitionedWithNull);
+
+            Domain varcharSomeValue = Domain.singleValue(VARCHAR, utf8Slice("abc"));
+            Domain varcharOnlyNull = Domain.onlyNull(VARCHAR);
+            Domain varcharNotNull = Domain.notNull(VARCHAR);
+
+            Domain integerSomeValue = Domain.singleValue(INTEGER, 123L);
+            Domain integerOnlyNull = Domain.onlyNull(INTEGER);
+            Domain integerNotNull = Domain.notNull(INTEGER);
+
+            // all
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, new Constraint(TupleDomain.all())))
+                    .containsOnly(
+                            "p_string=__HIVE_DEFAULT_PARTITION__/p_integer=__HIVE_DEFAULT_PARTITION__",
+                            "p_string=abc/p_integer=123",
+                            "p_string=def/p_integer=456");
+
+            // is some value
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, pStringColumn, varcharSomeValue))
+                    .containsOnly("p_string=abc/p_integer=123");
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, pIntegerColumn, integerSomeValue))
+                    .containsOnly("p_string=abc/p_integer=123");
+
+            // IS NULL
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, pStringColumn, varcharOnlyNull))
+                    .containsOnly("p_string=__HIVE_DEFAULT_PARTITION__/p_integer=__HIVE_DEFAULT_PARTITION__");
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, pIntegerColumn, integerOnlyNull))
+                    .containsOnly("p_string=__HIVE_DEFAULT_PARTITION__/p_integer=__HIVE_DEFAULT_PARTITION__");
+
+            // IS NOT NULL
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, pStringColumn, varcharNotNull))
+                    .containsOnly("p_string=abc/p_integer=123", "p_string=def/p_integer=456");
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, pIntegerColumn, integerNotNull))
+                    .containsOnly("p_string=abc/p_integer=123", "p_string=def/p_integer=456");
+
+            // IS NULL OR is some value
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, pStringColumn, varcharOnlyNull.union(varcharSomeValue)))
+                    .containsOnly("p_string=__HIVE_DEFAULT_PARTITION__/p_integer=__HIVE_DEFAULT_PARTITION__", "p_string=abc/p_integer=123");
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, pIntegerColumn, integerOnlyNull.union(integerSomeValue)))
+                    .containsOnly("p_string=__HIVE_DEFAULT_PARTITION__/p_integer=__HIVE_DEFAULT_PARTITION__", "p_string=abc/p_integer=123");
+
+            // IS NOT NULL AND is NOT some value
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, pStringColumn, varcharSomeValue.complement().intersect(varcharNotNull)))
+                    .containsOnly("p_string=def/p_integer=456");
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, pIntegerColumn, integerSomeValue.complement().intersect(integerNotNull)))
+                    .containsOnly("p_string=def/p_integer=456");
+
+            // IS NULL OR is NOT some value
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, pStringColumn, varcharSomeValue.complement()))
+                    .containsOnly("p_string=__HIVE_DEFAULT_PARTITION__/p_integer=__HIVE_DEFAULT_PARTITION__", "p_string=def/p_integer=456");
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, pIntegerColumn, integerSomeValue.complement()))
+                    .containsOnly("p_string=__HIVE_DEFAULT_PARTITION__/p_integer=__HIVE_DEFAULT_PARTITION__", "p_string=def/p_integer=456");
+        }
+    }
+
+    private Set<String> getPartitionNamesByFilter(ConnectorMetadata metadata, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Domain domain)
+    {
+        return getPartitionNamesByFilter(metadata, tableHandle, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, domain))));
+    }
+
+    private Set<String> getPartitionNamesByFilter(ConnectorMetadata metadata, ConnectorTableHandle tableHandle, Constraint constraint)
+    {
+        return applyFilter(metadata, tableHandle, constraint)
+                .getPartitions().orElseThrow(() -> new IllegalStateException("No partitions"))
+                .stream()
+                .map(HivePartition::getPartitionId)
+                .collect(toImmutableSet());
     }
 
     @Test
@@ -5090,10 +5173,11 @@ public abstract class AbstractTestHive
         return handle;
     }
 
-    private ConnectorTableHandle applyFilter(ConnectorMetadata metadata, ConnectorTableHandle tableHandle, Constraint constraint)
+    private HiveTableHandle applyFilter(ConnectorMetadata metadata, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         return metadata.applyFilter(newSession(), tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)
+                .map(HiveTableHandle.class::cast)
                 .orElseThrow(AssertionError::new);
     }
 
