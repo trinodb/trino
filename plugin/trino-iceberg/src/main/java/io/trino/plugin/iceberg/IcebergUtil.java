@@ -145,7 +145,6 @@ import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
-import static org.apache.iceberg.TableProperties.WRITE_NEW_DATA_LOCATION;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
@@ -617,7 +616,7 @@ public final class IcebergUtil
     {
         // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
         if (table.properties().containsKey(OBJECT_STORE_PATH) ||
-                table.properties().containsKey(WRITE_NEW_DATA_LOCATION) ||
+                table.properties().containsKey("write.folder-storage.path") || // Removed from Iceberg as of 0.14.0, but preserved for backward compatibility
                 table.properties().containsKey(WRITE_METADATA_LOCATION) ||
                 table.properties().containsKey(WRITE_DATA_LOCATION)) {
             throw new TrinoException(NOT_SUPPORTED, "Table contains Iceberg path override properties and cannot be dropped from Trino: " + table.name());
