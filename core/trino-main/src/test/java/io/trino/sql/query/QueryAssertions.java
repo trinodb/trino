@@ -49,7 +49,6 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
@@ -439,9 +438,7 @@ public class QueryAssertions
                                 runner.getFunctionManager(),
                                 noopStatsCalculator(),
                                 plan,
-                                PlanMatchPattern.output(
-                                        PlanMatchPattern.exchange(
-                                                PlanMatchPattern.node(TableScanNode.class))));
+                                PlanMatchPattern.output(PlanMatchPattern.node(TableScanNode.class)));
                     });
 
             if (!skipResultsCorrectnessCheckForPushdown) {
@@ -460,7 +457,6 @@ public class QueryAssertions
         @SafeVarargs
         public final QueryAssert isNotFullyPushedDown(Class<? extends PlanNode>... retainedNodes)
         {
-            checkArgument(retainedNodes.length > 0, "No retainedNodes");
             PlanMatchPattern expectedPlan = PlanMatchPattern.node(TableScanNode.class);
             for (Class<? extends PlanNode> retainedNode : ImmutableList.copyOf(retainedNodes).reverse()) {
                 expectedPlan = PlanMatchPattern.node(retainedNode, expectedPlan);
