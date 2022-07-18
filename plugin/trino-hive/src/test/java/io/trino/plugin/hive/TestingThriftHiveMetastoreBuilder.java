@@ -54,6 +54,7 @@ public final class TestingThriftHiveMetastoreBuilder
 
     private MetastoreLocator metastoreLocator;
     private HiveConfig hiveConfig = new HiveConfig();
+    private ThriftMetastoreConfig thriftMetastoreConfig = new ThriftMetastoreConfig();
     private HdfsEnvironment hdfsEnvironment = HDFS_ENVIRONMENT;
 
     public static TestingThriftHiveMetastoreBuilder testingThriftHiveMetastoreBuilder()
@@ -85,6 +86,12 @@ public final class TestingThriftHiveMetastoreBuilder
         return this;
     }
 
+    public TestingThriftHiveMetastoreBuilder thriftMetastoreConfig(ThriftMetastoreConfig thriftMetastoreConfig)
+    {
+        this.thriftMetastoreConfig = requireNonNull(thriftMetastoreConfig, "thriftMetastoreConfig is null");
+        return this;
+    }
+
     public TestingThriftHiveMetastoreBuilder hdfsEnvironment(HdfsEnvironment hdfsEnvironment)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -97,12 +104,12 @@ public final class TestingThriftHiveMetastoreBuilder
         ThriftHiveMetastoreFactory metastoreFactory = new ThriftHiveMetastoreFactory(
                 new TokenDelegationThriftMetastoreFactory(
                         metastoreLocator,
-                        new ThriftMetastoreConfig(),
+                        thriftMetastoreConfig,
                         new ThriftMetastoreAuthenticationConfig(),
                         hdfsEnvironment),
                 new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 hiveConfig.isTranslateHiveViews(),
-                new ThriftMetastoreConfig(),
+                thriftMetastoreConfig,
                 hdfsEnvironment);
         return metastoreFactory.createMetastore(Optional.empty());
     }
