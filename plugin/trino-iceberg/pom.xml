@@ -24,7 +24,7 @@
             <artifactId>trino-hive</artifactId>
             <exclusions>
                 <exclusion>
-                    <!-- calcite-core and iceberg-data have conflicting versions of org.apache.commons:commons-lang3 -->
+                    <!-- calcite-core and Iceberg have conflicting versions of org.apache.commons:commons-lang3 -->
                     <groupId>com.linkedin.calcite</groupId>
                     <artifactId>calcite-core</artifactId>
                 </exclusion>
@@ -178,23 +178,6 @@
 
         <dependency>
             <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-data</artifactId>
-            <version>${dep.iceberg.version}</version>
-            <exclusions>
-                <!-- The parquet-avro dependency uses a different version of org.apache.thrift:libthrift -->
-                <exclusion>
-                    <groupId>org.apache.parquet</groupId>
-                    <artifactId>parquet-avro</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-hive-metastore</artifactId>
             <version>${dep.iceberg.version}</version>
             <exclusions>
@@ -219,6 +202,11 @@
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.roaringbitmap</groupId>
+            <artifactId>RoaringBitmap</artifactId>
         </dependency>
 
         <dependency>

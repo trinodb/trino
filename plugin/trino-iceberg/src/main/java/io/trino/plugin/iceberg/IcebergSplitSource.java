@@ -21,7 +21,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.plugin.iceberg.delete.TrinoDeleteFile;
+import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
@@ -396,7 +396,7 @@ public class IcebergSplitSource
                 PartitionData.toJson(task.file().partition()),
                 fileFormat != AVRO ? Optional.empty() : Optional.of(SchemaParser.toJson(task.spec().schema())),
                 task.deletes().stream()
-                        .map(TrinoDeleteFile::copyOf)
+                        .map(DeleteFile::fromIceberg)
                         .collect(toImmutableList()),
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)));
     }

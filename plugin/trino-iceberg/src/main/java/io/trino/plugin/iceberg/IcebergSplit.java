@@ -15,9 +15,10 @@ package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.iceberg.delete.TrinoDeleteFile;
+import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
@@ -45,7 +46,7 @@ public class IcebergSplit
     private final String partitionSpecJson;
     private final String partitionDataJson;
     private final Optional<String> schemaAsJson;
-    private final List<TrinoDeleteFile> deletes;
+    private final List<DeleteFile> deletes;
     private final SplitWeight splitWeight;
 
     @JsonCreator
@@ -60,7 +61,7 @@ public class IcebergSplit
             @JsonProperty("partitionSpecJson") String partitionSpecJson,
             @JsonProperty("partitionDataJson") String partitionDataJson,
             @JsonProperty("schemaAsJson") Optional<String> schemaAsJson,
-            @JsonProperty("deletes") List<TrinoDeleteFile> deletes,
+            @JsonProperty("deletes") List<DeleteFile> deletes,
             @JsonProperty("splitWeight") SplitWeight splitWeight)
     {
         this.path = requireNonNull(path, "path is null");
@@ -145,7 +146,7 @@ public class IcebergSplit
     }
 
     @JsonProperty
-    public List<TrinoDeleteFile> getDeletes()
+    public List<DeleteFile> getDeletes()
     {
         return deletes;
     }
@@ -175,17 +176,23 @@ public class IcebergSplit
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
-                + estimatedSizeOf(deletes, TrinoDeleteFile::getRetainedSizeInBytes)
+                + estimatedSizeOf(deletes, DeleteFile::getRetainedSizeInBytes)
                 + splitWeight.getRetainedSizeInBytes();
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
+        ToStringHelper helper = toStringHelper(this)
                 .addValue(path)
-                .addValue(start)
-                .addValue(length)
-                .toString();
+                .add("start", start)
+                .add("length", length)
+                .add("records", fileRecordCount);
+        if (!deletes.isEmpty()) {
+            helper.add("deleteFiles", deletes.size());
+            helper.add("deleteRecords", deletes.stream()
+                    .mapToLong(DeleteFile::recordCount).sum());
+        }
+        return helper.toString();
     }
 }

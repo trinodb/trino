@@ -17,35 +17,42 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.StructLike;
 
-import java.util.Arrays;
-
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkElementIndex;
 import static io.trino.plugin.iceberg.IcebergPageSink.getIcebergValue;
+import static java.util.Objects.requireNonNull;
 
-final class TrinoRow
+/**
+ * Lazy version of {@link TrinoRow}.
+ */
+final class LazyTrinoRow
         implements StructLike
 {
+    private final Type[] types;
+    private final Page page;
+    private final int position;
     private final Object[] values;
 
-    public TrinoRow(Type[] types, Page page, int position)
+    public LazyTrinoRow(Type[] types, Page page, int position)
     {
         checkArgument(types.length == page.getChannelCount(), "mismatched types for page");
-        values = new Object[types.length];
-        for (int i = 0; i < values.length; i++) {
-            values[i] = getIcebergValue(page.getBlock(i), position, types[i]);
-        }
+        this.types = requireNonNull(types, "types is null");
+        this.page = requireNonNull(page, "page is null");
+        checkElementIndex(position, page.getPositionCount(), "page position");
+        this.position = position;
+        this.values = new Object[types.length];
     }
 
     @Override
     public int size()
     {
-        return values.length;
+        return page.getChannelCount();
     }
 
     @Override
     public <T> T get(int i, Class<T> clazz)
     {
-        return clazz.cast(values[i]);
+        return clazz.cast(get(i));
     }
 
     @Override
@@ -54,9 +61,15 @@ final class TrinoRow
         throw new UnsupportedOperationException();
     }
 
-    @Override
-    public String toString()
+    private Object get(int i)
     {
-        return "TrinoRow" + Arrays.toString(values);
+        Object value = values[i];
+        if (value != null) {
+            return value;
+        }
+
+        value = getIcebergValue(page.getBlock(i), position, types[i]);
+        values[i] = value;
+        return value;
     }
 }
