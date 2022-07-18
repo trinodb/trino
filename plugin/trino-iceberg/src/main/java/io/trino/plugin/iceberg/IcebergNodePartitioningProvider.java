@@ -25,16 +25,14 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.types.Types;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.function.ToIntFunction;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
-import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static java.util.Objects.requireNonNull;
 
@@ -78,23 +76,11 @@ public class IcebergNodePartitioningProvider
             int bucketCount)
     {
         IcebergPartitioningHandle handle = (IcebergPartitioningHandle) partitioningHandle;
-        Schema schema = toIcebergSchema(handle.getPartitioningColumns());
+        Schema schema = schemaFromHandles(handle.getPartitioningColumns());
         return new IcebergBucketFunction(
                 typeOperators,
                 parsePartitionFields(schema, handle.getPartitioning()),
                 handle.getPartitioningColumns(),
                 bucketCount);
-    }
-
-    private static Schema toIcebergSchema(List<IcebergColumnHandle> columns)
-    {
-        List<Types.NestedField> icebergColumns = columns.stream()
-                .map(column -> {
-                    org.apache.iceberg.types.Type type = toIcebergType(column.getType());
-                    return Types.NestedField.of(column.getId(), true, column.getName(), type);
-                })
-                .collect(toImmutableList());
-        org.apache.iceberg.types.Type icebergSchema = Types.StructType.of(icebergColumns);
-        return new Schema(icebergSchema.asStructType().fields());
     }
 }
