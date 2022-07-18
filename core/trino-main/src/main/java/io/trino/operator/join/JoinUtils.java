@@ -67,7 +67,7 @@ public final class JoinUtils
                             planNode -> planNode instanceof ProjectNode ||
                                     isLocalRepartitionExchange(planNode) ||
                                     isLocalGatherExchange(planNode))  // used in cross join case
-                    .where(joinNode -> isRemoteReplicatedExchange(joinNode) || isRemoteReplicatedSourceNode(joinNode))
+                    .where(planNode -> isRemoteReplicatedExchange(planNode) || isRemoteReplicatedSourceNode(planNode))
                     .matches();
         }
         return PlanNodeSearcher.searchFrom(((SemiJoinNode) node).getFilteringSource())
