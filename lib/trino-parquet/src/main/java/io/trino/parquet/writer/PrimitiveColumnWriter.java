@@ -230,8 +230,8 @@ public class PrimitiveColumnWriter
         columnStatistics.mergeStatistics(statistics);
 
         ByteArrayOutputStream pageHeaderOutputStream = new ByteArrayOutputStream();
-        parquetMetadataConverter.writeDataPageV1Header((int) uncompressedSize,
-                (int) compressedSize,
+        parquetMetadataConverter.writeDataPageV1Header(toIntExact(uncompressedSize),
+                toIntExact(compressedSize),
                 valueCount,
                 repetitionLevelWriter.getEncoding(),
                 definitionLevelWriter.getEncoding(),
@@ -284,7 +284,8 @@ public class PrimitiveColumnWriter
             long compressedSize = pageData.size();
 
             ByteArrayOutputStream dictStream = new ByteArrayOutputStream();
-            parquetMetadataConverter.writeDictionaryPageHeader(toIntExact(uncompressedSize),
+            parquetMetadataConverter.writeDictionaryPageHeader(
+                    toIntExact(uncompressedSize),
                     toIntExact(compressedSize),
                     dictionaryPage.getDictionarySize(),
                     dictionaryPage.getEncoding(),
