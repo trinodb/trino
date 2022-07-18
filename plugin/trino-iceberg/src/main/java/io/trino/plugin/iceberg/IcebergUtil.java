@@ -260,6 +260,14 @@ public final class IcebergUtil
                 Optional.ofNullable(column.doc()));
     }
 
+    public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
+    {
+        List<NestedField> icebergColumns = columns.stream()
+                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType())))
+                .collect(toImmutableList());
+        return new Schema(StructType.of(icebergColumns).asStructType().fields());
+    }
+
     public static Map<PartitionField, Integer> getIdentityPartitions(PartitionSpec partitionSpec)
     {
         // TODO: expose transform information in Iceberg library
@@ -556,7 +564,7 @@ public final class IcebergUtil
         return locationsFor(tableLocation, storageProperties);
     }
 
-    public static Schema toIcebergSchema(List<ColumnMetadata> columns)
+    public static Schema schemaFromMetadata(List<ColumnMetadata> columns)
     {
         List<NestedField> icebergColumns = new ArrayList<>();
         for (ColumnMetadata column : columns) {
@@ -576,7 +584,7 @@ public final class IcebergUtil
     public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
-        Schema schema = toIcebergSchema(tableMetadata.getColumns());
+        Schema schema = schemaFromMetadata(tableMetadata.getColumns());
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         String targetPath = getTableLocation(tableMetadata.getProperties())
                 .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
