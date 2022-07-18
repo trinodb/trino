@@ -29,7 +29,7 @@ public final class JoinHash
         implements LookupSource
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(JoinHash.class).instanceSize();
-    private final DefaultPagesHash pagesHash;
+    private final PagesHash pagesHash;
 
     // we unwrap Optional<JoinFilterFunction> to actual verifier or null in constructor for performance reasons
     // we do quick check for `filterFunction == null` in `isJoinPositionEligible` to avoid calls to applyFilterFunction
@@ -41,7 +41,7 @@ public final class JoinHash
     @Nullable
     private final PositionLinks positionLinks;
 
-    public JoinHash(DefaultPagesHash pagesHash, Optional<JoinFilterFunction> filterFunction, Optional<PositionLinks> positionLinks)
+    public JoinHash(PagesHash pagesHash, Optional<JoinFilterFunction> filterFunction, Optional<PositionLinks> positionLinks)
     {
         this.pagesHash = requireNonNull(pagesHash, "pagesHash is null");
         this.filterFunction = requireNonNull(filterFunction, "filterFunction cannot be null").orElse(null);
