@@ -39,7 +39,7 @@ public class TrinoDeleteFilter
 
     public TrinoDeleteFilter(FileScanTask task, Schema tableSchema, List<IcebergColumnHandle> requestedColumns, FileIO fileIO)
     {
-        super(task, tableSchema, toSchema(tableSchema, requestedColumns));
+        super(task.file().path().toString(), task.deletes(), tableSchema, toSchema(tableSchema, requestedColumns));
         this.fileIO = requireNonNull(fileIO, "fileIO is null");
     }
 
