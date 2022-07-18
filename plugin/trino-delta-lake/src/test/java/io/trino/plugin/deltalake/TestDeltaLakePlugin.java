@@ -105,4 +105,16 @@ public class TestDeltaLakePlugin
                 .hasMessageMatching("(?s)Unable to create injector, see the following errors:.*" +
                         "Explicit bindings are required and HiveMetastoreFactory .* is not explicitly bound.*");
     }
+
+    @Test
+    public void testNoCaching()
+    {
+        Plugin plugin = new DeltaLakePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        factory.create("test",
+                ImmutableMap.of(
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "delta.metadata.cache-ttl", "0s"),
+                new TestingConnectorContext());
+    }
 }
