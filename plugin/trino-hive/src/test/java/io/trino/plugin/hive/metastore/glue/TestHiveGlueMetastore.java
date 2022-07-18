@@ -832,18 +832,29 @@ public class TestHiveGlueMetastore
     public void testGetPartitionsFilterIsNullWithValue()
             throws Exception
     {
-        TupleDomain<String> isNullFilter = new PartitionFilterBuilder()
-                .addDomain(PARTITION_KEY, Domain.onlyNull(VarcharType.VARCHAR))
-                .build();
         List<String> partitionList = new ArrayList<>();
         partitionList.add("100");
         partitionList.add(null);
+
         doGetPartitionsFilterTest(
                 CREATE_TABLE_COLUMNS_PARTITIONED_VARCHAR,
                 PARTITION_KEY,
                 partitionList,
-                ImmutableList.of(isNullFilter),
+                ImmutableList.of(new PartitionFilterBuilder()
+                        // IS NULL
+                        .addDomain(PARTITION_KEY, Domain.onlyNull(VarcharType.VARCHAR))
+                        .build()),
                 ImmutableList.of(ImmutableList.of(GlueExpressionUtil.NULL_STRING)));
+
+        doGetPartitionsFilterTest(
+                CREATE_TABLE_COLUMNS_PARTITIONED_VARCHAR,
+                PARTITION_KEY,
+                partitionList,
+                ImmutableList.of(new PartitionFilterBuilder()
+                        // IS NULL or is a specific value
+                        .addDomain(PARTITION_KEY, Domain.create(ValueSet.of(VARCHAR, utf8Slice("100")), true))
+                        .build()),
+                ImmutableList.of(ImmutableList.of("100", GlueExpressionUtil.NULL_STRING)));
     }
 
     @Test
