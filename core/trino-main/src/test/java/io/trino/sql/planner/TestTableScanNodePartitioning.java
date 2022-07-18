@@ -175,8 +175,8 @@ public class TestTableScanNodePartitioning
                                                 aggregation(ImmutableMap.of("COUNT_PART", functionCall("count", ImmutableList.of("B"))), PARTIAL,
                                                         tableScan(table, ImmutableMap.of("A", "column_a", "B", "column_b"))))))));
         SubPlan subPlan = subplan(query, OPTIMIZED_AND_VALIDATED, false, session);
-        assertThat(subPlan.getAllFragments()).hasSize(2);
-        assertThat(subPlan.getAllFragments().get(1).getPartitioning().getConnectorHandle()).isEqualTo(expectedPartitioning);
+        assertThat(subPlan.getAllFragments()).hasSize(1);
+        assertThat(subPlan.getAllFragments().get(0).getPartitioning().getConnectorHandle()).isEqualTo(expectedPartitioning);
     }
 
     void assertTableScanPlannedWithoutPartitioning(Session session, String table)
@@ -191,8 +191,8 @@ public class TestTableScanNodePartitioning
                                                         aggregation(ImmutableMap.of("COUNT_PART", functionCall("count", ImmutableList.of("B"))), PARTIAL,
                                                                 tableScan(table, ImmutableMap.of("A", "column_a", "B", "column_b")))))))));
         SubPlan subPlan = subplan(query, OPTIMIZED_AND_VALIDATED, false, session);
-        assertThat(subPlan.getAllFragments()).hasSize(3);
-        assertThat(subPlan.getAllFragments().get(2).getPartitioning().getConnectorHandle()).isEqualTo(SOURCE_DISTRIBUTION.getConnectorHandle());
+        assertThat(subPlan.getAllFragments()).hasSize(2);
+        assertThat(subPlan.getAllFragments().get(1).getPartitioning().getConnectorHandle()).isEqualTo(SOURCE_DISTRIBUTION.getConnectorHandle());
     }
 
     public static MockConnectorFactory createMockFactory()

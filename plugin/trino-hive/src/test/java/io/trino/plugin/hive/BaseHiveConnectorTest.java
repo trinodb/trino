@@ -5381,8 +5381,8 @@ public abstract class BaseHiveConnectorTest
             @Language("SQL") String query = "SELECT count(value1) FROM test_bucketed_select GROUP BY key1";
             @Language("SQL") String expectedQuery = "SELECT count(comment) FROM orders GROUP BY orderkey";
 
-            assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
-            assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
+            assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
+            assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_bucketed_select");

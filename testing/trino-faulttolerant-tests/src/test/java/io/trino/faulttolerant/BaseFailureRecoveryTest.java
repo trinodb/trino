@@ -219,13 +219,13 @@ public abstract class BaseFailureRecoveryTest
         assertThatQuery(query)
                 .withSession(session)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.EXTERNAL))
-                .at(intermediateDistributedStage())
+                .at(distributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully(queryAssertion);
 
         assertThatQuery(query)
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
-                .at(intermediateDistributedStage())
+                .at(distributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
 
@@ -781,6 +781,11 @@ public abstract class BaseFailureRecoveryTest
     protected static Function<MaterializedResult, Integer> intermediateDistributedStage()
     {
         return result -> findStageId(result, stage -> !stage.isCoordinatorOnly() && !stage.getSubStages().isEmpty());
+    }
+
+    protected static Function<MaterializedResult, Integer> distributedStage()
+    {
+        return result -> findStageId(result, stage -> !stage.isCoordinatorOnly());
     }
 
     protected static Function<MaterializedResult, Integer> leafStage()
