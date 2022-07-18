@@ -93,6 +93,7 @@ public class PrimitiveColumnWriter
     private final int pageSizeThreshold;
 
     private long bufferedBytes;
+    private long pageBufferedBytes;
 
     public PrimitiveColumnWriter(ColumnDescriptor columnDescriptor, PrimitiveValueWriter primitiveValueWriter, ValuesWriter definitionLevelWriter, ValuesWriter repetitionLevelWriter, CompressionCodecName compressionCodecName, int pageSizeThreshold)
     {
@@ -242,11 +243,13 @@ public class PrimitiveColumnWriter
 
         // update total stats
         totalUnCompressedSize += pageHeader.size() + uncompressedSize;
-        totalCompressedSize += pageHeader.size() + compressedSize;
+        long pageCompressedSize = pageHeader.size() + compressedSize;
+        totalCompressedSize += pageCompressedSize;
         totalValues += valueCount;
 
         pageBuffer.add(pageHeader);
         pageBuffer.add(pageData);
+        pageBufferedBytes += pageCompressedSize;
 
         // Add encoding should be called after ValuesWriter#getBytes() and before ValuesWriter#reset()
         encodings.add(repetitionLevelWriter.getEncoding());
@@ -321,11 +324,6 @@ public class PrimitiveColumnWriter
 
     private void updateBufferedBytes()
     {
-        // Avoid using streams here for performance reasons
-        long pageBufferedBytes = 0;
-        for (ParquetDataOutput output : pageBuffer) {
-            pageBufferedBytes += output.size();
-        }
         bufferedBytes = pageBufferedBytes +
                 definitionLevelWriter.getBufferedSize() +
                 repetitionLevelWriter.getBufferedSize() +
