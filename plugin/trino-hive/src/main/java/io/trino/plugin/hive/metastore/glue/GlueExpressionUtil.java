@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -156,11 +157,13 @@ public final class GlueExpressionUtil
         }
 
         if (domain.getValues().isAll()) {
+            verify(!domain.isNullAllowed(), "Unexpected domain: %s", domain);
             return Optional.of(format("(%s <> '%s')", columnName, NULL_STRING));
         }
 
-        // null must be allowed for this case since callers must filter Domain.none() out
         if (domain.getValues().isNone()) {
+            // null must be allowed for this case since callers must filter Domain.none() out
+            verify(domain.isNullAllowed(), "Unexpected domain: %s", domain);
             return Optional.of(format("(%s = '%s')", columnName, NULL_STRING));
         }
 
