@@ -80,7 +80,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.DISTRIBUTED_SORT;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
-import static io.trino.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
@@ -1140,7 +1139,6 @@ public class TestLogicalPlanner
     {
         Session broadcastJoin = Session.builder(this.getQueryRunner().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
-                .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.toString(false))
                 .build();
 
         // make sure there is a remote exchange on the build side
@@ -1193,7 +1191,6 @@ public class TestLogicalPlanner
     {
         Session broadcastJoin = Session.builder(this.getQueryRunner().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
-                .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.toString(false))
                 .setSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.toString(false))
                 .build();
 
@@ -1898,23 +1895,21 @@ public class TestLogicalPlanner
         assertDistributedPlan("SELECT custkey FROM local.\"sf42.5\".nation, local.\"sf42.5\".orders WHERE nation.nationkey = orders.custkey",
                 automaticJoinDistribution(),
                 output(
-                        anyTree(
-                                join(INNER, ImmutableList.of(equiJoinClause("NATIONKEY", "CUSTKEY")),
-                                        anyTree(
-                                                tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey"))),
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey")))))));
+                        join(INNER, ImmutableList.of(equiJoinClause("NATIONKEY", "CUSTKEY")),
+                                anyTree(
+                                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey"))),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey"))))));
 
         // values node provides stats
         assertDistributedPlan("SELECT custkey FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT)) t(a), local.\"sf42.5\".orders WHERE t.a = orders.custkey",
                 automaticJoinDistribution(),
                 output(
-                        anyTree(
-                                join(INNER, ImmutableList.of(equiJoinClause("CUSTKEY", "T_A")), Optional.empty(), Optional.of(REPLICATED),
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey"))),
-                                        anyTree(
-                                                values("T_A"))))));
+                        join(INNER, ImmutableList.of(equiJoinClause("CUSTKEY", "T_A")), Optional.empty(), Optional.of(REPLICATED),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey"))),
+                                anyTree(
+                                        values("T_A")))));
     }
 
     @Test
