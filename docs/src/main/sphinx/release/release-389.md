@@ -1,3 +1,4 @@
+
 # Release 389 (7 July 2022)
 
 ## General
@@ -31,7 +32,7 @@
 
 ## Iceberg connector
 
-* Improve optimized Parquet writer performance for
+* Improve performance when writing Parquet files with
   [non-structural data types](structural-data-types). ({issue}`13030`)
 
 ## MongoDB connector
