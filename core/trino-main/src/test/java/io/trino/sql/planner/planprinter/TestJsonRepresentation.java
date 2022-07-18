@@ -94,7 +94,7 @@ public class TestJsonRepresentation
                                 ImmutableMap.of(
                                         "partitioning", "SINGLE",
                                         "isReplicateNullsAndAny", "",
-                                        "hashColumn", "",
+                                        "hashColumn", "[]",
                                         "arguments", "[]"),
                                 ImmutableList.of(typedSymbol("quantity", "double")),
                                 ImmutableList.of(),
@@ -107,7 +107,7 @@ public class TestJsonRepresentation
                                         ImmutableList.of("quantity := tpch:quantity"),
                                         ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 541575, 0, 0)),
                                         ImmutableList.of())))))));
-        MaterializedResult expectedPlan = resultBuilder(queryRunner.getDefaultSession(), createVarcharType(1896))
+        MaterializedResult expectedPlan = resultBuilder(queryRunner.getDefaultSession(), createVarcharType(1898))
                 .row(JSON_RENDERED_NODE_CODEC.toJson(expectedJsonNode))
                 .build();
         assertThat(actualPlan).isEqualTo(expectedPlan);
@@ -128,7 +128,7 @@ public class TestJsonRepresentation
                         ImmutableMap.of(
                                 "type", "FINAL",
                                 "keys", "[y, z]",
-                                "hash", ""),
+                                "hash", "[]"),
                         ImmutableList.of(
                                 typedSymbol("y", "bigint"),
                                 typedSymbol("z", "bigint"),
@@ -158,7 +158,7 @@ public class TestJsonRepresentation
                 new JsonRenderedNode(
                         "2",
                         "InnerJoin",
-                        ImmutableMap.of("criteria", "(\"a\" = \"d\")", "hash", ""),
+                        ImmutableMap.of("criteria", "(\"a\" = \"d\")", "hash", "[]"),
                         ImmutableList.of(typedSymbol("b", "bigint")),
                         ImmutableList.of("dynamicFilterAssignments = {d -> #DF}"),
                         ImmutableList.of(),
@@ -212,7 +212,8 @@ public class TestJsonRepresentation
                 ImmutableMap.of(),
                 valuePrinter,
                 StatsAndCosts.empty(),
-                Optional.empty())
+                Optional.empty(),
+                new NoOpAnonymizer())
                 .toJson();
         assertThat(jsonRenderedNode).isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedRepresentation));
     }
