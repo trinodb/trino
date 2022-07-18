@@ -52,7 +52,6 @@ import static io.trino.parquet.writer.ParquetCompressor.getCompressor;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.bytes.BytesInput.copy;
 
 public class PrimitiveColumnWriter
         implements ColumnWriter
@@ -214,21 +213,22 @@ public class PrimitiveColumnWriter
     private void flushCurrentPageToBuffer()
             throws IOException
     {
-        ImmutableList.Builder<ParquetDataOutput> outputDataStreams = ImmutableList.builder();
-
-        BytesInput bytesInput = BytesInput.concat(copy(repetitionLevelWriter.getBytes()),
-                copy(definitionLevelWriter.getBytes()),
-                copy(primitiveValueWriter.getBytes()));
-        ParquetDataOutput pageData = (compressor != null) ? compressor.compress(bytesInput) : createDataOutput(bytesInput);
-        long uncompressedSize = bytesInput.size();
+        byte[] pageDataBytes = BytesInput.concat(
+                repetitionLevelWriter.getBytes(),
+                definitionLevelWriter.getBytes(),
+                primitiveValueWriter.getBytes())
+                .toByteArray();
+        long uncompressedSize = pageDataBytes.length;
+        ParquetDataOutput pageData = (compressor != null)
+                ? compressor.compress(pageDataBytes)
+                : createDataOutput(Slices.wrappedBuffer(pageDataBytes));
         long compressedSize = pageData.size();
-
-        ByteArrayOutputStream pageHeaderOutputStream = new ByteArrayOutputStream();
 
         Statistics<?> statistics = primitiveValueWriter.getStatistics();
         statistics.incrementNumNulls(currentPageNullCounts);
         columnStatistics.mergeStatistics(statistics);
 
+        ByteArrayOutputStream pageHeaderOutputStream = new ByteArrayOutputStream();
         parquetMetadataConverter.writeDataPageV1Header((int) uncompressedSize,
                 (int) compressedSize,
                 valueCount,
@@ -236,12 +236,7 @@ public class PrimitiveColumnWriter
                 definitionLevelWriter.getEncoding(),
                 primitiveValueWriter.getEncoding(),
                 pageHeaderOutputStream);
-
-        ParquetDataOutput pageHeader = createDataOutput(Slices.wrappedBuffer(pageHeaderOutputStream.toByteArray()));
-        outputDataStreams.add(pageHeader);
-        outputDataStreams.add(pageData);
-
-        List<ParquetDataOutput> dataOutputs = outputDataStreams.build();
+        ParquetDataOutput pageHeader = createDataOutput(BytesInput.from(pageHeaderOutputStream));
 
         dataPagesWithEncoding.merge(parquetMetadataConverter.getEncoding(primitiveValueWriter.getEncoding()), 1, Integer::sum);
 
@@ -250,7 +245,8 @@ public class PrimitiveColumnWriter
         totalCompressedSize += pageHeader.size() + compressedSize;
         totalValues += valueCount;
 
-        pageBuffer.addAll(dataOutputs);
+        pageBuffer.add(pageHeader);
+        pageBuffer.add(pageData);
 
         // Add encoding should be called after ValuesWriter#getBytes() and before ValuesWriter#reset()
         encodings.add(repetitionLevelWriter.getEncoding());
@@ -277,13 +273,11 @@ public class PrimitiveColumnWriter
         // write dict page if possible
         DictionaryPage dictionaryPage = primitiveValueWriter.toDictPageAndClose();
         if (dictionaryPage != null) {
-            BytesInput pageBytes = copy(dictionaryPage.getBytes());
             long uncompressedSize = dictionaryPage.getUncompressedSize();
-
-            ParquetDataOutput pageData = createDataOutput(pageBytes);
-            if (compressor != null) {
-                pageData = compressor.compress(pageBytes);
-            }
+            byte[] pageBytes = dictionaryPage.getBytes().toByteArray();
+            ParquetDataOutput pageData = compressor != null
+                    ? compressor.compress(pageBytes)
+                    : createDataOutput(Slices.wrappedBuffer(pageBytes));
             long compressedSize = pageData.size();
 
             ByteArrayOutputStream dictStream = new ByteArrayOutputStream();
@@ -292,7 +286,7 @@ public class PrimitiveColumnWriter
                     dictionaryPage.getDictionarySize(),
                     dictionaryPage.getEncoding(),
                     dictStream);
-            ParquetDataOutput pageHeader = createDataOutput(Slices.wrappedBuffer(dictStream.toByteArray()));
+            ParquetDataOutput pageHeader = createDataOutput(BytesInput.from(dictStream));
             dictPage.add(pageHeader);
             dictPage.add(pageData);
             totalCompressedSize += pageHeader.size() + compressedSize;
