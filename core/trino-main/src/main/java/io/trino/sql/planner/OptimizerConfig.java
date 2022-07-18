@@ -81,7 +81,7 @@ public class OptimizerConfig
     private boolean useTableScanNodePartitioning = true;
     private double tableScanNodePartitioningMinBucketToTaskRatio = 0.5;
     private boolean mergeProjectWithValues = true;
-    private boolean forceSingleNodeOutput = true;
+    private boolean forceSingleNodeOutput;
     private boolean useExactPartitioning;
     // adaptive partial aggregation
     private boolean adaptivePartialAggregationEnabled = true;

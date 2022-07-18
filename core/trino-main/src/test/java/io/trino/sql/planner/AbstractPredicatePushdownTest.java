@@ -33,7 +33,6 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -269,8 +268,7 @@ public abstract class AbstractPredicatePushdownTest
                 "SELECT orderstatus FROM orders WHERE orderstatus = 'O'",
                 // predicate matches exactly single partition, no FilterNode needed
                 output(
-                        exchange(
-                                tableScan("orders"))),
+                        tableScan("orders")),
                 allOptimizers);
 
         assertPlan(

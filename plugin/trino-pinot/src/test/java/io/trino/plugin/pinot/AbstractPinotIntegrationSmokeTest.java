@@ -1200,7 +1200,7 @@ public abstract class AbstractPinotIntegrationSmokeTest
                         "  FROM " + ALL_TYPES_TABLE +
                         "  WHERE bytes_col = X'' AND string_col = 'null'"))
                 .matches("VALUES (VARCHAR 'null')")
-                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(ProjectNode.class);
 
         // Default null value for booleans is the string 'null'
         // Booleans are treated as a string
@@ -1466,11 +1466,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
         // Passthrough queries with aggregates will not push down more aggregations.
         assertThat(query("SELECT bool_col, \"count(*)\", COUNT(*) FROM \"SELECT bool_col, count(*) FROM " +
                 ALL_TYPES_TABLE + " GROUP BY bool_col\" GROUP BY bool_col, \"count(*)\""))
-                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
 
         assertThat(query("SELECT bool_col, \"max(long_col)\", COUNT(*) FROM \"SELECT bool_col, max(long_col) FROM " +
                 ALL_TYPES_TABLE + " GROUP BY bool_col\" GROUP BY bool_col, \"max(long_col)\""))
-                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
 
         assertThat(query("SELECT int_col, COUNT(*) FROM " + ALL_TYPES_TABLE + " GROUP BY int_col LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .isFullyPushedDown();
@@ -1520,7 +1520,7 @@ public abstract class AbstractPinotIntegrationSmokeTest
                 .isFullyPushedDown();
         // Distinct on int is partially pushed down
         assertThat(query("SELECT DISTINCT int_col FROM " + ALL_TYPES_TABLE))
-                .isNotFullyPushedDown(ExchangeNode.class);
+                .isNotFullyPushedDown();
 
         // Distinct on 2 columns for supported types:
         assertThat(query("SELECT DISTINCT bool_col, string_col FROM " + ALL_TYPES_TABLE))
@@ -1532,7 +1532,7 @@ public abstract class AbstractPinotIntegrationSmokeTest
         assertThat(query("SELECT DISTINCT bool_col, long_col FROM " + ALL_TYPES_TABLE))
                 .isFullyPushedDown();
         assertThat(query("SELECT DISTINCT bool_col, int_col FROM " + ALL_TYPES_TABLE))
-                .isNotFullyPushedDown(ExchangeNode.class);
+                .isNotFullyPushedDown();
 
         // Test distinct for mixed case values
         assertThat(query("SELECT DISTINCT string_col FROM " + MIXED_CASE_DISTINCT_TABLE))
@@ -1563,7 +1563,7 @@ public abstract class AbstractPinotIntegrationSmokeTest
                 .isFullyPushedDown();
         // Approx distinct on int is partially pushed down
         assertThat(query("SELECT approx_distinct(int_col) FROM " + ALL_TYPES_TABLE))
-                .isNotFullyPushedDown(ExchangeNode.class);
+                .isNotFullyPushedDown();
 
         // Approx distinct on 2 columns for supported types:
         assertThat(query("SELECT bool_col, approx_distinct(string_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
@@ -1575,7 +1575,7 @@ public abstract class AbstractPinotIntegrationSmokeTest
         assertThat(query("SELECT bool_col, approx_distinct(long_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
                 .isFullyPushedDown();
         assertThat(query("SELECT bool_col, approx_distinct(int_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
-                .isNotFullyPushedDown(ExchangeNode.class);
+                .isNotFullyPushedDown();
 
         // Distinct count is fully pushed down by default
         assertThat(query("SELECT bool_col, COUNT(DISTINCT string_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
@@ -1627,7 +1627,7 @@ public abstract class AbstractPinotIntegrationSmokeTest
 
         // Distinct count is partially pushed down when the distinct_count_pushdown_enabled session property is disabled
         assertThat(query(countDistinctPushdownDisabledSession, "SELECT bool_col, COUNT(DISTINCT long_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
-                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
         // Test query with no grouping columns
         assertThat(query(countDistinctPushdownDisabledSession, "SELECT COUNT(DISTINCT long_col) FROM " + ALL_TYPES_TABLE))
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
@@ -1640,7 +1640,7 @@ public abstract class AbstractPinotIntegrationSmokeTest
         // Ensure that count(<column name>) is not pushed down even when a broker query is present and has grouping columns
         // This is also done as the second step of count distinct but should not be pushed down in this case.
         assertThat(query("SELECT bool_col, COUNT(long_col) FROM \"SELECT bool_col, long_col FROM " + ALL_TYPES_TABLE + "\" GROUP BY bool_col"))
-                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
 
         // Ensure that count(<column name>) is not pushed down even if the query contains a matching grouping column
         assertThatExceptionOfType(RuntimeException.class)
@@ -2057,7 +2057,7 @@ public abstract class AbstractPinotIntegrationSmokeTest
                         "  (BIGINT '-3147483640', BIGINT '1', BIGINT '-3147483640')," +
                         "  (BIGINT '-3147483641', BIGINT '1', BIGINT '-3147483641')," +
                         "  (BIGINT '-3147483639', BIGINT '1', BIGINT '-3147483639')")
-                .isNotFullyPushedDown(ExchangeNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class, AggregationNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class, AggregationNode.class);
 
         assertThat(query("SELECT long_col, string_col, COUNT(*), MAX(long_col)" +
                 "  FROM \"SELECT * FROM " + ALL_TYPES_TABLE +
@@ -2068,7 +2068,7 @@ public abstract class AbstractPinotIntegrationSmokeTest
                         "  (BIGINT '-3147483640', VARCHAR 'string_8400', BIGINT '1', BIGINT '-3147483640')," +
                         "  (BIGINT '-3147483642', VARCHAR 'string_6000', BIGINT '1', BIGINT '-3147483642')," +
                         "  (BIGINT '-3147483639', VARCHAR 'string_9600', BIGINT '1', BIGINT '-3147483639')")
-                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
 
         // Note that the offset is the first parameter
         assertThat(query("SELECT long_col" +
@@ -2159,9 +2159,9 @@ public abstract class AbstractPinotIntegrationSmokeTest
     public void testAggregationPushdownWithArrays()
     {
         assertThat(query("SELECT string_array_col, count(*) FROM " + ALL_TYPES_TABLE + " WHERE int_col = 54 GROUP BY 1"))
-                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
         assertThat(query("SELECT int_array_col, string_array_col, count(*) FROM " + ALL_TYPES_TABLE + " WHERE int_col = 54 GROUP BY 1, 2"))
-                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
         assertThat(query("SELECT int_array_col, \"count(*)\"" +
                 "  FROM \"SELECT int_array_col, COUNT(*) FROM " + ALL_TYPES_TABLE +
                 "  WHERE int_col = 54 GROUP BY 1\""))
