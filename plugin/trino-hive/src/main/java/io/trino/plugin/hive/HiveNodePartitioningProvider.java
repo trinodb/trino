@@ -87,7 +87,7 @@ public class HiveNodePartitioningProvider
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         if (!handle.isUsePartitionedBucketingForWrites()) {
-            return createBucketNodeMap(handle.getBucketCount() * handle.getPartitions().size());
+            return createBucketNodeMap(handle.getBucketCount() * Integer.max(1, handle.getPartitions().size()));
         }
 
         // Create a bucket to node mapping. Consecutive buckets are assigned
