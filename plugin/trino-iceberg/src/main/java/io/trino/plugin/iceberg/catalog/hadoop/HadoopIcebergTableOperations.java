@@ -19,15 +19,23 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static java.lang.String.format;
+import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
+import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
+import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 
 @NotThreadSafe
 public class HadoopIcebergTableOperations
@@ -61,13 +69,34 @@ public class HadoopIcebergTableOperations
     @Override
     protected void commitNewTable(TableMetadata metadata)
     {
-        // TODO Auto-generated method stub
+        String newMetadataLocation = writeNewMetadata(metadata, version + 1);
+
+        Map<String, String> properties = Map.of(
+                TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE,
+                METADATA_LOCATION_PROP, newMetadataLocation);
+        String tableComment = metadata.properties().get(TABLE_COMMENT);
+        if (tableComment != null) {
+            properties.put(TABLE_COMMENT, tableComment);
+        }
+
+        this.catalog.getCatalog(this.session).createTable(TableIdentifier.of(database, tableName), metadata.schema(), metadata.spec(), metadata.location(), properties);
     }
 
     @Override
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
-        // TODO Auto-generated method stub
+        Table table = getTable();
+        checkState(currentMetadataLocation != null, "No current metadata location for existing table");
+        String metadataLocation = table.properties().get(METADATA_LOCATION_PROP);
+        if (!currentMetadataLocation.equals(metadataLocation)) {
+            throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
+                    currentMetadataLocation, metadataLocation, getSchemaTableName());
+        }
+        Map<String, String> properties = table.properties();
+        properties.put(METADATA_LOCATION_PROP, metadataLocation);
+        properties.put(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation);
+
+        this.catalog.getCatalog(session).createTable(TableIdentifier.of(database, tableName), metadata.schema(), metadata.spec(), metadata.location(), properties);
     }
 
     private Table getTable()
