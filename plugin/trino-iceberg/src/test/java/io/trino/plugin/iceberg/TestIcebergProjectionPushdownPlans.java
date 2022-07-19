@@ -129,7 +129,7 @@ public class TestIcebergProjectionPushdownPlans
 
         getQueryRunner().execute(format(
                 "CREATE TABLE %s (col0, col1) WITH (partitioning = ARRAY['col1']) AS" +
-                        " SELECT CAST(row(5, 6) AS row(x bigint, y bigint)) AS col0, 5 AS col1 WHERE false",
+                        " SELECT CAST(row(5, 6) AS row(x bigint, y bigint)) AS col0, 5 AS col1",
                 testTable));
 
         Session session = getQueryRunner().getDefaultSession();
