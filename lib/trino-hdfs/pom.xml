@@ -98,6 +98,13 @@
             <artifactId>jmxutils</artifactId>
         </dependency>
 
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>concurrent</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>io.airlift</groupId>
