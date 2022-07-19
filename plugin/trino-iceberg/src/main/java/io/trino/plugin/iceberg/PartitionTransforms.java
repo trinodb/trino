@@ -710,7 +710,7 @@ public final class PartitionTransforms
     @VisibleForTesting
     static long epochYear(long epochMilli)
     {
-        return YEAR_FIELD.get(epochMilli) - 1970;
+        return YEAR_FIELD.get(epochMilli) - 1970L;
     }
 
     @VisibleForTesting
