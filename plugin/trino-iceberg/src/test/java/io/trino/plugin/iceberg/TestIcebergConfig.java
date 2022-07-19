@@ -58,7 +58,9 @@ public class TestIcebergConfig
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setMinimumAssignedSplitWeight(0.05)
                 .setAllowLegacySnapshotSyntax(false)
-                .setMaterializedViewsStorageSchema(null));
+                .setMaterializedViewsStorageSchema(null)
+                .setCatalogWarehouse(null)
+                .setCatalogCacheSize(10));
     }
 
     @Test
@@ -83,6 +85,8 @@ public class TestIcebergConfig
                 .put("iceberg.minimum-assigned-split-weight", "0.01")
                 .put("iceberg.allow-legacy-snapshot-syntax", "true")
                 .put("iceberg.materialized-views.storage-schema", "mv_storage_schema")
+                .put("iceberg.catalog.warehouse", "s3://bucket/root")
+                .put("iceberg.catalog.cache-size", "3")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -103,7 +107,9 @@ public class TestIcebergConfig
                 .setTargetMaxFileSize(DataSize.of(1, MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.01)
                 .setAllowLegacySnapshotSyntax(true)
-                .setMaterializedViewsStorageSchema("mv_storage_schema");
+                .setMaterializedViewsStorageSchema("mv_storage_schema")
+                .setCatalogWarehouse("s3://bucket/root")
+                .setCatalogCacheSize(3);
 
         assertFullMapping(properties, expected);
     }
