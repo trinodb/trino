@@ -150,20 +150,6 @@ public class TestHashJoinOperator
         scheduledExecutor.shutdownNow();
     }
 
-    @DataProvider(name = "hashJoinTestValues")
-    public static Object[][] hashJoinTestValuesProvider()
-    {
-        return new Object[][] {
-                {true, true, true},
-                {true, true, false},
-                {true, false, true},
-                {true, false, false},
-                {false, true, true},
-                {false, true, false},
-                {false, false, true},
-                {false, false, false}};
-    }
-
     @Test(dataProvider = "hashJoinTestValues")
     public void testInnerJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
     {
@@ -1302,6 +1288,20 @@ public class TestHashJoinOperator
         instantiateBuildDrivers(buildSideSetup, taskContext);
 
         return joinOperatorFactory;
+    }
+
+    @DataProvider(name = "hashJoinTestValues")
+    public static Object[][] hashJoinTestValuesProvider()
+    {
+        return new Object[][] {
+                {true, true, true},
+                {true, true, false},
+                {true, false, true},
+                {true, false, false},
+                {false, true, true},
+                {false, true, false},
+                {false, false, true},
+                {false, false, false}};
     }
 
     @DataProvider
