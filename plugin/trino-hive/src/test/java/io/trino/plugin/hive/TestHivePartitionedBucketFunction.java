@@ -180,7 +180,7 @@ public class TestHivePartitionedBucketFunction
 
     private static BucketFunction partitionedBucketFunction(BucketingVersion hiveBucketingVersion, int hiveBucketCount, List<HiveType> hiveBucketTypes, List<Type> partitionColumnsTypes, int bucketCount)
     {
-        return new HivePartitionedBucketFunction(
+        return new HivePartitionHashBucketFunction(
                 hiveBucketingVersion,
                 hiveBucketCount,
                 hiveBucketTypes,
@@ -191,6 +191,6 @@ public class TestHivePartitionedBucketFunction
 
     private static BucketFunction bucketFunction(BucketingVersion hiveBucketingVersion, int hiveBucketCount, List<HiveType> hiveBucketTypes)
     {
-        return new HiveBucketFunction(hiveBucketingVersion, hiveBucketCount, hiveBucketTypes);
+        return new HiveBucketFunction(hiveBucketingVersion, hiveBucketCount, hiveBucketTypes, ImmutableList.of(), ImmutableList.of());
     }
 }

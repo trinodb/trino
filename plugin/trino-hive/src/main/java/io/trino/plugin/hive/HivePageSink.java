@@ -154,7 +154,7 @@ public class HivePageSink
             List<HiveType> bucketColumnTypes = bucketProperty.get().getBucketedBy().stream()
                     .map(dataColumnNameToTypeMap::get)
                     .collect(toList());
-            bucketFunction = new HiveBucketFunction(bucketingVersion, bucketCount, bucketColumnTypes);
+            bucketFunction = new HiveBucketFunction(bucketingVersion, bucketCount, bucketColumnTypes, ImmutableList.of(), ImmutableList.of());
         }
         else {
             bucketColumns = null;

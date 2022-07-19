@@ -65,10 +65,15 @@ public class HiveNodePartitioningProvider
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         List<HiveType> hiveBucketTypes = handle.getHiveTypes();
-        if (!handle.isUsePartitionedBucketing()) {
-            return new HiveBucketFunction(handle.getBucketingVersion(), bucketCount, hiveBucketTypes);
+        if (!handle.isUsePartitionedBucketingForWrites()) {
+            return new HiveBucketFunction(
+                    handle.getBucketingVersion(),
+                    bucketCount,
+                    hiveBucketTypes,
+                    partitionChannelTypes.subList(0, partitionChannelTypes.size() - hiveBucketTypes.size()),
+                    handle.getPartitions());
         }
-        return new HivePartitionedBucketFunction(
+        return new HivePartitionHashBucketFunction(
                 handle.getBucketingVersion(),
                 handle.getBucketCount(),
                 hiveBucketTypes,
@@ -81,8 +86,8 @@ public class HiveNodePartitioningProvider
     public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
-        if (!handle.isUsePartitionedBucketing()) {
-            return createBucketNodeMap(handle.getBucketCount());
+        if (!handle.isUsePartitionedBucketingForWrites()) {
+            return createBucketNodeMap(handle.getBucketCount() * handle.getPartitions().size());
         }
 
         // Create a bucket to node mapping. Consecutive buckets are assigned

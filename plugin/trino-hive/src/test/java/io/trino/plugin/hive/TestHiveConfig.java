@@ -115,7 +115,8 @@ public class TestHiveConfig
                 .setMinimumAssignedSplitWeight(0.05)
                 .setDeltaLakeCatalogName(null)
                 .setAutoPurge(false)
-                .setPartitionProjectionEnabled(false));
+                .setPartitionProjectionEnabled(false)
+                .setPartitionExecutionMinPartitions(0);
     }
 
     @Test
@@ -201,6 +202,7 @@ public class TestHiveConfig
                 .put("hive.delta-lake-catalog-name", "delta")
                 .put("hive.auto-purge", "true")
                 .put(CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true")
+                .put("hive.partition-execution-min-partitions", "4")
                 .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
@@ -282,7 +284,8 @@ public class TestHiveConfig
                 .setMinimumAssignedSplitWeight(1.0)
                 .setDeltaLakeCatalogName("delta")
                 .setAutoPurge(true)
-                .setPartitionProjectionEnabled(true);
+                .setPartitionProjectionEnabled(true)
+                .setPartitionExecutionMinPartitions(4);
 
         assertFullMapping(properties, expected);
     }

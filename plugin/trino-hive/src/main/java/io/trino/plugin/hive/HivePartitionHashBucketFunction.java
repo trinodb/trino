@@ -33,7 +33,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static java.util.Objects.requireNonNull;
 
-public class HivePartitionedBucketFunction
+public class HivePartitionHashBucketFunction
         implements BucketFunction
 {
     private final BucketingVersion bucketingVersion;
@@ -43,7 +43,7 @@ public class HivePartitionedBucketFunction
     private final int firstPartitionColumnIndex;
     private final List<MethodHandle> hashCodeInvokers;
 
-    public HivePartitionedBucketFunction(
+    public HivePartitionHashBucketFunction(
             BucketingVersion bucketingVersion,
             int hiveBucketCount,
             List<HiveType> hiveBucketTypes,
@@ -66,6 +66,11 @@ public class HivePartitionedBucketFunction
     @Override
     public int getBucket(Page page, int position)
     {
+        // This bucket function is used for writing, when we don't know in advance the partitions that will be created.
+        // So we assign partitions to buckets by hashing, which means that in all likelihood different partitions will
+        // be split across buckets. This is not a great bucket function when reading partitioned data, however, when we
+        // can do better by creating a separate bucket for each partition to begin with and ensuring that each one is
+        // bucketed uniquely.
         long partitionHash = 0;
         for (int i = 0; i < hashCodeInvokers.size(); i++) {
             try {
