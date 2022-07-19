@@ -1339,6 +1339,44 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testPartitionPredicatePushdownWithHistoricalPartitionSpecs()
+    {
+        // Start with a bucket transform, which cannot be used for predicate pushdown
+        String tableName = "test_partition_predicate_pushdown_with_historical_partition_specs";
+        assertUpdate("CREATE TABLE " + tableName + " (d TIMESTAMP(6), b INTEGER) WITH (partitioning = ARRAY['bucket(b, 3)'])");
+        @Language("SQL") String selectQuery = "SELECT b FROM " + tableName + " WHERE CAST(d AS date) < DATE '2015-01-02'";
+
+        @Language("SQL") String initialValues =
+                "(TIMESTAMP '1969-12-31 22:22:22.222222', 8)," +
+                "(TIMESTAMP '1969-12-31 23:33:11.456789', 9)," +
+                "(TIMESTAMP '1969-12-31 23:44:55.567890', 10)";
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + initialValues, 3);
+        assertThat(query(selectQuery))
+                .containsAll("VALUES 8, 9, 10")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        @Language("SQL") String hourTransformValues =
+                "(TIMESTAMP '2015-01-01 10:01:23.123456', 1)," +
+                "(TIMESTAMP '2015-01-02 10:10:02.987654', 2)," +
+                "(TIMESTAMP '2015-01-03 10:55:00.456789', 3)";
+        // While the bucket transform is still used the hour transform still cannot be used for pushdown
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['hour(d)']");
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + hourTransformValues, 3);
+        assertThat(query(selectQuery))
+                .containsAll("VALUES 1, 8, 9, 10")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // The old partition scheme is no longer used so pushdown using the hour transform is allowed
+        assertUpdate("DELETE FROM " + tableName + " WHERE year(d) = 1969", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + initialValues, 3);
+        assertThat(query(selectQuery))
+                .containsAll("VALUES 1, 8, 9, 10")
+                .isFullyPushedDown();
+
+        dropTable(tableName);
+    }
+
+    @Test
     public void testDayTransformDate()
     {
         assertUpdate("CREATE TABLE test_day_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['day(d)'])");

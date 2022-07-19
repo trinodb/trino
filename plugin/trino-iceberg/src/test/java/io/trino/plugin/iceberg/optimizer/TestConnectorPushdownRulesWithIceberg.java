@@ -243,6 +243,7 @@ public class TestConnectorPushdownRulesWithIceberg
     {
         String tableName = "predicate_test";
         tester().getQueryRunner().execute(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
+        Long snapshotId = (Long) tester().getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" LIMIT 1", tableName)).getOnlyValue();
 
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
 
@@ -250,7 +251,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 SCHEMA_NAME,
                 tableName,
                 DATA,
-                Optional.of(1L),
+                Optional.of(snapshotId),
                 "",
                 "",
                 1,

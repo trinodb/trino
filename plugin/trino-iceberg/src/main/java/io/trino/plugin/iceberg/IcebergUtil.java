@@ -337,9 +337,15 @@ public final class IcebergUtil
         return '"' + name.replace("\"", "\"\"") + '"';
     }
 
-    public static boolean canEnforceColumnConstraintInAllSpecs(TypeOperators typeOperators, Table table, IcebergColumnHandle columnHandle, Domain domain)
+    public static boolean canEnforceColumnConstraintInSpecs(
+            TypeOperators typeOperators,
+            Table table,
+            Set<Integer> partitionSpecIds,
+            IcebergColumnHandle columnHandle,
+            Domain domain)
     {
         return table.specs().values().stream()
+                .filter(partitionSpec -> partitionSpecIds.contains(partitionSpec.specId()))
                 .allMatch(spec -> canEnforceConstraintWithinPartitioningSpec(typeOperators, spec, columnHandle, domain));
     }
 
