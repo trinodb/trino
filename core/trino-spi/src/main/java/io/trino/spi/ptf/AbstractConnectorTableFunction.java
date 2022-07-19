@@ -16,8 +16,10 @@ package io.trino.spi.ptf;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,6 +37,14 @@ public abstract class AbstractConnectorTableFunction
         this.name = requireNonNull(name, "name is null");
         this.arguments = List.copyOf(requireNonNull(arguments, "arguments is null"));
         this.returnTypeSpecification = requireNonNull(returnTypeSpecification, "returnTypeSpecification is null");
+
+        // validate argument specifications: check there are no duplicate names
+        Set<String> names = new HashSet<>();
+        for (ArgumentSpecification argument : arguments) {
+            if (!names.add(argument.getName())) {
+                throw new IllegalStateException("Duplicate argument specification for name: " + argument.getName());
+            }
+        }
     }
 
     @Override

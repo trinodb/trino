@@ -1596,14 +1596,16 @@ class StatementAnalyzer
                 throw semanticException(INVALID_ARGUMENTS, errorLocation, "All arguments must be passed by name or all must be passed positionally");
             }
 
+            // validate argument specifications: check there are no duplicate names
+            Map<String, ArgumentSpecification> argumentSpecificationsByName = new HashMap<>();
+            for (ArgumentSpecification argumentSpecification : argumentSpecifications) {
+                if (argumentSpecificationsByName.put(argumentSpecification.getName(), argumentSpecification) != null) {
+                    throw new IllegalStateException("Duplicate argument specification for name: " + argumentSpecification.getName());
+                }
+            }
+
             ImmutableMap.Builder<String, Argument> passedArguments = ImmutableMap.builder();
             if (argumentsPassedByName) {
-                Map<String, ArgumentSpecification> argumentSpecificationsByName = new HashMap<>();
-                for (ArgumentSpecification argumentSpecification : argumentSpecifications) {
-                    if (argumentSpecificationsByName.put(argumentSpecification.getName(), argumentSpecification) != null) {
-                        throw new IllegalStateException("Duplicate argument specification for name: " + argumentSpecification.getName());
-                    }
-                }
                 Set<String> uniqueArgumentNames = new HashSet<>();
                 for (TableFunctionArgument argument : arguments) {
                     String argumentName = argument.getName().get().getCanonicalValue();
