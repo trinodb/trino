@@ -14,18 +14,14 @@
 package io.trino.operator.join.unspilled;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
-import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorFactories;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PipelineContext;
-import io.trino.operator.SpillContext;
 import io.trino.operator.TaskContext;
 import io.trino.operator.ValuesOperator;
 import io.trino.operator.exchange.LocalExchange;
@@ -38,18 +34,13 @@ import io.trino.operator.join.StandardJoinFilterFunction;
 import io.trino.operator.join.unspilled.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spiller.PartitioningSpillerFactory;
-import io.trino.spiller.SingleStreamSpiller;
-import io.trino.spiller.SingleStreamSpillerFactory;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.type.BlockTypeOperators;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -61,13 +52,8 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterators.unmodifiableIterator;
-import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
@@ -82,17 +68,15 @@ public final class JoinTestUtils
             OperatorFactories operatorFactories,
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
             RowPagesBuilder probePages,
-            PartitioningSpillerFactory partitioningSpillerFactory,
             boolean hasFilter)
     {
-        return innerJoinOperatorFactory(operatorFactories, lookupSourceFactoryManager, probePages, partitioningSpillerFactory, false, hasFilter);
+        return innerJoinOperatorFactory(operatorFactories, lookupSourceFactoryManager, probePages, false, hasFilter);
     }
 
     public static OperatorFactory innerJoinOperatorFactory(
             OperatorFactories operatorFactories,
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
             RowPagesBuilder probePages,
-            PartitioningSpillerFactory partitioningSpillerFactory,
             boolean outputSingleMatch,
             boolean hasFilter)
     {
@@ -109,7 +93,7 @@ public final class JoinTestUtils
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
-                partitioningSpillerFactory,
+                null,
                 TYPE_OPERATOR_FACTORY);
     }
 
@@ -137,9 +121,7 @@ public final class JoinTestUtils
             boolean parallelBuild,
             TaskContext taskContext,
             RowPagesBuilder buildPages,
-            Optional<InternalJoinFilterFunction> filterFunction,
-            boolean spillEnabled,
-            SingleStreamSpillerFactory singleStreamSpillerFactory)
+            Optional<InternalJoinFilterFunction> filterFunction)
     {
         Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
                 .map(function -> (session, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
@@ -313,78 +295,6 @@ public final class JoinTestUtils
         {
             checkState(buildOperators != null, "buildDrivers is not initialized yet");
             return buildOperators;
-        }
-    }
-
-    public static class DummySpillerFactory
-            implements SingleStreamSpillerFactory
-    {
-        private volatile boolean failSpill;
-        private volatile boolean failUnspill;
-
-        public void failSpill()
-        {
-            failSpill = true;
-        }
-
-        public void failUnspill()
-        {
-            failUnspill = true;
-        }
-
-        @Override
-        public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext)
-        {
-            return new SingleStreamSpiller()
-            {
-                private boolean writing = true;
-                private final List<Page> spills = new ArrayList<>();
-
-                @Override
-                public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
-                {
-                    checkState(writing, "writing already finished");
-                    if (failSpill) {
-                        return immediateFailedFuture(new TrinoException(GENERIC_INTERNAL_ERROR, "Spill failed"));
-                    }
-                    Iterators.addAll(spills, pageIterator);
-                    return immediateVoidFuture();
-                }
-
-                @Override
-                public Iterator<Page> getSpilledPages()
-                {
-                    if (failUnspill) {
-                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unspill failed");
-                    }
-                    writing = false;
-                    return unmodifiableIterator(spills.iterator());
-                }
-
-                @Override
-                public long getSpilledPagesInMemorySize()
-                {
-                    return spills.stream()
-                            .mapToLong(Page::getSizeInBytes)
-                            .sum();
-                }
-
-                @Override
-                public ListenableFuture<List<Page>> getAllSpilledPages()
-                {
-                    if (failUnspill) {
-                        return immediateFailedFuture(new TrinoException(GENERIC_INTERNAL_ERROR, "Unspill failed"));
-                    }
-                    writing = false;
-                    return immediateFuture(ImmutableList.copyOf(spills));
-                }
-
-                @Override
-                public void close()
-                {
-                    writing = false;
-                }
-            };
         }
     }
 
