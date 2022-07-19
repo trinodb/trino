@@ -250,6 +250,21 @@ security options in the Hive connector.
 
 .. _hive_configuration_properties:
 
+Accessing tables with Athena Partition Projection metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+`Partition Projection <https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html>`_ is often
+used with AWS Athena to speed up query processing with highly partitioned tables.
+
+Trino supports partition projection table properties stored in metastore and reimplements this functionality.
+Currently there is a limitation in comparison to AWS Athena for Date projection.
+It only supports DAYS, HOURS, MINUTES and SECONDS interval
+
+If there are any compatibility issues blocking access to requested table. Feature may be completely disabled by
+``hive.partition-projection-enabled`` configuration property.
+
+Refer to ``partition_projection_*`` table and column properties in order to operate this feature.
+
 Hive configuration properties
 -----------------------------
 
@@ -408,6 +423,8 @@ Property Name                                      Description                  
                                                    managed tables.
                                                    See the :ref:`hive_table_properties` for more information
                                                    on auto_purge.
+
+``hive.partition-projection-enabled``              Enables Athena Partition Project support                     ``false``
 ================================================== ============================================================ ============
 
 ORC format configuration properties
@@ -1142,6 +1159,79 @@ See the :ref:`hive_examples` for more information.
     - Set this property to ``true`` to create an ORC ACID transactional table.
       Requires ORC format. This property may be shown as true for insert-only
       tables created using older versions of Hive.
+    -
+  * - ``partition_projection_ignore``
+    - Allows to ignore any partition projection properties stored in metastore
+      for selected table only. This is Trino only property allowing to overcome
+      compatibility issues on single table level.
+    -
+  * - ``partition_projection_enabled``
+    - Enables partition projection for selected table.
+      Mapped from AWS Athena table property `projection.enabled <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-setting-up.html>`_.
+      Ignored when ``partition_projection_ignore=true``
+    -
+  * - ``partition_projection_location_template``
+    - Projected partition location template e.g 's3a://test/name=${name}/'
+      Mapped from AWS Athena table property `storage.location.template <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-setting-up.html#partition-projection-specifying-custom-s3-storage-locations>`_
+      Ignored when ``partition_projection_ignore=true``
+    - ``${table_location}/${partition_name}``
+
+Column properties
+-----------------
+
+.. list-table:: Hive connector column properties
+  :widths: 20, 60, 20
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default
+  * - ``partition_projection_type``
+    - Defines type of partition projection to be used on this column.
+      May be used only on partition columns. Available types:
+      ENUM, INTEGER, DATE, INJECTED.
+      Mapped from AWS Athena table property `projection.${columnName}.type <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
+      Ignored when ``partition_projection_ignore=true``
+    -
+  * - ``partition_projection_values``
+    - Used with ``partition_projection_type=ENUM``. Contains static
+      list of values used to generate partitions.
+      Mapped from AWS Athena table property `projection.${columnName}.values <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
+      Ignored when ``partition_projection_ignore=true``
+    -
+  * - ``partition_projection_range``
+    - Used with ``partition_projection_type=INTEGER|DATA``. 2 element
+      array, describing range edges use to generate partitions.
+      Generation starts from left bound then increments by defined
+      ``partition_projection_interval`` and ends on right bound,
+      Mapped from AWS Athena table property `projection.${columnName}.range <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
+      Ignored when ``partition_projection_ignore=true``
+    -
+  * - ``partition_projection_interval``
+    - Used with ``partition_projection_type=INTEGER|DATA``.
+      Represents interval used to generate partitions within
+      given range ``partition_projection_range``
+      Mapped from AWS Athena table property `projection.${columnName}.interval <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
+      Ignored when ``partition_projection_ignore=true``
+    -
+  * - ``partition_projection_digits``
+    - Used with ``partition_projection_type=INTEGER``.
+      Number of digits to be used with integer column projection
+      Mapped from AWS Athena table property `projection.${columnName}.digits <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
+      Ignored when ``partition_projection_ignore=true``
+    -
+  * - ``partition_projection_format``
+    - Used with ``partition_projection_type=DATE``.
+      Date column projection format
+      Mapped from AWS Athena table property `projection.${columnName}.format <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
+      Ignored when ``partition_projection_ignore=true``
+    -
+  * - ``partition_projection_interval_unit``
+    - Used with ``partition_projection_type=DATA``.
+      Date column projection range interval unit
+      given in ``partition_projection_interval``
+      Mapped from AWS Athena table property `projection.${columnName}.interval.unit <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
+      Ignored when ``partition_projection_ignore=true``
     -
 
 .. _hive_special_columns:
