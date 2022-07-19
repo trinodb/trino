@@ -29,6 +29,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.function.Consumer;
 
 import static com.datastax.oss.driver.api.core.data.ByteUtils.fromHexString;
@@ -48,6 +49,7 @@ import static io.trino.tests.product.utils.QueryAssertions.assertContainsEventua
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.BOOLEAN;
 import static java.sql.JDBCType.DATE;
@@ -186,7 +188,7 @@ public class TestSelect
 
         assertThat(query)
                 .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, JAVA_OBJECT,
-                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, JAVA_OBJECT, JAVA_OBJECT,
+                        INTEGER, ARRAY, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, JAVA_OBJECT, JAVA_OBJECT,
                         VARCHAR, VARCHAR)
                 .containsOnly(
                         row("\0",
@@ -200,7 +202,7 @@ public class TestSelect
                                 "[0]",
                                 "0.0.0.0",
                                 Integer.MIN_VALUE,
-                                "[0]",
+                                Arrays.asList(0),
                                 "{\"\\u0000\":-2147483648,\"a\":0}",
                                 "[0]",
                                 Short.MIN_VALUE,
@@ -222,7 +224,7 @@ public class TestSelect
                                 "[4,5,6,7]",
                                 "255.255.255.255",
                                 Integer.MAX_VALUE,
-                                "[4,5,6]",
+                                Arrays.asList(4, 5, 6),
                                 "{\"a\":1,\"b\":2}",
                                 "[4,5,6]",
                                 Short.MAX_VALUE,
@@ -300,7 +302,7 @@ public class TestSelect
 
         assertThat(query)
                 .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, JAVA_OBJECT,
-                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, JAVA_OBJECT, JAVA_OBJECT,
+                        INTEGER, ARRAY, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, JAVA_OBJECT, JAVA_OBJECT,
                         VARCHAR, VARCHAR)
                 .containsOnly(
                         row("\0",
@@ -314,7 +316,7 @@ public class TestSelect
                                 "[0]",
                                 "0.0.0.0",
                                 Integer.MIN_VALUE,
-                                "[0]",
+                                Arrays.asList(0),
                                 "{\"\\u0000\":-2147483648,\"a\":0}",
                                 "[0]",
                                 Short.MIN_VALUE,
@@ -527,7 +529,7 @@ public class TestSelect
                 "varchar",
                 "-9223372036854775808",
                 "d2177dd0-eaa2-11de-a572-001b779c76e3",
-                "[\"list\"]",
+                Arrays.asList("list"),
                 "{\"map\":1}",
                 "[true]"));
 

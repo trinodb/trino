@@ -43,7 +43,6 @@ public final class CassandraTypes
     public static final CassandraType DOUBLE = new CassandraType(Kind.DOUBLE, DoubleType.DOUBLE);
     public static final CassandraType FLOAT = new CassandraType(Kind.FLOAT, RealType.REAL);
     public static final CassandraType INT = new CassandraType(Kind.INT, IntegerType.INTEGER);
-    public static final CassandraType LIST = new CassandraType(Kind.LIST, createUnboundedVarcharType());
     public static final CassandraType MAP = new CassandraType(Kind.MAP, createUnboundedVarcharType());
     public static final CassandraType SET = new CassandraType(Kind.SET, createUnboundedVarcharType());
     public static final CassandraType SMALLINT = new CassandraType(Kind.SMALLINT, SmallintType.SMALLINT);

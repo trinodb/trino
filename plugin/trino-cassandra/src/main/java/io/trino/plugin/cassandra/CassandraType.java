@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -97,7 +98,10 @@ public class CassandraType
 
     public String getName()
     {
-        return kind.name();
+        if (argumentTypes.size() == 0) {
+            return kind.name();
+        }
+        return format("%s<%s>", kind.name(), argumentTypes.stream().map(CassandraType::getName).collect(Collectors.joining(",")));
     }
 
     @Override

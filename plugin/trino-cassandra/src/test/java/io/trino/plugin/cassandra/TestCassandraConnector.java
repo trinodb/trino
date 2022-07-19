@@ -21,6 +21,7 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
@@ -41,6 +42,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -351,7 +353,9 @@ public class TestCassandraConnector
                     assertEquals(VARCHAR.getSlice(udtValue, 12).toStringUtf8(), "varchar");
                     assertEquals(VARCHAR.getSlice(udtValue, 13).toStringUtf8(), "-9223372036854775808");
                     assertEquals(trinoUuidToJavaUuid(UUID.getSlice(udtValue, 14)).toString(), "d2177dd0-eaa2-11de-a572-001b779c76e3");
-                    assertEquals(VARCHAR.getSlice(udtValue, 15).toStringUtf8(), "[\"list\"]");
+                    VariableWidthBlock listValueBlock = (VariableWidthBlock) udtValue.getObject(15, Block.class);
+                    assertThat(listValueBlock.getPositionCount()).isEqualTo(1);
+                    assertThat(VARCHAR.getSlice(listValueBlock, 0).toStringUtf8()).isEqualTo("list");
                     assertEquals(VARCHAR.getSlice(udtValue, 16).toStringUtf8(), "{\"map\":1}");
                     assertEquals(VARCHAR.getSlice(udtValue, 17).toStringUtf8(), "[true]");
                     SingleRowBlock tupleValueBlock = (SingleRowBlock) udtValue.getObject(18, Block.class);
@@ -420,6 +424,9 @@ public class TestCassandraConnector
                 }
                 else if (IpAddressType.IPADDRESS.equals(type)) {
                     cursor.getSlice(columnIndex);
+                }
+                else if (type instanceof ArrayType) {
+                    cursor.getObject(columnIndex);
                 }
                 else {
                     fail("Unknown primitive type " + type + " for column " + columnIndex);

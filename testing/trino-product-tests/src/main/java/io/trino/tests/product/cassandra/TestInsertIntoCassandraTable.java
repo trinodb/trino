@@ -27,6 +27,7 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
@@ -74,7 +75,7 @@ public class TestInsertIntoCassandraTable
         assertThat(queryResult).hasNoRows();
 
         // TODO Following types are not supported now. We need to change null into the value after fixing it
-        // blob, frozen<set<type>>, list<type>, map<type,type>, set<type>, decimal, varint
+        // blob, frozen<set<type>>, map<type,type>, set<type>, decimal, varint
         onTrino().executeQuery("INSERT INTO " + tableNameInDatabase +
                 "(a, b, bl, bo, d, do, dt, f, fr, i, ti, si, integer, l, m, s, t, ts, tu, u, v, vari) VALUES (" +
                 "'ascii value', " +
@@ -90,7 +91,7 @@ public class TestInsertIntoCassandraTable
                 "TINYINT '-128', " +
                 "SMALLINT '-32768', " +
                 "123, " +
-                "null, " +
+                "ARRAY[1,2,3], " +
                 "null, " +
                 "null, " +
                 "'text value', " +
@@ -113,7 +114,7 @@ public class TestInsertIntoCassandraTable
                         null,
                         "0.0.0.0",
                         123,
-                        null,
+                        Arrays.asList(1, 2, 3),
                         null,
                         null,
                         -32768,

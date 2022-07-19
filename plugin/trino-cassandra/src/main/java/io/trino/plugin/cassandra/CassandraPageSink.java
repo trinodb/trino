@@ -30,6 +30,7 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarcharType;
@@ -191,6 +192,9 @@ public class CassandraPageSink
         }
         else if (cassandraTypeManager.isIpAddressType(type)) {
             values.add(InetAddresses.forString((String) type.getObjectValue(null, block, position)));
+        }
+        else if (type instanceof ArrayType) {
+            values.add(type.getObjectValue(null, block, position));
         }
         else {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());

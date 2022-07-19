@@ -25,18 +25,23 @@ import com.datastax.oss.driver.api.core.type.MapType;
 import com.datastax.oss.driver.api.core.type.SetType;
 import com.datastax.oss.driver.api.core.type.TupleType;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
+import com.datastax.oss.driver.internal.core.type.DefaultListType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.protocol.internal.util.Bytes;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.InetAddresses;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SingleArrayBlockWriter;
 import io.trino.spi.block.SingleRowBlockWriter;
 import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
@@ -138,7 +143,10 @@ public class CassandraTypeManager
             case ProtocolConstants.DataType.INT:
                 return Optional.of(CassandraTypes.INT);
             case ProtocolConstants.DataType.LIST:
-                return Optional.of(CassandraTypes.LIST);
+                return Optional.of(new CassandraType(
+                    CassandraType.Kind.LIST,
+                        getTrinoArrayType(((DefaultListType) dataType).getElementType()),
+                        ImmutableList.of(toCassandraType(((DefaultListType) dataType).getElementType()).orElseThrow())));
             case ProtocolConstants.DataType.MAP:
                 return Optional.of(CassandraTypes.MAP);
             case ProtocolConstants.DataType.SET:
@@ -267,7 +275,7 @@ public class CassandraTypeManager
             case SET:
                 return NullableValue.of(trinoType, utf8Slice(buildArrayValueFromSetType(row, position, dataTypeSupplier.get())));
             case LIST:
-                return NullableValue.of(trinoType, utf8Slice(buildArrayValueFromListType(row, position, dataTypeSupplier.get())));
+                return NullableValue.of(trinoType, buildArrayValueFromListType(row, position, dataTypeSupplier.get()));
             case MAP:
                 return NullableValue.of(trinoType, utf8Slice(buildMapValue(row, position, dataTypeSupplier.get())));
             case TUPLE:
@@ -308,11 +316,42 @@ public class CassandraTypeManager
         return buildArrayValue((Collection<?>) row.getObject(position), setType.getElementType());
     }
 
-    private String buildArrayValueFromListType(GettableByIndex row, int position, DataType type)
+    private Block buildArrayValueFromListType(GettableByIndex row, int position, DataType type)
     {
         checkArgument(type instanceof ListType, "Expected to deal with an instance of %s class, got: %s", ListType.class, type);
         ListType listType = (ListType) type;
-        return buildArrayValue((Collection<?>) row.getObject(position), listType.getElementType());
+        ArrayType trinoArrayType = getTrinoArrayType(listType.getElementType());
+        return buildArrayValueFromCollection((Collection<?>) row.getObject(position), trinoArrayType);
+    }
+
+    private Block buildArrayValueFromCollection(Collection<?> collection, ArrayType trinoArrayType)
+    {
+        ArrayBlockBuilder blockBuilder = (ArrayBlockBuilder) trinoArrayType.createBlockBuilder(null, 1);
+        SingleArrayBlockWriter singleArrayBlockWriter = blockBuilder.beginBlockEntry();
+        for (Object value : collection) {
+            value = convertArrayValueAccordingToTrinoType(trinoArrayType.getElementType(), value);
+            writeNativeValue(trinoArrayType.getElementType(), singleArrayBlockWriter, value);
+        }
+        blockBuilder.closeEntry();
+        return trinoArrayType.getObject(blockBuilder, 0);
+    }
+
+    private Object convertArrayValueAccordingToTrinoType(Type elementType, Object value)
+    {
+        if (elementType.getJavaType() == long.class) {
+            if (value instanceof Long) {
+                return ((Long) value).longValue();
+            }
+            if (value instanceof Integer) {
+                return ((Integer) value).longValue();
+            }
+        }
+
+        if (elementType instanceof ArrayType) {
+            return buildArrayValueFromCollection((Collection<?>) value, (ArrayType) elementType);
+        }
+
+        return value;
     }
 
     @VisibleForTesting
@@ -668,6 +707,13 @@ public class CassandraTypeManager
                     CassandraType.Kind.INET,
                     ipAddressType);
         }
+        if (type instanceof ArrayType) {
+            return new CassandraType(
+                    CassandraType.Kind.LIST,
+                    type,
+                    ImmutableList.of(
+                            toCassandraType(((ArrayType) type).getElementType(), protocolVersion)));
+        }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
     }
 
@@ -702,5 +748,11 @@ public class CassandraTypeManager
         }
 
         return wrappedBuffer(bytes);
+    }
+
+    private ArrayType getTrinoArrayType(DataType elementType)
+    {
+        return new ArrayType(toCassandraType(elementType).orElseThrow()
+                .getTrinoType());
     }
 }

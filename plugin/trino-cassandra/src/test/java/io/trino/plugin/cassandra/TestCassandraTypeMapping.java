@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.cassandra.TestCassandraTable.ColumnDefinition;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -362,10 +363,41 @@ public class TestCassandraTypeMapping
     public void testCassandraList()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("list<int>", "NULL", VARCHAR, "CAST(NULL as varchar)")
-                .addRoundTrip("list<int>", "[]", VARCHAR, "CAST(NULL as varchar)")
-                .addRoundTrip("list<int>", "[17,4,2]", VARCHAR, "CAST('[17,4,2]' as varchar)")
+                .addRoundTrip("list<boolean>", "[true,false,true]", new ArrayType(BOOLEAN), "CAST(ARRAY[true,false,true] AS ARRAY<BOOLEAN>)")
+                .addRoundTrip("list<boolean>", "NULL", new ArrayType(BOOLEAN), "CAST(NULL as ARRAY<BOOLEAN>)")
+                .addRoundTrip("list<boolean>", "[]", new ArrayType(BOOLEAN), "CAST(NULL as ARRAY<BOOLEAN>)")
+                .addRoundTrip("list<int>", "NULL", new ArrayType(INTEGER), "CAST(NULL AS ARRAY<INT>)")
+                .addRoundTrip("list<int>", "[]", new ArrayType(INTEGER), "CAST(NULL AS ARRAY<INT>)")
+                .addRoundTrip("list<int>", "[17,4,2]", new ArrayType(INTEGER), "ARRAY[17,4,2]")
+                .addRoundTrip("list<double>", "NULL", new ArrayType(DOUBLE), "CAST(NULL AS ARRAY<DOUBLE>)")
+                .addRoundTrip("list<double>", "[]", new ArrayType(DOUBLE), "CAST(NULL AS ARRAY<DOUBLE>)")
+                .addRoundTrip("list<double>", "[3.1415926835,1.79769E308,2.225E-307]", new ArrayType(DOUBLE), "ARRAY[DOUBLE '3.1415926835',DOUBLE '1.79769E308',DOUBLE '2.225E-307']")
+                .addRoundTrip("list<text>", "NULL", new ArrayType(VARCHAR), "CAST(NULL AS ARRAY<VARCHAR>)")
+                .addRoundTrip("list<text>", "[]", new ArrayType(VARCHAR), "CAST(NULL AS ARRAY<VARCHAR>)")
+                .addRoundTrip("list<text>", "['text1','text2','text3']", new ArrayType(VARCHAR), "CAST(ARRAY['text1','text2','text3'] AS ARRAY<VARCHAR>)")
+                .addRoundTrip("frozen<list<list<int>>>", "[[17,4,2],[11,3,5]]", new ArrayType(new ArrayType(INTEGER)), "ARRAY[ARRAY[17,4,2],ARRAY[11,3,5]]")
                 .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_list"));
+    }
+
+    @Test
+    public void testTrinoArray()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("array<boolean>", "ARRAY[true,false,true]", new ArrayType(BOOLEAN), "CAST(ARRAY[true,false,true] AS ARRAY<BOOLEAN>)")
+                .addRoundTrip("array<boolean>", "NULL", new ArrayType(BOOLEAN), "CAST(NULL as ARRAY<BOOLEAN>)")
+                .addRoundTrip("array<boolean>", "ARRAY[]", new ArrayType(BOOLEAN), "CAST(NULL as ARRAY<BOOLEAN>)")
+                .addRoundTrip("array<int>", "NULL", new ArrayType(INTEGER), "CAST(NULL AS ARRAY<INT>)")
+                .addRoundTrip("array<int>", "ARRAY[]", new ArrayType(INTEGER), "CAST(NULL AS ARRAY<INT>)")
+                .addRoundTrip("array<int>", "ARRAY[17,4,2]", new ArrayType(INTEGER), "ARRAY[17,4,2]")
+                .addRoundTrip("array<double>", "NULL", new ArrayType(DOUBLE), "CAST(NULL AS ARRAY<DOUBLE>)")
+                .addRoundTrip("array<double>", "ARRAY[]", new ArrayType(DOUBLE), "CAST(NULL AS ARRAY<DOUBLE>)")
+                .addRoundTrip("array<double>", "ARRAY[3.1415926835,1.79769E308,2.225E-307]", new ArrayType(DOUBLE), "ARRAY[DOUBLE '3.1415926835',DOUBLE '1.79769E308',DOUBLE '2.225E-307']")
+                .addRoundTrip("array<varchar>", "NULL", new ArrayType(VARCHAR), "CAST(NULL AS ARRAY<VARCHAR>)")
+                .addRoundTrip("array<varchar>", "ARRAY[]", new ArrayType(VARCHAR), "CAST(NULL AS ARRAY<VARCHAR>)")
+                .addRoundTrip("array<varchar>", "ARRAY['text1','text2','text3']", new ArrayType(VARCHAR), "CAST(ARRAY['text1','text2','text3'] AS ARRAY<VARCHAR>)")
+                .addRoundTrip("array<array<int>>", "[[17,4,2],[11,3,5]]", new ArrayType(new ArrayType(INTEGER)), "ARRAY[ARRAY[17,4,2],ARRAY[11,3,5]]")
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_array"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_array"));
     }
 
     @Test
@@ -591,7 +623,7 @@ public class TestCassandraTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("tuple<int, text>", "NULL", anonymousRow(INTEGER, VARCHAR), "CAST(NULL AS ROW(INTEGER, VARCHAR))")
                 .addRoundTrip("tuple<int, text>", "(3, 'hours')", anonymousRow(INTEGER, VARCHAR), "CAST(ROW(3, 'hours') AS ROW(INTEGER, VARCHAR))")
-                .addRoundTrip("tuple<list<text>>", "(['Cassandra'])", anonymousRow(VARCHAR), "CAST(ROW('[\"Cassandra\"]') AS ROW(VARCHAR))")
+                .addRoundTrip("tuple<list<text>>", "(['Cassandra'])", anonymousRow(new ArrayType(VARCHAR)), "CAST(ROW(ARRAY['Cassandra']) AS ROW(ARRAY<VARCHAR>))")
                 .addRoundTrip("tuple<map<text, text>>", "({'connector':'Cassandra'})", anonymousRow(VARCHAR), "CAST(ROW('{\"connector\":\"Cassandra\"}') AS ROW(VARCHAR))")
                 .addRoundTrip("tuple<set<text>>", "({'Cassandra'})", anonymousRow(VARCHAR), "CAST(ROW('[\"Cassandra\"]') AS ROW(VARCHAR))")
                 .addRoundTrip("tuple<tuple<int, text>>", "((3, 'hours'))", anonymousRow(anonymousRow(INTEGER, VARCHAR)), "CAST(ROW(ROW(3, 'hours')) AS ROW(ROW(INTEGER, VARCHAR)))")
