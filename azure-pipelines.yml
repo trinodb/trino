@@ -23,7 +23,7 @@ steps:
   - bash: |
       cd $(Build.SourcesDirectory)/core/docker
       chmod +x ./build.sh
-      ./build.sh
+      ./build.sh -a amd64
       if [ $? -ne 0 ]; then
         echo "Docker build failed"
         exit 1
