@@ -115,7 +115,8 @@ html_title = '%s %s Documentation' % (project, release)
 
 html_logo = 'images/trino.svg'
 
-html_add_permalinks = '#'
+html_permalinks = True
+html_permalinks_icon = '#'
 html_show_copyright = False
 html_show_sphinx = False
 
