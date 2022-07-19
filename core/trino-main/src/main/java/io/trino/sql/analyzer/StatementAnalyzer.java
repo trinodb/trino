@@ -221,6 +221,7 @@ import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableFunctionArgument;
 import io.trino.sql.tree.TableFunctionDescriptorArgument;
 import io.trino.sql.tree.TableFunctionInvocation;
+import io.trino.sql.tree.TableFunctionTableArgument;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.Union;
@@ -1647,7 +1648,7 @@ class StatementAnalyzer
         private Argument analyzeArgument(ArgumentSpecification argumentSpecification, TableFunctionArgument argument)
         {
             String actualType;
-            if (argument.getValue() instanceof Relation) {
+            if (argument.getValue() instanceof TableFunctionTableArgument) {
                 actualType = "table";
             }
             else if (argument.getValue() instanceof TableFunctionDescriptorArgument) {
@@ -1661,7 +1662,7 @@ class StatementAnalyzer
             }
 
             if (argumentSpecification instanceof TableArgumentSpecification) {
-                if (!(argument.getValue() instanceof Relation)) {
+                if (!(argument.getValue() instanceof TableFunctionTableArgument)) {
                     if (argument.getValue() instanceof FunctionCall) {
                         // probably an attempt to pass a table function call, which is not supported, and was parsed as a function call
                         throw semanticException(NOT_SUPPORTED, argument, "Invalid table argument %s. Table functions are not allowed as table function arguments", argumentSpecification.getName());
