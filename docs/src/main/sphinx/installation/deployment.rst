@@ -163,10 +163,11 @@ Config properties
 ^^^^^^^^^^^^^^^^^
 
 The config properties file, ``etc/config.properties``, contains the
-configuration for the Trino server. Every Trino server can function
-as both a coordinator and a worker, but dedicating a single machine
-to only perform coordination work provides the best performance on
-larger clusters.
+configuration for the Trino server. Every Trino server can function as both a
+coordinator and a worker. A cluster is required to include one coordinator, and
+dedicating a machine to only perform coordination work provides the best
+performance on larger clusters. Scaling and parallelization is achieved by using
+many workers.
 
 The following is a minimal configuration for the coordinator:
 
@@ -175,8 +176,6 @@ The following is a minimal configuration for the coordinator:
     coordinator=true
     node-scheduler.include-coordinator=false
     http-server.http.port=8080
-    query.max-memory=50GB
-    query.max-memory-per-node=1GB
     discovery.uri=http://example.net:8080
 
 And this is a minimal configuration for the workers:
@@ -185,8 +184,6 @@ And this is a minimal configuration for the workers:
 
     coordinator=false
     http-server.http.port=8080
-    query.max-memory=50GB
-    query.max-memory-per-node=1GB
     discovery.uri=http://example.net:8080
 
 Alternatively, if you are setting up a single machine for testing, that
@@ -197,8 +194,6 @@ functions as both a coordinator and worker, use this configuration:
     coordinator=true
     node-scheduler.include-coordinator=true
     http-server.http.port=8080
-    query.max-memory=5GB
-    query.max-memory-per-node=1GB
     discovery.uri=http://example.net:8080
 
 These properties require some explanation:
@@ -218,12 +213,6 @@ These properties require some explanation:
   Specifies the port for the HTTP server. Trino uses HTTP for all
   communication, internal and external.
 
-* ``query.max-memory``:
-  The maximum amount of distributed memory, that a query may use.
-
-* ``query.max-memory-per-node``:
-  The maximum amount of user memory, that a query may use on any one machine.
-
 * ``discovery.uri``:
   The Trino coordinator has a discovery service that is used by all the nodes
   to find each other. Every Trino instance registers itself with the discovery
@@ -233,9 +222,17 @@ These properties require some explanation:
   port of the Trino coordinator. If you have disabled HTTP on the coordinator,
   the URI scheme must be ``https``, not ``http``.
 
-The above configuration properties are a minimal set to help you get started.
-Please see :doc:`/admin` and :doc:`/security` for a more comprehensive list.
-In particular, see :doc:`/admin/resource-groups` for configuring queuing policies.
+The above configuration properties are a *minimal set* to help you get started.
+All additional configuration is optional and varies widely based on the specific
+cluster and supported use cases. The :doc:`/admin` and :doc:`/security` sections
+contain documentation for many aspects, including :doc:`/admin/resource-groups`
+for configuring queuing policies and :doc:`/admin/fault-tolerant-execution`.
+
+The :doc:`/admin/properties` provides a comprehensive list of the supported
+properties for topics such as :doc:`/admin/properties-general`,
+:doc:`/admin/properties-resource-management`,
+:doc:`/admin/properties-query-management`,
+:doc:`/admin/properties-web-interface`, and others.
 
 .. _log-levels:
 
