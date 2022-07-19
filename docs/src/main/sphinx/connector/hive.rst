@@ -250,6 +250,26 @@ security options in the Hive connector.
 
 .. _hive_configuration_properties:
 
+Accessing tables with Athena partition projection metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+`Partition projection <https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html>`_
+is a feature of AWS Athena often used to speed up query processing with highly
+partitioned tables.
+
+Trino supports partition projection table properties stored in the metastore,
+and it reimplements this functionality. Currently, there is a limitation in
+comparison to AWS Athena for date projection, as it only supports intervals of
+``DAYS``, ``HOURS``, ``MINUTES``, and ``SECONDS``.
+
+If there are any compatibility issues blocking access to a requested table when
+you have partition projection enabled, you can set the
+``partition_projection_ignore`` table property to ``true`` for a table to bypass
+any errors.
+
+Refer to :ref:`hive_table_properties` and :ref:`hive_column_properties` for
+configuration of partition projection.
+
 Hive configuration properties
 -----------------------------
 
@@ -408,6 +428,8 @@ Property Name                                      Description                  
                                                    managed tables.
                                                    See the :ref:`hive_table_properties` for more information
                                                    on auto_purge.
+
+``hive.partition-projection-enabled``              Enables Athena partition projection support                     ``false``
 ================================================== ============================================================ ============
 
 ORC format configuration properties
@@ -1142,6 +1164,89 @@ See the :ref:`hive_examples` for more information.
     - Set this property to ``true`` to create an ORC ACID transactional table.
       Requires ORC format. This property may be shown as true for insert-only
       tables created using older versions of Hive.
+    -
+  * - ``partition_projection_enabled``
+    - Enables partition projection for selected table.
+      Mapped from AWS Athena table property
+      `projection.enabled <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-setting-up.html>`_.
+    -
+  * - ``partition_projection_ignore``
+    - Ignore any partition projection properties stored in the metastore for
+      the selected table. This is a Trino-only property which allows you to
+      work around compatibility issues on a specific table, and if enabled,
+      Trino ignores all other configuration options related to partition
+      projection.
+    -
+  * - ``partition_projection_location_template``
+    - Projected partition location template, such as
+      ``s3a://test/name=${name}/``. Mapped from the AWS Athena table property
+      `storage.location.template <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-setting-up.html#partition-projection-specifying-custom-s3-storage-locations>`_
+    - ``${table_location}/${partition_name}``
+
+.. _hive_column_properties:
+
+Column properties
+-----------------
+
+.. list-table:: Hive connector column properties
+  :widths: 20, 60, 20
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default
+  * - ``partition_projection_type``
+    - Defines the type of partition projection to use on this column.
+      May be used only on partition columns. Available types:
+      ``ENUM``, ``INTEGER``, ``DATE``, ``INJECTED``.
+      Mapped from the AWS Athena table property
+      `projection.${columnName}.type <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
+    -
+  * - ``partition_projection_values``
+    - Used with ``partition_projection_type`` set to ``ENUM``. Contains a static
+      list of values used to generate partitions.
+      Mapped from the AWS Athena table property
+      `projection.${columnName}.values <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
+    -
+  * - ``partition_projection_range``
+    - Used with ``partition_projection_type`` set to ``INTEGER`` or ``DATE`` to
+      define a range. It is a two-element array, describing the minimum and
+      maximum range values used to generate partitions. Generation starts from
+      the minimum, then increments by the defined
+      ``partition_projection_interval`` to the maximum. For example, the format
+      is ``['1', '4']`` for a ``partition_projection_type`` of ``INTEGER`` and
+      ``['2001-01-01', '2001-01-07']`` or ``['NOW-3DAYS', 'NOW']`` for a
+      ``partition_projection_type`` of ``DATE``. Mapped from the AWS Athena
+      table property
+      `projection.${columnName}.range <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
+    -
+  * - ``partition_projection_interval``
+    - Used with ``partition_projection_type`` set to ``INTEGER`` or ``DATE``. It
+      represents the interval used to generate partitions within
+      the given range ``partition_projection_range``. Mapped from the AWS Athena
+      table property
+      `projection.${columnName}.interval <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
+    -
+  * - ``partition_projection_digits``
+    - Used with ``partition_projection_type`` set to ``INTEGER``.
+      The number of digits to be used with integer column projection.
+      Mapped from the AWS Athena table property
+      `projection.${columnName}.digits <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
+    -
+  * - ``partition_projection_format``
+    - Used with ``partition_projection_type`` set to ``DATE``.
+      The date column projection format, defined as a string such as ``yyyy MM``
+      or ``MM-dd-yy HH:mm:ss`` for use with the
+      `Java DateTimeFormatter class <https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html>`_.
+      Mapped from the AWS Athena table property
+      `projection.${columnName}.format <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
+    -
+  * - ``partition_projection_interval_unit``
+    - Used with ``partition_projection_type=DATA``.
+      The date column projection range interval unit
+      given in ``partition_projection_interval``.
+      Mapped from the AWS Athena table property
+      `projection.${columnName}.interval.unit <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
     -
 
 .. _hive_special_columns:
