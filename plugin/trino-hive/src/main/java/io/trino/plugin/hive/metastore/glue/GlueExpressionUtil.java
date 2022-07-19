@@ -151,7 +151,7 @@ public final class GlueExpressionUtil
         // for column <> '__HIVE_DEFAULT_PARTITION__' or column = '__HIVE_DEFAULT_PARTITION__' expression on numeric types
         // "IS NULL" operator in the official documentation always returns empty result regardless of the type.
         // https://docs.aws.amazon.com/glue/latest/dg/aws-glue-api-catalog-partitions.html#aws-glue-api-catalog-partitions-GetPartitions
-        if ((domain.getValues().isAll() || domain.getValues().isNone()) && !isQuotedType(domain.getType())) {
+        if ((domain.getValues().isAll() || domain.isNullAllowed()) && !isQuotedType(domain.getType())) {
             return Optional.empty();
         }
 
