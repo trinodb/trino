@@ -28,6 +28,7 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
@@ -40,6 +41,7 @@ import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SupportsNamespaces;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.util.PropertyUtil;
 
@@ -148,16 +150,14 @@ public class TrinoHadoopCatalog
     @Override
     public List<String> listNamespaces(ConnectorSession session)
     {
-        return getNamespaceCatalog(session).listNamespaces().stream().map((namespace) -> {
-            return namespace.toString();
-        }).collect(Collectors.toList());
+        return getNamespaceCatalog(session).listNamespaces().stream().map(Object::toString).collect(Collectors.toList());
     }
 
     @Override
     public void dropNamespace(ConnectorSession session, String namespace)
     {
         SupportsNamespaces catalog = getNamespaceCatalog(session);
-        catalog.dropNamespace(catalog.listNamespaces().stream().filter(_namespace -> _namespace.toString() == namespace).findAny().orElse(null));
+        catalog.dropNamespace(catalog.listNamespaces().stream().filter(_namespace -> namespace.equals(_namespace.toString())).findAny().orElse(null));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -170,7 +170,7 @@ public class TrinoHadoopCatalog
     @Override
     public Optional<TrinoPrincipal> getNamespacePrincipal(ConnectorSession session, String namespace)
     {
-        throw new TrinoException(NOT_SUPPORTED, "setNamespacePrincipal is not supported by " + getCatalog(session).name());
+        throw new TrinoException(NOT_SUPPORTED, "getNamespacePrincipal is not supported by " + getCatalog(session).name());
     }
 
     @Override
@@ -194,15 +194,14 @@ public class TrinoHadoopCatalog
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
     {
-        return getCatalog(session).listTables(Namespace.of(namespace.orElseThrow())).stream().map(tableIdentifier -> {
-            return schemaFromTableId(tableIdentifier);
-        }).collect(Collectors.toList());
+        return getCatalog(session).listTables(Namespace.of(namespace.orElseThrow())).stream().map(tableIdentifier -> schemaFromTableId(tableIdentifier)).collect(Collectors.toList());
     }
 
     @Override
     public Transaction newCreateTableTransaction(ConnectorSession session, SchemaTableName schemaTableName, Schema schema, PartitionSpec partitionSpec, String location, Map<String, String> properties)
     {
-        return getCatalog(session).newCreateTableTransaction(toTableId(schemaTableName), schema, partitionSpec, location, properties);
+        // Location cannot be specified for hadoop tables.
+        return getCatalog(session).newCreateTableTransaction(toTableId(schemaTableName), schema, partitionSpec, null, properties);
     }
 
     @Override
@@ -220,7 +219,13 @@ public class TrinoHadoopCatalog
     @Override
     public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return getCatalog(session).loadTable(toTableId(schemaTableName));
+        try {
+            return getCatalog(session).loadTable(toTableId(schemaTableName));
+        }
+        catch (NoSuchTableException e) {
+            // Have to change exception types due to code relying on specific exception to be thrown.
+            throw new TableNotFoundException(schemaTableName);
+        }
     }
 
     @Override
