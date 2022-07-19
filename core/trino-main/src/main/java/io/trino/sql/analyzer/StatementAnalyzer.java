@@ -1494,7 +1494,6 @@ class StatementAnalyzer
 
             Map<String, Argument> passedArguments = analyzeArguments(node, function.getArguments(), node.getArguments());
 
-            // a call to getRequiredCatalogHandle() is necessary so that the catalog is recorded by the TransactionManager
             ConnectorTransactionHandle transactionHandle = transactionManager.getConnectorTransaction(session.getRequiredTransactionId(), catalogName);
             TableFunctionAnalysis functionAnalysis = function.analyze(session.toConnectorSession(catalogName), transactionHandle, passedArguments);
             analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(catalogName, function.getName(), passedArguments, functionAnalysis.getHandle(), transactionHandle));
