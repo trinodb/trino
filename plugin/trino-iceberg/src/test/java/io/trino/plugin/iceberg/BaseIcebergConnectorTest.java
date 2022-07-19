@@ -4363,6 +4363,17 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("DROP TABLE %s", tableName));
     }
 
+    @Test
+    public void testInsertingIntoTablesWithColumnsWithQuotesInName()
+    {
+        String tableName = "test_inserting_into_tables_with_quotes_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (\"an identifier with \"\"quotes\"\" \" INTEGER, x row (\"another identifier\" INTEGER))", tableName));
+        assertUpdate(format("INSERT INTO %s VALUES (1, row(11))", tableName), 1);
+        assertThat(query(format("SELECT * FROM %s", tableName)))
+                .matches("VALUES (INTEGER '1', CAST(ROW(11) AS ROW(\"another identifier\"INTEGER)))");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Override
     protected OptionalInt maxTableNameLength()
     {
