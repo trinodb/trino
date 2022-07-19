@@ -236,7 +236,7 @@ public class IcebergPageSource
             positionDeleteSink = positionDeleteSinkSupplier.get();
             verify(positionDeleteSink != null);
         }
-        positionDeleteSink.appendPage(new Page(rowIds));
+        positionDeleteSink.appendPage(new Page(rowIds)).join();
     }
 
     @Override
@@ -255,7 +255,7 @@ public class IcebergPageSource
         }
 
         ColumnarRow rowIdColumns = ColumnarRow.toColumnarRow(page.getBlock(rowIdChannel));
-        positionDeleteSink.appendPage(new Page(rowIdColumns.getField(0)));
+        positionDeleteSink.appendPage(new Page(rowIdColumns.getField(0))).join();
 
         List<Types.NestedField> columns = schema.columns();
         Block[] fullPage = new Block[columns.size()];
@@ -272,7 +272,7 @@ public class IcebergPageSource
             }
         }
 
-        updatedRowPageSink.appendPage(new Page(page.getPositionCount(), fullPage));
+        updatedRowPageSink.appendPage(new Page(page.getPositionCount(), fullPage)).join();
     }
 
     @Override

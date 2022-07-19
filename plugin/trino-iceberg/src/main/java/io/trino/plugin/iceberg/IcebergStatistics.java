@@ -288,6 +288,7 @@ final class IcebergStatistics
 
         /**
          * Gets the minimum value accumulated during stats collection.
+         *
          * @return Empty if the statistics contained values which were not comparable, otherwise returns the min value.
          */
         public Optional<Object> getMin()
@@ -297,6 +298,7 @@ final class IcebergStatistics
 
         /**
          * Gets the maximum value accumulated during stats collection.
+         *
          * @return Empty if the statistics contained values which were not comparable, otherwise returns the max value.
          */
         public Optional<Object> getMax()
@@ -305,12 +307,13 @@ final class IcebergStatistics
         }
 
         /**
+         * Update the stats, as long as they haven't already been invalidated
+         *
          * @param lowerBound Trino encoded lower bound value from a file
          * @param upperBound Trino encoded upper bound value from a file
          */
         public void updateMinMax(Object lowerBound, Object upperBound)
         {
-            // Update the stats, as long as they haven't already been invalidated
             if (min.isPresent()) {
                 if (lowerBound == null) {
                     min = Optional.empty();
