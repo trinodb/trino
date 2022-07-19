@@ -116,7 +116,7 @@ public class TestHiveConfig
                 .setDeltaLakeCatalogName(null)
                 .setAutoPurge(false)
                 .setPartitionProjectionEnabled(false)
-                .setPartitionExecutionMinPartitions(0);
+                .setPartitionExecutionMinPartitions(0));
     }
 
     @Test
