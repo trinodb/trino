@@ -153,6 +153,20 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- ... this one is not Trino SPI -->
+        <dependency>
+            <!--
+              TODO(https://github.com/trinodb/trino/issues/13051): convert this back into normal dependency
+              The Phoenix code actually comes from trino-phoenix5-patched dependency, but IntelliJ does not support multi-module
+              projects with module using shading (as trino-phoenix5-patched does). See e.g. https://youtrack.jetbrains.com/issue/IDEA-266746
+              This dependency is here only to fool IntelliJ into compiling the project. -->
+            <groupId>org.apache.phoenix</groupId>
+            <artifactId>phoenix-client-embedded-hbase-2.2</artifactId>
+            <version>5.1.2</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+
         <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
@@ -386,20 +400,28 @@
                     </ignoredDependencies>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                <ignoredNonTestScopedDependencies>
+                    <!-- TODO(https://github.com/trinodb/trino/issues/13051): remove this -->
+                    <ignoredDependency>org.apache.phoenix:phoenix-client-embedded-hbase-2.2</ignoredDependency>
+                </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-maven-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <allowedProvidedDependencies>
+                        <!-- TODO(https://github.com/trinodb/trino/issues/13051): remove this -->
+                        <id>org.apache.phoenix:phoenix-client-embedded-hbase-2.2</id>
+                    </allowedProvidedDependencies>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
-
-    <!-- TODO(https://github.com/trinodb/trino/issues/13051): Remove, this is a workaround for errorprone which can't see shaded jar produced in package phase -->
-    <profiles>
-        <profile>
-            <id>errorprone-compiler</id>
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.phoenix</groupId>
-                    <artifactId>phoenix-client-embedded-hbase-2.2</artifactId>
-                    <version>5.1.2</version>
-                </dependency>
-            </dependencies>
-        </profile>
-    </profiles>
 </project>
