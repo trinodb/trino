@@ -26,7 +26,6 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.starburstdata.presto.query.StarburstQueryAssertions.newQueryAssertions;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -69,7 +68,7 @@ public final class SqlDataTypeTest
     private void verifySelect(QueryRunner queryRunner, Session session, TestTable testTable)
     {
         @SuppressWarnings("resource") // Closing QueryAssertions would close the QueryRunner
-        QueryAssertions queryAssertions = newQueryAssertions(queryRunner);
+        QueryAssertions queryAssertions = new QueryAssertions(queryRunner);
 
         // Build a list of columns as Salesforce does not respect the column order in the DDL when running select *
         String columns = IntStream.range(0, testCases.size())
@@ -109,7 +108,7 @@ public final class SqlDataTypeTest
         }
 
         @SuppressWarnings("resource") // Closing QueryAssertions would close the QueryRunner
-        QueryAssertions queryAssertions = newQueryAssertions(queryRunner);
+        QueryAssertions queryAssertions = new QueryAssertions(queryRunner);
 
         for (int column = 0; column < testCases.size(); column++) {
             assertThat(queryAssertions.query(session, "SELECT 'found' FROM " + testTable.getName() + "__c WHERE " + getPredicate(column)))
