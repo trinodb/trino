@@ -253,9 +253,6 @@ public final class LikeFunctions
             return matcher.matchInterruptible(at, range, Option.NONE);
         }
         catch (InterruptedException interruptedException) {
-            // The JONI library is compliant with the InterruptedException contract. They reset the interrupted flag before throwing an exception.
-            // Since the InterruptedException is being caught the interrupt flag must either be recovered or the thread must be terminated.
-            // Since we are simply throwing a different exception, the interrupt flag must be recovered to propagate the interrupted status to the upper level code.
             Thread.currentThread().interrupt();
             throw new TrinoException(GENERIC_USER_ERROR, "" +
                     "Regular expression matching was interrupted, likely because it took too long. " +
