@@ -134,6 +134,7 @@ import static io.trino.SystemSessionProperties.getWriterMinSize;
 import static io.trino.connector.CatalogName.isInternalSystemConnector;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
 import static io.trino.execution.QueryState.FINISHING;
+import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.SqlStage.createSqlStage;
 import static io.trino.execution.scheduler.PipelinedStageExecution.createPipelinedStageExecution;
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
@@ -940,9 +941,6 @@ public class SqlQueryScheduler
                     if (queryStateMachine.isDone()) {
                         return;
                     }
-                    if (queryStateMachine.getQueryState() == QueryState.STARTING && (state == RUNNING || state.isDone())) {
-                        queryStateMachine.transitionToRunning();
-                    }
                     // if any coordinator stage failed transition directly to failure
                     if (state == FAILED) {
                         RuntimeException failureCause = stageExecution.getFailureCause()
@@ -1042,6 +1040,9 @@ public class SqlQueryScheduler
                         ImmutableMultimap.of());
                 stageExecution.schedulingComplete();
                 remoteTask.ifPresent(task -> coordinatorTaskManager.addSourceTaskFailureListener(task.getTaskId(), failureReporter));
+                if (queryStateMachine.getQueryState() == STARTING && remoteTask.isPresent()) {
+                    queryStateMachine.transitionToRunning();
+                }
             }
         }
 
@@ -1541,9 +1542,6 @@ public class SqlQueryScheduler
                     if (!state.canScheduleMoreTasks()) {
                         dynamicFilterService.stageCannotScheduleMoreTasks(stageExecution.getStageId(), stageExecution.getAttemptId(), numberOfTasks);
                     }
-                    if (numberOfTasks != 0) {
-                        stateMachine.transitionToRunning();
-                    }
                     if (state == FAILED) {
                         RuntimeException failureCause = stageExecution.getFailureCause()
                                 .map(ExecutionFailureInfo::toException)
@@ -1576,6 +1574,10 @@ public class SqlQueryScheduler
                         // perform some scheduling work
                         ScheduleResult result = stageSchedulers.get(stageExecution.getStageId())
                                 .schedule();
+
+                        if (stateMachine.getState() == DistributedStagesSchedulerState.PLANNED && stageExecution.getAllTasks().size() > 0) {
+                            stateMachine.transitionToRunning();
+                        }
 
                         // modify parent and children based on the results of the scheduling
                         if (result.isFinished()) {
