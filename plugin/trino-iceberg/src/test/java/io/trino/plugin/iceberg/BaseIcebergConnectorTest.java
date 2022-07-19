@@ -88,10 +88,8 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
-import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -105,7 +103,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -3090,42 +3087,6 @@ public abstract class BaseIcebergConnectorTest
                                 ")");
 
         assertUpdate("DROP TABLE test_all_types");
-    }
-
-    @Test(timeOut = 25_000)
-    public void testLocalDynamicFilteringWithSelectiveBuildSideJoin()
-    {
-        // We need to prepare tables for this test. The test is required to use tables that are backed by at lest two files
-        Session session = Session.builder(getSession())
-                .setSystemProperty(TASK_WRITER_COUNT, "2")
-                .build();
-        getQueryRunner().execute(session, format("CREATE TABLE IF NOT EXISTS %s AS SELECT * FROM %s", "linetime_multiple_file_backed", "tpch.tiny.lineitem")).getMaterializedRows();
-        getQueryRunner().execute(session, format("CREATE TABLE IF NOT EXISTS %s AS SELECT * FROM %s", "orders_multiple_file_backed", "tpch.tiny.orders")).getMaterializedRows();
-
-        long fullTableScan = (Long) computeActual("SELECT count(*) FROM linetime_multiple_file_backed").getOnlyValue();
-        // Pick a value for totalprice where file level stats will not be able to filter out any data
-        // This assumes the totalprice ranges in every file have some overlap, otherwise this test will fail.
-        MaterializedRow range = getOnlyElement(computeActual("SELECT max(lower_bounds[4]), min(upper_bounds[4]) FROM \"orders_multiple_file_backed$files\"").getMaterializedRows());
-        double totalPrice = (Double) computeActual(format(
-                "SELECT totalprice FROM orders_multiple_file_backed WHERE totalprice > %s AND totalprice < %s LIMIT 1",
-                range.getField(0),
-                range.getField(1)))
-                .getOnlyValue();
-
-        session = Session.builder(getSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
-                .setCatalogSessionProperty(ICEBERG_CATALOG, "dynamic_filtering_wait_timeout", "1h")
-                .build();
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                session,
-                "SELECT * FROM linetime_multiple_file_backed JOIN orders_multiple_file_backed ON linetime_multiple_file_backed.orderkey = orders_multiple_file_backed.orderkey AND orders_multiple_file_backed.totalprice = " + totalPrice);
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(
-                result.getQueryId(),
-                new QualifiedObjectName(ICEBERG_CATALOG, "tpch", "linetime_multiple_file_backed"));
-
-        // Assert some lineitem rows were filtered out on file level
-        assertThat(probeStats.getInputPositions()).isLessThan(fullTableScan);
     }
 
     @Test(dataProvider = "repartitioningDataProvider")
