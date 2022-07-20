@@ -19,7 +19,7 @@ import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
+import static io.trino.util.Reflection.methodHandle;
 import static java.util.Collections.emptyList;
 
 public class TestProcedure
