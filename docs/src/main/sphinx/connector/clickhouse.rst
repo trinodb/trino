@@ -162,32 +162,141 @@ in create table statement. ``ReplicatedMergeTree`` engine is not yet supported.
 Type mapping
 ------------
 
-The data type mappings are as follows:
+Because Trino and ClickHouse each support types that the other does not, this
+connector modifies some types when reading or writing data. Data types may not
+map the same way in both directions between Trino and the data source. Refer to
+the following sections for type mapping in each direction.
 
-================= ================= ===================================================================================================
-ClickHouse        Trino             Notes
-================= ================= ===================================================================================================
-``Int8``          ``TINYINT``       ``TINYINT``, ``BOOL``, ``BOOLEAN`` and ``INT1`` are aliases of ``Int8``
-``Int16``         ``SMALLINT``      ``SMALLINT`` and ``INT2`` are aliases of ``Int16``
-``Int32``         ``INTEGER``       ``INT``, ``INT4`` and ``INTEGER`` are aliases of ``Int32``
-``Int64``         ``BIGINT``        ``BIGINT`` is an alias of ``Int64``
-``UInt8``         ``SMALLINT``
-``UInt16``        ``INTEGER``
-``UInt32``        ``BIGINT``
-``UInt64``        ``DECIMAL(20,0)``
-``Float32``       ``REAL``          ``FLOAT`` is an alias of ``Float32``
-``Float64``       ``DOUBLE``        ``DOUBLE`` is an alias of ``Float64``
-``Decimal``       ``DECIMAL``
-``FixedString``   ``VARBINARY``     Enabling ``clickhouse.map-string-as-varchar`` config property changes the mapping to ``VARCHAR``
-``String``        ``VARBINARY``     Enabling ``clickhouse.map-string-as-varchar`` config property changes the mapping to ``VARCHAR``
-``Date``          ``DATE``
-``DateTime``      ``TIMESTAMP``
-``IPv4``          ``IPADDRESS``
-``IPv6``          ``IPADDRESS``
-``Enum8``         ``VARCHAR``
-``Enum16``        ``VARCHAR``
-``UUID``          ``UUID``
-================= ================= ===================================================================================================
+ClickHouse type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps ClickHouse types to the corresponding Trino types following this table:
+
+.. list-table:: ClickHouse type to Trino type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - ClickHouse database type
+    - Trino type
+    - Notes
+  * - ``Int8``
+    - ``TINYINT``
+    - ``TINYINT``, ``BOOL``, ``BOOLEAN`` and ``INT1`` are aliases of ``Int8``
+  * - ``Int16``
+    - ``SMALLINT``
+    - ``SMALLINT`` and ``INT2`` are aliases of ``Int16``
+  * - ``Int32``
+    - ``INTEGER``
+    - ``INT``, ``INT4`` and ``INTEGER`` are aliases of ``Int32``
+  * - ``Int64``
+    - ``BIGINT``
+    - ``BIGINT`` is an alias of ``Int64``
+  * - ``UInt8``
+    - ``SMALLINT``
+    -
+  * - ``UInt16``
+    - ``INTEGER``
+    -
+  * - ``UInt32``
+    - ``BIGINT``
+    -
+  * - ``UInt64``
+    - ``DECIMAL(20,0)``
+    -
+  * - ``Float32``
+    - ``REAL``
+    - ``FLOAT`` is an alias of ``Float32``
+  * - ``Float64``
+    - ``DOUBLE``
+    - ``DOUBLE`` is an alias of ``Float64``
+  * - ``Decimal``
+    - ``DECIMAL``
+    -
+  * - ``FixedString``
+    - ``VARBINARY``
+    - Enabling ``clickhouse.map-string-as-varchar`` config property changes the mapping to ``VARCHAR``
+  * - ``TIMESTAMP``
+    - ``DateTime``
+    -
+  * - ``String``
+    - ``VARBINARY``
+    - Enabling ``clickhouse.map-string-as-varchar`` config property changes the mapping to ``VARCHAR``
+  * - ``Date``
+    - ``DATE``
+    -
+  * - ``DateTime``
+    - ``TIMESTAMP``
+    -
+  * - ``IPv4``
+    - ``IPADDRESS``
+    -
+  * - ``IPv6``
+    - ``IPADDRESS``
+    -
+  * - ``Enum8``
+    - ``VARCHAR``
+    -
+  * - ``Enum16``
+    - ``VARCHAR``
+    -
+  * - ``UUID``
+    - ``UUID``
+    -
+
+Trino type to ClickHouse type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding ClickHouse types following this table:
+
+.. list-table:: Trino type to ClickHouse type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - Trino type
+    - ClickHouse type
+    - Notes
+  * - ``BOOLEAN``
+    - ``UInt8``
+    -
+  * - ``TINYINT``
+    - ``Int8``
+    -
+  * - ``SMALLINT``
+    - ``Int16``
+    -
+  * - ``INTEGER``
+    - ``Int32``
+    -
+  * - ``BIGINT``
+    - ``Int64``
+    -
+  * - ``REAL``
+    - ``Float32``
+    -
+  * - ``DOUBLE``
+    - ``Float64``
+    -
+  * - ``DECIMAL``
+    - ``DECIMAL``
+    -
+  * - ``CHAR``
+    - ``String``
+    -
+  * - ``VARCHAR``
+    - ``String``
+    -
+  * - ``VARBINARY``
+    - ``String``
+    -
+  * - ``DATE``
+    - ``Date``
+    -
+  * - ``TIMESTAMP``
+    - ``DateTime``
+    -
+  * - ``UUID``
+    - ``UUID``
+    -
 
 .. include:: jdbc-type-mapping.fragment
 
