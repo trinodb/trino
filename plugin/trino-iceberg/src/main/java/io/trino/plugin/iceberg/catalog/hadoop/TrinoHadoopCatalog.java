@@ -224,7 +224,7 @@ public class TrinoHadoopCatalog
         }
         catch (NoSuchTableException e) {
             // Have to change exception types due to code relying on specific exception to be thrown.
-            throw new TableNotFoundException(schemaTableName);
+            throw new TableNotFoundException(schemaTableName, e);
         }
     }
 
