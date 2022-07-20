@@ -22,7 +22,6 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
@@ -56,13 +55,12 @@ public class IntPositionsAppender
     }
 
     @Override
+    // TODO: Make PositionsAppender work performant with different block types (https://github.com/trinodb/trino/issues/13267)
     public void append(IntArrayList positions, Block block)
     {
         if (positions.isEmpty()) {
             return;
         }
-        // performance of this method depends on block being always the same, flat type
-        checkArgument(block instanceof IntArrayBlock);
         int[] positionArray = positions.elements();
         int positionsSize = positions.size();
         ensureCapacity(positionCount + positionsSize);
