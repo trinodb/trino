@@ -20,8 +20,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.util.Reflection.methodHandle;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestProcedureCreation
