@@ -34,13 +34,13 @@ public class TestingExchangeManager
     }
 
     @Override
-    public Exchange createExchange(ExchangeContext context, int outputPartitionCount)
+    public Exchange createExchange(ExchangeContext context, int outputPartitionCount, boolean preserveOrderWithinPartition)
     {
         return new TestingExchange(splitPartitionsEnabled);
     }
 
     @Override
-    public ExchangeSink createSink(ExchangeSinkInstanceHandle handle, boolean preserveRecordsOrder)
+    public ExchangeSink createSink(ExchangeSinkInstanceHandle handle)
     {
         throw new UnsupportedOperationException();
     }
