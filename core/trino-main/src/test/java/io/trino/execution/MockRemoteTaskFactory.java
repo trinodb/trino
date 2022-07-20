@@ -81,7 +81,6 @@ import static io.trino.execution.StateMachine.StateChangeListener;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -121,7 +120,6 @@ public class MockRemoteTaskFactory
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(sourceId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
-                ungroupedExecution(),
                 StatsAndCosts.empty(),
                 Optional.empty());
 
@@ -129,7 +127,7 @@ public class MockRemoteTaskFactory
         for (Split sourceSplit : splits) {
             initialSplits.put(sourceId, sourceSplit);
         }
-        return createRemoteTask(TEST_SESSION, taskId, newNode, testFragment, initialSplits.build(), createInitialEmptyOutputBuffers(BROADCAST), partitionedSplitCountTracker, ImmutableSet.of(), true);
+        return createRemoteTask(TEST_SESSION, taskId, newNode, testFragment, initialSplits.build(), createInitialEmptyOutputBuffers(BROADCAST), partitionedSplitCountTracker, ImmutableSet.of(), Optional.empty(), true);
     }
 
     @Override
@@ -142,6 +140,7 @@ public class MockRemoteTaskFactory
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             Set<DynamicFilterId> outboundDynamicFilterIds,
+            Optional<DataSize> estimatedMemory,
             boolean summarizeTaskInfo)
     {
         return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, partitionedSplitCountTracker);
@@ -253,11 +252,11 @@ public class MockRemoteTaskFactory
                             state,
                             location,
                             nodeId,
-                            ImmutableSet.of(),
                             failures,
                             0,
                             0,
                             isOutputBufferOverUtilized,
+                            DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
@@ -270,6 +269,7 @@ public class MockRemoteTaskFactory
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
                     taskContext.getTaskStats(),
+                    Optional.empty(),
                     true);
         }
 
@@ -285,13 +285,13 @@ public class MockRemoteTaskFactory
                     taskStateMachine.getState(),
                     location,
                     nodeId,
-                    ImmutableSet.of(),
                     ImmutableList.of(),
                     queuedSplitsInfo.getCount(),
                     combinedSplitsInfo.getCount() - queuedSplitsInfo.getCount(),
                     isOutputBufferOverUtilized,
                     stats.getPhysicalWrittenDataSize(),
                     stats.getUserMemoryReservation(),
+                    stats.getPeakUserMemoryReservation(),
                     stats.getRevocableMemoryReservation(),
                     0,
                     new Duration(0, MILLISECONDS),
@@ -395,12 +395,6 @@ public class MockRemoteTaskFactory
             if (allSourcesComplete) {
                 taskStateMachine.finished();
             }
-        }
-
-        @Override
-        public void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan)
-        {
-            throw new UnsupportedOperationException();
         }
 
         @Override

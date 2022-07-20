@@ -19,10 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.trino.execution.ExecutionFailureInfo;
-import io.trino.execution.Lifespan;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.SqlStage;
 import io.trino.execution.StageId;
@@ -49,7 +47,6 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +59,6 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -112,7 +108,6 @@ public class PipelinedStageExecution
     private final Map<PlanFragmentId, OutputBufferManager> outputBufferManagers;
     private final TaskLifecycleListener taskLifecycleListener;
     private final FailureDetector failureDetector;
-    private final Executor executor;
     private final Optional<int[]> bucketToPartition;
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
     private final int attempt;
@@ -134,10 +129,6 @@ public class PipelinedStageExecution
     private final Set<PlanFragmentId> completeSourceFragments = new HashSet<>();
     @GuardedBy("this")
     private final Set<PlanNodeId> completeSources = new HashSet<>();
-
-    // lifespan tracking
-    private final Set<Lifespan> completedDriverGroups = new HashSet<>();
-    private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
 
     public static PipelinedStageExecution createPipelinedStageExecution(
             SqlStage stage,
@@ -161,7 +152,6 @@ public class PipelinedStageExecution
                 outputBufferManagers,
                 taskLifecycleListener,
                 failureDetector,
-                executor,
                 bucketToPartition,
                 exchangeSources.buildOrThrow(),
                 attempt);
@@ -175,7 +165,6 @@ public class PipelinedStageExecution
             Map<PlanFragmentId, OutputBufferManager> outputBufferManagers,
             TaskLifecycleListener taskLifecycleListener,
             FailureDetector failureDetector,
-            Executor executor,
             Optional<int[]> bucketToPartition,
             Map<PlanFragmentId, RemoteSourceNode> exchangeSources,
             int attempt)
@@ -185,7 +174,6 @@ public class PipelinedStageExecution
         this.outputBufferManagers = ImmutableMap.copyOf(requireNonNull(outputBufferManagers, "outputBufferManagers is null"));
         this.taskLifecycleListener = requireNonNull(taskLifecycleListener, "taskLifecycleListener is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
-        this.executor = requireNonNull(executor, "executor is null");
         this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
         this.exchangeSources = ImmutableMap.copyOf(requireNonNull(exchangeSources, "exchangeSources is null"));
         this.attempt = attempt;
@@ -215,12 +203,6 @@ public class PipelinedStageExecution
     public void addStateChangeListener(StateChangeListener<State> stateChangeListener)
     {
         stateMachine.addStateChangeListener(stateChangeListener);
-    }
-
-    @Override
-    public void addCompletedDriverGroupsChangedListener(Consumer<Set<Lifespan>> newlyCompletedDriverGroupConsumer)
-    {
-        completedLifespansChangeListeners.addListener(newlyCompletedDriverGroupConsumer);
     }
 
     @Override
@@ -310,8 +292,7 @@ public class PipelinedStageExecution
     public synchronized Optional<RemoteTask> scheduleTask(
             InternalNode node,
             int partition,
-            Multimap<PlanNodeId, Split> initialSplits,
-            Multimap<PlanNodeId, Lifespan> noMoreSplitsForLifespan)
+            Multimap<PlanNodeId, Split> initialSplits)
     {
         if (stateMachine.getState().isDone()) {
             return Optional.empty();
@@ -328,8 +309,8 @@ public class PipelinedStageExecution
                 bucketToPartition,
                 outputBuffers,
                 initialSplits,
-                ImmutableMultimap.of(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                Optional.empty());
 
         if (optionalTask.isEmpty()) {
             return Optional.empty();
@@ -351,11 +332,9 @@ public class PipelinedStageExecution
         allTasks.add(task.getTaskId());
 
         task.addSplits(exchangeSplits.build());
-        noMoreSplitsForLifespan.forEach(task::noMoreSplits);
         completeSources.forEach(task::noMoreSplits);
 
         task.addStateChangeListener(this::updateTaskStatus);
-        task.addStateChangeListener(this::updateCompletedDriverGroups);
 
         task.start();
 
@@ -415,23 +394,6 @@ public class PipelinedStageExecution
                 stateMachine.transitionToFinished();
             }
         }
-    }
-
-    private synchronized void updateCompletedDriverGroups(TaskStatus taskStatus)
-    {
-        // Sets.difference returns a view.
-        // Once we add the difference into `completedDriverGroups`, the view will be empty.
-        // `completedLifespansChangeListeners.invoke` happens asynchronously.
-        // As a result, calling the listeners before updating `completedDriverGroups` doesn't make a difference.
-        // That's why a copy must be made here.
-        Set<Lifespan> newlyCompletedDriverGroups = ImmutableSet.copyOf(Sets.difference(taskStatus.getCompletedDriverGroups(), this.completedDriverGroups));
-        if (newlyCompletedDriverGroups.isEmpty()) {
-            return;
-        }
-        completedLifespansChangeListeners.invoke(newlyCompletedDriverGroups, executor);
-        // newlyCompletedDriverGroups is a view.
-        // Making changes to completedDriverGroups will change newlyCompletedDriverGroups.
-        completedDriverGroups.addAll(newlyCompletedDriverGroups);
     }
 
     private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
@@ -569,7 +531,7 @@ public class PipelinedStageExecution
         // Fetch the results from the buffer assigned to the task based on id
         URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
         URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().getPartitionId())).build();
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(new DirectExchangeInput(sourceTask.getTaskId(), splitLocation.toString())), Lifespan.taskWide());
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(new DirectExchangeInput(sourceTask.getTaskId(), splitLocation.toString())));
     }
 
     private static class PipelinedStageStateMachine
@@ -663,26 +625,6 @@ public class PipelinedStageExecution
         public void addStateChangeListener(StateChangeListener<State> stateChangeListener)
         {
             state.addStateChangeListener(stateChangeListener);
-        }
-    }
-
-    private static class ListenerManager<T>
-    {
-        private final List<Consumer<T>> listeners = new ArrayList<>();
-        private boolean frozen;
-
-        public synchronized void addListener(Consumer<T> listener)
-        {
-            checkState(!frozen, "Listeners have been invoked");
-            listeners.add(listener);
-        }
-
-        public synchronized void invoke(T payload, Executor executor)
-        {
-            frozen = true;
-            for (Consumer<T> listener : listeners) {
-                executor.execute(() -> listener.accept(payload));
-            }
         }
     }
 }

@@ -16,8 +16,8 @@ package io.trino.execution.scheduler.policy;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExecutionFailureInfo;
-import io.trino.execution.Lifespan;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.StageId;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -40,10 +40,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.execution.scheduler.StageExecution.State.ABORTED;
 import static io.trino.execution.scheduler.StageExecution.State.FINISHED;
 import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
@@ -66,7 +64,7 @@ public class TestPhasedExecutionSchedule
             createTestMetadataManager(),
             createTestingFunctionManager(),
             new TypeOperators(),
-            newDirectExecutorService());
+            new DynamicFilterConfig());
 
     @Test
     public void testPartitionedJoin()
@@ -306,12 +304,6 @@ public class TestPhasedExecutionSchedule
         }
 
         @Override
-        public void addCompletedDriverGroupsChangedListener(Consumer<Set<Lifespan>> newlyCompletedDriverGroupConsumer)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public TaskLifecycleListener getTaskLifecycleListener()
         {
             throw new UnsupportedOperationException();
@@ -348,7 +340,7 @@ public class TestPhasedExecutionSchedule
         }
 
         @Override
-        public Optional<RemoteTask> scheduleTask(InternalNode node, int partition, Multimap<PlanNodeId, Split> initialSplits, Multimap<PlanNodeId, Lifespan> noMoreSplitsForLifespan)
+        public Optional<RemoteTask> scheduleTask(InternalNode node, int partition, Multimap<PlanNodeId, Split> initialSplits)
         {
             throw new UnsupportedOperationException();
         }

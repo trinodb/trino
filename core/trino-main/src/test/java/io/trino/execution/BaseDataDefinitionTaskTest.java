@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
@@ -44,6 +45,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
@@ -110,12 +112,10 @@ public abstract class BaseDataDefinitionTaskTest
         testSession = testSessionBuilder().build();
         metadata = new MockMetadata(new CatalogName(CATALOG_NAME));
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
-        materializedViewPropertyManager = new MaterializedViewPropertyManager();
-        materializedViewPropertyManager.addProperties(
-                new CatalogName(CATALOG_NAME),
-                ImmutableList.of(
-                        longProperty(MATERIALIZED_VIEW_PROPERTY_1_NAME, "property 1", MATERIALIZED_VIEW_PROPERTY_1_DEFAULT_VALUE, false),
-                        stringProperty(MATERIALIZED_VIEW_PROPERTY_2_NAME, "property 2", MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE, false)));
+        Map<String, PropertyMetadata<?>> properties = ImmutableMap.of(
+                MATERIALIZED_VIEW_PROPERTY_1_NAME, longProperty(MATERIALIZED_VIEW_PROPERTY_1_NAME, "property 1", MATERIALIZED_VIEW_PROPERTY_1_DEFAULT_VALUE, false),
+                MATERIALIZED_VIEW_PROPERTY_2_NAME, stringProperty(MATERIALIZED_VIEW_PROPERTY_2_NAME, "property 2", MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE, false));
+        materializedViewPropertyManager = new MaterializedViewPropertyManager(CatalogServiceProvider.singleton(new CatalogName(CATALOG_NAME), properties));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
     }
 
@@ -389,6 +389,33 @@ public abstract class BaseDataDefinitionTaskTest
             SchemaTableName oldViewName = source.asSchemaTableName();
             views.put(target.asSchemaTableName(), verifyNotNull(views.get(oldViewName), "View not found %s", oldViewName));
             views.remove(oldViewName);
+        }
+
+        @Override
+        public void setTableComment(Session session, TableHandle tableHandle, Optional<String> comment)
+        {
+            ConnectorTableMetadata tableMetadata = getTableMetadata(tableHandle);
+            ConnectorTableMetadata newTableMetadata = new ConnectorTableMetadata(
+                    tableMetadata.getTable(),
+                    tableMetadata.getColumns(),
+                    tableMetadata.getProperties(),
+                    comment);
+            tables.put(tableMetadata.getTable(), newTableMetadata);
+        }
+
+        @Override
+        public void setViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
+        {
+            ViewDefinition view = views.get(viewName.asSchemaTableName());
+            views.put(
+                    viewName.asSchemaTableName(),
+                    new ViewDefinition(
+                            view.getOriginalSql(),
+                            view.getCatalog(),
+                            view.getSchema(),
+                            view.getColumns(),
+                            comment,
+                            view.getRunAsIdentity()));
         }
 
         @Override

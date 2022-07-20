@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.base.security;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -37,12 +38,12 @@ import javax.security.auth.kerberos.KerberosPrincipal;
 import java.io.File;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Files.copy;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
@@ -55,7 +56,6 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.util.Files.newTemporaryFile;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestFileBasedSystemAccessControl
 {
@@ -367,8 +367,7 @@ public class TestFileBasedSystemAccessControl
         return EnumSet.allOf(Privilege.class)
                 .stream()
                 .flatMap(privilege -> Stream.of(true, false).map(grantOption -> new Object[] {privilege, grantOption}))
-                .collect(toImmutableList())
-                .toArray(new Object[0][0]);
+                .toArray(Object[][]::new);
     }
 
     @Test
@@ -685,6 +684,50 @@ public class TestFileBasedSystemAccessControl
 
         accessControl.checkCanRenameColumn(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
         assertAccessDenied(() -> accessControl.checkCanRenameColumn(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), RENAME_COLUMNS_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForMixedGroupUsers()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table-mixed-groups.json");
+
+        SystemSecurityContext userGroup1Group2 = new SystemSecurityContext(Identity.forUser("user_1_2")
+                .withGroups(ImmutableSet.of("group1", "group2")).build(), Optional.empty());
+        SystemSecurityContext userGroup2 = new SystemSecurityContext(Identity.forUser("user_2")
+                .withGroups(ImmutableSet.of("group2")).build(), Optional.empty());
+
+        assertEquals(
+                accessControl.getColumnMasks(
+                        userGroup1Group2,
+                        new CatalogSchemaTableName("some-catalog", "my_schema", "my_table"),
+                        "col_a",
+                        VARCHAR),
+                ImmutableList.of());
+
+        assertViewExpressionEquals(
+                accessControl.getColumnMasks(
+                        userGroup2,
+                        new CatalogSchemaTableName("some-catalog", "my_schema", "my_table"),
+                        "col_a",
+                        VARCHAR),
+                new ViewExpression(userGroup2.getIdentity().getUser(), Optional.of("some-catalog"), Optional.of("my_schema"), "'mask_a'"));
+
+        SystemSecurityContext userGroup1Group3 = new SystemSecurityContext(Identity.forUser("user_1_3")
+                .withGroups(ImmutableSet.of("group1", "group3")).build(), Optional.empty());
+        SystemSecurityContext userGroup3 = new SystemSecurityContext(Identity.forUser("user_3")
+                .withGroups(ImmutableSet.of("group3")).build(), Optional.empty());
+
+        assertEquals(
+                accessControl.getRowFilters(
+                        userGroup1Group3,
+                        new CatalogSchemaTableName("some-catalog", "my_schema", "my_table")),
+                ImmutableList.of());
+
+        assertViewExpressionEquals(
+                accessControl.getRowFilters(
+                        userGroup3,
+                        new CatalogSchemaTableName("some-catalog", "my_schema", "my_table")),
+                new ViewExpression(userGroup3.getIdentity().getUser(), Optional.of("some-catalog"), Optional.of("my_schema"), "country='US'"));
     }
 
     @Test
@@ -1269,15 +1312,15 @@ public class TestFileBasedSystemAccessControl
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
 
         assertEquals(
-                accessControl.getColumnMask(
+                accessControl.getColumnMasks(
                         ALICE,
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
                         "masked",
                         VARCHAR),
-                Optional.empty());
+                ImmutableList.of());
 
         assertViewExpressionEquals(
-                accessControl.getColumnMask(
+                accessControl.getColumnMasks(
                         CHARLIE,
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
                         "masked",
@@ -1285,7 +1328,7 @@ public class TestFileBasedSystemAccessControl
                 new ViewExpression(CHARLIE.getIdentity().getUser(), Optional.of("some-catalog"), Optional.of("bobschema"), "'mask'"));
 
         assertViewExpressionEquals(
-                accessControl.getColumnMask(
+                accessControl.getColumnMasks(
                         CHARLIE,
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
                         "masked_with_user",
@@ -1299,22 +1342,22 @@ public class TestFileBasedSystemAccessControl
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
 
         assertEquals(
-                accessControl.getRowFilter(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns")),
-                Optional.empty());
+                accessControl.getRowFilters(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns")),
+                ImmutableList.of());
 
         assertViewExpressionEquals(
-                accessControl.getRowFilter(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns")),
+                accessControl.getRowFilters(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns")),
                 new ViewExpression(CHARLIE.getIdentity().getUser(), Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter')"));
 
         assertViewExpressionEquals(
-                accessControl.getRowFilter(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns_with_grant")),
+                accessControl.getRowFilters(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns_with_grant")),
                 new ViewExpression("filter-user", Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter-with-user')"));
     }
 
-    private static void assertViewExpressionEquals(Optional<ViewExpression> result, ViewExpression expected)
+    private static void assertViewExpressionEquals(List<ViewExpression> result, ViewExpression expected)
     {
-        assertTrue(result.isPresent());
-        ViewExpression actual = result.get();
+        assertEquals(result.size(), 1);
+        ViewExpression actual = result.get(0);
         assertEquals(actual.getIdentity(), expected.getIdentity(), "Identity");
         assertEquals(actual.getCatalog(), expected.getCatalog(), "Catalog");
         assertEquals(actual.getSchema(), expected.getSchema(), "Schema");

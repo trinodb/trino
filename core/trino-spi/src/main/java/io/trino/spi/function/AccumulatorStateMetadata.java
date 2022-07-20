@@ -25,4 +25,8 @@ public @interface AccumulatorStateMetadata
     Class<? extends AccumulatorStateSerializer> stateSerializerClass() default AccumulatorStateSerializer.class;
 
     Class<? extends AccumulatorStateFactory> stateFactoryClass() default AccumulatorStateFactory.class;
+
+    String[] typeParameters() default {};
+
+    String serializedType() default "";
 }

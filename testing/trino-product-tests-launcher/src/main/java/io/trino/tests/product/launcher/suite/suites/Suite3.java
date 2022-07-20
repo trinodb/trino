@@ -35,19 +35,21 @@ public class Suite3
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeTls.class)
-                        .withGroups("smoke", "cli", "group-by", "join", "tls")
+                        .withGroups("configured_features", "smoke", "cli", "group-by", "join", "tls")
+                        .withExcludedGroups("azure")
                         .build(),
                 testOnEnvironment(EnvMultinodeTlsKerberos.class)
-                        .withGroups("cli", "group-by", "join", "tls")
+                        .withGroups("configured_features", "cli", "group-by", "join", "tls")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonationWithWireEncryption.class)
-                        .withGroups("storage_formats", "cli", "hdfs_impersonation", "authorization")
+                        .withGroups("configured_features", "storage_formats", "cli", "hdfs_impersonation", "authorization")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonationWithDataProtection.class)
+                        .withGroups("configured_features")
                         .withTests("TestHiveStorageFormats.testOrcTableCreatedInTrino", "TestHiveCreateTable.testCreateTable")
                         .build(),
                 testOnEnvironment(EnvMultinodeTlsKerberosDelegation.class)
-                        .withGroups("jdbc")
+                        .withGroups("configured_features", "jdbc")
                         .build());
     }
 }

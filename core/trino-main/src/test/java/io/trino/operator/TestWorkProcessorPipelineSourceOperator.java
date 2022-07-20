@@ -46,7 +46,6 @@ import java.util.function.Supplier;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.execution.Lifespan.taskWide;
 import static io.trino.operator.WorkProcessorAssertion.transformationFrom;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSplit.createLocalSplit;
@@ -245,7 +244,8 @@ public class TestWorkProcessorPipelineSourceOperator
         assertEquals(sourceOperatorStats.getInputDataSize(), pipelineStats.getProcessedInputDataSize());
         assertEquals(sourceOperatorStats.getInputPositions(), pipelineStats.getProcessedInputPositions());
 
-        assertEquals(sourceOperatorStats.getAddInputWall(), pipelineStats.getPhysicalInputReadTime());
+        assertThat(sourceOperatorStats.getPhysicalInputReadTime().convertToMostSuccinctTimeUnit())
+                .isEqualTo(pipelineStats.getPhysicalInputReadTime().convertToMostSuccinctTimeUnit());
 
         // assert pipeline metrics
         List<OperatorStats> operatorSummaries = pipelineStats.getOperatorSummaries();
@@ -298,8 +298,7 @@ public class TestWorkProcessorPipelineSourceOperator
     {
         return new Split(
                 new CatalogName("catalog_name"),
-                createLocalSplit(),
-                taskWide());
+                createLocalSplit());
     }
 
     private Page createPage(int pageNumber)

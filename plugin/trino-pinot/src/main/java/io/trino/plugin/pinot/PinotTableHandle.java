@@ -25,7 +25,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class PinotTableHandle
@@ -52,7 +51,7 @@ public class PinotTableHandle
 
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null").toLowerCase(ENGLISH);
+        this.tableName = requireNonNull(tableName, "tableName is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.limit = requireNonNull(limit, "limit is null");
         this.query = requireNonNull(query, "query is null");

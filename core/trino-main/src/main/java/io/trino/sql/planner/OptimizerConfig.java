@@ -41,11 +41,12 @@ public class OptimizerConfig
     private int maxReorderedJoins = 9;
 
     private boolean enableStatsCalculator = true;
-    private boolean statisticsPrecalculationForPushdownEnabled;
+    private boolean statisticsPrecalculationForPushdownEnabled = true;
     private boolean collectPlanStatisticsForAllQueries;
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean defaultFilterFactorEnabled;
     private double filterConjunctionIndependenceFactor = 0.75;
+    private boolean nonEstimatablePredicateApproximationEnabled = true;
 
     private boolean colocatedJoinsEnabled;
     private boolean distributedIndexJoinsEnabled;
@@ -66,6 +67,7 @@ public class OptimizerConfig
     private boolean pushAggregationThroughOuterJoin = true;
     private boolean enableIntermediateAggregations;
     private boolean pushPartialAggregationThoughJoin;
+    private boolean preAggregateCaseAggregationsEnabled = true;
     private boolean optimizeMixedDistinctAggregations;
     private boolean enableForcedExchangeBelowGroupId = true;
     private boolean optimizeTopNRanking = true;
@@ -80,10 +82,12 @@ public class OptimizerConfig
     private double tableScanNodePartitioningMinBucketToTaskRatio = 0.5;
     private boolean mergeProjectWithValues = true;
     private boolean forceSingleNodeOutput = true;
+    private boolean useExactPartitioning;
     // adaptive partial aggregation
     private boolean adaptivePartialAggregationEnabled = true;
     private long adaptivePartialAggregationMinRows = 100_000;
     private double adaptivePartialAggregationUniqueRowsRatioThreshold = 0.8;
+    private long joinPartitionedBuildMinRowCount = 1_000_000L;
 
     public enum JoinReorderingStrategy
     {
@@ -291,6 +295,19 @@ public class OptimizerConfig
         return this;
     }
 
+    public boolean isNonEstimatablePredicateApproximationEnabled()
+    {
+        return nonEstimatablePredicateApproximationEnabled;
+    }
+
+    @Config("optimizer.non-estimatable-predicate-approximation.enabled")
+    @ConfigDescription("Approximate the cost of filters which cannot be accurately estimated even with complete statistics")
+    public OptimizerConfig setNonEstimatablePredicateApproximationEnabled(boolean nonEstimatablePredicateApproximationEnabled)
+    {
+        this.nonEstimatablePredicateApproximationEnabled = nonEstimatablePredicateApproximationEnabled;
+        return this;
+    }
+
     public boolean isColocatedJoinsEnabled()
     {
         return colocatedJoinsEnabled;
@@ -426,6 +443,19 @@ public class OptimizerConfig
     public OptimizerConfig setPushPartialAggregationThoughJoin(boolean pushPartialAggregationThoughJoin)
     {
         this.pushPartialAggregationThoughJoin = pushPartialAggregationThoughJoin;
+        return this;
+    }
+
+    public boolean isPreAggregateCaseAggregationsEnabled()
+    {
+        return preAggregateCaseAggregationsEnabled;
+    }
+
+    @Config("optimizer.pre-aggregate-case-aggregations.enabled")
+    @ConfigDescription("Pre-aggregate rows before GROUP BY with multiple CASE aggregations on same column")
+    public OptimizerConfig setPreAggregateCaseAggregationsEnabled(boolean preAggregateCaseAggregationsEnabled)
+    {
+        this.preAggregateCaseAggregationsEnabled = preAggregateCaseAggregationsEnabled;
         return this;
     }
 
@@ -697,6 +727,33 @@ public class OptimizerConfig
     public OptimizerConfig setAdaptivePartialAggregationUniqueRowsRatioThreshold(double adaptivePartialAggregationUniqueRowsRatioThreshold)
     {
         this.adaptivePartialAggregationUniqueRowsRatioThreshold = adaptivePartialAggregationUniqueRowsRatioThreshold;
+        return this;
+    }
+
+    @Min(0)
+    public long getJoinPartitionedBuildMinRowCount()
+    {
+        return joinPartitionedBuildMinRowCount;
+    }
+
+    @Config("optimizer.join-partitioned-build-min-row-count")
+    @ConfigDescription("Minimum number of join build side rows required to use partitioned join lookup")
+    public OptimizerConfig setJoinPartitionedBuildMinRowCount(long joinPartitionedBuildMinRowCount)
+    {
+        this.joinPartitionedBuildMinRowCount = joinPartitionedBuildMinRowCount;
+        return this;
+    }
+
+    public boolean isUseExactPartitioning()
+    {
+        return useExactPartitioning;
+    }
+
+    @Config("optimizer.use-exact-partitioning")
+    @ConfigDescription("When enabled this forces data repartitioning unless the partitioning of upstream stage matches exactly what downstream stage expects")
+    public OptimizerConfig setUseExactPartitioning(boolean useExactPartitioning)
+    {
+        this.useExactPartitioning = useExactPartitioning;
         return this;
     }
 }

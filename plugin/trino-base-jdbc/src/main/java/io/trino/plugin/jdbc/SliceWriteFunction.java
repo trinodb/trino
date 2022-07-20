@@ -18,6 +18,8 @@ import io.airlift.slice.Slice;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
+import static java.util.Objects.requireNonNull;
+
 public interface SliceWriteFunction
         extends WriteFunction
 {
@@ -29,4 +31,32 @@ public interface SliceWriteFunction
 
     void set(PreparedStatement statement, int index, Slice value)
             throws SQLException;
+
+    static SliceWriteFunction of(int nullJdbcType, SliceWriteFunctionImplementation implementation)
+    {
+        requireNonNull(implementation, "implementation is null");
+
+        return new SliceWriteFunction() {
+            @Override
+            public void set(PreparedStatement statement, int index, Slice value)
+                    throws SQLException
+            {
+                implementation.set(statement, index, value);
+            }
+
+            @Override
+            public void setNull(PreparedStatement statement, int index)
+                    throws SQLException
+            {
+                statement.setNull(index, nullJdbcType);
+            }
+        };
+    }
+
+    @FunctionalInterface
+    interface SliceWriteFunctionImplementation
+    {
+        void set(PreparedStatement statement, int index, Slice value)
+                throws SQLException;
+    }
 }

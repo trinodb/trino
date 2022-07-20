@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.jdbc.expression;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -96,11 +95,6 @@ public class RewriteComparison
     }
 
     private final Pattern<Call> pattern;
-
-    public RewriteComparison(ComparisonOperator... enabledOperators)
-    {
-        this(ImmutableSet.copyOf(enabledOperators));
-    }
 
     public RewriteComparison(Set<ComparisonOperator> enabledOperators)
     {

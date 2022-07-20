@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -37,8 +36,6 @@ import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
@@ -68,26 +65,22 @@ public class ReduceAggregationFunction
     public ReduceAggregationFunction()
     {
         super(
-                new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(typeVariable("T"), typeVariable("S")),
-                                ImmutableList.of(),
-                                new TypeSignature("S"),
-                                ImmutableList.of(
-                                        new TypeSignature("T"),
-                                        new TypeSignature("S"),
-                                        functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
-                                        functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S"))),
-                                false),
-                        new FunctionNullability(true, ImmutableList.of(false, false, false, false)),
-                        false,
-                        true,
-                        "Reduce input elements into a single value",
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        false,
-                        new TypeSignature("S")));
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
+                                .name(NAME)
+                                .typeVariable("T")
+                                .typeVariable("S")
+                                .returnType(new TypeSignature("S"))
+                                .argumentType(new TypeSignature("T"))
+                                .argumentType(new TypeSignature("S"))
+                                .argumentType(functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")))
+                                .argumentType(functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S")))
+                                .build())
+                        .description("Reduce input elements into a single value")
+                        .build(),
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(new TypeSignature("S"))
+                        .build());
     }
 
     @Override

@@ -23,9 +23,8 @@ import com.google.common.primitives.Primitives;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.ColumnPropertyManager;
-import io.trino.metadata.FunctionKind;
-import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -45,6 +44,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
@@ -99,7 +99,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.SortedMap;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -107,6 +106,7 @@ import static io.trino.connector.informationschema.InformationSchemaTable.COLUMN
 import static io.trino.connector.informationschema.InformationSchemaTable.SCHEMATA;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLES;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
+import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listCatalogs;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
@@ -173,7 +173,6 @@ public final class ShowQueriesRewrite
     @Inject
     public ShowQueriesRewrite(
             Metadata metadata,
-            FunctionManager functionManager,
             SqlParser parser,
             AccessControl accessControl,
             SessionPropertyManager sessionPropertyManager,
@@ -444,7 +443,7 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowCatalogs(ShowCatalogs node, Void context)
         {
-            List<Expression> rows = listCatalogs(session, metadata, accessControl).keySet().stream()
+            List<Expression> rows = listCatalogNames(session, metadata, accessControl).stream()
                     .map(name -> row(new StringLiteral(name)))
                     .collect(toImmutableList());
 
@@ -770,7 +769,7 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowFunctions(ShowFunctions node, Void context)
         {
-            List<Expression> rows = metadata.listFunctions().stream()
+            List<Expression> rows = metadata.listFunctions(session).stream()
                     .filter(function -> !function.isHidden())
                     .map(function -> row(
                             new StringLiteral(function.getSignature().getName()),
@@ -822,6 +821,8 @@ public final class ShowQueriesRewrite
                     return "window";
                 case SCALAR:
                     return "scalar";
+                case TABLE:
+                    throw new IllegalArgumentException("Unexpected function kind: " + kind); // TODO https://github.com/trinodb/trino/issues/12550
             }
             throw new IllegalArgumentException("Unsupported function kind: " + kind);
         }
@@ -830,8 +831,8 @@ public final class ShowQueriesRewrite
         protected Node visitShowSession(ShowSession node, Void context)
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-            SortedMap<String, CatalogName> catalogNames = listCatalogs(session, metadata, accessControl);
-            List<SessionPropertyValue> sessionProperties = sessionPropertyManager.getAllSessionProperties(session, catalogNames);
+            List<CatalogInfo> catalogInfos = listCatalogs(session, metadata, accessControl);
+            List<SessionPropertyValue> sessionProperties = sessionPropertyManager.getAllSessionProperties(session, catalogInfos);
             for (SessionPropertyValue sessionProperty : sessionProperties) {
                 if (sessionProperty.isHidden()) {
                     continue;

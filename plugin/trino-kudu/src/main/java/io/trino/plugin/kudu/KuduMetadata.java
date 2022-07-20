@@ -15,11 +15,9 @@ package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
 import io.trino.plugin.kudu.properties.PartitionDesign;
-import io.trino.plugin.kudu.schema.KuduRangePartition;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
@@ -40,6 +38,7 @@ import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.NotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.expression.ConnectorExpression;
@@ -52,7 +51,6 @@ import io.trino.spi.type.VarcharType;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.KuduTable;
-import org.apache.kudu.client.Partition;
 import org.apache.kudu.client.PartitionSchema.HashBucketSchema;
 
 import javax.inject.Inject;
@@ -67,11 +65,11 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.kudu.KuduSessionProperties.isKuduGroupedExecutionEnabled;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.plugin.kudu.KuduColumnHandle.ROW_ID;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static java.util.Objects.requireNonNull;
 
 public class KuduMetadata
@@ -153,6 +151,7 @@ public class KuduMetadata
                 .setType(prestoType)
                 .setExtraInfo(Optional.of(extra.toString()))
                 .setProperties(properties)
+                .setComment(Optional.ofNullable(column.getComment()))
                 .build();
     }
 
@@ -162,7 +161,7 @@ public class KuduMetadata
         Schema schema = table.getSchema();
 
         List<ColumnMetadata> columnsMetaList = schema.getColumns().stream()
-                .filter(column -> !column.isKey() || !column.getName().equals(KuduColumnHandle.ROW_ID))
+                .filter(column -> !column.isKey() || !column.getName().equals(ROW_ID))
                 .map(this::getColumnMetadata)
                 .collect(toImmutableList());
 
@@ -194,7 +193,7 @@ public class KuduMetadata
         KuduColumnHandle kuduColumnHandle = (KuduColumnHandle) columnHandle;
         if (kuduColumnHandle.isVirtualRowId()) {
             return ColumnMetadata.builder()
-                    .setName(KuduColumnHandle.ROW_ID)
+                    .setName(ROW_ID)
                     .setType(VarbinaryType.VARBINARY)
                     .setHidden(true)
                     .build();
@@ -243,6 +242,12 @@ public class KuduMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
+        if (tableMetadata.getColumns().stream().anyMatch(column -> column.getComment() != null)) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+        }
         clientSession.createTable(tableMetadata, ignoreExisting);
     }
 
@@ -284,8 +289,12 @@ public class KuduMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle connectorTableHandle, List<ColumnHandle> insertedColumns, RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
+
         KuduTableHandle tableHandle = (KuduTableHandle) connectorTableHandle;
 
         KuduTable table = tableHandle.getTable(clientSession);
@@ -298,6 +307,8 @@ public class KuduMetadata
         return new KuduInsertTableHandle(
                 tableHandle.getSchemaTableName(),
                 columnTypes,
+                columns.stream()
+                        .anyMatch(column -> column.getName().equals(ROW_ID)),
                 table);
     }
 
@@ -315,13 +326,20 @@ public class KuduMetadata
     public ConnectorOutputTableHandle beginCreateTable(
             ConnectorSession session,
             ConnectorTableMetadata tableMetadata,
-            Optional<ConnectorTableLayout> layout)
+            Optional<ConnectorTableLayout> layout,
+            RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
         PartitionDesign design = KuduTableProperties.getPartitionDesign(tableMetadata.getProperties());
         boolean generateUUID = !design.hasPartitions();
         ConnectorTableMetadata finalTableMetadata = tableMetadata;
         if (generateUUID) {
-            String rowId = KuduColumnHandle.ROW_ID;
+            String rowId = ROW_ID;
             List<ColumnMetadata> copy = new ArrayList<>(tableMetadata.getColumns());
             Map<String, Object> columnProperties = new HashMap<>();
             columnProperties.put(KuduTableProperties.PRIMARY_KEY, true);
@@ -368,11 +386,6 @@ public class KuduMetadata
         return Optional.empty();
     }
 
-    private static boolean isTableSupportGroupedExecution(KuduTable kuduTable)
-    {
-        return !kuduTable.getPartitionSchema().getHashBucketSchemas().isEmpty();
-    }
-
     @Override
     public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
@@ -380,8 +393,11 @@ public class KuduMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle table)
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle table, RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
         KuduTableHandle handle = (KuduTableHandle) table;
         return new KuduTableHandle(
                 handle.getSchemaTableName(),
@@ -401,32 +417,10 @@ public class KuduMetadata
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         KuduTableHandle handle = (KuduTableHandle) table;
-        KuduTable kuduTable = handle.getTable(clientSession);
 
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
         Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
         List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
-
-        if (isKuduGroupedExecutionEnabled(session)
-                && isTableSupportGroupedExecution(kuduTable)) {
-            Map<String, ColumnHandle> columnMap = getColumnHandles(session, handle);
-            List<Integer> bucketColumnIds = getBucketColumnIds(kuduTable);
-            List<ColumnHandle> bucketColumns = getSpecifyColumns(kuduTable.getSchema(), bucketColumnIds, columnMap);
-            Optional<List<KuduRangePartition>> kuduRangePartitions = getKuduRangePartitions(kuduTable);
-            tablePartitioning = Optional.of(new ConnectorTablePartitioning(
-                    new KuduPartitioningHandle(
-                            handle.getSchemaTableName().getSchemaName(),
-                            handle.getSchemaTableName().getTableName(),
-                            handle.getBucketCount().orElse(0),
-                            bucketColumnIds,
-                            bucketColumns.stream()
-                                    .map(KuduColumnHandle.class::cast)
-                                    .map(KuduColumnHandle::getType)
-                                    .collect(Collectors.toList()),
-                            kuduRangePartitions),
-                    bucketColumns));
-            partitioningColumns = Optional.of(ImmutableSet.copyOf(bucketColumns));
-        }
 
         return new ConnectorTableProperties(
                 handle.getConstraint(),
@@ -434,24 +428,6 @@ public class KuduMetadata
                 partitioningColumns,
                 Optional.empty(),
                 localProperties);
-    }
-
-    private List<ColumnHandle> getSpecifyColumns(Schema schema, List<Integer> targetColumns, Map<String, ColumnHandle> columnMap)
-    {
-        return targetColumns.stream()
-                .map(schema::getColumnByIndex)
-                .map(ColumnSchema::getName)
-                .map(columnMap::get)
-                .collect(toImmutableList());
-    }
-
-    private List<Integer> getBucketColumnIds(KuduTable kuduTable)
-    {
-        List<HashBucketSchema> hashBucketSchemas = kuduTable.getPartitionSchema().getHashBucketSchemas();
-        return hashBucketSchemas.stream()
-                .map(HashBucketSchema::getColumnIds)
-                .flatMap(List<Integer>::stream)
-                .collect(toImmutableList());
     }
 
     @Override
@@ -554,25 +530,5 @@ public class KuduMetadata
                 OptionalLong.of(limit));
 
         return Optional.of(new LimitApplicationResult<>(handle, false, false));
-    }
-
-    private static Optional<List<KuduRangePartition>> getKuduRangePartitions(KuduTable table)
-    {
-        List<Partition> rangePartitions = getRangePartitions(table);
-        List<KuduRangePartition> kuduRangePartitions = rangePartitions.stream()
-                .map(partition -> new KuduRangePartition(partition.getRangeKeyStart(), partition.getRangeKeyEnd()))
-                .collect(toImmutableList());
-        return kuduRangePartitions.isEmpty() ? Optional.empty() : Optional.of(kuduRangePartitions);
-    }
-
-    private static List<Partition> getRangePartitions(KuduTable table)
-    {
-        final long fetchTabletsTimeoutInMillis = 60 * 1000;
-        try {
-            return table.getRangePartitions(fetchTabletsTimeoutInMillis);
-        }
-        catch (Exception e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unable to get list of tablets for table " + table.getName(), e);
-        }
     }
 }

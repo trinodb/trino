@@ -20,9 +20,10 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.tpcds.TpcdsPlugin;
@@ -107,13 +108,13 @@ public final class HiveQueryRunner
             return new FileHiveMetastore(
                     new NodeVersion("test_version"),
                     HDFS_ENVIRONMENT,
-                    new MetastoreConfig(),
+                    new HiveMetastoreConfig().isHideDeltaLakeTables(),
                     new FileHiveMetastoreConfig()
                             .setCatalogDirectory(baseDir.toURI().toString())
                             .setMetastoreUser("test"));
         };
         private Module module = EMPTY_MODULE;
-        private Optional<CachingDirectoryLister> cachingDirectoryLister = Optional.empty();
+        private Optional<DirectoryLister> directoryLister = Optional.empty();
         private boolean tpcdsCatalogEnabled;
         private String security = SQL_STANDARD;
         private ColumnNaming tpchColumnNaming = SIMPLIFIED;
@@ -178,9 +179,9 @@ public final class HiveQueryRunner
             return self();
         }
 
-        public SELF setCachingDirectoryLister(CachingDirectoryLister cachingDirectoryLister)
+        public SELF setDirectoryLister(DirectoryLister directoryLister)
         {
-            this.cachingDirectoryLister = Optional.ofNullable(cachingDirectoryLister);
+            this.directoryLister = Optional.ofNullable(directoryLister);
             return self();
         }
 
@@ -230,7 +231,7 @@ public final class HiveQueryRunner
                 }
 
                 HiveMetastore metastore = this.metastore.apply(queryRunner);
-                queryRunner.installPlugin(new TestingHivePlugin(Optional.of(metastore), module, cachingDirectoryLister));
+                queryRunner.installPlugin(new TestingHivePlugin(Optional.of(metastore), module, directoryLister));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
@@ -299,8 +300,8 @@ public final class HiveQueryRunner
         return testSessionBuilder()
                 .setIdentity(Identity.forUser("hive")
                         .withConnectorRoles(role.map(selectedRole -> ImmutableMap.of(
-                                HIVE_CATALOG, selectedRole,
-                                HIVE_BUCKETED_CATALOG, selectedRole))
+                                        HIVE_CATALOG, selectedRole,
+                                        HIVE_BUCKETED_CATALOG, selectedRole))
                                 .orElse(ImmutableMap.of()))
                         .build())
                 .setCatalog(HIVE_CATALOG)
@@ -313,8 +314,8 @@ public final class HiveQueryRunner
         return testSessionBuilder()
                 .setIdentity(Identity.forUser("hive")
                         .withConnectorRoles(role.map(selectedRole -> ImmutableMap.of(
-                                HIVE_CATALOG, selectedRole,
-                                HIVE_BUCKETED_CATALOG, selectedRole))
+                                        HIVE_CATALOG, selectedRole,
+                                        HIVE_BUCKETED_CATALOG, selectedRole))
                                 .orElse(ImmutableMap.of()))
                         .build())
                 .setCatalog(HIVE_BUCKETED_CATALOG)
@@ -398,8 +399,8 @@ public final class HiveQueryRunner
                 .setSecurity(ALLOW_ALL)
                 // Uncomment to enable standard column naming (column names to be prefixed with the first letter of the table name, e.g.: o_orderkey vs orderkey)
                 // and standard column types (decimals vs double for some columns). This will allow running unmodified tpch queries on the cluster.
-                // .setTpchColumnNaming(STANDARD)
-                // .setTpchDecimalTypeMapping(DECIMAL)
+                //.setTpchColumnNaming(ColumnNaming.STANDARD)
+                //.setTpchDecimalTypeMapping(DecimalTypeMapping.DECIMAL)
                 .build();
         Thread.sleep(10);
         log.info("======== SERVER STARTED ========");

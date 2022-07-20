@@ -30,7 +30,7 @@ import static org.testcontainers.containers.MySQLContainer.MYSQL_PORT;
 public class TestingMySqlServer
         implements AutoCloseable
 {
-    public static final String DEFAULT_IMAGE = "mysql:8.0.12";
+    public static final String DEFAULT_IMAGE = "mysql:8.0.29-oracle";
     public static final String LEGACY_IMAGE = "mysql:5.7.35";
 
     private final MySQLContainer<?> container;
@@ -59,7 +59,11 @@ public class TestingMySqlServer
         execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()), "root", container.getPassword());
     }
 
-    protected void configureContainer(MySQLContainer<?> container) {}
+    private void configureContainer(MySQLContainer<?> container)
+    {
+        // MySQL configuration provided by default by testcontainers causes MySQL to produce poor estimates in CARDINALITY column of INFORMATION_SCHEMA.STATISTICS table.
+        container.addParameter("TC_MY_CNF", null);
+    }
 
     public Connection createConnection()
             throws SQLException

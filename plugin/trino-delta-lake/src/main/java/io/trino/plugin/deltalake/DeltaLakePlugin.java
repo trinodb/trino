@@ -13,13 +13,11 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
+import io.trino.plugin.hive.HiveConnectorFactory.EmptyModule;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
-
-import java.util.Optional;
 
 public class DeltaLakePlugin
         implements Plugin
@@ -27,12 +25,11 @@ public class DeltaLakePlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(getConnectorFactory(Optional.empty()));
+        return ImmutableList.of(getConnectorFactory(EmptyModule.class));
     }
 
-    @VisibleForTesting
-    ConnectorFactory getConnectorFactory(Optional<Module> extensions)
+    public ConnectorFactory getConnectorFactory(Class<? extends Module> module)
     {
-        return new DeltaLakeConnectorFactory(extensions);
+        return new DeltaLakeConnectorFactory(module);
     }
 }

@@ -23,7 +23,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
-import io.trino.util.MorePredicates;
 
 import java.util.List;
 
@@ -33,7 +32,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
-import static io.trino.util.MorePredicates.isInstanceOfAny;
 
 /**
  * This class must be public as it is accessed via join compiler reflection.
@@ -62,20 +60,20 @@ public final class JoinUtils
 
     public static boolean isBuildSideReplicated(PlanNode node)
     {
-        checkArgument(isInstanceOfAny(JoinNode.class, SemiJoinNode.class).test(node));
+        checkArgument(node instanceof JoinNode || node instanceof SemiJoinNode);
         if (node instanceof JoinNode) {
             return PlanNodeSearcher.searchFrom(((JoinNode) node).getRight())
                     .recurseOnlyWhen(
-                            MorePredicates.<PlanNode>isInstanceOfAny(ProjectNode.class)
-                                    .or(JoinUtils::isLocalRepartitionExchange)
-                                    .or(JoinUtils::isLocalGatherExchange))  // used in cross join case
+                            planNode -> planNode instanceof ProjectNode ||
+                                    isLocalRepartitionExchange(planNode) ||
+                                    isLocalGatherExchange(planNode))  // used in cross join case
                     .where(joinNode -> isRemoteReplicatedExchange(joinNode) || isRemoteReplicatedSourceNode(joinNode))
                     .matches();
         }
         return PlanNodeSearcher.searchFrom(((SemiJoinNode) node).getFilteringSource())
                 .recurseOnlyWhen(
-                        MorePredicates.<PlanNode>isInstanceOfAny(ProjectNode.class)
-                                .or(JoinUtils::isLocalGatherExchange))
+                        planNode -> planNode instanceof ProjectNode ||
+                                isLocalGatherExchange(planNode))
                 .where(joinNode -> isRemoteReplicatedExchange(joinNode) || isRemoteReplicatedSourceNode(joinNode))
                 .matches();
     }

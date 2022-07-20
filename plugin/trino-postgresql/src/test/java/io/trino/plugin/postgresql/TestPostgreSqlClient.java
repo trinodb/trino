@@ -20,6 +20,7 @@ import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.connector.AggregateFunction;
@@ -31,6 +32,8 @@ import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.IsNotNullPredicate;
@@ -93,6 +96,7 @@ public class TestPostgreSqlClient
     private static final JdbcClient JDBC_CLIENT = new PostgreSqlClient(
             new BaseJdbcConfig(),
             new PostgreSqlConfig(),
+            new JdbcStatisticsConfig(),
             session -> { throw new UnsupportedOperationException(); },
             new DefaultQueryBuilder(),
             TESTING_TYPE_MANAGER,
@@ -218,6 +222,39 @@ public class TestPostgreSqlClient
                 .hasValue("((\"c_bigint\") = (42)) OR ((\"c_bigint\") = (415))");
     }
 
+    @Test
+    public void testConvertOrWithAnd()
+    {
+        assertThat(JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new LogicalExpression(
+                                LogicalExpression.Operator.OR,
+                                List.of(
+                                        new ComparisonExpression(
+                                                ComparisonExpression.Operator.EQUAL,
+                                                new SymbolReference("c_bigint_symbol"),
+                                                LITERAL_ENCODER.toExpression(TEST_SESSION, 42L, BIGINT)),
+                                        new LogicalExpression(
+                                                LogicalExpression.Operator.AND,
+                                                List.of(
+                                                        new ComparisonExpression(
+                                                                ComparisonExpression.Operator.EQUAL,
+                                                                new SymbolReference("c_bigint_symbol"),
+                                                                LITERAL_ENCODER.toExpression(TEST_SESSION, 43L, BIGINT)),
+                                                        new ComparisonExpression(
+                                                                ComparisonExpression.Operator.EQUAL,
+                                                                new SymbolReference("c_bigint_symbol_2"),
+                                                                LITERAL_ENCODER.toExpression(TEST_SESSION, 44L, BIGINT)))))),
+                        Map.of(
+                                "c_bigint_symbol", BIGINT,
+                                "c_bigint_symbol_2", BIGINT)),
+                Map.of(
+                        "c_bigint_symbol", BIGINT_COLUMN,
+                        "c_bigint_symbol_2", BIGINT_COLUMN)))
+                .hasValue("((\"c_bigint\") = (42)) OR (((\"c_bigint\") = (43)) AND ((\"c_bigint\") = (44)))");
+    }
+
     @Test(dataProvider = "testConvertComparisonDataProvider")
     public void testConvertComparison(ComparisonExpression.Operator operator)
     {
@@ -253,6 +290,44 @@ public class TestPostgreSqlClient
     {
         return Stream.of(ComparisonExpression.Operator.values())
                 .collect(toDataProvider());
+    }
+
+    @Test(dataProvider = "testConvertArithmeticBinaryDataProvider")
+    public void testConvertArithmeticBinary(ArithmeticBinaryExpression.Operator operator)
+    {
+        Optional<String> converted = JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new ArithmeticBinaryExpression(
+                                operator,
+                                new SymbolReference("c_bigint_symbol"),
+                                LITERAL_ENCODER.toExpression(TEST_SESSION, 42L, BIGINT)),
+                        Map.of("c_bigint_symbol", BIGINT)),
+                Map.of("c_bigint_symbol", BIGINT_COLUMN));
+
+        assertThat(converted).hasValue(format("(\"c_bigint\") %s (42)", operator.getValue()));
+    }
+
+    @DataProvider
+    public static Object[][] testConvertArithmeticBinaryDataProvider()
+    {
+        return Stream.of(ArithmeticBinaryExpression.Operator.values())
+                .collect(toDataProvider());
+    }
+
+    @Test
+    public void testConvertArithmeticUnaryMinus()
+    {
+        Optional<String> converted = JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new ArithmeticUnaryExpression(
+                                ArithmeticUnaryExpression.Sign.MINUS,
+                                new SymbolReference("c_bigint_symbol")),
+                        Map.of("c_bigint_symbol", BIGINT)),
+                Map.of("c_bigint_symbol", BIGINT_COLUMN));
+
+        assertThat(converted).hasValue("-(\"c_bigint\")");
     }
 
     @Test
@@ -328,8 +403,8 @@ public class TestPostgreSqlClient
         assertThat(JDBC_CLIENT.convertPredicate(SESSION,
                 translateToConnectorExpression(
                         new NotExpression(
-                            new IsNotNullPredicate(
-                                    new SymbolReference("c_varchar_symbol"))),
+                                new IsNotNullPredicate(
+                                        new SymbolReference("c_varchar_symbol"))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
                 Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
                 .hasValue("NOT ((\"c_varchar\") IS NOT NULL)");

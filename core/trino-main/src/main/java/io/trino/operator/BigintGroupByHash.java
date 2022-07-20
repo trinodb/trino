@@ -15,13 +15,13 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.trino.array.LongBigArray;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BigintType;
@@ -30,9 +30,11 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -40,6 +42,7 @@ import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static io.trino.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -47,6 +50,7 @@ public class BigintGroupByHash
         implements GroupByHash
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigintGroupByHash.class).instanceSize();
+    private static final int BATCH_SIZE = 1024;
 
     private static final float FILL_RATIO = 0.75f;
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
@@ -67,7 +71,7 @@ public class BigintGroupByHash
     private int nullGroupId = -1;
 
     // reverse index from the groupId back to the value
-    private final LongBigArray valuesByGroupId;
+    private long[] valuesByGroupId;
 
     private int nextGroupId;
     private DictionaryLookBack dictionaryLookBack;
@@ -95,8 +99,7 @@ public class BigintGroupByHash
         groupIds = new int[hashCapacity];
         Arrays.fill(groupIds, -1);
 
-        valuesByGroupId = new LongBigArray();
-        valuesByGroupId.ensureCapacity(hashCapacity);
+        valuesByGroupId = new long[maxFill];
 
         // This interface is used for actively reserving memory (push model) for rehash.
         // The caller can also query memory usage on this object (pull model)
@@ -109,7 +112,7 @@ public class BigintGroupByHash
         return INSTANCE_SIZE +
                 sizeOf(groupIds) +
                 sizeOf(values) +
-                valuesByGroupId.sizeOf() +
+                sizeOf(valuesByGroupId) +
                 preallocatedMemoryInBytes;
     }
 
@@ -138,24 +141,24 @@ public class BigintGroupByHash
     }
 
     @Override
-    public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
+    public void appendValuesTo(int groupId, PageBuilder pageBuilder)
     {
         checkArgument(groupId >= 0, "groupId is negative");
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
         if (groupId == nullGroupId) {
             blockBuilder.appendNull();
         }
         else {
-            BIGINT.writeLong(blockBuilder, valuesByGroupId.get(groupId));
+            BIGINT.writeLong(blockBuilder, valuesByGroupId[groupId]);
         }
 
         if (outputRawHash) {
-            BlockBuilder hashBlockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset + 1);
+            BlockBuilder hashBlockBuilder = pageBuilder.getBlockBuilder(1);
             if (groupId == nullGroupId) {
                 BIGINT.writeLong(hashBlockBuilder, NULL_HASH_CODE);
             }
             else {
-                BIGINT.writeLong(hashBlockBuilder, AbstractLongType.hash(valuesByGroupId.get(groupId)));
+                BIGINT.writeLong(hashBlockBuilder, AbstractLongType.hash(valuesByGroupId[groupId]));
             }
         }
     }
@@ -219,7 +222,7 @@ public class BigintGroupByHash
     @Override
     public long getRawHash(int groupId)
     {
-        return BigintType.hash(valuesByGroupId.get(groupId));
+        return BigintType.hash(valuesByGroupId[groupId]);
     }
 
     @VisibleForTesting
@@ -268,7 +271,7 @@ public class BigintGroupByHash
         int groupId = nextGroupId++;
 
         values[hashPosition] = value;
-        valuesByGroupId.set(groupId, value);
+        valuesByGroupId[groupId] = value;
         groupIds[hashPosition] = groupId;
 
         // increase capacity, if necessary
@@ -302,22 +305,23 @@ public class BigintGroupByHash
         int[] newGroupIds = new int[newCapacity];
         Arrays.fill(newGroupIds, -1);
 
-        for (int groupId = 0; groupId < nextGroupId; groupId++) {
-            if (groupId == nullGroupId) {
-                continue;
-            }
-            long value = valuesByGroupId.get(groupId);
+        for (int i = 0; i < values.length; i++) {
+            int groupId = groupIds[i];
 
-            // find an empty slot for the address
-            int hashPosition = getHashPosition(value, newMask);
-            while (newGroupIds[hashPosition] != -1) {
-                hashPosition = (hashPosition + 1) & newMask;
-                hashCollisions++;
-            }
+            if (groupId != -1) {
+                long value = values[i];
+                int hashPosition = getHashPosition(value, newMask);
 
-            // record the mapping
-            newValues[hashPosition] = value;
-            newGroupIds[hashPosition] = groupId;
+                // find an empty slot for the address
+                while (newGroupIds[hashPosition] != -1) {
+                    hashPosition = (hashPosition + 1) & newMask;
+                    hashCollisions++;
+                }
+
+                // record the mapping
+                newValues[hashPosition] = value;
+                newGroupIds[hashPosition] = groupId;
+            }
         }
 
         mask = newMask;
@@ -326,7 +330,7 @@ public class BigintGroupByHash
         values = newValues;
         groupIds = newGroupIds;
 
-        this.valuesByGroupId.ensureCapacity(maxFill);
+        this.valuesByGroupId = Arrays.copyOf(valuesByGroupId, maxFill);
         return true;
     }
 
@@ -386,22 +390,24 @@ public class BigintGroupByHash
         public boolean process()
         {
             int positionCount = block.getPositionCount();
-            checkState(lastPosition < positionCount, "position count out of bound");
+            checkState(lastPosition <= positionCount, "position count out of bound");
+            int remainingPositions = positionCount - lastPosition;
 
-            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
-            // We can only proceed if tryRehash() successfully did a rehash.
-            if (needRehash() && !tryRehash()) {
-                return false;
-            }
+            while (remainingPositions != 0) {
+                int batchSize = min(remainingPositions, BATCH_SIZE);
+                if (!ensureHashTableSize(batchSize)) {
+                    return false;
+                }
 
-            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
-            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
-            while (lastPosition < positionCount && !needRehash()) {
-                // get the group for the current row
-                putIfAbsent(lastPosition, block);
-                lastPosition++;
+                for (int i = lastPosition; i < lastPosition + batchSize; i++) {
+                    putIfAbsent(i, block);
+                }
+
+                lastPosition += batchSize;
+                remainingPositions -= batchSize;
             }
-            return lastPosition == positionCount;
+            verify(lastPosition == positionCount);
+            return true;
         }
 
         @Override
@@ -431,7 +437,7 @@ public class BigintGroupByHash
         public boolean process()
         {
             int positionCount = block.getPositionCount();
-            checkState(lastPosition < positionCount, "position count out of bound");
+            checkState(lastPosition <= positionCount, "position count out of bound");
 
             // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
             // We can only proceed if tryRehash() successfully did a rehash.
@@ -502,7 +508,7 @@ public class BigintGroupByHash
     class GetGroupIdsWork
             implements Work<GroupByIdBlock>
     {
-        private final BlockBuilder blockBuilder;
+        private final long[] groupIds;
         private final Block block;
 
         private boolean finished;
@@ -511,31 +517,34 @@ public class BigintGroupByHash
         public GetGroupIdsWork(Block block)
         {
             this.block = requireNonNull(block, "block is null");
-            // we know the exact size required for the block
-            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(block.getPositionCount());
+            this.groupIds = new long[block.getPositionCount()];
         }
 
         @Override
         public boolean process()
         {
             int positionCount = block.getPositionCount();
-            checkState(lastPosition < positionCount, "position count out of bound");
+            checkState(lastPosition <= positionCount, "position count out of bound");
             checkState(!finished);
 
-            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
-            // We can only proceed if tryRehash() successfully did a rehash.
-            if (needRehash() && !tryRehash()) {
-                return false;
-            }
+            int remainingPositions = positionCount - lastPosition;
 
-            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
-            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
-            while (lastPosition < positionCount && !needRehash()) {
-                // output the group id for this row
-                BIGINT.writeLong(blockBuilder, putIfAbsent(lastPosition, block));
-                lastPosition++;
+            while (remainingPositions != 0) {
+                int batchSize = min(remainingPositions, BATCH_SIZE);
+                if (!ensureHashTableSize(batchSize)) {
+                    return false;
+                }
+
+                for (int i = lastPosition; i < lastPosition + batchSize; i++) {
+                    // output the group id for this row
+                    groupIds[i] = putIfAbsent(i, block);
+                }
+
+                lastPosition += batchSize;
+                remainingPositions -= batchSize;
             }
-            return lastPosition == positionCount;
+            verify(lastPosition == positionCount);
+            return true;
         }
 
         @Override
@@ -544,7 +553,7 @@ public class BigintGroupByHash
             checkState(lastPosition == block.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(block.getPositionCount(), Optional.empty(), groupIds));
         }
     }
 
@@ -552,7 +561,7 @@ public class BigintGroupByHash
     class GetDictionaryGroupIdsWork
             implements Work<GroupByIdBlock>
     {
-        private final BlockBuilder blockBuilder;
+        private final long[] groupIds;
         private final Block dictionary;
         private final DictionaryBlock block;
 
@@ -565,15 +574,14 @@ public class BigintGroupByHash
             this.dictionary = block.getDictionary();
             updateDictionaryLookBack(dictionary);
 
-            // we know the exact size required for the block
-            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(block.getPositionCount());
+            this.groupIds = new long[block.getPositionCount()];
         }
 
         @Override
         public boolean process()
         {
             int positionCount = block.getPositionCount();
-            checkState(lastPosition < positionCount, "position count out of bound");
+            checkState(lastPosition <= positionCount, "position count out of bound");
             checkState(!finished);
 
             // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
@@ -587,7 +595,7 @@ public class BigintGroupByHash
             while (lastPosition < positionCount && !needRehash()) {
                 int positionInDictionary = block.getId(lastPosition);
                 int groupId = registerGroupId(dictionary, positionInDictionary);
-                BIGINT.writeLong(blockBuilder, groupId);
+                groupIds[lastPosition] = groupId;
                 lastPosition++;
             }
             return lastPosition == positionCount;
@@ -599,7 +607,7 @@ public class BigintGroupByHash
             checkState(lastPosition == block.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(block.getPositionCount(), Optional.empty(), groupIds));
         }
     }
 
@@ -652,6 +660,18 @@ public class BigintGroupByHash
                             BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
                             block.getPositionCount()));
         }
+    }
+
+    private boolean ensureHashTableSize(int batchSize)
+    {
+        int positionCountUntilRehash = maxFill - nextGroupId;
+        while (positionCountUntilRehash < batchSize) {
+            if (!tryRehash()) {
+                return false;
+            }
+            positionCountUntilRehash = maxFill - nextGroupId;
+        }
+        return true;
     }
 
     private static final class DictionaryLookBack

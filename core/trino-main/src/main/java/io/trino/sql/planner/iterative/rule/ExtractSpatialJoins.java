@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
-import io.trino.execution.Lifespan;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.matching.Capture;
@@ -81,10 +80,8 @@ import static io.trino.SystemSessionProperties.getSpatialPartitioningTableName;
 import static io.trino.SystemSessionProperties.isSpatialJoinEnabled;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
-import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -470,9 +467,9 @@ public class ExtractSpatialJoins
         ColumnHandle kdbTreeColumn = Iterables.getOnlyElement(visibleColumnHandles);
 
         Optional<KdbTree> kdbTree = Optional.empty();
-        try (SplitSource splitSource = splitManager.getSplits(session, tableHandle, UNGROUPED_SCHEDULING, EMPTY, alwaysTrue())) {
+        try (SplitSource splitSource = splitManager.getSplits(session, tableHandle, EMPTY, alwaysTrue())) {
             while (!Thread.currentThread().isInterrupted()) {
-                SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000));
+                SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(1000));
                 List<Split> splits = splitBatch.getSplits();
 
                 for (Split split : splits) {

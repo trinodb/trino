@@ -35,7 +35,10 @@ import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.authentication.HdfsAuthenticationModule;
+import io.trino.plugin.hive.aws.athena.PartitionProjectionModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
+import io.trino.plugin.hive.fs.CachingDirectoryListerModule;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
@@ -81,7 +84,13 @@ public final class InternalHiveConnectorFactory
         return createConnector(catalogName, config, context, module, Optional.empty(), Optional.empty());
     }
 
-    public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module, Optional<HiveMetastore> metastore, Optional<CachingDirectoryLister> cachingDirectoryLister)
+    public static Connector createConnector(
+            String catalogName,
+            Map<String, String> config,
+            ConnectorContext context,
+            Module module,
+            Optional<HiveMetastore> metastore,
+            Optional<DirectoryLister> directoryLister)
     {
         requireNonNull(config, "config is null");
 
@@ -95,7 +104,8 @@ public final class InternalHiveConnectorFactory
                     new JsonModule(),
                     new TypeDeserializerModule(context.getTypeManager()),
                     new HiveModule(),
-                    new CachingDirectoryListerModule(cachingDirectoryLister),
+                    new PartitionProjectionModule(),
+                    new CachingDirectoryListerModule(directoryLister),
                     new HiveHdfsModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
@@ -131,6 +141,7 @@ public final class InternalHiveConnectorFactory
             ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
             Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
             HiveTableProperties hiveTableProperties = injector.getInstance(HiveTableProperties.class);
+            HiveColumnProperties hiveColumnProperties = injector.getInstance(HiveColumnProperties.class);
             HiveAnalyzeProperties hiveAnalyzeProperties = injector.getInstance(HiveAnalyzeProperties.class);
             HiveMaterializedViewPropertiesProvider hiveMaterializedViewPropertiesProvider = injector.getInstance(HiveMaterializedViewPropertiesProvider.class);
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
@@ -157,6 +168,7 @@ public final class InternalHiveConnectorFactory
                     sessionPropertiesProviders,
                     HiveSchemaProperties.SCHEMA_PROPERTIES,
                     hiveTableProperties.getTableProperties(),
+                    hiveColumnProperties.getColumnProperties(),
                     hiveAnalyzeProperties.getAnalyzeProperties(),
                     hiveMaterializedViewPropertiesProvider.getMaterializedViewProperties(),
                     hiveAccessControl,

@@ -119,7 +119,7 @@ public class ScaledWriterScheduler
 
         ImmutableList.Builder<RemoteTask> tasks = ImmutableList.builder();
         for (InternalNode node : nodes) {
-            Optional<RemoteTask> remoteTask = stage.scheduleTask(node, scheduledNodes.size(), ImmutableMultimap.of(), ImmutableMultimap.of());
+            Optional<RemoteTask> remoteTask = stage.scheduleTask(node, scheduledNodes.size(), ImmutableMultimap.of());
             remoteTask.ifPresent(task -> {
                 tasks.add(task);
                 scheduledNodes.add(node);

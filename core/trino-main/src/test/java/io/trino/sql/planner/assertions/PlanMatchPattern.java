@@ -125,7 +125,7 @@ public final class PlanMatchPattern
 
     /**
      * Matches to any tree of nodes with children matching to given source matchers.
-     * anyNodeTree(tableScanNode("nation")) - will match to any plan which all leafs contain
+     * anyTree(tableScan("nation")) - will match to any plan which all leafs contain
      * any node containing table scan from nation table.
      *
      * @note anyTree does not match zero nodes. E.g. output(anyTree(tableScan)) will NOT match TableScan node followed by OutputNode.

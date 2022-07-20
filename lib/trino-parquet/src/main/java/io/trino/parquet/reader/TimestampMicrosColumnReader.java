@@ -34,6 +34,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
@@ -65,7 +66,7 @@ public class TimestampMicrosColumnReader
         }
         else if (type == TIMESTAMP_TZ_MICROS || type == TIMESTAMP_TZ_NANOS) {
             long epochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
-            int picosOfMillis = toIntExact(epochMicros % MICROSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_MICROSECOND;
+            int picosOfMillis = toIntExact(floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND)) * PICOSECONDS_PER_MICROSECOND;
             type.writeObject(blockBuilder, LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMillis, UTC_KEY));
         }
         else if (type == BIGINT) {

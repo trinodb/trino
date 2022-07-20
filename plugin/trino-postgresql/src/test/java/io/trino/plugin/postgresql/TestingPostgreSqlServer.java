@@ -15,6 +15,7 @@ package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.io.Closeable;
@@ -52,6 +53,7 @@ public class TestingPostgreSqlServer
     {
         // Use the oldest supported PostgreSQL version
         dockerContainer = new PostgreSQLContainer<>("postgres:10.20")
+                .withStartupAttempts(3)
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)
                 .withPassword(PASSWORD)
@@ -61,7 +63,7 @@ public class TestingPostgreSqlServer
         execute("CREATE SCHEMA tpch");
     }
 
-    public void execute(String sql)
+    public void execute(@Language("SQL") String sql)
     {
         execute(getJdbcUrl(), getProperties(), sql);
     }

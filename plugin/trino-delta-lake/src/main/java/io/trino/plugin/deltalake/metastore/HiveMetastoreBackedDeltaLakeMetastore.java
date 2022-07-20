@@ -14,10 +14,11 @@
 package io.trino.plugin.deltalake.metastore;
 
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
+import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
-import io.trino.plugin.deltalake.statistics.CachingDeltaLakeStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.DeltaLakeColumnStatistics;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatistics;
+import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -30,9 +31,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -62,6 +61,7 @@ import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
+import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
@@ -78,13 +78,13 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     private final HiveMetastore delegate;
     private final TransactionLogAccess transactionLogAccess;
     private final TypeManager typeManager;
-    private final CachingDeltaLakeStatisticsAccess statisticsAccess;
+    private final CachingExtendedStatisticsAccess statisticsAccess;
 
     public HiveMetastoreBackedDeltaLakeMetastore(
             HiveMetastore delegate,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
-            CachingDeltaLakeStatisticsAccess statisticsAccess)
+            CachingExtendedStatisticsAccess statisticsAccess)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogSupport is null");
@@ -118,6 +118,10 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     {
         Optional<Table> candidate = delegate.getTable(databaseName, tableName);
         candidate.ifPresent(table -> {
+            if (isHiveOrPrestoView(table)) {
+                // this is a Hive view, hence not a table
+                throw new NotADeltaLakeTableException(databaseName, tableName);
+            }
             if (!TABLE_PROVIDER_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_PROVIDER_PROPERTY))) {
                 throw new NotADeltaLakeTableException(databaseName, tableName);
             }
@@ -150,7 +154,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
                 throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Provided location did not contain a valid Delta Lake table: " + tableLocation);
             }
         }
-        catch (IOException e) {
+        catch (IOException | RuntimeException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Failed to access table location: " + tableLocation, e);
         }
         delegate.createTable(table, principalPrivileges);
@@ -163,6 +167,12 @@ public class HiveMetastoreBackedDeltaLakeMetastore
         delegate.dropTable(databaseName, tableName, true);
         statisticsAccess.invalidateCache(tableLocation);
         transactionLogAccess.invalidateCaches(tableLocation);
+    }
+
+    @Override
+    public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
+    {
+        delegate.renameTable(from.getSchemaName(), from.getTableName(), to.getSchemaName(), to.getTableName());
     }
 
     @Override
@@ -213,7 +223,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle, Constraint constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
         TableSnapshot tableSnapshot = getSnapshot(tableHandle.getSchemaTableName(), session);
 
@@ -221,11 +231,13 @@ public class HiveMetastoreBackedDeltaLakeMetastore
 
         MetadataEntry metadata = transactionLogAccess.getMetadataEntry(tableSnapshot, session)
                 .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableHandle.getTableName()));
-        List<ColumnMetadata> columnMetadata = DeltaLakeSchemaSupport.extractSchema(metadata, typeManager);
+        List<DeltaLakeColumnMetadata> columnMetadata = DeltaLakeSchemaSupport.extractSchema(metadata, typeManager);
         List<DeltaLakeColumnHandle> columns = columnMetadata.stream()
                 .map(columnMeta -> new DeltaLakeColumnHandle(
                         columnMeta.getName(),
                         columnMeta.getType(),
+                        columnMeta.getPhysicalName(),
+                        columnMeta.getPhysicalColumnType(),
                         metadata.getCanonicalPartitionColumns().contains(columnMeta.getName()) ? PARTITION_KEY : REGULAR))
                 .collect(toImmutableList());
 
@@ -238,14 +250,14 @@ public class HiveMetastoreBackedDeltaLakeMetastore
                 .filter(column -> column.getColumnType() == PARTITION_KEY)
                 .forEach(column -> partitioningColumnsDistinctValues.put(column, new HashSet<>()));
 
-        if (tableHandle.getEnforcedPartitionConstraint().isNone() || tableHandle.getNonPartitionConstraint().isNone() || constraint.getSummary().isNone()) {
+        if (tableHandle.getEnforcedPartitionConstraint().isNone() || tableHandle.getNonPartitionConstraint().isNone()) {
             return createZeroStatistics(columns);
         }
 
         Set<String> predicatedColumnNames = tableHandle.getNonPartitionConstraint().getDomains().orElseThrow().keySet().stream()
                 .map(DeltaLakeColumnHandle::getName)
                 .collect(toImmutableSet());
-        List<ColumnMetadata> predicatedColumns = columnMetadata.stream()
+        List<DeltaLakeColumnMetadata> predicatedColumns = columnMetadata.stream()
                 .filter(column -> predicatedColumnNames.contains(column.getName()))
                 .collect(toImmutableList());
 
@@ -275,7 +287,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
             numRecords += stats.getNumRecords().get();
             for (DeltaLakeColumnHandle column : columns) {
                 if (column.getColumnType() == PARTITION_KEY) {
-                    Optional<String> partitionValue = addEntry.getCanonicalPartitionValues().get(column.getName());
+                    Optional<String> partitionValue = addEntry.getCanonicalPartitionValues().get(column.getPhysicalName());
                     if (partitionValue.isEmpty()) {
                         nullCounts.merge(column, (double) stats.getNumRecords().get(), Double::sum);
                     }
@@ -287,7 +299,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
                     }
                 }
                 else {
-                    Optional<Long> maybeNullCount = stats.getNullCount(column.getName());
+                    Optional<Long> maybeNullCount = stats.getNullCount(column.getPhysicalName());
                     if (maybeNullCount.isPresent()) {
                         nullCounts.put(column, nullCounts.get(column) + maybeNullCount.get());
                     }
@@ -318,9 +330,9 @@ public class HiveMetastoreBackedDeltaLakeMetastore
 
         TableStatistics.Builder statsBuilder = new TableStatistics.Builder().setRowCount(Estimate.of(numRecords));
 
-        Optional<DeltaLakeStatistics> statistics = Optional.empty();
+        Optional<ExtendedStatistics> statistics = Optional.empty();
         if (isExtendedStatisticsEnabled(session)) {
-            statistics = statisticsAccess.readDeltaLakeStatistics(session, tableHandle.getLocation());
+            statistics = statisticsAccess.readExtendedStatistics(session, tableHandle.getLocation());
         }
 
         for (DeltaLakeColumnHandle column : columns) {
@@ -348,6 +360,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
             if (statistics.isPresent()) {
                 DeltaLakeColumnStatistics deltaLakeColumnStatistics = statistics.get().getColumnStatistics().get(column.getName());
                 if (deltaLakeColumnStatistics != null && column.getColumnType() != PARTITION_KEY) {
+                    deltaLakeColumnStatistics.getTotalSizeInBytes().ifPresent(size -> columnStatsBuilder.setDataSize(Estimate.of(size)));
                     columnStatsBuilder.setDistinctValuesCount(Estimate.of(deltaLakeColumnStatistics.getNdvSummary().cardinality()));
                 }
             }

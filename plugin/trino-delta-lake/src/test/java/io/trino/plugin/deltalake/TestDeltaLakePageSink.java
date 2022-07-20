@@ -49,8 +49,8 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -164,7 +164,8 @@ public class TestDeltaLakePageSink
                 getColumnHandles(),
                 outputPath.toString(),
                 Optional.of(deltaLakeConfig.getDefaultCheckpointWritingInterval()),
-                true);
+                true,
+                Optional.empty());
 
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
                 new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators()), new BlockTypeOperators()),
@@ -184,6 +185,8 @@ public class TestDeltaLakePageSink
         LineItemColumn[] columns = LineItemColumn.values();
         for (LineItemColumn column : columns) {
             handles.add(new DeltaLakeColumnHandle(
+                    column.getColumnName(),
+                    getTrinoType(column.getType()),
                     column.getColumnName(),
                     getTrinoType(column.getType()),
                     REGULAR));

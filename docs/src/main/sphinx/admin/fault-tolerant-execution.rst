@@ -30,11 +30,27 @@ depending on the desired :ref:`retry policy <fte-retry-policy>`.
 
     retry-policy=QUERY
 
+.. warning::
+
+  Setting ``retry-policy`` disables :ref:`write operations
+  <sql-write-operations>` with connectors that do not support fault-tolerant
+  execution of write operations, resulting in a "This connector does not support
+  query retries" error message.
+
+  Support for fault-tolerant execution of SQL statements varies on a
+  per-connector basis:
+
+  * Fault-tolerant execution of :ref:`read operations <sql-read-operations>` is
+    supported by all connectors.
+  * Fault tolerant execution of :ref:`write operations <sql-write-operations>`
+    is only supported by the :doc:`/connector/delta-lake`,
+    :doc:`/connector/hive`, and :doc:`/connector/iceberg`.
+
 The following configuration properties control the behavior of fault-tolerant
 execution on a Trino cluster:
 
 .. list-table:: Fault-tolerant execution configuration properties
-   :widths: 30, 40, 30
+   :widths: 30, 50, 20
    :header-rows: 1
 
    * - Property name
@@ -49,9 +65,14 @@ execution on a Trino cluster:
    * - ``exchange.deduplication-buffer-size``
      - Size of the coordinator's in-memory buffer used by fault-tolerant
        execution to store output of query :ref:`stages <trino-concept-stage>`.
-       If this buffer is filled during query execution, the query fails unless
+       If this buffer is filled during query execution, the query fails with a
+       "Task descriptor storage capacity has been exceeded" error message unless
        an :ref:`exchange manager <fte-exchange-manager>` is configured.
      - ``32MB``
+   * - ``exchange.compression-enabled``
+     - Enable compression of spooling data. Setting to ``true`` is recommended
+       when using an :ref:`exchange manager <fte-exchange-manager>`.
+     - ``false``
 
 .. _fte-retry-policy:
 
@@ -91,11 +112,28 @@ recommended when executing large batch queries, as the cluster can more
 efficiently retry smaller tasks within the query rather than retry the whole
 query.
 
-``TASK`` retry policy requires a configured :ref:`exchange manager
-<fte-exchange-manager>` to store spooled exchange data used for each task. It is
-also strongly recommended to set the ``query.low-memory-killer.policy``
-configuration property to ``total-reservation-on-blocked-nodes``, or queries may
-need to be manually killed if the cluster runs out of memory.
+The following cluster configuration changes are recommended to improve
+fault-tolerant execution with a ``TASK`` retry policy:
+
+* Set the ``task.low-memory-killer.policy``
+  :doc:`query management property </admin/properties-query-management>` to
+  ``total-reservation-on-blocked-nodes``, or queries may
+  need to be manually killed if the cluster runs out of memory.
+* Set the ``query.low-memory-killer.delay``
+  :doc:`query management property </admin/properties-query-management>` to
+  ``0s`` so the cluster immediately unblocks nodes that run out of memory.
+* Modify the ``query.remote-task.max-error-duration``
+  :doc:`query management property </admin/properties-query-management>`
+  to adjust how long Trino allows a remote task to try reconnecting before
+  considering it lost and rescheduling.
+
+.. note::
+
+  A ``TASK`` retry policy is best suited for large batch queries, but this
+  policy can result in higher latency for short-running queries executed in high
+  volume. As a best practice, it is recommended to run a dedicated cluster
+  with a ``TASK`` retry policy for large batch queries, separate from another
+  cluster that handles short queries.
 
 Advanced configuration
 ----------------------
@@ -112,7 +150,7 @@ The following configuration properties control the thresholds at which
 queries/tasks are no longer retried in the event of repeated failures:
 
 .. list-table:: Fault tolerance retry limit configuration properties
-   :widths: 30, 40, 30, 30
+   :widths: 30, 50, 20, 30
    :header-rows: 1
 
    * - Property name
@@ -132,21 +170,27 @@ queries/tasks are no longer retried in the event of repeated failures:
    * - ``task-retry-attempts-per-task``
      - Maximum number of times Trino may attempt to retry a single task before
        declaring the query as failed.
-     - ``2``
+     - ``4``
      - Only ``TASK``
    * - ``retry-initial-delay``
-     - Minimum time that a failed query must wait before it is retried. May be
+     - Minimum time that a failed query or task must wait before it is retried. May be
        overridden with the ``retry_initial_delay`` :ref:`session property
        <session-properties-definition>`.
      - ``10s``
-     - Only ``QUERY``
+     - ``QUERY`` and ``TASK``
    * - ``retry-max-delay``
-     - Maximum time that a failed query must wait before it is retried.
-       Wait time is increased on each subsequent query failure. May be
-       overridden with the ``retry_initial_delay`` :ref:`session property
+     - Maximum time that a failed query or task must wait before it is retried.
+       Wait time is increased on each subsequent  failure. May be
+       overridden with the ``retry_max_delay`` :ref:`session property
        <session-properties-definition>`.
      - ``1m``
-     - Only ``QUERY``
+     - ``QUERY`` and ``TASK``
+   * - ``retry-delay-scale-factor``
+     - Factor by which retry delay is increased on each query or task failure. May be
+       overridden with the ``retry_delay_scale_factor`` :ref:`session property
+       <session-properties-definition>`.
+     - ``2.0``
+     - ``QUERY`` and ``TASK``
 
 Task sizing
 ^^^^^^^^^^^
@@ -164,7 +208,7 @@ configuration properties to manually control task sizing. These configuration
 properties only apply to a ``TASK`` retry policy.
 
 .. list-table:: Task sizing configuration properties
-   :widths: 30, 40, 30
+   :widths: 30, 50, 20
    :header-rows: 1
 
    * - Property name
@@ -178,7 +222,7 @@ properties only apply to a ``TASK`` retry policy.
        May be overridden for the current session with the
        ``fault_tolerant_execution_target_task_input_size``
        :ref:`session property <session-properties-definition>`.
-     - ``1GB``
+     - ``4GB``
    * - ``fault-tolerant-execution-target-task-split-count``
      - Target number of standard :ref:`splits <trino-concept-splits>` processed
        by a single task that reads data from source tables. Value is interpreted
@@ -190,7 +234,7 @@ properties only apply to a ``TASK`` retry policy.
        May be overridden for the current session with the
        ``fault_tolerant_execution_target_task_split_count``
        :ref:`session property <session-properties-definition>`.
-     - ``16``
+     - ``64``
    * - ``fault-tolerant-execution-min-task-split-count``
      - Minimum number of :ref:`splits <trino-concept-splits>` processed by
        a single task. This value is not split weight-adjusted and serves as
@@ -225,7 +269,7 @@ the ``fault-tolerant-task-memory`` configuration property. This property only
 applies to a ``TASK`` retry policy.
 
 .. list-table:: Node allocation configuration properties
-   :widths: 30, 40, 30
+   :widths: 30, 50, 20
    :header-rows: 1
 
    * - Property name
@@ -236,7 +280,7 @@ applies to a ``TASK`` retry policy.
        for tasks. May be overridden for the current session with the
        ``fault_tolerant_execution_task_memory``
        :ref:`session property <session-properties-definition>`.
-     - ``4GB``
+     - ``5GB``
 
 Other tuning
 ^^^^^^^^^^^^
@@ -245,7 +289,7 @@ The following additional configuration property can be used to manage
 fault-tolerant execution:
 
 .. list-table:: Other fault-tolerant execution configuration properties
-   :widths: 30, 40, 30, 30
+   :widths: 30, 50, 20, 30
    :header-rows: 1
 
    * - Property name
@@ -258,6 +302,22 @@ fault-tolerant execution:
        reschedule tasks in case of a failure.
      - (JVM heap size * 0.15)
      - Only ``TASK``
+   * - ``fault-tolerant-execution-partition-count``
+     - Number of partitions to use for distributed joins and aggregations,
+       similar in function to the ``query.hash-partition-count`` :doc:`query
+       management property </admin/properties-query-management>`. It is not
+       recommended to increase this property value above the default of ``50``,
+       which may result in instability and poor performance. May be overridden
+       for the current session with the
+       ``fault_tolerant_execution_partition_count`` :ref:`session property
+       <session-properties-definition>`.
+     - ``50``
+     - Only ``TASK``
+   * - ``max-tasks-waiting-for-node-per-stage``
+     - Allow for up to configured number of tasks to wait for node allocation
+       per stage, before pausing scheduling for other tasks from this stage.
+     - 5
+     - Only ``TASK``
 
 .. _fte-exchange-manager:
 
@@ -266,8 +326,11 @@ Exchange manager
 
 Exchange spooling is responsible for storing and managing spooled data for
 fault-tolerant execution. You can configure a filesystem-based exchange manager
-that stores spooled data in a specified location, either an S3-compatible
-storage system or a local filesystem.
+that stores spooled data in a specified location, such as an S3-compatible
+storage system, Google Cloud Storage (GCS), or a local filesystem.
+
+Configuration
+^^^^^^^^^^^^^
 
 To configure an exchange manager, create a new
 ``etc/exchange-manager.properties`` configuration file on the coordinator and
@@ -275,51 +338,108 @@ all worker nodes. In this file, set the ``exchange-manager.name`` configuration
 propertry to ``filesystem``, and additional configuration properties as needed
 for your storage solution.
 
+The following table lists the available configuration properties for
+``exchange-manager.properties``, their default values, and which filesystem(s)
+the property may be configured for:
+
 .. list-table:: Exchange manager configuration properties
-   :widths: 30, 40, 30
+   :widths: 30, 50, 20, 30
    :header-rows: 1
 
    * - Property name
      - Description
      - Default value
-   * - ``exchange.base-directory``
-     - The base directory URI location that the exchange manager uses to store
-       spooling data. Only supports S3 and local filesystems.
+     - Supported filesystem
+   * - ``exchange.base-directories``
+     - Comma-separated list of URI locations that the exchange manager uses to
+       store spooling data. Only supports S3 and local filesystems.
      -
+     - Any
    * - ``exchange.encryption-enabled``
      - Enable encrypting of spooling data.
      - ``true``
+     - Any
    * - ``exchange.sink-buffer-pool-min-size``
      - The minimum buffer pool size for an exchange sink. The larger the buffer
        pool size, the larger the write parallelism and memory usage.
      - ``10``
+     - Any
+   * - ``exchange.sink-buffers-per-partition``
+     - The number of buffers per partition in the buffer pool. The larger the
+       buffer pool size, the larger the write parallelism and memory usage.
+     - ``2``
+     - Any
+   * - ``exchange.sink-max-file-size``
+     - Max size of files written by exchange sinks.
+     - ``1GB``
+     - Any
    * - ``exchange.source-concurrent-reader``
-     - The number of concurrent readers to read from spooling storage. The
+     - Number of concurrent readers to read from spooling storage. The
        larger the number of concurrent readers, the larger the read parallelism
        and memory usage.
      - ``4``
+     - Any
    * - ``exchange.s3.aws-access-key``
-     - AWS access key to use. Required for a connection to AWS S3, can be
-       ignored for other S3 storage systems.
+     - AWS access key to use. Required for a connection to AWS S3 and GCS, can
+       be ignored for other S3 storage systems.
      -
+     - AWS S3, GCS
    * - ``exchange.s3.aws-secret-key``
-     - AWS secret key to use. Required for a connection to AWS S3, can be
-       ignored for other S3 storage systems.
+     - AWS secret key to use. Required for a connection to AWS S3 and GCS, can
+       be ignored for other S3 storage systems.
      -
+     - AWS S3, GCS
+   * - ``exchange.s3.iam-role``
+     - IAM role to assume.
+     -
+     - AWS S3, GCS
+   * - ``exchange.s3.external-id``
+     - External ID for the IAM role trust policy.
+     -
+     - AWS S3, GCS
    * - ``exchange.s3.region``
      - Region of the S3 bucket.
      -
+     - AWS S3, GCS
    * - ``exchange.s3.endpoint``
      - S3 storage endpoint server if using an S3-compatible storage system that
-       is not AWS. If using AWS S3, can be ignored.
+       is not AWS. If using AWS S3, this can be ignored. If using GCS, set it
+       to ``https://storage.googleapis.com``.
      -
+     - Any S3-compatible storage
    * - ``exchange.s3.max-error-retries``
      - Maximum number of times the exchange manager's S3 client should retry
        a request.
      - ``3``
+     - Any S3-compatible storage
    * - ``exchange.s3.upload.part-size``
      - Part size for S3 multi-part upload.
      - ``5MB``
+     - Any S3-compatible storage
+   * - ``exchange.gcs.json-key-file-path``
+     - Path to the JSON file that contains your Google Cloud Platform
+       service account key.
+     -
+     - GCS
+   * - ``exchange.azure.connection-string``
+     - Connection string used to access the spooling container.
+     -
+     - Azure Blob Storage
+   * - ``exchange.azure.block-size``
+     - Block size for Azure block blob parallel upload.
+     - ``4MB``
+     - Azure Blob Storage
+
+It is recommended to set the ``exchange.compression-enabled`` property to
+``true`` in the cluster's ``config.properties`` file, to reduce the exchange
+manager's overall I/O load. It is also recommended to configure a bucket
+lifecycle rule to automatically expire abandoned objects in the event of a node
+crash.
+
+.. _fte-exchange-aws-s3:
+
+AWS S3
+~~~~~~
 
 The following example ``exchange-manager.properties`` configuration specifies an
 AWS S3 bucket as the spooling storage destination. Note that the destination
@@ -328,11 +448,69 @@ does not have to be in AWS, but can be any S3-compatible storage system.
 .. code-block:: properties
 
     exchange-manager.name=filesystem
-    exchange.base-directory=s3n://trino-exchange-manager
-    exchange.encryption-enabled=true
+    exchange.base-directories=s3://exchange-spooling-bucket
     exchange.s3.region=us-west-1
     exchange.s3.aws-access-key=example-access-key
     exchange.s3.aws-secret-key=example-secret-key
+
+You can configure multiple S3 buckets for the exchange manager to distribute
+spooled data across buckets, reducing the I/O load on any one bucket. If a query
+fails with the error message
+"software.amazon.awssdk.services.s3.model.S3Exception: Please reduce your
+request rate", this indicates that the workload is I/O intensive, and you should
+specify multiple S3 buckets in ``exchange.base-directories`` to balance the
+load:
+
+.. code-block:: properties
+
+    exchange.base-directories=s3://exchange-spooling-bucket-1,s3://exchange-spooling-bucket-2
+
+.. _fte-exchange-azure-blob:
+
+Azure Blob Storage
+~~~~~~~~~~~~~~~~~~
+
+The following example ``exchange-manager.properties`` configuration specifies an
+Azure Blob Storage container as the spooling storage destination.
+
+.. code-block:: properties
+
+    exchange-manager.name=filesystem
+    exchange.base-directories=abfs://container_name@account_name.dfs.core.windows.net
+    exchange.azure.connection-string=connection-string
+
+.. _fte-exchange-gcs:
+
+Google Cloud Storage
+~~~~~~~~~~~~~~~~~~~~
+
+To enable exchange spooling on GCS in Trino, change the request endpoint to the
+``https://storage.googleapis.com`` Google storage URI, and configure your AWS
+access/secret keys to use the GCS HMAC keys. If you deploy Trino on GCP, you
+must either create a service account with access to your spooling bucket or
+configure the key path to your GCS credential file.
+
+For more information on GCS's S3 compatibility, refer to the `Google Cloud
+documentation on S3 migration
+<https://cloud.google.com/storage/docs/aws-simple-migration>`_.
+
+The following example ``exchange-manager.properties`` configuration specifies a
+GCS bucket as the spooling storage destination.
+
+.. code-block:: properties
+
+    exchange-manager.name=filesystem
+    exchange.base-directories=gs://exchange-spooling-bucket
+    exchange.s3.region=us-west-1
+    exchange.s3.aws-access-key=example-access-key
+    exchange.s3.aws-secret-key=example-secret-key
+    exchange.s3.endpoint=https://storage.googleapis.com
+    exchange.gcs.json-key-file-path=/path/to/gcs_keyfile.json
+
+.. _fte-exchange-local-filesystem:
+
+Local filesystem storage
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following example ``exchange-manager.properties`` configuration specifies a
 local directory, ``/tmp/trino-exchange-manager``, as the spooling storage
@@ -348,4 +526,4 @@ destination.
 .. code-block:: properties
 
     exchange-manager.name=filesystem
-    exchange.base-directory=/tmp/trino-exchange-manager
+    exchange.base-directories=/tmp/trino-exchange-manager

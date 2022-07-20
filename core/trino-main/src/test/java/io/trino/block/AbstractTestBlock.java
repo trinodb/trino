@@ -70,6 +70,10 @@ public abstract class AbstractTestBlock
         assertBlockPositions(block, newBlockBuilder, expectedValues);
         assertBlockPositions(copyBlockViaBlockSerde(block), newBlockBuilder, expectedValues);
 
+        Block blockWithNull = copyBlockViaBlockSerde(block).copyWithAppendedNull();
+        T[] expectedValuesWithNull = Arrays.copyOf(expectedValues, expectedValues.length + 1);
+        assertBlockPositions(blockWithNull, newBlockBuilder, expectedValuesWithNull);
+
         assertBlockSize(block);
         assertRetainedSize(block);
 
@@ -194,7 +198,7 @@ public abstract class AbstractTestBlock
     protected List<Block> splitBlock(Block block, int count)
     {
         double sizePerSplit = block.getPositionCount() * 1.0 / count;
-        ImmutableList.Builder<Block> result = ImmutableList.builder();
+        ImmutableList.Builder<Block> result = ImmutableList.builderWithExpectedSize(count);
         for (int i = 0; i < count; i++) {
             int startPosition = toIntExact(Math.round(sizePerSplit * i));
             int endPosition = toIntExact(Math.round(sizePerSplit * (i + 1)));

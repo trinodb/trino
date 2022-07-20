@@ -612,33 +612,33 @@ public class PredicatePushDown
             }
 
             List<DynamicFilterExpression> clauses = Streams.concat(
-                    equiJoinClauses
-                            .stream()
-                            .map(clause -> new DynamicFilterExpression(
-                                    new ComparisonExpression(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference()))),
-                    joinFilterClauses.stream()
-                            .flatMap(Rewriter::tryConvertBetweenIntoComparisons)
-                            .filter(clause -> joinDynamicFilteringExpression(clause, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols()))
-                            .map(expression -> {
-                                if (expression instanceof NotExpression) {
-                                    NotExpression notExpression = ((NotExpression) expression);
-                                    ComparisonExpression comparison = (ComparisonExpression) notExpression.getValue();
-                                    return new DynamicFilterExpression(new ComparisonExpression(EQUAL, comparison.getLeft(), comparison.getRight()), true);
-                                }
-                                return new DynamicFilterExpression((ComparisonExpression) expression);
-                            })
-                            .map(expression -> {
-                                ComparisonExpression comparison = expression.getComparison();
-                                Expression leftExpression = comparison.getLeft();
-                                Expression rightExpression = comparison.getRight();
-                                boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(extractUnique(leftExpression));
-                                return new DynamicFilterExpression(
-                                        new ComparisonExpression(
-                                                alignedComparison ? comparison.getOperator() : comparison.getOperator().flip(),
-                                                alignedComparison ? leftExpression : rightExpression,
-                                                alignedComparison ? rightExpression : leftExpression),
-                                        expression.isNullAllowed());
-                            }))
+                            equiJoinClauses
+                                    .stream()
+                                    .map(clause -> new DynamicFilterExpression(
+                                            new ComparisonExpression(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference()))),
+                            joinFilterClauses.stream()
+                                    .flatMap(Rewriter::tryConvertBetweenIntoComparisons)
+                                    .filter(clause -> joinDynamicFilteringExpression(clause, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols()))
+                                    .map(expression -> {
+                                        if (expression instanceof NotExpression) {
+                                            NotExpression notExpression = ((NotExpression) expression);
+                                            ComparisonExpression comparison = (ComparisonExpression) notExpression.getValue();
+                                            return new DynamicFilterExpression(new ComparisonExpression(EQUAL, comparison.getLeft(), comparison.getRight()), true);
+                                        }
+                                        return new DynamicFilterExpression((ComparisonExpression) expression);
+                                    })
+                                    .map(expression -> {
+                                        ComparisonExpression comparison = expression.getComparison();
+                                        Expression leftExpression = comparison.getLeft();
+                                        Expression rightExpression = comparison.getRight();
+                                        boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(extractUnique(leftExpression));
+                                        return new DynamicFilterExpression(
+                                                new ComparisonExpression(
+                                                        alignedComparison ? comparison.getOperator() : comparison.getOperator().flip(),
+                                                        alignedComparison ? leftExpression : rightExpression,
+                                                        alignedComparison ? rightExpression : leftExpression),
+                                                expression.isNullAllowed());
+                                    }))
                     .collect(toImmutableList());
 
             // New equiJoinClauses could potentially not contain symbols used in current dynamic filters.
@@ -1509,14 +1509,10 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
-                output = new AggregationNode(node.getId(),
-                        rewrittenSource,
-                        node.getAggregations(),
-                        node.getGroupingSets(),
-                        ImmutableList.of(),
-                        node.getStep(),
-                        node.getHashSymbol(),
-                        node.getGroupIdSymbol());
+                output = AggregationNode.builderFrom(node)
+                        .setSource(rewrittenSource)
+                        .setPreGroupedSymbols(ImmutableList.of())
+                        .build();
             }
             if (!postAggregationConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(metadata, postAggregationConjuncts));

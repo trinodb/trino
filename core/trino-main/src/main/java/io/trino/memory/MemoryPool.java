@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.trino.execution.TaskId;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryAllocation;
 import io.trino.spi.memory.MemoryPoolInfo;
@@ -36,6 +37,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 
@@ -61,7 +63,13 @@ public class MemoryPool
     private final Map<QueryId, Map<String, Long>> taggedMemoryAllocations = new HashMap<>();
 
     @GuardedBy("this")
-    private final Map<QueryId, Long> queryMemoryRevocableReservations = new HashMap<>();
+    private final Map<QueryId, Long> queryRevocableMemoryReservations = new HashMap<>();
+
+    @GuardedBy("this")
+    private final Map<TaskId, Long> taskMemoryReservations = new HashMap<>();
+
+    @GuardedBy("this")
+    private final Map<TaskId, Long> taskRevocableMemoryReservations = new HashMap<>();
 
     private final List<MemoryPoolListener> listeners = new CopyOnWriteArrayList<>();
 
@@ -81,7 +89,26 @@ public class MemoryPool
             }
             memoryAllocations.put(entry.getKey(), allocations);
         }
-        return new MemoryPoolInfo(maxBytes, reservedBytes, reservedRevocableBytes, queryMemoryReservations, memoryAllocations, queryMemoryRevocableReservations);
+
+        Map<String, Long> stringKeyedTaskMemoryReservations = taskMemoryReservations.entrySet().stream()
+                .collect(toImmutableMap(
+                        entry -> entry.getKey().toString(),
+                        Entry::getValue));
+
+        Map<String, Long> stringKeyedTaskRevocableMemoryReservations = taskRevocableMemoryReservations.entrySet().stream()
+                .collect(toImmutableMap(
+                        entry -> entry.getKey().toString(),
+                        Entry::getValue));
+
+        return new MemoryPoolInfo(
+                maxBytes,
+                reservedBytes,
+                reservedRevocableBytes,
+                queryMemoryReservations,
+                memoryAllocations,
+                queryRevocableMemoryReservations,
+                stringKeyedTaskMemoryReservations,
+                stringKeyedTaskRevocableMemoryReservations);
     }
 
     public void addListener(MemoryPoolListener listener)
@@ -97,15 +124,16 @@ public class MemoryPool
     /**
      * Reserves the given number of bytes. Caller should wait on the returned future, before allocating more memory.
      */
-    public ListenableFuture<Void> reserve(QueryId queryId, String allocationTag, long bytes)
+    public ListenableFuture<Void> reserve(TaskId taskId, String allocationTag, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
-
         ListenableFuture<Void> result;
         synchronized (this) {
             if (bytes != 0) {
+                QueryId queryId = taskId.getQueryId();
                 queryMemoryReservations.merge(queryId, bytes, Long::sum);
                 updateTaggedMemoryAllocations(queryId, allocationTag, bytes);
+                taskMemoryReservations.merge(taskId, bytes, Long::sum);
             }
             reservedBytes += bytes;
             if (getFreeBytes() <= 0) {
@@ -129,14 +157,15 @@ public class MemoryPool
         listeners.forEach(listener -> listener.onMemoryReserved(this));
     }
 
-    public ListenableFuture<Void> reserveRevocable(QueryId queryId, long bytes)
+    public ListenableFuture<Void> reserveRevocable(TaskId taskId, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
 
         ListenableFuture<Void> result;
         synchronized (this) {
             if (bytes != 0) {
-                queryMemoryRevocableReservations.merge(queryId, bytes, Long::sum);
+                queryRevocableMemoryReservations.merge(taskId.getQueryId(), bytes, Long::sum);
+                taskRevocableMemoryReservations.merge(taskId, bytes, Long::sum);
             }
             reservedRevocableBytes += bytes;
             if (getFreeBytes() <= 0) {
@@ -158,7 +187,7 @@ public class MemoryPool
     /**
      * Try to reserve the given number of bytes. Return value indicates whether the caller may use the requested memory.
      */
-    public boolean tryReserve(QueryId queryId, String allocationTag, long bytes)
+    public boolean tryReserve(TaskId taskId, String allocationTag, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
         synchronized (this) {
@@ -167,8 +196,10 @@ public class MemoryPool
             }
             reservedBytes += bytes;
             if (bytes != 0) {
+                QueryId queryId = taskId.getQueryId();
                 queryMemoryReservations.merge(queryId, bytes, Long::sum);
                 updateTaggedMemoryAllocations(queryId, allocationTag, bytes);
+                taskMemoryReservations.merge(taskId, bytes, Long::sum);
             }
         }
 
@@ -176,7 +207,7 @@ public class MemoryPool
         return true;
     }
 
-    public synchronized void free(QueryId queryId, String allocationTag, long bytes)
+    public synchronized void free(TaskId taskId, String allocationTag, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
         checkArgument(reservedBytes >= bytes, "tried to free more memory than is reserved");
@@ -185,9 +216,15 @@ public class MemoryPool
             return;
         }
 
+        QueryId queryId = taskId.getQueryId();
         Long queryReservation = queryMemoryReservations.get(queryId);
         requireNonNull(queryReservation, "queryReservation is null");
-        checkArgument(queryReservation - bytes >= 0, "tried to free more memory than is reserved by query");
+        checkArgument(queryReservation >= bytes, "tried to free more memory than is reserved by query");
+
+        Long taskReservation = taskMemoryReservations.get(taskId);
+        requireNonNull(taskReservation, "taskReservation is null");
+        checkArgument(taskReservation >= bytes, "tried to free more memory than is reserved by task");
+
         queryReservation -= bytes;
         if (queryReservation == 0) {
             queryMemoryReservations.remove(queryId);
@@ -197,6 +234,15 @@ public class MemoryPool
             queryMemoryReservations.put(queryId, queryReservation);
             updateTaggedMemoryAllocations(queryId, allocationTag, -bytes);
         }
+
+        taskReservation -= bytes;
+        if (taskReservation == 0) {
+            taskMemoryReservations.remove(taskId);
+        }
+        else {
+            taskMemoryReservations.put(taskId, taskReservation);
+        }
+
         reservedBytes -= bytes;
         if (getFreeBytes() > 0 && future != null) {
             future.set(null);
@@ -204,7 +250,7 @@ public class MemoryPool
         }
     }
 
-    public synchronized void freeRevocable(QueryId queryId, long bytes)
+    public synchronized void freeRevocable(TaskId taskId, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
         checkArgument(reservedRevocableBytes >= bytes, "tried to free more revocable memory than is reserved");
@@ -213,16 +259,31 @@ public class MemoryPool
             return;
         }
 
-        Long queryReservation = queryMemoryRevocableReservations.get(queryId);
+        QueryId queryId = taskId.getQueryId();
+        Long queryReservation = queryRevocableMemoryReservations.get(queryId);
         requireNonNull(queryReservation, "queryReservation is null");
-        checkArgument(queryReservation - bytes >= 0, "tried to free more revocable memory than is reserved by query");
+        checkArgument(queryReservation >= bytes, "tried to free more revocable memory than is reserved by query");
+
+        Long taskReservation = taskRevocableMemoryReservations.get(taskId);
+        requireNonNull(taskReservation, "taskReservation is null");
+        checkArgument(taskReservation >= bytes, "tried to free more revocable memory than is reserved by task");
+
         queryReservation -= bytes;
         if (queryReservation == 0) {
-            queryMemoryRevocableReservations.remove(queryId);
+            queryRevocableMemoryReservations.remove(queryId);
         }
         else {
-            queryMemoryRevocableReservations.put(queryId, queryReservation);
+            queryRevocableMemoryReservations.put(queryId, queryReservation);
         }
+
+        taskReservation -= bytes;
+        if (taskReservation == 0) {
+            taskRevocableMemoryReservations.remove(taskId);
+        }
+        else {
+            taskRevocableMemoryReservations.put(taskId, taskReservation);
+        }
+
         reservedRevocableBytes -= bytes;
         if (getFreeBytes() > 0 && future != null) {
             future.set(null);
@@ -262,9 +323,22 @@ public class MemoryPool
         return queryMemoryReservations.getOrDefault(queryId, 0L);
     }
 
+    @VisibleForTesting
     synchronized long getQueryRevocableMemoryReservation(QueryId queryId)
     {
-        return queryMemoryRevocableReservations.getOrDefault(queryId, 0L);
+        return queryRevocableMemoryReservations.getOrDefault(queryId, 0L);
+    }
+
+    @VisibleForTesting
+    synchronized long getTaskMemoryReservation(TaskId taskId)
+    {
+        return taskMemoryReservations.getOrDefault(taskId, 0L);
+    }
+
+    @VisibleForTesting
+    synchronized long getTaskRevocableMemoryReservation(TaskId taskId)
+    {
+        return taskRevocableMemoryReservations.getOrDefault(taskId, 0L);
     }
 
     @Override
@@ -329,5 +403,23 @@ public class MemoryPool
     public synchronized Map<QueryId, Map<String, Long>> getTaggedMemoryAllocations()
     {
         return ImmutableMap.copyOf(taggedMemoryAllocations);
+    }
+
+    @VisibleForTesting
+    public synchronized Map<QueryId, Long> getQueryRevocableMemoryReservations()
+    {
+        return ImmutableMap.copyOf(queryRevocableMemoryReservations);
+    }
+
+    @VisibleForTesting
+    public synchronized Map<TaskId, Long> getTaskMemoryReservations()
+    {
+        return ImmutableMap.copyOf(taskMemoryReservations);
+    }
+
+    @VisibleForTesting
+    public synchronized Map<TaskId, Long> getTaskRevocableMemoryReservations()
+    {
+        return ImmutableMap.copyOf(taskRevocableMemoryReservations);
     }
 }

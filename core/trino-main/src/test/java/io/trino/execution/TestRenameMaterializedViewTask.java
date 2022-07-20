@@ -71,7 +71,7 @@ public class TestRenameMaterializedViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(asQualifiedName(tableName), qualifiedName("existing_table_new"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("Materialized View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME ...?", tableName, tableName);
+                .hasMessage("Materialized View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME TO ...?", tableName, tableName);
     }
 
     @Test
@@ -82,7 +82,7 @@ public class TestRenameMaterializedViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(asQualifiedName(tableName), qualifiedName("existing_table_new"), true)))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("Materialized View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME ...?", tableName, tableName);
+                .hasMessage("Materialized View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME TO ...?", tableName, tableName);
     }
 
     @Test
@@ -106,7 +106,7 @@ public class TestRenameMaterializedViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(viewName, qualifiedName("existing_view_new"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW catalog.schema.existing_view RENAME ...?", viewName);
+                .hasMessage("Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW catalog.schema.existing_view RENAME TO ...?", viewName);
     }
 
     @Test
@@ -117,7 +117,7 @@ public class TestRenameMaterializedViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(viewName, qualifiedName("existing_view_new"), true)))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW catalog.schema.existing_view RENAME ...?", viewName);
+                .hasMessage("Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW catalog.schema.existing_view RENAME TO ...?", viewName);
     }
 
     @Test

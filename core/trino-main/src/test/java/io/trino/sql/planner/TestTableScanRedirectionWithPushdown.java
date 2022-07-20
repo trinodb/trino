@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
@@ -53,6 +54,7 @@ import java.util.Set;
 import static io.trino.connector.MockConnectorFactory.ApplyFilter;
 import static io.trino.connector.MockConnectorFactory.ApplyProjection;
 import static io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
+import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -366,9 +368,12 @@ public class TestTableScanRedirectionWithPushdown
 
         for (ConnectorExpression projection : projections) {
             String newVariableName;
+            ConnectorExpression newVariable;
             ColumnHandle newColumnHandle;
+            Type type = projection.getType();
             if (projection instanceof Variable) {
                 newVariableName = ((Variable) projection).getName();
+                newVariable = new Variable(newVariableName, type);
                 newColumnHandle = assignments.get(newVariableName);
             }
             else if (projection instanceof FieldDereference) {
@@ -378,16 +383,27 @@ public class TestTableScanRedirectionWithPushdown
                 }
                 String dereferenceTargetName = ((Variable) dereference.getTarget()).getName();
                 newVariableName = ((MockConnectorColumnHandle) assignments.get(dereferenceTargetName)).getName() + "#" + dereference.getField();
-                newColumnHandle = new MockConnectorColumnHandle(newVariableName, projection.getType());
+                newVariable = new Variable(newVariableName, type);
+                newColumnHandle = new MockConnectorColumnHandle(newVariableName, type);
+            }
+            else if (projection instanceof Call) {
+                Call call = (Call) projection;
+                if (!(CAST_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1)) {
+                    throw new UnsupportedOperationException();
+                }
+                // Avoid CAST pushdown into the connector
+                newVariableName = ((Variable) call.getArguments().get(0)).getName();
+                newVariable = projection;
+                newColumnHandle = assignments.get(newVariableName);
+                type = call.getArguments().get(0).getType();
             }
             else {
                 throw new UnsupportedOperationException();
             }
 
-            Variable newVariable = new Variable(newVariableName, projection.getType());
             newColumnsBuilder.add(newColumnHandle);
             outputExpressions.add(newVariable);
-            outputAssignments.add(new Assignment(newVariableName, newColumnHandle, projection.getType()));
+            outputAssignments.add(new Assignment(newVariableName, newColumnHandle, type));
         }
 
         List<ColumnHandle> newColumns = newColumnsBuilder.build();

@@ -667,39 +667,6 @@ public class TestStringFunctions
     }
 
     @Test
-    public void testTrim()
-    {
-        assertFunction("TRIM('')", createVarcharType(0), "");
-        assertFunction("TRIM('   ')", createVarcharType(3), "");
-        assertFunction("TRIM('  hello  ')", createVarcharType(9), "hello");
-        assertFunction("TRIM('  hello')", createVarcharType(7), "hello");
-        assertFunction("TRIM('hello  ')", createVarcharType(7), "hello");
-        assertFunction("TRIM(' hello world ')", createVarcharType(13), "hello world");
-
-        assertFunction("TRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ')", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("TRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("TRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("TRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("TRIM(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-    }
-
-    @Test
-    public void testCharTrim()
-    {
-        assertFunction("TRIM(CAST('' AS CHAR(20)))", createVarcharType(20), "");
-        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)))", createVarcharType(9), "hello");
-        assertFunction("TRIM(CAST('  hello' AS CHAR(7)))", createVarcharType(7), "hello");
-        assertFunction("TRIM(CAST('hello  ' AS CHAR(7)))", createVarcharType(7), "hello");
-        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)))", createVarcharType(13), "hello world");
-
-        assertFunction("TRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ' AS CHAR(10)))", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("TRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ' AS CHAR(9)))", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("TRIM(CAST(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ' AS CHAR(9)))", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("TRIM(CAST('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(9)))", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("TRIM(CAST(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(10)))", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-    }
-
-    @Test
     public void testLeftTrimParametrized()
     {
         assertFunction("LTRIM('', '')", createVarcharType(0), "");
@@ -804,58 +771,6 @@ public class TestStringFunctions
 
         // non latin characters
         assertFunction("RTRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u0107\u0142')", createVarcharType(4), "\u017a\u00f3");
-    }
-
-    @Test
-    public void testTrimParametrized()
-    {
-        assertFunction("TRIM('', '')", createVarcharType(0), "");
-        assertFunction("TRIM('   ', '')", createVarcharType(3), "   ");
-        assertFunction("TRIM('  hello  ', '')", createVarcharType(9), "  hello  ");
-        assertFunction("TRIM('  hello  ', ' ')", createVarcharType(9), "hello");
-        assertFunction("TRIM('  hello  ', 'he ')", createVarcharType(9), "llo");
-        assertFunction("TRIM('  hello  ', 'lo ')", createVarcharType(9), "he");
-        assertFunction("TRIM('  hello', ' ')", createVarcharType(7), "hello");
-        assertFunction("TRIM('hello  ', ' ')", createVarcharType(7), "hello");
-        assertFunction("TRIM('hello  ', 'l o')", createVarcharType(7), "he");
-        assertFunction("TRIM('hello  ', 'l')", createVarcharType(7), "hello  ");
-        assertFunction("TRIM(' hello world ', ' ')", createVarcharType(13), "hello world");
-        assertFunction("TRIM(' hello world ', ' ld')", createVarcharType(13), "hello wor");
-        assertFunction("TRIM(' hello world ', ' eh')", createVarcharType(13), "llo world");
-        assertFunction("TRIM(' hello world ', ' ehlowrd')", createVarcharType(13), "");
-        assertFunction("TRIM(' hello world ', ' x')", createVarcharType(13), "hello world");
-
-        // non latin characters
-        assertFunction("TRIM('\u017a\u00f3\u0142\u0107', '\u0107\u017a')", createVarcharType(4), "\u00f3\u0142");
-
-        // invalid utf-8 characters
-        assertFunction("CAST(TRIM(utf8(from_hex('81')), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
-        assertFunction("CAST(TRIM(CONCAT(utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
-        assertFunction("CAST(TRIM(CONCAT(' ', utf8(from_hex('81'))), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
-        assertFunction("CAST(TRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
-        assertInvalidFunction("TRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
-        assertInvalidFunction("TRIM('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
-    }
-
-    @Test
-    public void testCharTrimParametrized()
-    {
-        assertFunction("TRIM(CAST('' AS CHAR(1)), '')", createVarcharType(1), "");
-        assertFunction("TRIM(CAST('   ' AS CHAR(3)), '')", createVarcharType(3), "");
-        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)), '')", createVarcharType(9), "  hello");
-        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)), ' ')", createVarcharType(9), "hello");
-        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)), 'he ')", createVarcharType(9), "llo");
-        assertFunction("TRIM(CAST('  hello' AS CHAR(7)), ' ')", createVarcharType(7), "hello");
-        assertFunction("TRIM(CAST('  hello' AS CHAR(7)), 'e h')", createVarcharType(7), "llo");
-        assertFunction("TRIM(CAST('hello  ' AS CHAR(7)), 'l')", createVarcharType(7), "hello");
-        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' ')", createVarcharType(13), "hello world");
-        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' eh')", createVarcharType(13), "llo world");
-        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' ehlowrd')", createVarcharType(13), "");
-        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' x')", createVarcharType(13), "hello world");
-        assertFunction("TRIM(CAST('abc def' AS CHAR(7)), 'def')", createVarcharType(7), "abc");
-
-        // non latin characters
-        assertFunction("TRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u017a\u0107\u0142')", createVarcharType(4), "\u00f3");
     }
 
     @Test

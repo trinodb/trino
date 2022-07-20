@@ -65,6 +65,8 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
+import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -72,7 +74,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASET_ERROR;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_OPERATION;
+import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_DATE;
+import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_TIME;
+import static io.trino.plugin.bigquery.BigQueryTableHandle.BigQueryPartitionType.INGESTION;
 import static io.trino.plugin.bigquery.BigQueryType.toField;
+import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -173,7 +180,7 @@ public class BigQueryMetadata
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String remoteSchemaName : remoteSchemaNames) {
             try {
-                Iterable<Table> tables = client.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW);
+                Iterable<Table> tables = client.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW, MATERIALIZED_VIEW, EXTERNAL);
                 for (Table table : tables) {
                     // filter ambiguous tables
                     client.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
@@ -247,7 +254,11 @@ public class BigQueryMetadata
         for (BigQueryColumnHandle column : client.getColumns(handle)) {
             columnMetadata.add(column.getColumnMetadata());
         }
-        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
+        if (handle.getPartitionType().isPresent() && handle.getPartitionType().get() == INGESTION) {
+            columnMetadata.add(PARTITION_DATE.getColumnMetadata());
+            columnMetadata.add(PARTITION_TIME.getColumnMetadata());
+        }
+        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build(), ImmutableMap.of(), handle.getComment());
     }
 
     @Override
@@ -290,7 +301,15 @@ public class BigQueryMetadata
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
         log.debug("getColumnHandles(session=%s, tableHandle=%s)", session, tableHandle);
-        return client.getColumns((BigQueryTableHandle) tableHandle).stream()
+
+        BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
+        ImmutableList.Builder<BigQueryColumnHandle> columns = ImmutableList.builder();
+        columns.addAll(client.getColumns(table));
+        if (table.getPartitionType().isPresent() && table.getPartitionType().get() == INGESTION) {
+            columns.add(PARTITION_DATE.getColumnHandle());
+            columns.add(PARTITION_TIME.getColumnHandle());
+        }
+        return columns.build().stream()
                 .collect(toImmutableMap(columnHandle -> columnHandle.getColumnMetadata().getName(), identity()));
     }
 
@@ -369,15 +388,21 @@ public class BigQueryMetadata
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
+
+        if (!schemaExists(session, schemaName)) {
+            throw new SchemaNotFoundException(schemaName);
+        }
+
         List<Field> fields = tableMetadata.getColumns().stream()
-                .map(column -> toField(column.getName(), column.getType()))
+                .map(column -> toField(column.getName(), column.getType(), column.getComment()))
                 .collect(toImmutableList());
 
         TableId tableId = TableId.of(schemaName, tableName);
         TableDefinition tableDefinition = StandardTableDefinition.of(Schema.of(fields));
-        TableInfo tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build();
+        TableInfo.Builder tableInfo = TableInfo.newBuilder(tableId, tableDefinition);
+        tableMetadata.getComment().ifPresent(tableInfo::setDescription);
 
-        bigQueryClientFactory.create(session).createTable(tableInfo);
+        bigQueryClientFactory.create(session).createTable(tableInfo.build());
     }
 
     @Override
@@ -385,6 +410,9 @@ public class BigQueryMetadata
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
         BigQueryTableHandle bigQueryTable = (BigQueryTableHandle) tableHandle;
+        if (isWildcardTable(TableDefinition.Type.valueOf(bigQueryTable.getType()), bigQueryTable.getRemoteTableName().getTableName())) {
+            throw new TrinoException(BIGQUERY_UNSUPPORTED_OPERATION, "This connector does not support dropping wildcard tables");
+        }
         TableId tableId = bigQueryTable.getRemoteTableName().toTableId();
         client.dropTable(tableId);
     }

@@ -21,23 +21,38 @@ import io.airlift.units.Duration;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 
+import javax.annotation.Nullable;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.concat;
 import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static io.trino.verifier.QueryResult.State.SUCCESS;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createDirectories;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -104,11 +119,12 @@ public class Verifier
                             config.isExplainOnly(),
                             config.getDoublePrecision(),
                             isCheckCorrectness(query),
-                            true,
+                            config.isCheckDeterminismEnabled(),
                             config.isVerboseResultsComparison(),
                             config.getControlTeardownRetries(),
                             config.getTestTeardownRetries(),
                             config.getRunTearDownOnResultMismatch(),
+                            config.isSkipControl(),
                             query);
                     completionService.submit(validator::valid, validator);
                     queriesSubmitted++;
@@ -140,6 +156,25 @@ public class Verifier
 
                 skipped++;
                 continue;
+            }
+
+            QueryResult controlResult = validator.getControlResult();
+            if (config.isSimplifiedControlQueriesGenerationEnabled() && controlResult.getState() == SUCCESS) {
+                QueryPair queryPair = validator.getQueryPair();
+                Path path = Paths.get(format(
+                        "%s/%s/%s/%s.sql",
+                        config.getSimplifiedControlQueriesOutputDirectory(),
+                        config.getRunId(),
+                        queryPair.getSuite(),
+                        queryPair.getName()));
+                try {
+                    String content = generateCorrespondingSelect(controlResult.getColumnTypes(), controlResult.getResults());
+                    createDirectories(path.getParent());
+                    Files.write(path, content.getBytes(UTF_8));
+                }
+                catch (IOException | RuntimeException e) {
+                    log.error(e, "Failed generating corresponding select statement for expected results for query %s", queryPair.getName());
+                }
             }
 
             if (validator.valid()) {
@@ -219,23 +254,48 @@ public class Verifier
                 queryPair.getTest().getPreQueries(),
                 queryPair.getTest().getQuery(),
                 queryPair.getTest().getPostQueries(),
+                validator.getTestPreQueryResults().stream()
+                        .map(QueryResult::getQueryId)
+                        .filter(Objects::nonNull)
+                        .collect(toImmutableList()),
                 test.getQueryId(),
-                optionalDurationToSeconds(test.getCpuTime()),
-                optionalDurationToSeconds(test.getWallTime()),
+                validator.getTestPostQueryResults().stream()
+                        .map(QueryResult::getQueryId)
+                        .filter(Objects::nonNull)
+                        .collect(toImmutableList()),
+                getTotalDurationInSeconds(validator.getTestPreQueryResults(), validator.getTestResult(), validator.getTestPostQueryResults(), QueryResult::getCpuTime),
+                getTotalDurationInSeconds(validator.getTestPreQueryResults(), validator.getTestResult(), validator.getTestPostQueryResults(), QueryResult::getWallTime),
                 queryPair.getControl().getCatalog(),
                 queryPair.getControl().getSchema(),
                 queryPair.getControl().getPreQueries(),
                 queryPair.getControl().getQuery(),
                 queryPair.getControl().getPostQueries(),
+                validator.getControlPreQueryResults().stream()
+                        .map(QueryResult::getQueryId)
+                        .filter(Objects::nonNull)
+                        .collect(toImmutableList()),
                 control.getQueryId(),
-                optionalDurationToSeconds(control.getCpuTime()),
-                optionalDurationToSeconds(control.getWallTime()),
+                validator.getControlPostQueryResults().stream()
+                        .map(QueryResult::getQueryId)
+                        .filter(Objects::nonNull)
+                        .collect(toImmutableList()),
+                getTotalDurationInSeconds(validator.getControlPreQueryResults(), validator.getControlResult(), validator.getControlPostQueryResults(), QueryResult::getCpuTime),
+                getTotalDurationInSeconds(validator.getControlPreQueryResults(), validator.getControlResult(), validator.getControlPostQueryResults(), QueryResult::getWallTime),
                 errorMessage);
     }
 
-    private static Double optionalDurationToSeconds(Duration duration)
+    @Nullable
+    private static Double getTotalDurationInSeconds(List<QueryResult> preQueries, QueryResult query, List<QueryResult> postQueries, Function<QueryResult, Duration> metric)
     {
-        return duration != null ? duration.convertTo(SECONDS).getValue() : null;
+        OptionalDouble result = concat(preQueries.stream(), Stream.of(query), postQueries.stream())
+                .map(metric)
+                .filter(Objects::nonNull)
+                .mapToDouble(duration -> duration.getValue(SECONDS))
+                .reduce(Double::sum);
+        if (result.isEmpty()) {
+            return null;
+        }
+        return result.getAsDouble();
     }
 
     private static <T> T takeUnchecked(CompletionService<T> completionService)
@@ -258,5 +318,79 @@ public class Verifier
             }
         }
         return true;
+    }
+
+    private static String generateCorrespondingSelect(List<String> columnTypes, List<List<Object>> rows)
+    {
+        StringBuilder sb = new StringBuilder("SELECT *\nFROM\n(\n  VALUES\n");
+        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+            List<Object> row = rows.get(rowIndex);
+            sb.append("    (");
+            for (int columnIndex = 0; columnIndex < columnTypes.size(); columnIndex++) {
+                String type = columnTypes.get(columnIndex);
+                Optional<String> value = Optional.ofNullable(row.get(columnIndex)).map(Object::toString);
+                String literal = getLiteral(type, value);
+                sb.append(literal);
+                if (columnIndex < columnTypes.size() - 1) {
+                    sb.append(", ");
+                }
+            }
+            sb.append(")");
+            if (rowIndex < rows.size() - 1) {
+                sb.append(",");
+            }
+            sb.append("\n");
+        }
+        if (rows.isEmpty()) {
+            sb.append("    (");
+            for (int columnIndex = 0; columnIndex < columnTypes.size(); columnIndex++) {
+                sb.append("NULL");
+                if (columnIndex < columnTypes.size() - 1) {
+                    sb.append(", ");
+                }
+            }
+            sb.append(")\n");
+        }
+        sb.append(")\n");
+        if (rows.isEmpty()) {
+            sb.append("WHERE 1=0\n");
+        }
+        return sb.toString();
+    }
+
+    private static String getLiteral(String type, Optional<String> value)
+    {
+        String baseType = getBaseType(type);
+        switch (baseType) {
+            case "TINYINT":
+            case "SMALLINT":
+            case "INTEGER":
+            case "BIGINT":
+            case "DECIMAL":
+            case "DATE":
+            case "TIME":
+            case "REAL":
+            case "DOUBLE":
+                return value.map(v -> baseType + " '" + v + "'").orElse("NULL");
+            case "CHAR":
+            case "VARCHAR":
+                return value.map(v -> baseType + " '" + v.replaceAll("'", "''") + "'").orElse("NULL");
+            case "VARBINARY":
+                return value.map(v -> "X'" + v + "'").orElse("NULL");
+            case "UNKNOWN":
+                return "NULL";
+            default:
+                throw new IllegalArgumentException(format("Unexpected type: %s", type));
+        }
+    }
+
+    private static String getBaseType(String type)
+    {
+        String baseType = type.toUpperCase(ENGLISH);
+        int index = baseType.indexOf('(');
+        if (index != -1) {
+            baseType = baseType.substring(0, index);
+        }
+        return baseType;
     }
 }

@@ -42,6 +42,7 @@ import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
+import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
@@ -86,8 +87,6 @@ public interface Metadata
 
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
-    Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
-
     Optional<TableExecuteHandle> getTableHandleForExecute(
             Session session,
             TableHandle tableHandle,
@@ -99,6 +98,8 @@ public interface Metadata
     BeginTableExecuteResult<TableExecuteHandle, TableHandle> beginTableExecute(Session session, TableExecuteHandle handle, TableHandle updatedSourceTableHandle);
 
     void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState);
+
+    void executeTableExecute(Session session, TableExecuteHandle handle);
 
     TableProperties getTableProperties(Session session, TableHandle handle);
 
@@ -137,9 +138,9 @@ public interface Metadata
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
     /**
-     * Return statistics for specified table for given filtering contraint.
+     * Return statistics for specified table.
      */
-    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint constraint);
+    TableStatistics getTableStatistics(Session session, TableHandle tableHandle);
 
     /**
      * Get the relation names that match the specified table prefix (never null).
@@ -212,6 +213,11 @@ public interface Metadata
     void setTableComment(Session session, TableHandle tableHandle, Optional<String> comment);
 
     /**
+     * Comments to the specified view.
+     */
+    void setViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment);
+
+    /**
      * Comments to the specified column.
      */
     void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment);
@@ -270,7 +276,7 @@ public interface Metadata
     /**
      * Describe statistics that must be collected during a statistics collection
      */
-    TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+    AnalyzeMetadata getStatisticsCollectionMetadata(Session session, TableHandle tableHandle, Map<String, Object> analyzeProperties);
 
     /**
      * Begin statistics collection
@@ -376,10 +382,8 @@ public interface Metadata
 
     /**
      * Gets all the loaded catalogs
-     *
-     * @return Map of catalog name to connector
      */
-    Map<String, Catalog> getCatalogs(Session session);
+    List<CatalogInfo> listCatalogs(Session session);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -470,6 +474,8 @@ public interface Metadata
             long topNCount,
             List<SortItem> sortItems,
             Map<String, ColumnHandle> assignments);
+
+    Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle);
 
     default void validateScan(Session session, TableHandle table) {}
 
@@ -600,7 +606,7 @@ public interface Metadata
     // Functions
     //
 
-    Collection<FunctionMetadata> listFunctions();
+    Collection<FunctionMetadata> listFunctions(Session session);
 
     ResolvedFunction decodeFunction(QualifiedName name);
 
@@ -622,11 +628,11 @@ public interface Metadata
      * Is the named function an aggregation function?  This does not need type parameters
      * because overloads between aggregation and other function types are not allowed.
      */
-    boolean isAggregationFunction(QualifiedName name);
+    boolean isAggregationFunction(Session session, QualifiedName name);
 
-    FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction);
+    FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 
-    AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction);
+    AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 
     /**
      * Creates the specified materialized view with the specified view definition.
@@ -695,9 +701,14 @@ public interface Metadata
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
 
     /**
-     * Verifies that a version is valid for a given table
+     * Returns true if the connector reports number of written bytes for an existing table. Otherwise, it returns false.
      */
-    boolean isValidTableVersion(Session session, QualifiedObjectName tableName, TableVersion version);
+    boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle);
+
+    /**
+     * Returns true if the connector reports number of written bytes for a new table. Otherwise, it returns false.
+     */
+    boolean supportsReportingWrittenBytes(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties);
 
     /**
      * Returns a table handle for the specified table name with a specified version

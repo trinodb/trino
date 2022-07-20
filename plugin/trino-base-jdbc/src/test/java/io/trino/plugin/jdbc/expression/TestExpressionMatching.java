@@ -22,14 +22,19 @@ import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionMatching
 {
+    private static final Map<String, Set<String>> TYPE_CLASSES = Map.of("integer_class", Set.of("tinyint", "smallint", "integer", "bigint"));
+
     @Test
     public void testMatchType()
     {
@@ -88,13 +93,33 @@ public class TestExpressionMatching
         assertThat(matchContext.get("bar")).isEqualTo(new Variable("second", BIGINT));
     }
 
+    @Test
+    public void testMatchCallWithTypeClass()
+    {
+        ConnectorExpression expression = new Call(
+                BIGINT,
+                new FunctionName("add"),
+                List.of(
+                        new Variable("first", INTEGER),
+                        new Variable("second", BIGINT)));
+        ExpressionPattern pattern = expressionPattern("add(foo: integer_class, bar: integer_class): integer_class");
+
+        Match match = pattern.getPattern().match(expression).collect(onlyElement());
+        MatchContext matchContext = new MatchContext();
+        pattern.resolve(match.captures(), matchContext);
+
+        assertThat(matchContext.keys()).containsExactlyInAnyOrder("foo", "bar");
+        assertThat(matchContext.get("foo")).isEqualTo(new Variable("first", INTEGER));
+        assertThat(matchContext.get("bar")).isEqualTo(new Variable("second", BIGINT));
+    }
+
     private static ExpressionPattern expressionPattern(String expressionPattern)
     {
-        return new ExpressionMappingParser().createExpressionPattern(expressionPattern);
+        return new ExpressionMappingParser(TYPE_CLASSES).createExpressionPattern(expressionPattern);
     }
 
     private static TypePattern typePattern(String typePattern)
     {
-        return new ExpressionMappingParser().createTypePattern(typePattern);
+        return new ExpressionMappingParser(TYPE_CLASSES).createTypePattern(typePattern);
     }
 }

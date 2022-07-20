@@ -28,6 +28,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.singlestore.SingleStoreQueryRunner.createSingleStoreQueryRunner;
@@ -79,8 +80,11 @@ public class TestSingleStoreConnectorTest
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_ARRAY:
@@ -135,7 +139,8 @@ public class TestSingleStoreConnectorTest
             return Optional.empty();
         }
 
-        if (typeName.equals("timestamp(3) with time zone")) {
+        if (typeName.equals("timestamp(3) with time zone") ||
+                typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
@@ -166,14 +171,11 @@ public class TestSingleStoreConnectorTest
         throw new SkipException("SingleStore doesn't support utf8mb4");
     }
 
-    @Test
-    public void testDropTable()
+    @Override
+    public void testDeleteWithLike()
     {
-        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
-
-        assertUpdate("DROP TABLE test_drop");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Test
@@ -219,21 +221,6 @@ public class TestSingleStoreConnectorTest
         assertEquals(row.getField(0), (byte) 127);
 
         assertUpdate("DROP TABLE mysql_test_tinyint1");
-    }
-
-    @Test
-    public void testCharTrailingSpace()
-    {
-        onRemoteDatabase().execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
-        assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
-
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test  '", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test        '", "VALUES 'test'");
-
-        assertEquals(getQueryRunner().execute("SELECT * FROM char_trailing_space WHERE x = char ' test'").getRowCount(), 0);
-
-        assertUpdate("DROP TABLE char_trailing_space");
     }
 
     @Override
@@ -305,9 +292,7 @@ public class TestSingleStoreConnectorTest
     {
         // TODO (https://github.com/trinodb/trino/issues/10320) SingleStore stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
         assertThatThrownBy(super::testCreateTableAsSelectNegativeDate)
-                .hasCauseInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("JDBC_ERROR")
-                .hasStackTraceContaining("JdbcRecordCursor.getLong");
+                .hasStackTraceContaining("TrinoException: Driver returned null LocalDate for a non-null value");
     }
 
     @Test
@@ -316,9 +301,34 @@ public class TestSingleStoreConnectorTest
     {
         // TODO (https://github.com/trinodb/trino/issues/10320) SingleStore stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
         assertThatThrownBy(super::testInsertNegativeDate)
-                .hasCauseInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("JDBC_ERROR")
-                .hasStackTraceContaining("JdbcRecordCursor.getLong");
+                .hasStackTraceContaining("TrinoException: Driver returned null LocalDate for a non-null value");
+    }
+
+    @Override
+    public void testNativeQueryCreateStatement()
+    {
+        // SingleStore returns a ResultSet metadata with no columns for CREATE TABLE statement.
+        // This is unusual, because other connectors don't produce a ResultSet metadata for CREATE TABLE at all.
+        // The query fails because there are no columns, but even if columns were not required, the query would fail
+        // to execute in SingleStore because the connector wraps it in additional syntax, which causes syntax error.
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .hasMessageContaining("descriptor has no fields");
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        // SingleStore returns a ResultSet metadata with no columns for INSERT statement.
+        // This is unusual, because other connectors don't produce a ResultSet metadata for INSERT at all.
+        // The query fails because there are no columns, but even if columns were not required, the query would fail
+        // to execute in SingleStore because the connector wraps it in additional syntax, which causes syntax error.
+        try (TestTable testTable = simpleTable()) {
+            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .hasMessageContaining("descriptor has no fields");
+            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
+        }
     }
 
     /**
@@ -348,6 +358,18 @@ public class TestSingleStoreConnectorTest
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
         return "orderkey IN (" + longValues + ")";
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(64);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Incorrect table name");
     }
 
     @Override

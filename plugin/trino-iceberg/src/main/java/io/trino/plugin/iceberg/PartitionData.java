@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.UUID;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -77,15 +76,15 @@ public class PartitionData
         partitionValues[pos] = value;
     }
 
-    public String toJson()
+    public static String toJson(StructLike structLike)
     {
         try {
             StringWriter writer = new StringWriter();
             JsonGenerator generator = FACTORY.createGenerator(writer);
             generator.writeStartObject();
             generator.writeArrayFieldStart(PARTITION_VALUES_FIELD);
-            for (Object value : partitionValues) {
-                generator.writeObject(value);
+            for (int i = 0; i < structLike.size(); i++) {
+                generator.writeObject(structLike.get(i, Object.class));
             }
             generator.writeEndArray();
             generator.writeEndObject();
@@ -93,7 +92,7 @@ public class PartitionData
             return writer.toString();
         }
         catch (IOException e) {
-            throw new UncheckedIOException("JSON conversion failed for PartitionData: " + Arrays.toString(partitionValues), e);
+            throw new UncheckedIOException("JSON conversion failed for: " + structLike, e);
         }
     }
 

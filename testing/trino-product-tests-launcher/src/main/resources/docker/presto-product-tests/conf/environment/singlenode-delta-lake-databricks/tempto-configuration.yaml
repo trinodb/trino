@@ -1,0 +1,15 @@
+databases:
+  presto:
+    jdbc_user: root
+  delta:
+    jdbc_driver_class: com.databricks.client.jdbc.Driver
+    schema: default
+    prepare_statement:
+      - USE ${databases.delta.schema}
+    table_manager_type: jdbc
+    jdbc_url: ${DATABRICKS_JDBC_URL};EnableArrow=0
+    jdbc_user: ${DATABRICKS_LOGIN}
+    jdbc_password: ${DATABRICKS_TOKEN}
+
+s3:
+  server_type: aws

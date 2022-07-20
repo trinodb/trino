@@ -19,6 +19,7 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
@@ -106,6 +107,9 @@ public class AllowAllAccessControlManager
 
     @Override
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName) {}
+
+    @Override
+    public void checkCanSetViewComment(SecurityContext context, QualifiedObjectName viewName) {}
 
     @Override
     public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName) {}
@@ -241,6 +245,9 @@ public class AllowAllAccessControlManager
 
     @Override
     public void checkCanExecuteFunction(SecurityContext context, String functionName) {}
+
+    @Override
+    public void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName) {}
 
     @Override
     public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName) {}

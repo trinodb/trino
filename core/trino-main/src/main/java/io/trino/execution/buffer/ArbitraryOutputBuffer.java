@@ -132,7 +132,7 @@ public class ArbitraryOutputBuffer
         Collection<ClientBuffer> buffers = this.buffers.values();
 
         int totalBufferedPages = masterBuffer.getBufferedPages();
-        ImmutableList.Builder<BufferInfo> infos = ImmutableList.builder();
+        ImmutableList.Builder<BufferInfo> infos = ImmutableList.builderWithExpectedSize(buffers.size());
         for (ClientBuffer buffer : buffers) {
             BufferInfo bufferInfo = buffer.getInfo();
             infos.add(bufferInfo);

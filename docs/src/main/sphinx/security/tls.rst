@@ -1,5 +1,5 @@
 =============
-HTTPS and TLS
+TLS and HTTPS
 =============
 
 Trino runs with no security by default. This allows you to connect to the server
@@ -29,9 +29,9 @@ using TLS 1.2 and TLS 1.3 certificates. The server rejects TLS 1.1, TLS 1.0, and
 all SSL format certificates.
 
 The Trino server does not specify a set of supported ciphers, instead deferring
-to the defaults set by the JVM version in use. The documentation for Java 11
+to the defaults set by the JVM version in use. The documentation for Java 17
 lists its `supported cipher suites
-<https://docs.oracle.com/en/java/javase/11/security/oracle-providers.html#GUID-7093246A-31A3-4304-AC5F-5FB6400405E2__SUNJSSE_CIPHER_SUITES>`_.
+<https://docs.oracle.com/en/java/javase/17/security/oracle-providers.html#GUID-7093246A-31A3-4304-AC5F-5FB6400405E2__SUNJSSE_CIPHER_SUITES>`_.
 
 Run the following two-line code on the same JVM from the same vendor as
 configured on the coordinator to determine that JVM's default cipher list.
@@ -61,7 +61,7 @@ different suite may require downloading and installing a different SunJCE
 implementation package. Some locales may have export restrictions on cipher
 suites. See the discussion in Java documentation that begins with `Customizing
 the Encryption Algorithm Providers
-<https://docs.oracle.com/en/java/javase/11/security/java-secure-socket-extension-jsse-reference-guide.html#GUID-316FB978-7588-442E-B829-B4973DB3B584>`_.
+<https://docs.oracle.com/en/java/javase/17/security/java-secure-socket-extension-jsse-reference-guide.html#GUID-316FB978-7588-442E-B829-B4973DB3B584>`_.
 
 .. note::
 
@@ -80,7 +80,7 @@ Approaches
 To configure Trino with TLS support, consider two alternative paths:
 
 * Use the :ref:`load balancer or proxy <https-load-balancer>` at your site
-  or cloud environment to terminate HTTPS/TLS. This approach is the simplest and
+  or cloud environment to terminate TLS/HTTPS. This approach is the simplest and
   strongly preferred solution.
 
 * Secure the Trino :ref:`server directly <https-secure-directly>`. This
@@ -89,7 +89,7 @@ To configure Trino with TLS support, consider two alternative paths:
 
 .. _https-load-balancer:
 
-Use a load balancer to terminate HTTPS/TLS
+Use a load balancer to terminate TLS/HTTPS
 ------------------------------------------
 
 Your site or cloud environment may already have a :ref:`load balancer <glossLB>`

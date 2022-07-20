@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.accumulo.metadata;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -37,14 +38,14 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.ZOOKEEPER_ERROR;
+import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.apache.zookeeper.KeeperException.Code.NONODE;
 
 public class ZooKeeperMetadataManager
 {
-    private static final String DEFAULT_SCHEMA = "default";
+    public static final String DEFAULT_SCHEMA = "default";
 
     private final CuratorFramework curator;
     private final ObjectMapper mapper;
@@ -89,6 +90,26 @@ public class ZooKeeperMetadataManager
         }
         catch (Exception e) {
             throw new TrinoException(ZOOKEEPER_ERROR, "ZK error checking/creating default schema", e);
+        }
+    }
+
+    public void createSchema(String schemaName)
+    {
+        try {
+            curator.create().forPath("/" + schemaName);
+        }
+        catch (Exception e) {
+            throw new TrinoException(ZOOKEEPER_ERROR, "ZK error creating schema: " + schemaName, e);
+        }
+    }
+
+    public void dropSchema(String schemaName)
+    {
+        try {
+            curator.delete().forPath("/" + schemaName);
+        }
+        catch (Exception e) {
+            throw new TrinoException(ZOOKEEPER_ERROR, "ZK error deleting schema: " + schemaName, e);
         }
     }
 
@@ -300,29 +321,26 @@ public class ZooKeeperMetadataManager
     }
 
     private boolean isAccumuloTable(byte[] data)
-            throws IOException
     {
         // AccumuloTable does not contain a 'data' node
-        return !mapper.reader().readTree(new String(data, UTF_8)).has("data");
+        return !parseJson(mapper, data, JsonNode.class).has("data");
     }
 
     private boolean isAccumuloView(byte[] data)
-            throws IOException
     {
         // AccumuloView contains a 'data' node
-        return mapper.reader().readTree(new String(data, UTF_8)).has("data");
+        return parseJson(mapper, data, JsonNode.class).has("data");
     }
 
     private AccumuloTable toAccumuloTable(byte[] data)
-            throws IOException
     {
-        return mapper.readValue(new String(data, UTF_8), AccumuloTable.class);
+        return parseJson(mapper, data, AccumuloTable.class);
     }
 
     private AccumuloView toAccumuloView(byte[] data)
             throws IOException
     {
-        return mapper.readValue(new String(data, UTF_8), AccumuloView.class);
+        return parseJson(mapper, data, AccumuloView.class);
     }
 
     private byte[] toJsonBytes(Object obj)

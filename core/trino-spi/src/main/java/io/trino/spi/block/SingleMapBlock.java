@@ -111,6 +111,12 @@ public class SingleMapBlock
     }
 
     @Override
+    public Block copyWithAppendedNull()
+    {
+        throw new UnsupportedOperationException("SingleMapBlock does not support newBlockWithAppendedNull()");
+    }
+
+    @Override
     public String toString()
     {
         return format("SingleMapBlock{positionCount=%d}", getPositionCount());

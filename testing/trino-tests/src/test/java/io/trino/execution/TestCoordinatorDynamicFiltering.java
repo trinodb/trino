@@ -28,13 +28,13 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.Domain;
@@ -461,8 +461,8 @@ public class TestCoordinatorDynamicFiltering
                         ConnectorTransactionHandle transaction,
                         ConnectorSession session,
                         ConnectorTableHandle table,
-                        SplitSchedulingStrategy splitSchedulingStrategy,
-                        DynamicFilter dynamicFilter)
+                        DynamicFilter dynamicFilter,
+                        Constraint constraint)
                 {
                     AtomicBoolean splitProduced = new AtomicBoolean();
 
@@ -472,7 +472,7 @@ public class TestCoordinatorDynamicFiltering
                     return new ConnectorSplitSource()
                     {
                         @Override
-                        public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+                        public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
                         {
                             CompletableFuture<?> blocked = dynamicFilter.isBlocked();
 

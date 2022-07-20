@@ -26,9 +26,11 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -91,6 +93,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
 
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
@@ -145,6 +148,19 @@ public abstract class BaseJdbcConnectorTest
     }
 
     // TODO move common tests from connector-specific classes here
+
+    @Test
+    public void testCharTrailingSpace()
+    {
+        String schema = getSession().getSchema().orElseThrow();
+        try (TestTable table = new TestTable(onRemoteDatabase(), schema + ".char_trailing_space", "(x char(10))", List.of("'test'"))) {
+            String tableName = table.getName();
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test'", "VALUES 'test'");
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test  '", "VALUES 'test'");
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test        '", "VALUES 'test'");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + tableName + " WHERE x = char ' test'");
+        }
+    }
 
     @Test
     public void testAggregationPushdown()
@@ -234,6 +250,39 @@ public abstract class BaseJdbcConnectorTest
                 "SELECT count(name) FROM nation WHERE name = 'ARGENTINA'",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
                 node(FilterNode.class, node(TableScanNode.class)));
+
+        // pruned away aggregation
+        assertThat(query("SELECT -13 FROM (SELECT count(*) FROM nation)"))
+                .matches("VALUES -13")
+                .hasPlan(node(OutputNode.class, node(ValuesNode.class)));
+        // aggregation over aggregation
+        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation)"))
+                .matches("VALUES BIGINT '1'")
+                .hasPlan(node(OutputNode.class, node(ValuesNode.class)));
+        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation GROUP BY regionkey)"))
+                .matches("VALUES BIGINT '5'")
+                .isFullyPushedDown();
+
+        // aggregation with UNION ALL and aggregation
+        assertThat(query("SELECT count(*) FROM (SELECT name FROM nation UNION ALL SELECT name FROM region)"))
+                .matches("VALUES BIGINT '30'")
+                // TODO (https://github.com/trinodb/trino/issues/12547): support count(*) over UNION ALL pushdown
+                .isNotFullyPushedDown(
+                        node(ExchangeNode.class,
+                                node(AggregationNode.class, node(TableScanNode.class)),
+                                node(AggregationNode.class, node(TableScanNode.class))));
+
+        // aggregation with UNION ALL and aggregation
+        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation UNION ALL SELECT count(*) FROM region)"))
+                .matches("VALUES BIGINT '2'")
+                .hasPlan(
+                        // Note: engine could fold this to single ValuesNode
+                        node(OutputNode.class,
+                                node(AggregationNode.class,
+                                        node(ExchangeNode.class,
+                                                node(ExchangeNode.class,
+                                                        node(AggregationNode.class, node(ValuesNode.class)),
+                                                        node(AggregationNode.class, node(ValuesNode.class)))))));
     }
 
     @Test
@@ -251,7 +300,7 @@ public abstract class BaseJdbcConnectorTest
         PlanMatchPattern groupingAggregationOverTableScan = node(AggregationNode.class, node(ProjectNode.class, node(TableScanNode.class)));
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
-                "test_case_sensitive_aggregation_pushdown",
+                "test_cs_agg_pushdown",
                 "(a_string varchar(1), a_char char(1), a_bigint bigint)",
                 ImmutableList.of(
                         "'A', 'A', 1",
@@ -430,14 +479,14 @@ public abstract class BaseJdbcConnectorTest
 
         String schemaName = getSession().getSchema().orElseThrow();
         // empty table
-        try (TestTable emptyTable = createAggregationTestTable(schemaName + ".test_aggregation_pushdown", ImmutableList.of())) {
+        try (TestTable emptyTable = createAggregationTestTable(schemaName + ".test_num_agg_pd", ImmutableList.of())) {
             assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT sum(short_decimal), sum(long_decimal), sum(a_bigint), sum(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = createAggregationTestTable(schemaName + ".test_aggregation_pushdown",
+        try (TestTable testTable = createAggregationTestTable(schemaName + ".test_num_agg_pd",
                 ImmutableList.of("100.000, 100000000.000000000, 100.000, 100000000", "123.321, 123456789.987654321, 123.321, 123456789"))) {
             assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -636,20 +685,20 @@ public abstract class BaseJdbcConnectorTest
         }
 
         // empty table
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covariance_pushdown", ImmutableList.of())) {
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covar_pushdown", ImmutableList.of())) {
             assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // test some values for which the aggregate functions return whole numbers
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covariance_pushdown",
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covar_pushdown",
                 ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
             assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // non-whole number results
-        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covariance_pushdown",
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covar_pushdown",
                 ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
             assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
@@ -1534,5 +1583,92 @@ public abstract class BaseJdbcConnectorTest
                 {10, 50}, // number of rows = n * batch size
                 {10, 52}, // number of rows > n * batch size
         };
+    }
+
+    @Test
+    public void testNativeQuerySimple()
+    {
+        assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT 1'))", "VALUES 1");
+    }
+
+    @Test
+    public void testNativeQueryParameters()
+    {
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query_simple", "SELECT * FROM TABLE(system.query(query => ?))")
+                .addPreparedStatement("my_query", "SELECT * FROM TABLE(system.query(query => format('SELECT %s FROM %s', ?, ?)))")
+                .build();
+        assertQuery(session, "EXECUTE my_query_simple USING 'SELECT 1 a'", "VALUES 1");
+        assertQuery(session, "EXECUTE my_query USING 'a', '(SELECT 2 a) t'", "VALUES 2");
+    }
+
+    @Test
+    public void testNativeQuerySelectFromNation()
+    {
+        assertQuery(
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                "VALUES 'ALGERIA'");
+    }
+
+    @Test
+    public void testNativeQuerySelectFromTestTable()
+    {
+        try (TestTable testTable = simpleTable()) {
+            assertQuery(
+                    format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
+                    "VALUES 1, 2");
+        }
+    }
+
+    @Test
+    public void testNativeQuerySelectUnsupportedType()
+    {
+        try (TestTable testTable = createTableWithUnsupportedColumn()) {
+            String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
+            // Check that column 'two' is not supported.
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '" + unqualifiedTableName + "'", "VALUES 'one', 'three'");
+            assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
+            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())))
+                    .hasMessageContaining("Unsupported type");
+        }
+    }
+
+    @Test
+    public void testNativeQueryCreateStatement()
+    {
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: CREATE TABLE numbers(n INTEGER)");
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+    }
+
+    @Test
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .hasMessageContaining("Failed to get table handle for prepared query");
+    }
+
+    @Test
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        try (TestTable testTable = simpleTable()) {
+            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .hasMessageContaining(format("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)", testTable.getName()));
+            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
+        }
+    }
+
+    @Test
+    public void testNativeQueryIncorrectSyntax()
+    {
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessageContaining("Failed to get table handle for prepared query");
+    }
+
+    protected TestTable simpleTable()
+    {
+        return new TestTable(onRemoteDatabase(), format("%s.simple_table", getSession().getSchema().orElseThrow()), "(col BIGINT)", ImmutableList.of("1", "2"));
     }
 }

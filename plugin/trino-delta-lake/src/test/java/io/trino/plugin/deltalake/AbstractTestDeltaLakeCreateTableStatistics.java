@@ -16,11 +16,11 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
-import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
@@ -28,6 +28,7 @@ import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.DateType;
@@ -53,7 +54,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
-import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
@@ -62,6 +62,7 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -83,22 +84,21 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
             throws Exception
     {
         this.bucketName = "delta-test-create-table-statistics-" + randomTableSuffix();
-        DockerizedMinioDataLake dockerizedMinioDataLake = closeAfterClass(createDockerizedMinioDataLakeForDeltaLake(bucketName));
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        hiveMinioDataLake.start();
         ImmutableMap.Builder<String, String> queryRunnerProperties = ImmutableMap.builder();
         queryRunnerProperties.putAll(additionalProperties());
-        QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
+        return DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 queryRunnerProperties.buildOrThrow(),
-                dockerizedMinioDataLake.getMinioAddress(),
-                dockerizedMinioDataLake.getTestingHadoop());
-
-        return queryRunner;
+                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getHiveHadoop());
     }
 
     @Test
     public void testComplexDataTypes()
-            throws IOException
+            throws Exception
     {
         try (TestTable table = new TestTable(
                 "test_complex_data_types_",
@@ -110,14 +110,14 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
             assertThat(entry.getStats()).isPresent();
             DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
 
-            DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle("d", createUnboundedVarcharType(), REGULAR);
+            DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle("d", createUnboundedVarcharType(), "d", createUnboundedVarcharType(), REGULAR);
             assertEquals(fileStatistics.getNumRecords(), Optional.of(2L));
             assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.of(utf8Slice("foo")));
             assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.of(utf8Slice("moo")));
             assertEquals(fileStatistics.getNullCount("d"), Optional.of(0L));
 
             for (String complexColumn : ImmutableList.of("a", "b", "c")) {
-                columnHandle = new DeltaLakeColumnHandle(complexColumn, createUnboundedVarcharType(), REGULAR);
+                columnHandle = new DeltaLakeColumnHandle(complexColumn, createUnboundedVarcharType(), complexColumn, createUnboundedVarcharType(), REGULAR);
                 assertThat(fileStatistics.getMaxColumnValue(columnHandle)).isEmpty();
                 assertThat(fileStatistics.getMinColumnValue(columnHandle)).isEmpty();
                 assertThat(fileStatistics.getNullCount(complexColumn)).isEmpty();
@@ -133,10 +133,10 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test(dataProvider = "doubleTypes")
     public void testDoubleTypesNaN(String type)
-            throws IOException
+            throws Exception
     {
         String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, columnName, DoubleType.DOUBLE, REGULAR);
         try (TestTable table = new TestTable("test_nan_", ImmutableList.of(columnName), format("VALUES CAST(nan() AS %1$s), CAST(0.0 AS %1$s)", type))) {
             List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
             AddFileEntry entry = getOnlyElement(addFileEntries);
@@ -152,10 +152,10 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test(dataProvider = "doubleTypes")
     public void testDoubleTypesInf(String type)
-            throws IOException
+            throws Exception
     {
         String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, columnName, DoubleType.DOUBLE, REGULAR);
         try (TestTable table = new TestTable(
                 "test_inf_",
                 ImmutableList.of(columnName),
@@ -174,10 +174,10 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test(dataProvider = "doubleTypes")
     public void testDoubleTypesInfAndNaN(String type)
-            throws IOException
+            throws Exception
     {
         String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, columnName, DoubleType.DOUBLE, REGULAR);
         try (TestTable table = new TestTable(
                 "test_inf_nan_",
                 ImmutableList.of(columnName),
@@ -196,10 +196,10 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test(dataProvider = "doubleTypes")
     public void testDoubleTypesNaNPositive(String type)
-            throws IOException
+            throws Exception
     {
         String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, columnName, DoubleType.DOUBLE, REGULAR);
         try (TestTable table = new TestTable(
                 "test_nan_positive_",
                 ImmutableList.of(columnName),
@@ -218,10 +218,10 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test(dataProvider = "doubleTypes")
     public void testDoubleTypesNaNNegative(String type)
-            throws IOException
+            throws Exception
     {
         String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, columnName, DoubleType.DOUBLE, REGULAR);
         try (TestTable table = new TestTable(
                 "test_nan_positive_",
                 ImmutableList.of(columnName),
@@ -240,34 +240,34 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testDecimalLowPrecisionRecords()
-            throws IOException
+            throws Exception
     {
         testDecimal(5, 1);
     }
 
     @Test
     public void testDecimalMediumPrecisionRecords()
-            throws IOException
+            throws Exception
     {
         testDecimal(10, 2);
     }
 
     @Test
     public void testDecimalHighPrecisionRecords()
-            throws IOException
+            throws Exception
     {
         testDecimal(25, 3);
     }
 
     private void testDecimal(int precision, int scale)
-            throws IOException
+            throws Exception
     {
         String low = "1" + "0".repeat(precision - scale) + "." + "0".repeat(scale - 1) + "1";
         String high = "2" + "0".repeat(precision - scale) + "." + "0".repeat(scale - 1) + "2";
         String negative = "-1" + "0".repeat(precision - scale) + "." + "0".repeat(scale - 1) + "1";
 
         String columnName = "t_decimal";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DecimalType.createDecimalType(precision, scale), REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DecimalType.createDecimalType(precision, scale), columnName, DecimalType.createDecimalType(precision, scale), REGULAR);
         try (TestTable table = new TestTable(
                 "test_decimal_records_",
                 ImmutableList.of(columnName),
@@ -296,10 +296,10 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testNullRecords()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, columnName, DoubleType.DOUBLE, REGULAR);
         try (TestTable table = new TestTable("test_null_records_", ImmutableList.of(columnName), "VALUES null, 0, null, 1")) {
             List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
             AddFileEntry entry = getOnlyElement(addFileEntries);
@@ -315,10 +315,10 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testOnlyNullRecords()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_varchar";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), columnName, createUnboundedVarcharType(), REGULAR);
         try (TestTable table = new TestTable(
                 "test_only_null_records_",
                 ImmutableList.of(columnName),
@@ -337,10 +337,10 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testDateRecords()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_date";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DateType.DATE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DateType.DATE, columnName, DateType.DATE, REGULAR);
         try (TestTable table = new TestTable(
                 "test_date_records_",
                 ImmutableList.of(columnName),
@@ -359,10 +359,10 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testTimestampMilliRecords()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_timestamp";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
         try (TestTable table = new TestTable(
                 "test_timestamp_records_",
                 ImmutableList.of(columnName),
@@ -385,10 +385,10 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testUnicodeValues()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_string";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), columnName, createUnboundedVarcharType(), REGULAR);
         try (TestTable table = new TestTable("test_unicode_", ImmutableList.of(columnName), "VALUES 'ab\uFAD8', 'ab\uD83D\uDD74'")) {
             List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
             AddFileEntry entry = getOnlyElement(addFileEntries);
@@ -404,10 +404,10 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testPartitionedTable()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_string";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), columnName, createUnboundedVarcharType(), REGULAR);
         String partitionColumn = "t_int";
 
         try (TestTable table = new TestTable(
@@ -439,13 +439,20 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testMultiFileTable()
-            throws IOException
+            throws Exception
     {
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle("name", createUnboundedVarcharType(), REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle("name", createUnboundedVarcharType(), "name", createUnboundedVarcharType(), REGULAR);
+        Session session = testSessionBuilder()
+                .setCatalog(DELTA_CATALOG)
+                .setSystemProperty("scale_writers", "false")
+                .setSchema(SCHEMA)
+                .build();
         try (TestTable table = new TestTable(
                 "test_partitioned_table_",
                 ImmutableList.of(),
-                "SELECT name FROM tpch.tiny.nation UNION select name from tpch.tiny.customer")) {
+                ImmutableList.of(),
+                "SELECT name FROM tpch.tiny.nation UNION select name from tpch.tiny.customer",
+                session)) {
             List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
             assertThat(addFileEntries.size()).isGreaterThan(1);
 
@@ -462,16 +469,23 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testMultiFileTableWithNaNValue()
-            throws IOException
+            throws Exception
     {
         // assertEventually because sometimes write from tpch.tiny.orders creates one file only and the test requires at least two files
         assertEventually(() -> {
             String columnName = "orderkey";
-            DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
+            DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, columnName, DoubleType.DOUBLE, REGULAR);
+            Session session = testSessionBuilder()
+                    .setCatalog(DELTA_CATALOG)
+                    .setSchema(SCHEMA)
+                    .setSystemProperty("scale_writers", "false")
+                    .build();
             try (TestTable table = new TestTable(
                     "test_partitioned_table_",
                     ImmutableList.of(columnName),
-                    "SELECT IF(orderkey = 50597, nan(), CAST(orderkey AS double)) FROM tpch.tiny.orders")) {
+                    ImmutableList.of(),
+                    "SELECT IF(orderkey = 50597, nan(), CAST(orderkey AS double)) FROM tpch.tiny.orders",
+                    session)) {
                 List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
                 assertThat(addFileEntries.size()).isGreaterThan(1);
 
@@ -495,15 +509,20 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
             this(name, columnNames, ImmutableList.of(), values);
         }
 
-        public TestTable(String name, List<String> columnNames, List<String> partitionNames, String values)
+        public TestTable(String name, List<String> columnNames, List<String> partitionNames, String values, Session session)
         {
             this.name = name + randomTableSuffix();
             String columns = columnNames.isEmpty() ? "" :
                     "(" + String.join(",", columnNames) + ")";
             String partitionedBy = partitionNames.isEmpty() ? "" :
                     format(", partitioned_by = ARRAY[%s]", partitionNames.stream().map(partitionName -> "'" + partitionName + "'").collect(Collectors.joining(",")));
-            computeActual(format("CREATE TABLE %s %s WITH (location = 's3://%s/%1$s' %s) AS %s",
+            computeActual(session, format("CREATE TABLE %s %s WITH (location = 's3://%s/%1$s' %s) AS %s",
                     this.name, columns, bucketName, partitionedBy, values));
+        }
+
+        public TestTable(String name, List<String> columnNames, List<String> partitionNames, String values)
+        {
+            this(name, columnNames, partitionNames, values, getSession());
         }
 
         public String getName()
@@ -532,8 +551,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
                 new DeltaLakeConfig(),
                 new FileFormatDataSourceStats(),
                 hdfsEnvironment,
-                new ParquetReaderConfig(),
-                new DeltaLakeConfig());
+                new ParquetReaderConfig());
 
         return transactionLogAccess.getActiveFiles(
                 transactionLogAccess.loadSnapshot(new SchemaTableName(SCHEMA, tableName), new Path(format("s3://%s/%s", bucketName, tableName)), SESSION), SESSION);

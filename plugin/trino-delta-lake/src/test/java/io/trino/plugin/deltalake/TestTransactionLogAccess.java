@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
+import io.airlift.units.Duration;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -54,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -61,7 +63,7 @@ import static com.google.common.collect.Sets.union;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractColumnMetadata;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.LAST_CHECKPOINT_FILENAME;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -111,6 +113,12 @@ public class TestTransactionLogAccess
     private void setupTransactionLogAccess(String tableName, Path tableLocation)
             throws IOException
     {
+        setupTransactionLogAccess(tableName, tableLocation, new DeltaLakeConfig());
+    }
+
+    private void setupTransactionLogAccess(String tableName, Path tableLocation, DeltaLakeConfig deltaLakeConfig)
+            throws IOException
+    {
         TestingConnectorContext context = new TestingConnectorContext();
         TypeManager typeManager = context.getTypeManager();
 
@@ -125,7 +133,7 @@ public class TestTransactionLogAccess
                 SESSION,
                 typeManager,
                 new CheckpointSchemaManager(typeManager),
-                new DeltaLakeConfig(),
+                deltaLakeConfig,
                 fileFormatDataSourceStats,
                 hdfsEnvironment,
                 new ParquetReaderConfig());
@@ -142,7 +150,8 @@ public class TestTransactionLogAccess
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                0);
+                0,
+                false);
 
         tableSnapshot = transactionLogAccess.loadSnapshot(tableHandle.getSchemaTableName(), tableLocation, SESSION);
     }
@@ -597,7 +606,7 @@ public class TestTransactionLogAccess
         }
 
         assertEquals(expectedDataFiles.size(), dataFilesWithFixedVersion.size());
-        List<ColumnMetadata> columns = extractSchema(transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION).get(), TESTING_TYPE_MANAGER);
+        List<ColumnMetadata> columns = extractColumnMetadata(transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION).get(), TESTING_TYPE_MANAGER);
         for (int i = 0; i < expectedDataFiles.size(); i++) {
             AddFileEntry expected = expectedDataFiles.get(i);
             AddFileEntry actual = dataFilesWithFixedVersion.get(i);
@@ -613,7 +622,7 @@ public class TestTransactionLogAccess
             assertTrue(actual.getStats().isPresent());
 
             for (ColumnMetadata column : columns) {
-                DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(column.getName(), column.getType(), REGULAR);
+                DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(column.getName(), column.getType(), column.getName(), column.getType(), REGULAR);
                 assertEquals(expected.getStats().get().getMinColumnValue(columnHandle), actual.getStats().get().getMinColumnValue(columnHandle));
                 assertEquals(expected.getStats().get().getMaxColumnValue(columnHandle), actual.getStats().get().getMaxColumnValue(columnHandle));
                 assertEquals(expected.getStats().get().getNullCount(columnHandle.getName()), actual.getStats().get().getNullCount(columnHandle.getName()));
@@ -687,13 +696,44 @@ public class TestTransactionLogAccess
             // Types would need to be specified properly if stats were being read from JSON but are not can be ignored when reading parsed stats from parquet,
             // so it is safe to use INTEGER as a placeholder
             assertEquals(
-                    fileStats.getMinColumnValue(new DeltaLakeColumnHandle(columnName, IntegerType.INTEGER, REGULAR)),
+                    fileStats.getMinColumnValue(new DeltaLakeColumnHandle(columnName, IntegerType.INTEGER, columnName, IntegerType.INTEGER, REGULAR)),
                     Optional.of(statsValues.get(columnName)));
 
             assertEquals(
-                    fileStats.getMaxColumnValue(new DeltaLakeColumnHandle(columnName, IntegerType.INTEGER, REGULAR)),
+                    fileStats.getMaxColumnValue(new DeltaLakeColumnHandle(columnName, IntegerType.INTEGER, columnName, IntegerType.INTEGER, REGULAR)),
                     Optional.of(statsValues.get(columnName)));
         }
+    }
+
+    @Test
+    public void testTableSnapshotsCacheDisabled()
+            throws Exception
+    {
+        String tableName = "person";
+        Path tableDir = new Path(getClass().getClassLoader().getResource("databricks/" + tableName).toURI());
+        DeltaLakeConfig cacheDisabledConfig = new DeltaLakeConfig();
+        cacheDisabledConfig.setMetadataCacheTtl(new Duration(0, TimeUnit.SECONDS));
+        setupTransactionLogAccess(tableName, tableDir, cacheDisabledConfig);
+
+        assertEquals(
+                transactionLogAccess.getAccessTrackingFileSystem().getOpenCount(),
+                ImmutableMap.of(
+                        "_last_checkpoint", 1,
+                        "00000000000000000011.json", 1,
+                        "00000000000000000012.json", 1,
+                        "00000000000000000013.json", 1,
+                        "00000000000000000014.json", 1));
+
+        // With the transaction log cache disabled, when loading the snapshot again, all the needed files will be opened again
+        transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir, SESSION);
+        assertEquals(
+                transactionLogAccess.getAccessTrackingFileSystem().getOpenCount(),
+                ImmutableMap.of(
+                        "_last_checkpoint", 2,
+                        "00000000000000000011.json", 2,
+                        "00000000000000000012.json", 2,
+                        "00000000000000000013.json", 2,
+                        "00000000000000000014.json", 2));
     }
 
     private void copyTransactionLogEntry(int startVersion, int endVersion, File sourceDir, File targetDir)

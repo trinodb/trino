@@ -26,6 +26,7 @@ import static io.trino.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYT
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -71,19 +72,21 @@ public class TestDoubleStatisticsBuilder
     {
         DoubleStatisticsBuilder statisticsBuilder = new DoubleStatisticsBuilder(new NoOpBloomFilterBuilder());
         statisticsBuilder.addValue(NaN);
-        assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 1);
+        assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 1, 1);
         statisticsBuilder.addValue(NaN);
-        assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 2);
+        assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 2, 2);
         statisticsBuilder.addValue(42.42);
-        assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 3);
+        assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 3, 2);
 
         statisticsBuilder = new DoubleStatisticsBuilder(new NoOpBloomFilterBuilder());
         statisticsBuilder.addValue(42.42);
-        assertColumnStatistics(statisticsBuilder.buildColumnStatistics(), 1, 42.42, 42.42);
+        ColumnStatistics columnStatistics = statisticsBuilder.buildColumnStatistics();
+        assertColumnStatistics(columnStatistics, 1, 42.42, 42.42);
+        assertEquals(columnStatistics.getNumberOfNanValues(), 0);
         statisticsBuilder.addValue(NaN);
-        assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 2);
+        assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 2, 1);
         statisticsBuilder.addValue(42.42);
-        assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 3);
+        assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 3, 1);
     }
 
     @Test

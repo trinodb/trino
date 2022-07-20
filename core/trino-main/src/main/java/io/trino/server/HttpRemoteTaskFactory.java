@@ -18,6 +18,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
@@ -45,6 +46,7 @@ import org.weakref.jmx.Nested;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -136,6 +138,7 @@ public class HttpRemoteTaskFactory
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             Set<DynamicFilterId> outboundDynamicFilterIds,
+            Optional<DataSize> estimatedMemory,
             boolean summarizeTaskInfo)
     {
         return new HttpRemoteTask(session,
@@ -161,6 +164,7 @@ public class HttpRemoteTaskFactory
                 partitionedSplitCountTracker,
                 stats,
                 dynamicFilterService,
-                outboundDynamicFilterIds);
+                outboundDynamicFilterIds,
+                estimatedMemory);
     }
 }

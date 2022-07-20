@@ -14,10 +14,7 @@
 package io.trino.plugin.deltalake.metastore.thrift;
 
 import com.google.inject.Binder;
-import com.google.inject.Provides;
-import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.deltalake.HideNonDeltaLakeTables;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
 
 public class DeltaLakeThriftMetastoreModule
@@ -27,14 +24,5 @@ public class DeltaLakeThriftMetastoreModule
     protected void setup(Binder binder)
     {
         install(new ThriftMetastoreModule());
-    }
-
-    // TODO support delta.hide-non-delta-lake-tables with thrift metastore
-    @Provides
-    @Singleton
-    @HideNonDeltaLakeTables
-    public boolean provideHideNonDeltaLakeTables()
-    {
-        return false;
     }
 }

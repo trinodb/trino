@@ -18,12 +18,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
+import io.trino.plugin.jdbc.ptf.Query.QueryFunctionHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -41,10 +43,12 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
@@ -53,6 +57,7 @@ import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -84,6 +89,7 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isComplexExpres
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -94,12 +100,14 @@ public class DefaultJdbcMetadata
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
 
     private final JdbcClient jdbcClient;
+    private final boolean precalculateStatisticsForPushdown;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public DefaultJdbcMetadata(JdbcClient jdbcClient)
+    public DefaultJdbcMetadata(JdbcClient jdbcClient, boolean precalculateStatisticsForPushdown)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.precalculateStatisticsForPushdown = precalculateStatisticsForPushdown;
     }
 
     @Override
@@ -119,6 +127,12 @@ public class DefaultJdbcMetadata
     {
         return jdbcClient.getTableHandle(session, tableName)
                 .orElse(null);
+    }
+
+    @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
+    {
+        return jdbcClient.getTableHandle(session, preparedQuery);
     }
 
     @Override
@@ -210,8 +224,8 @@ public class DefaultJdbcMetadata
 
         return Optional.of(
                 remainingExpression.isPresent()
-                        ? new ConstraintApplicationResult<>(handle, remainingFilter, remainingExpression.get(), false)
-                        : new ConstraintApplicationResult<>(handle, remainingFilter, false));
+                        ? new ConstraintApplicationResult<>(handle, remainingFilter, remainingExpression.get(), precalculateStatisticsForPushdown)
+                        : new ConstraintApplicationResult<>(handle, remainingFilter, precalculateStatisticsForPushdown));
     }
 
     private JdbcTableHandle flushAttributesAsQuery(ConnectorSession session, JdbcTableHandle handle)
@@ -270,7 +284,7 @@ public class DefaultJdbcMetadata
                                 assignment.getValue(),
                                 ((JdbcColumnHandle) assignment.getValue()).getColumnType()))
                         .collect(toImmutableList()),
-                false));
+                precalculateStatisticsForPushdown));
     }
 
     @Override
@@ -289,6 +303,11 @@ public class DefaultJdbcMetadata
 
         // Global aggregation is represented by [[]]
         verify(!groupingSets.isEmpty(), "No grouping sets provided");
+
+        // Global aggregation (with no other grouping sets) is handled implicitly by the DefaultQueryBuilder, thanks to presence of aggregate functions.
+        // When there are no aggregate functions, it would need to be handled explicitly. However, such pushdown isn't sensible, since engine knows that
+        // there will be exactly one result row.
+        verify(!aggregates.isEmpty() || !groupingSets.equals(List.of(List.of())), "Unexpected global aggregation with no aggregate functions");
 
         if (!jdbcClient.supportsAggregationPushdown(session, handle, aggregates, assignments, groupingSets)) {
             // JDBC client implementation prevents pushdown for the given table
@@ -364,7 +383,7 @@ public class DefaultJdbcMetadata
                 handle.getAllReferencedTables(),
                 nextSyntheticColumnId);
 
-        return Optional.of(new AggregationApplicationResult<>(handle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
+        return Optional.of(new AggregationApplicationResult<>(handle, projections.build(), resultAssignments.build(), ImmutableMap.of(), precalculateStatisticsForPushdown));
     }
 
     @Override
@@ -449,7 +468,7 @@ public class DefaultJdbcMetadata
                         nextSyntheticColumnId),
                 ImmutableMap.copyOf(newLeftColumns),
                 ImmutableMap.copyOf(newRightColumns),
-                false));
+                precalculateStatisticsForPushdown));
     }
 
     private static Optional<JdbcColumnHandle> getVariableColumnHandle(Map<String, ColumnHandle> assignments, ConnectorExpression expression)
@@ -505,7 +524,7 @@ public class DefaultJdbcMetadata
                 handle.getOtherReferencedTables(),
                 handle.getNextSyntheticColumnId());
 
-        return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session), false));
+        return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session), precalculateStatisticsForPushdown));
     }
 
     @Override
@@ -554,7 +573,25 @@ public class DefaultJdbcMetadata
                 handle.getOtherReferencedTables(),
                 handle.getNextSyntheticColumnId());
 
-        return Optional.of(new TopNApplicationResult<>(sortedTableHandle, jdbcClient.isTopNGuaranteed(session), false));
+        return Optional.of(new TopNApplicationResult<>(sortedTableHandle, jdbcClient.isTopNGuaranteed(session), precalculateStatisticsForPushdown));
+    }
+
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (!(handle instanceof QueryFunctionHandle)) {
+            return Optional.empty();
+        }
+
+        ConnectorTableHandle tableHandle = ((QueryFunctionHandle) handle).getTableHandle();
+        ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
+        Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
+        List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
+                .map(ColumnSchema::getName)
+                .map(columnHandlesByName::get)
+                .collect(toImmutableList());
+
+        return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 
     @Override
@@ -657,8 +694,11 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
         JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata);
         setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
         return handle;
@@ -690,9 +730,12 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         verify(!((JdbcTableHandle) tableHandle).isSynthetic(), "Not a table reference: %s", tableHandle);
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
         List<JdbcColumnHandle> columnHandles = columns.stream()
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
@@ -726,7 +769,7 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
         throw new TrinoException(NOT_SUPPORTED, "Unsupported delete");
     }
@@ -809,10 +852,10 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        return jdbcClient.getTableStatistics(session, handle, constraint.getSummary());
+        return jdbcClient.getTableStatistics(session, handle);
     }
 
     @Override

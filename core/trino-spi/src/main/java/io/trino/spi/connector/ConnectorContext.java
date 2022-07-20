@@ -31,6 +31,17 @@ public interface ConnectorContext
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * Version of the SPI.
+     * <p>
+     * Note: this is not necessarily same as {@code getNodeManager().getCurrentNode().getVersion()}, which returns
+     * the engine version.
+     */
+    default String getSpiVersion()
+    {
+        return SpiVersionHolder.SPI_VERSION;
+    }
+
     default TypeManager getTypeManager()
     {
         throw new UnsupportedOperationException();

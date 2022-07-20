@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.io.Resources.getResource;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.trino.plugin.hive.s3.TestS3SecurityMapping.MappingResult.clusterDefaultRole;
 import static io.trino.plugin.hive.s3.TestS3SecurityMapping.MappingResult.credentials;
@@ -339,7 +340,7 @@ public class TestS3SecurityMapping
 
     private static void assertMapping(DynamicConfigurationProvider provider, MappingSelector selector, MappingResult mappingResult)
     {
-        Configuration configuration = new Configuration(false);
+        Configuration configuration = newEmptyConfiguration();
 
         assertNull(configuration.get(S3_ACCESS_KEY));
         assertNull(configuration.get(S3_SECRET_KEY));
@@ -358,7 +359,7 @@ public class TestS3SecurityMapping
 
     private static void assertMappingFails(DynamicConfigurationProvider provider, MappingSelector selector, String message)
     {
-        Configuration configuration = new Configuration(false);
+        Configuration configuration = newEmptyConfiguration();
 
         assertThatThrownBy(() -> applyMapping(provider, selector, configuration))
                 .isInstanceOf(AccessDeniedException.class)

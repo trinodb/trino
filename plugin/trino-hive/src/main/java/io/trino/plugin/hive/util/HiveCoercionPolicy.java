@@ -82,7 +82,22 @@ public final class HiveCoercionPolicy
             return toType instanceof DecimalType || toHiveType.equals(HIVE_FLOAT) || toHiveType.equals(HIVE_DOUBLE);
         }
 
-        return canCoerceForList(fromHiveType, toHiveType) || canCoerceForMap(fromHiveType, toHiveType) || canCoerceForStruct(fromHiveType, toHiveType);
+        return canCoerceForList(fromHiveType, toHiveType)
+                || canCoerceForMap(fromHiveType, toHiveType)
+                || canCoerceForStruct(fromHiveType, toHiveType)
+                || canCoerceForUnionType(fromHiveType, toHiveType);
+    }
+
+    private boolean canCoerceForUnionType(HiveType fromHiveType, HiveType toHiveType)
+    {
+        if (fromHiveType.getCategory() != Category.UNION || toHiveType.getCategory() != Category.UNION) {
+            return false;
+        }
+
+        // Delegate to the struct coercion logic, since Trino sees union types as structs.
+        HiveType fromHiveTypeStruct = HiveType.toHiveType(fromHiveType.getType(typeManager));
+        HiveType toHiveTypeStruct = HiveType.toHiveType(toHiveType.getType(typeManager));
+        return canCoerceForStruct(fromHiveTypeStruct, toHiveTypeStruct);
     }
 
     private boolean canCoerceForMap(HiveType fromHiveType, HiveType toHiveType)

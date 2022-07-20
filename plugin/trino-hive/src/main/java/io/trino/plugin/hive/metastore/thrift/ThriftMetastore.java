@@ -17,7 +17,6 @@ import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
@@ -47,19 +46,19 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 
 public interface ThriftMetastore
 {
-    void createDatabase(HiveIdentity identity, Database database);
+    void createDatabase(Database database);
 
-    void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData);
+    void dropDatabase(String databaseName, boolean deleteData);
 
-    void alterDatabase(HiveIdentity identity, String databaseName, Database database);
+    void alterDatabase(String databaseName, Database database);
 
-    void createTable(HiveIdentity identity, Table table);
+    void createTable(Table table);
 
-    void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData);
+    void dropTable(String databaseName, String tableName, boolean deleteData);
 
-    void alterTable(HiveIdentity identity, String databaseName, String tableName, Table table);
+    void alterTable(String databaseName, String tableName, Table table);
 
-    void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId);
+    void alterTransactionalTable(Table table, long transactionId, long writeId);
 
     List<String> getAllDatabases();
 
@@ -71,29 +70,29 @@ public interface ThriftMetastore
 
     Optional<Database> getDatabase(String databaseName);
 
-    void addPartitions(HiveIdentity identity, String databaseName, String tableName, List<PartitionWithStatistics> partitions);
+    void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions);
 
-    void dropPartition(HiveIdentity identity, String databaseName, String tableName, List<String> parts, boolean deleteData);
+    void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData);
 
-    void alterPartition(HiveIdentity identity, String databaseName, String tableName, PartitionWithStatistics partition);
+    void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition);
 
-    Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter);
+    Optional<List<String>> getPartitionNamesByFilter(String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter);
 
-    Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues);
+    Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues);
 
-    List<Partition> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames);
+    List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames);
 
-    Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName);
+    Optional<Table> getTable(String databaseName, String tableName);
 
     Set<ColumnStatisticType> getSupportedColumnStatistics(Type type);
 
-    PartitionStatistics getTableStatistics(HiveIdentity identity, Table table);
+    PartitionStatistics getTableStatistics(Table table);
 
-    Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, List<Partition> partitions);
+    Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions);
 
-    void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update);
+    void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update);
 
-    void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
+    void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
     void createRole(String role, String grantor);
 
@@ -119,11 +118,9 @@ public interface ThriftMetastore
      */
     Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal);
 
-    boolean isImpersonationEnabled();
-
-    default Optional<List<FieldSchema>> getFields(HiveIdentity identity, String databaseName, String tableName)
+    default Optional<List<FieldSchema>> getFields(String databaseName, String tableName)
     {
-        Optional<Table> table = getTable(identity, databaseName, tableName);
+        Optional<Table> table = getTable(databaseName, tableName);
         if (table.isEmpty()) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
@@ -135,28 +132,27 @@ public interface ThriftMetastore
         return Optional.of(table.get().getSd().getCols());
     }
 
-    default long openTransaction(HiveIdentity identity, AcidTransactionOwner transactionOwner)
+    default long openTransaction(AcidTransactionOwner transactionOwner)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void commitTransaction(HiveIdentity identity, long transactionId)
+    default void commitTransaction(long transactionId)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void abortTransaction(HiveIdentity identity, long transactionId)
+    default void abortTransaction(long transactionId)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void sendTransactionHeartbeat(HiveIdentity identity, long transactionId)
+    default void sendTransactionHeartbeat(long transactionId)
     {
         throw new UnsupportedOperationException();
     }
 
     default void acquireSharedReadLock(
-            HiveIdentity identity,
             AcidTransactionOwner transactionOwner,
             String queryId,
             long transactionId,
@@ -166,7 +162,7 @@ public interface ThriftMetastore
         throw new UnsupportedOperationException();
     }
 
-    default String getValidWriteIds(HiveIdentity identity, List<SchemaTableName> tables, long currentTransactionId)
+    default String getValidWriteIds(List<SchemaTableName> tables, long currentTransactionId)
     {
         throw new UnsupportedOperationException();
     }
@@ -176,13 +172,12 @@ public interface ThriftMetastore
         return Optional.empty();
     }
 
-    default long allocateWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId)
+    default long allocateWriteId(String dbName, String tableName, long transactionId)
     {
         throw new UnsupportedOperationException();
     }
 
     default void acquireTableWriteLock(
-            HiveIdentity identity,
             AcidTransactionOwner transactionOwner,
             String queryId,
             long transactionId,
@@ -195,7 +190,6 @@ public interface ThriftMetastore
     }
 
     default long acquireTableExclusiveLock(
-            HiveIdentity identity,
             AcidTransactionOwner transactionOwner,
             String queryId,
             String dbName,
@@ -204,22 +198,22 @@ public interface ThriftMetastore
         throw new UnsupportedOperationException();
     }
 
-    default void releaseTableLock(HiveIdentity identity, long lockId)
+    default void releaseTableLock(long lockId)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void updateTableWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
+    default void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void alterPartitions(HiveIdentity identity, String dbName, String tableName, List<Partition> partitions, long writeId)
+    default void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
     {
         throw new UnsupportedOperationException();
     }
 
-    default void addDynamicPartitions(HiveIdentity identity, String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    default void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
         throw new UnsupportedOperationException();
     }

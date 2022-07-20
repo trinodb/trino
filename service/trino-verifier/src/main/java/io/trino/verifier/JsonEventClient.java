@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
 
+import static java.nio.charset.Charset.defaultCharset;
 import static java.util.Objects.requireNonNull;
 
 public class JsonEventClient
@@ -52,7 +53,7 @@ public class JsonEventClient
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             JsonGenerator generator = factory.createGenerator(buffer, JsonEncoding.UTF8);
             serializer.serialize(event, generator);
-            out.println(buffer.toString().trim());
+            out.println(buffer.toString(defaultCharset()).trim());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

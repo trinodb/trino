@@ -17,13 +17,19 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.spi.ErrorCode;
 
+import java.util.Objects;
+import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public interface PartitionMemoryEstimator
 {
     MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit);
 
-    MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, ErrorCode errorCode);
+    MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode);
+
+    void registerPartitionFinished(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode);
 
     class MemoryRequirements
     {
@@ -44,6 +50,34 @@ public interface PartitionMemoryEstimator
         public boolean isLimitReached()
         {
             return limitReached;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            MemoryRequirements that = (MemoryRequirements) o;
+            return limitReached == that.limitReached && Objects.equals(requiredMemory, that.requiredMemory);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(requiredMemory, limitReached);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("requiredMemory", requiredMemory)
+                    .add("limitReached", limitReached)
+                    .toString();
         }
     }
 }

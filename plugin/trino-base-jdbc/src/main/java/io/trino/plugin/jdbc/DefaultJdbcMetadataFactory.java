@@ -49,6 +49,6 @@ public class DefaultJdbcMetadataFactory
 
     protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new DefaultJdbcMetadata(transactionCachingJdbcClient);
+        return new DefaultJdbcMetadata(transactionCachingJdbcClient, true);
     }
 }

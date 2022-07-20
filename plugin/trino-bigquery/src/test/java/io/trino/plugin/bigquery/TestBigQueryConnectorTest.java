@@ -15,17 +15,21 @@ package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
+import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
@@ -37,8 +41,6 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestBigQueryConnectorTest
         extends BaseConnectorTest
@@ -80,33 +82,6 @@ public class TestBigQueryConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
-    }
-
-    @Test
-    @Override
-    public void testCreateSchema()
-    {
-        String schemaName = "test_schema_create_" + randomTableSuffix();
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(schemaName);
-        assertUpdate("CREATE SCHEMA " + schemaName);
-        assertUpdate("CREATE SCHEMA IF NOT EXISTS " + schemaName);
-
-        // verify listing of new schema
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName);
-
-        // verify SHOW CREATE SCHEMA works
-        assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
-                .startsWith(format("CREATE SCHEMA %s.%s", getSession().getCatalog().orElseThrow(), schemaName));
-
-        // try to create duplicate schema
-        assertQueryFails("CREATE SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' already exists", schemaName));
-
-        // cleanup
-        assertUpdate("DROP SCHEMA " + schemaName);
-
-        // verify DROP SCHEMA for non-existing schema
-        assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' does not exist", schemaName));
-        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
     }
 
     @Test
@@ -247,17 +222,6 @@ public class TestBigQueryConnectorTest
     }
 
     @Test
-    public void testDropTable()
-    {
-        String tableName = "test_drop_table_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + "(col bigint)");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
-
-        assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-    }
-
-    @Test
     @Override
     public void testRenameTable()
     {
@@ -329,6 +293,88 @@ public class TestBigQueryConnectorTest
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
         return nullToEmpty(exception.getMessage()).matches(".*(Fields must contain only letters, numbers, and underscores, start with a letter or underscore, and be at most 300 characters long).*");
+    }
+
+    @Test
+    public void testPartitionDateColumn()
+    {
+        try (TestTable table = new TestTable(bigQuerySqlExecutor, "test.partition_date_column", "(value INT64) PARTITION BY _PARTITIONDATE")) {
+            // BigQuery doesn't allow omitting column list for ingestion-time partitioned table
+            // Using _PARTITIONTIME special column because _PARTITIONDATE is unsupported in INSERT statement
+            onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('1960-01-01', 1)", table.getName()));
+            onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('2159-12-31', 2)", table.getName()));
+
+            assertThat(query("SELECT value, \"$partition_date\" FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '1', DATE '1960-01-01'), (BIGINT '2', DATE '2159-12-31')");
+
+            assertQuery(format("SELECT value FROM %s WHERE \"$partition_date\" = DATE '1960-01-01'", table.getName()), "VALUES 1");
+            assertQuery(format("SELECT value FROM %s WHERE \"$partition_date\" = DATE '2159-12-31'", table.getName()), "VALUES 2");
+
+            // Verify DESCRIBE result doesn't have hidden columns
+            assertThat(query("DESCRIBE " + table.getName())).projected(0).skippingTypesCheck().matches("VALUES 'value'");
+        }
+    }
+
+    @Test
+    public void testPartitionTimeColumn()
+    {
+        try (TestTable table = new TestTable(bigQuerySqlExecutor, "test.partition_time_column", "(value INT64) PARTITION BY DATE_TRUNC(_PARTITIONTIME, HOUR)")) {
+            // BigQuery doesn't allow omitting column list for ingestion-time partitioned table
+            onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('1960-01-01 00:00:00', 1)", table.getName()));
+            onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('2159-12-31 23:00:00', 2)", table.getName())); // Hour and minute must be zero
+
+            assertThat(query("SELECT value, \"$partition_time\" FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '1', CAST('1960-01-01 00:00:00 UTC' AS TIMESTAMP(6) WITH TIME ZONE)), (BIGINT '2', CAST('2159-12-31 23:00:00 UTC' AS TIMESTAMP(6) WITH TIME ZONE))");
+
+            assertQuery(format("SELECT value FROM %s WHERE \"$partition_time\" = CAST('1960-01-01 00:00:00 UTC' AS TIMESTAMP(6) WITH TIME ZONE)", table.getName()), "VALUES 1");
+            assertQuery(format("SELECT value FROM %s WHERE \"$partition_time\" = CAST('2159-12-31 23:00:00 UTC' AS TIMESTAMP(6) WITH TIME ZONE)", table.getName()), "VALUES 2");
+
+            // Verify DESCRIBE result doesn't have hidden columns
+            assertThat(query("DESCRIBE " + table.getName())).projected(0).skippingTypesCheck().matches("VALUES 'value'");
+        }
+    }
+
+    @Test
+    public void testIngestionTimePartitionedTableInvalidValue()
+    {
+        try (TestTable table = new TestTable(bigQuerySqlExecutor, "test.invalid_ingestion_time", "(value INT64) PARTITION BY _PARTITIONDATE")) {
+            assertThatThrownBy(() -> onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('0001-01-01', 1)", table.getName())))
+                    .hasMessageMatching("Cannot set pseudo column for automatic partitioned table.* Supported values are in the range \\[1960-01-01, 2159-12-31]");
+
+            assertThatThrownBy(() -> onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('1959-12-31', 1)", table.getName())))
+                    .hasMessageMatching("Cannot set pseudo column for automatic partitioned table.* Supported values are in the range \\[1960-01-01, 2159-12-31]");
+
+            assertThatThrownBy(() -> onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('2160-01-01', 1)", table.getName())))
+                    .hasMessageMatching("Cannot set pseudo column for automatic partitioned table.* Supported values are in the range \\[1960-01-01, 2159-12-31]");
+
+            assertThatThrownBy(() -> onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES ('9999-12-31', 1)", table.getName())))
+                    .hasMessageMatching("Cannot set pseudo column for automatic partitioned table.* Supported values are in the range \\[1960-01-01, 2159-12-31]");
+
+            assertThatThrownBy(() -> onBigQuery(format("INSERT INTO %s (_PARTITIONTIME, value) VALUES (NULL, 1)", table.getName())))
+                    .hasMessageContaining("Cannot set timestamp pseudo column for automatic partitioned table to NULL");
+        }
+    }
+
+    @Test
+    public void testPseudoColumnNotExist()
+    {
+        // Normal table without partitions
+        try (TestTable table = new TestTable(bigQuerySqlExecutor, "test.non_partitioned_table", "(value INT64, ts TIMESTAMP)")) {
+            assertQueryFails("SELECT \"$partition_date\" FROM " + table.getName(), ".* Column '\\$partition_date' cannot be resolved");
+            assertQueryFails("SELECT \"$partition_time\" FROM " + table.getName(), ".* Column '\\$partition_time' cannot be resolved");
+        }
+
+        // Time-unit partitioned table
+        try (TestTable table = new TestTable(bigQuerySqlExecutor, "test.time_unit_partition", "(value INT64, dt DATE) PARTITION BY dt")) {
+            assertQueryFails("SELECT \"$partition_date\" FROM " + table.getName(), ".* Column '\\$partition_date' cannot be resolved");
+            assertQueryFails("SELECT \"$partition_time\" FROM " + table.getName(), ".* Column '\\$partition_time' cannot be resolved");
+        }
+
+        // Integer-range partitioned table
+        try (TestTable table = new TestTable(bigQuerySqlExecutor, "test.integer_range_partition", "(value INT64, dt DATE) PARTITION BY RANGE_BUCKET(value, GENERATE_ARRAY(0, 100, 10))")) {
+            assertQueryFails("SELECT \"$partition_date\" FROM " + table.getName(), ".* Column '\\$partition_date' cannot be resolved");
+            assertQueryFails("SELECT \"$partition_time\" FROM " + table.getName(), ".* Column '\\$partition_time' cannot be resolved");
+        }
     }
 
     @Test
@@ -540,7 +586,162 @@ public class TestBigQueryConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    private void onBigQuery(String sql)
+    @Test
+    public void testBigQueryMaterializedView()
+    {
+        String materializedView = "test_materialized_view" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE MATERIALIZED VIEW test." + materializedView + " AS SELECT count(1) AS cnt FROM tpch.region");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + materializedView + "'", "VALUES 'BASE TABLE'");
+
+            assertQuery("DESCRIBE test." + materializedView, "VALUES ('cnt', 'bigint', '', '')");
+            assertQuery("SELECT * FROM test." + materializedView, "VALUES 5");
+
+            assertUpdate("DROP TABLE test." + materializedView);
+            assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + materializedView + "'");
+        }
+        finally {
+            onBigQuery("DROP MATERIALIZED VIEW IF EXISTS test." + materializedView);
+        }
+    }
+
+    @Test
+    public void testBigQuerySnapshotTable()
+    {
+        String snapshotTable = "test_snapshot" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE SNAPSHOT TABLE test." + snapshotTable + " CLONE tpch.region");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + snapshotTable + "'", "VALUES 'BASE TABLE'");
+
+            assertThat(query("DESCRIBE test." + snapshotTable)).matches("DESCRIBE tpch.region");
+            assertThat(query("SELECT * FROM test." + snapshotTable)).matches("SELECT * FROM tpch.region");
+
+            assertUpdate("DROP TABLE test." + snapshotTable);
+            assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + snapshotTable + "'");
+        }
+        finally {
+            onBigQuery("DROP SNAPSHOT TABLE IF EXISTS test." + snapshotTable);
+        }
+    }
+
+    @Test
+    @Parameters("testing.gcp-storage-bucket")
+    public void testBigQueryExternalTable(String gcpStorageBucket)
+    {
+        // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
+        String externalTable = "test_external" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE EXTERNAL TABLE test." + externalTable + " OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + externalTable + "'", "VALUES 'BASE TABLE'");
+
+            assertThat(query("DESCRIBE test." + externalTable)).matches("DESCRIBE tpch.region");
+            assertThat(query("SELECT * FROM test." + externalTable)).matches("SELECT * FROM tpch.region");
+
+            assertUpdate("DROP TABLE test." + externalTable);
+            assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + externalTable + "'");
+        }
+        finally {
+            onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + externalTable);
+        }
+    }
+
+    @Test
+    public void testQueryCache()
+    {
+        Session queryResultsCacheSession = Session.builder(getSession())
+                .setCatalogSessionProperty("bigquery", "query_results_cache_enabled", "true")
+                .build();
+        Session createNeverDisposition = Session.builder(getSession())
+                .setCatalogSessionProperty("bigquery", "query_results_cache_enabled", "true")
+                .setCatalogSessionProperty("bigquery", "create_disposition_type", "create_never")
+                .build();
+
+        String materializedView = "test_materialized_view" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE MATERIALIZED VIEW test." + materializedView + " AS SELECT count(1) AS cnt FROM tpch.region");
+
+            // Verify query cache is empty
+            assertThatThrownBy(() -> query(createNeverDisposition, "SELECT * FROM test." + materializedView))
+                    .hasMessageContaining("Not found");
+            // Populate cache and verify it
+            assertQuery(queryResultsCacheSession, "SELECT * FROM test." + materializedView, "VALUES 5");
+            assertQuery(createNeverDisposition, "SELECT * FROM test." + materializedView, "VALUES 5");
+
+            assertUpdate("DROP TABLE test." + materializedView);
+        }
+        finally {
+            onBigQuery("DROP MATERIALIZED VIEW IF EXISTS test." + materializedView);
+        }
+    }
+
+    @Test
+    public void testWildcardTable()
+    {
+        String suffix = randomTableSuffix();
+        String firstTable = format("test_wildcard_%s_1", suffix);
+        String secondTable = format("test_wildcard_%s_2", suffix);
+        String wildcardTable = format("test_wildcard_%s_*", suffix);
+        try {
+            onBigQuery("CREATE TABLE test." + firstTable + " AS SELECT 1 AS value");
+            onBigQuery("CREATE TABLE test." + secondTable + " AS SELECT 2 AS value");
+
+            assertQuery("DESCRIBE test.\"" + wildcardTable + "\"", "VALUES ('value', 'bigint', '', '')");
+            assertQuery("SELECT * FROM test.\"" + wildcardTable + "\"", "VALUES (1), (2)");
+
+            // Unsupported operations
+            assertQueryFails("DROP TABLE test.\"" + wildcardTable + "\"", "This connector does not support dropping wildcard tables");
+            assertQueryFails("INSERT INTO test.\"" + wildcardTable + "\" VALUES (1)", "This connector does not support inserts");
+            assertQueryFails("ALTER TABLE test.\"" + wildcardTable + "\" ADD COLUMN new_column INT", "This connector does not support adding columns");
+            assertQueryFails("ALTER TABLE test.\"" + wildcardTable + "\" RENAME TO test.new_wildcard_table", "This connector does not support renaming tables");
+        }
+        finally {
+            onBigQuery("DROP TABLE IF EXISTS test." + firstTable);
+            onBigQuery("DROP TABLE IF EXISTS test." + secondTable);
+        }
+    }
+
+    @Test
+    public void testWildcardTableWithDifferentColumnDefinition()
+    {
+        String suffix = randomTableSuffix();
+        String firstTable = format("test_invalid_wildcard_%s_1", suffix);
+        String secondTable = format("test_invalid_wildcard_%s_2", suffix);
+        String wildcardTable = format("test_invalid_wildcard_%s_*", suffix);
+        try {
+            onBigQuery("CREATE TABLE test." + firstTable + " AS SELECT 1 AS value");
+            onBigQuery("CREATE TABLE test." + secondTable + " AS SELECT 'string' AS value");
+
+            assertQuery("DESCRIBE test.\"" + wildcardTable + "\"", "VALUES ('value', 'varchar', '', '')");
+
+            assertThatThrownBy(() -> query("SELECT * FROM test.\"" + wildcardTable + "\""))
+                    .hasMessageContaining("Cannot read field of type INT64 as STRING Field: value");
+        }
+        finally {
+            onBigQuery("DROP TABLE IF EXISTS test." + firstTable);
+            onBigQuery("DROP TABLE IF EXISTS test." + secondTable);
+        }
+    }
+
+    @Test
+    public void testMissingWildcardTable()
+    {
+        assertThatThrownBy(() -> query("SELECT * FROM test.\"test_missing_wildcard_table_*\""))
+                .hasMessageEndingWith("does not match any table.");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(1024);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Invalid table ID");
+    }
+
+    private void onBigQuery(@Language("SQL") String sql)
     {
         bigQuerySqlExecutor.execute(sql);
     }

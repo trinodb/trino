@@ -108,10 +108,16 @@ public class QueryStats
     private final long processedInputPositions;
     private final long failedProcessedInputPositions;
 
+    private final Duration inputBlockedTime;
+    private final Duration failedInputBlockedTime;
+
     private final DataSize outputDataSize;
     private final DataSize failedOutputDataSize;
     private final long outputPositions;
     private final long failedOutputPositions;
+
+    private final Duration outputBlockedTime;
+    private final Duration failedOutputBlockedTime;
 
     private final DataSize physicalWrittenDataSize;
     private final DataSize failedPhysicalWrittenDataSize;
@@ -192,10 +198,16 @@ public class QueryStats
             @JsonProperty("processedInputPositions") long processedInputPositions,
             @JsonProperty("failedProcessedInputPositions") long failedProcessedInputPositions,
 
+            @JsonProperty("inputBlockedTime") Duration inputBlockedTime,
+            @JsonProperty("failedInputBlockedTime") Duration failedInputBlockedTime,
+
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("failedOutputDataSize") DataSize failedOutputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
             @JsonProperty("failedOutputPositions") long failedOutputPositions,
+
+            @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
+            @JsonProperty("failedOutputBlockedTime") Duration failedOutputBlockedTime,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("failedPhysicalWrittenDataSize") DataSize failedPhysicalWrittenDataSize,
@@ -290,12 +302,18 @@ public class QueryStats
         checkArgument(failedProcessedInputPositions >= 0, "failedProcessedInputPositions is negative");
         this.failedProcessedInputPositions = failedProcessedInputPositions;
 
+        this.inputBlockedTime = requireNonNull(inputBlockedTime, "inputBlockedTime is null");
+        this.failedInputBlockedTime = requireNonNull(failedInputBlockedTime, "failedInputBlockedTime is null");
+
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         this.failedOutputDataSize = requireNonNull(failedOutputDataSize, "failedOutputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
         checkArgument(failedOutputPositions >= 0, "failedOutputPositions is negative");
         this.failedOutputPositions = failedOutputPositions;
+
+        this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
+        this.failedOutputBlockedTime = requireNonNull(failedOutputBlockedTime, "failedOutputBlockedTime is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
         this.failedPhysicalWrittenDataSize = requireNonNull(failedPhysicalWrittenDataSize, "failedPhysicalWrittenDataSize is null");
@@ -657,6 +675,18 @@ public class QueryStats
     }
 
     @JsonProperty
+    public Duration getInputBlockedTime()
+    {
+        return inputBlockedTime;
+    }
+
+    @JsonProperty
+    public Duration getFailedInputBlockedTime()
+    {
+        return failedInputBlockedTime;
+    }
+
+    @JsonProperty
     public DataSize getOutputDataSize()
     {
         return outputDataSize;
@@ -678,6 +708,18 @@ public class QueryStats
     public long getFailedOutputPositions()
     {
         return failedOutputPositions;
+    }
+
+    @JsonProperty
+    public Duration getOutputBlockedTime()
+    {
+        return outputBlockedTime;
+    }
+
+    @JsonProperty
+    public Duration getFailedOutputBlockedTime()
+    {
+        return failedOutputBlockedTime;
     }
 
     @JsonProperty

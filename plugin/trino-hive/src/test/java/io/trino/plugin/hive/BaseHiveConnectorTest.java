@@ -31,7 +31,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
-import io.trino.plugin.exchange.FileSystemExchangePlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -82,6 +81,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.function.BiConsumer;
@@ -91,6 +91,7 @@ import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.intersection;
@@ -98,11 +99,7 @@ import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
-import static io.trino.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
-import static io.trino.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
-import static io.trino.SystemSessionProperties.GROUPED_EXECUTION;
-import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
@@ -132,7 +129,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.ABOVE;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
@@ -185,17 +181,12 @@ public abstract class BaseHiveConnectorTest
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
     }
 
-    protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties, Map<String, String> exchangeManagerProperties)
+    protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties, Consumer<QueryRunner> additionalSetup)
             throws Exception
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
-                .setAdditionalSetup(runner -> {
-                    if (!exchangeManagerProperties.isEmpty()) {
-                        runner.installPlugin(new FileSystemExchangePlugin());
-                        runner.loadExchangeManager("filesystem", exchangeManagerProperties);
-                    }
-                })
+                .setAdditionalSetup(additionalSetup)
                 .setHiveProperties(ImmutableMap.of(
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
@@ -236,15 +227,32 @@ public abstract class BaseHiveConnectorTest
             case SUPPORTS_MULTI_STATEMENT_WRITES:
                 return true;
 
+            case SUPPORTS_COMMENT_ON_VIEW:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
     }
 
     @Override
+    protected void verifySelectAfterInsertFailurePermissible(Throwable e)
+    {
+        assertThat(getStackTraceAsString(e))
+                .containsPattern("io.trino.spi.TrinoException: Cannot read from a table tpch.test_insert_select_\\w+ that was modified within transaction, you need to commit the transaction first");
+    }
+
+    @Override
     public void testDelete()
     {
         assertThatThrownBy(super::testDelete)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
                 .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
     }
 
@@ -284,6 +292,20 @@ public abstract class BaseHiveConnectorTest
         assertThatThrownBy(super::testUpdateRowConcurrently)
                 .hasMessage("Unexpected concurrent update failure")
                 .getCause()
+                .hasMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Override
+    public void testUpdateWithPredicates()
+    {
+        assertThatThrownBy(super::testUpdateWithPredicates)
+                .hasMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Override
+    public void testUpdateAllValues()
+    {
+        assertThatThrownBy(super::testUpdateAllValues)
                 .hasMessage("Hive update is only supported for ACID transactional tables");
     }
 
@@ -795,22 +817,22 @@ public abstract class BaseHiveConnectorTest
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
-        assertUpdate(admin, "CREATE SCHEMA test_table_authorization");
-        assertUpdate(admin, "CREATE TABLE test_table_authorization.foo (col int)");
+        assertUpdate(admin, "CREATE SCHEMA test_table_authorization_role");
+        assertUpdate(admin, "CREATE TABLE test_table_authorization_role.foo (col int)");
 
         // TODO Change assertions once https://github.com/trinodb/trino/issues/5706 is done
         assertAccessDenied(
                 alice,
-                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION ROLE admin",
-                "Cannot set authorization for table test_table_authorization.foo to ROLE admin");
-        assertUpdate(admin, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice");
+                "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION ROLE admin",
+                "Cannot set authorization for table test_table_authorization_role.foo to ROLE admin");
+        assertUpdate(admin, "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION alice");
         assertQueryFails(
                 alice,
-                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION ROLE admin",
+                "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION ROLE admin",
                 "Setting table owner type as a role is not supported");
 
-        assertUpdate(admin, "DROP TABLE test_table_authorization.foo");
-        assertUpdate(admin, "DROP SCHEMA test_table_authorization");
+        assertUpdate(admin, "DROP TABLE test_table_authorization_role.foo");
+        assertUpdate(admin, "DROP SCHEMA test_table_authorization_role");
     }
 
     @Test
@@ -1789,6 +1811,7 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("scale_writers", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters);
@@ -1831,6 +1854,7 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node per partition
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("scale_writers", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters * 3);
@@ -1956,17 +1980,19 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testEmptyBucketedTable()
     {
-        // go through all storage formats to make sure the empty buckets are correctly created
-        testWithAllStorageFormats(this::testEmptyBucketedTable);
+        // create empty bucket files for all storage formats and compression codecs
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            for (HiveCompressionCodec compressionCodec : HiveCompressionCodec.values()) {
+                if ((storageFormat == HiveStorageFormat.AVRO) && (compressionCodec == HiveCompressionCodec.LZ4)) {
+                    continue;
+                }
+                testEmptyBucketedTable(storageFormat, compressionCodec, true);
+            }
+            testEmptyBucketedTable(storageFormat, HiveCompressionCodec.GZIP, false);
+        }
     }
 
-    private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat)
-    {
-        testEmptyBucketedTable(session, storageFormat, true);
-        testEmptyBucketedTable(session, storageFormat, false);
-    }
-
-    private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat, boolean createEmpty)
+    private void testEmptyBucketedTable(HiveStorageFormat storageFormat, HiveCompressionCodec compressionCodec, boolean createEmpty)
     {
         String tableName = "test_empty_bucketed_table";
 
@@ -1991,11 +2017,13 @@ public abstract class BaseHiveConnectorTest
         assertEquals(computeActual("SELECT * from " + tableName).getRowCount(), 0);
 
         // make sure that we will get one file per bucket regardless of writer count configured
-        Session parallelWriter = Session.builder(getParallelWriteSession())
+        Session session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "4")
                 .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
+                .setCatalogSessionProperty(catalog, "compression_codec", compressionCodec.name())
                 .build();
-        assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
-        assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
 
         assertQuery("SELECT * from " + tableName, "VALUES ('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')");
 
@@ -3792,7 +3820,7 @@ public abstract class BaseHiveConnectorTest
                         "   bucketed_by = ARRAY['c1','c 2'],\n" +
                         "   bucketing_version = 1,\n" +
                         "   format = 'ORC',\n" +
-                        "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
+                        "   orc_bloom_filter_columns = ARRAY['c1','c 2'],\n" +
                         "   orc_bloom_filter_fpp = 7E-1,\n" +
                         "   partitioned_by = ARRAY['c5'],\n" +
                         "   sorted_by = ARRAY['c1','c 2 DESC'],\n" +
@@ -4616,6 +4644,46 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
+    @Test
+    public void testMismatchedBucketWithBucketPredicate()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate8");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate32");
+
+        assertUpdate(
+                "CREATE TABLE test_mismatch_bucketing_with_bucket_predicate8 " +
+                        "WITH (bucket_count = 8, bucketed_by = ARRAY['key8']) AS " +
+                        "SELECT nationkey key8, comment value8 FROM nation",
+                25);
+        assertUpdate(
+                "CREATE TABLE test_mismatch_bucketing_with_bucket_predicate32 " +
+                        "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS " +
+                        "SELECT nationkey key32, comment value32 FROM nation",
+                25);
+
+        Session withMismatchOptimization = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "true")
+                .build();
+        Session withoutMismatchOptimization = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "false")
+                .build();
+
+        @Language("SQL") String query = "SELECT count(*) AS count " +
+                "FROM (" +
+                "  SELECT key32" +
+                "  FROM test_mismatch_bucketing_with_bucket_predicate32" +
+                "  WHERE \"$bucket\" between 16 AND 31" +
+                ") a " +
+                "JOIN test_mismatch_bucketing_with_bucket_predicate8 b " +
+                "ON a.key32 = b.key8";
+
+        assertQuery(withMismatchOptimization, query, "SELECT 9");
+        assertQuery(withoutMismatchOptimization, query, "SELECT 9");
+
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate8");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate32");
+    }
+
     @DataProvider
     public Object[][] timestampPrecisionAndValues()
     {
@@ -5322,7 +5390,7 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    public void testGroupedExecution()
+    public void testGroupedExecution() // TODO change the name
     {
         try {
             assertUpdate(
@@ -5341,79 +5409,12 @@ public abstract class BaseHiveConnectorTest
                             "SELECT orderkey key3, comment value3 FROM orders",
                     15000);
             assertUpdate(
-                    "CREATE TABLE test_grouped_join4\n" +
-                            "WITH (bucket_count = 13, bucketed_by = ARRAY['key4_bucket']) AS\n" +
-                            "SELECT orderkey key4_bucket, orderkey key4_non_bucket, comment value4 FROM orders",
-                    15000);
-            assertUpdate(
                     "CREATE TABLE test_grouped_joinN AS\n" +
                             "SELECT orderkey keyN, comment valueN FROM orders",
                     15000);
-            assertUpdate(
-                    "CREATE TABLE test_grouped_joinDual\n" +
-                            "WITH (bucket_count = 13, bucketed_by = ARRAY['keyD']) AS\n" +
-                            "SELECT orderkey keyD, comment valueD FROM orders CROSS JOIN UNNEST(repeat(NULL, 2))",
-                    30000);
-            assertUpdate(
-                    "CREATE TABLE test_grouped_window\n" +
-                            "WITH (bucket_count = 5, bucketed_by = ARRAY['key']) AS\n" +
-                            "SELECT custkey key, orderkey value FROM orders WHERE custkey <= 5 ORDER BY orderkey LIMIT 10",
-                    10);
 
-            // NOT grouped execution; default
-            Session notColocated = Session.builder(getSession())
+            Session session = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "false")
-                    .setSystemProperty(GROUPED_EXECUTION, "false")
-                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
-                    .build();
-            // Co-located JOIN with all groups at once, fixed schedule
-            Session colocatedAllGroupsAtOnce = Session.builder(getSession())
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION, "true")
-                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
-                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
-                    .build();
-            // Co-located JOIN, 1 group per worker at a time, fixed schedule
-            Session colocatedOneGroupAtATime = Session.builder(getSession())
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION, "true")
-                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
-                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
-                    .build();
-            // Co-located JOIN with all groups at once, dynamic schedule
-            Session colocatedAllGroupsAtOnceDynamic = Session.builder(getSession())
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION, "true")
-                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
-                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
-                    .build();
-            // Co-located JOIN, 1 group per worker at a time, dynamic schedule
-            Session colocatedOneGroupAtATimeDynamic = Session.builder(getSession())
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION, "true")
-                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
-                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
-                    .build();
-            // Broadcast JOIN, 1 group per worker at a time
-            Session broadcastOneGroupAtATime = Session.builder(getSession())
-                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION, "true")
-                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
-                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
-                    .build();
-
-            // Broadcast JOIN, 1 group per worker at a time, dynamic schedule
-            Session broadcastOneGroupAtATimeDynamic = Session.builder(getSession())
-                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION, "true")
-                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                     .build();
 
@@ -5428,13 +5429,6 @@ public abstract class BaseHiveConnectorTest
                             "ON key1 = key2\n" +
                             "JOIN test_grouped_join3\n" +
                             "ON key2 = key3";
-            @Language("SQL") String joinThreeMixedTable =
-                    "SELECT key1, value1, key2, value2, keyN, valueN\n" +
-                            "FROM test_grouped_join1\n" +
-                            "JOIN test_grouped_join2\n" +
-                            "ON key1 = key2\n" +
-                            "JOIN test_grouped_joinN\n" +
-                            "ON key2 = keyN";
             @Language("SQL") String expectedJoinQuery = "SELECT orderkey, comment, orderkey, comment, orderkey, comment FROM orders";
             @Language("SQL") String leftJoinBucketedTable =
                     "SELECT key1, value1, key2, value2\n" +
@@ -5448,27 +5442,9 @@ public abstract class BaseHiveConnectorTest
                             "ON key1 = key2";
             @Language("SQL") String expectedOuterJoinQuery = "SELECT orderkey, comment, CASE mod(orderkey, 2) WHEN 0 THEN orderkey END, CASE mod(orderkey, 2) WHEN 0 THEN comment END FROM orders";
 
-            assertQuery(notColocated, joinThreeBucketedTable, expectedJoinQuery);
-            assertQuery(notColocated, leftJoinBucketedTable, expectedOuterJoinQuery);
-            assertQuery(notColocated, rightJoinBucketedTable, expectedOuterJoinQuery);
-
-            assertQuery(colocatedAllGroupsAtOnce, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedAllGroupsAtOnce, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATime, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATime, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
-            assertQuery(colocatedAllGroupsAtOnceDynamic, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedAllGroupsAtOnceDynamic, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
-
-            assertQuery(colocatedAllGroupsAtOnce, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedAllGroupsAtOnce, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATime, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATime, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedAllGroupsAtOnceDynamic, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedAllGroupsAtOnceDynamic, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
+            assertQuery(session, joinThreeBucketedTable, expectedJoinQuery);
+            assertQuery(session, leftJoinBucketedTable, expectedOuterJoinQuery);
+            assertQuery(session, rightJoinBucketedTable, expectedOuterJoinQuery);
 
             //
             // CROSS JOIN and HASH JOIN mixed
@@ -5486,9 +5462,7 @@ public abstract class BaseHiveConnectorTest
                             "  (SELECT orderkey key1, comment value1 FROM orders)\n" +
                             "CROSS JOIN\n" +
                             "  (SELECT orderkey key3, comment value3 FROM orders WHERE orderkey <= 3)";
-            assertQuery(notColocated, crossJoin, expectedCrossJoinQuery);
-            assertQuery(colocatedAllGroupsAtOnce, crossJoin, expectedCrossJoinQuery, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATime, crossJoin, expectedCrossJoinQuery, assertRemoteExchangesCount(2));
+            assertQuery(session, crossJoin, expectedCrossJoinQuery);
 
             //
             // Bucketed and unbucketed HASH JOIN mixed
@@ -5507,178 +5481,7 @@ public abstract class BaseHiveConnectorTest
                             "JOIN test_grouped_join3\n" +
                             "ON key1 = key3";
             @Language("SQL") String expectedBucketedAndUnbucketedJoinQuery = "SELECT orderkey, comment, orderkey, comment, orderkey, comment, orderkey, comment FROM orders";
-            assertQuery(notColocated, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
-            assertQuery(colocatedAllGroupsAtOnce, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATime, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery, assertRemoteExchangesCount(2));
-
-            //
-            // UNION ALL / GROUP BY
-            // ====================
-
-            @Language("SQL") String groupBySingleBucketed =
-                    "SELECT\n" +
-                            "  keyD,\n" +
-                            "  count(valueD)\n" +
-                            "FROM\n" +
-                            "  test_grouped_joinDual\n" +
-                            "GROUP BY keyD";
-            @Language("SQL") String expectedSingleGroupByQuery = "SELECT orderkey, 2 FROM orders";
-            @Language("SQL") String groupByOfUnionBucketed =
-                    "SELECT\n" +
-                            "  key\n" +
-                            ", arbitrary(value1)\n" +
-                            ", arbitrary(value2)\n" +
-                            ", arbitrary(value3)\n" +
-                            "FROM (\n" +
-                            "  SELECT key1 key, value1, NULL value2, NULL value3\n" +
-                            "  FROM test_grouped_join1\n" +
-                            "UNION ALL\n" +
-                            "  SELECT key2 key, NULL value1, value2, NULL value3\n" +
-                            "  FROM test_grouped_join2\n" +
-                            "  WHERE key2 % 2 = 0\n" +
-                            "UNION ALL\n" +
-                            "  SELECT key3 key, NULL value1, NULL value2, value3\n" +
-                            "  FROM test_grouped_join3\n" +
-                            "  WHERE key3 % 3 = 0\n" +
-                            ")\n" +
-                            "GROUP BY key";
-            @Language("SQL") String groupByOfUnionMixed =
-                    "SELECT\n" +
-                            "  key\n" +
-                            ", arbitrary(value1)\n" +
-                            ", arbitrary(value2)\n" +
-                            ", arbitrary(valueN)\n" +
-                            "FROM (\n" +
-                            "  SELECT key1 key, value1, NULL value2, NULL valueN\n" +
-                            "  FROM test_grouped_join1\n" +
-                            "UNION ALL\n" +
-                            "  SELECT key2 key, NULL value1, value2, NULL valueN\n" +
-                            "  FROM test_grouped_join2\n" +
-                            "  WHERE key2 % 2 = 0\n" +
-                            "UNION ALL\n" +
-                            "  SELECT keyN key, NULL value1, NULL value2, valueN\n" +
-                            "  FROM test_grouped_joinN\n" +
-                            "  WHERE keyN % 3 = 0\n" +
-                            ")\n" +
-                            "GROUP BY key";
-            @Language("SQL") String expectedGroupByOfUnion = "SELECT orderkey, comment, CASE mod(orderkey, 2) WHEN 0 THEN comment END, CASE mod(orderkey, 3) WHEN 0 THEN comment END FROM orders";
-            // In this case:
-            // * left side can take advantage of bucketed execution
-            // * right side does not have the necessary organization to allow its parent to take advantage of bucketed execution
-            // In this scenario, we give up bucketed execution altogether. This can potentially be improved.
-            //
-            //       AGG(key)
-            //           |
-            //       UNION ALL
-            //      /         \
-            //  AGG(key)  Scan (not bucketed)
-            //     |
-            // Scan (bucketed on key)
-            @Language("SQL") String groupByOfUnionOfGroupByMixed =
-                    "SELECT\n" +
-                            "  key, sum(cnt) cnt\n" +
-                            "FROM (\n" +
-                            "  SELECT keyD key, count(valueD) cnt\n" +
-                            "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
-                            "UNION ALL\n" +
-                            "  SELECT keyN key, 1 cnt\n" +
-                            "  FROM test_grouped_joinN\n" +
-                            ")\n" +
-                            "group by key";
-            @Language("SQL") String expectedGroupByOfUnionOfGroupBy = "SELECT orderkey, 3 FROM orders";
-
-            // Eligible GROUP BYs run in the same fragment regardless of colocated_join flag
-            assertQuery(colocatedAllGroupsAtOnce, groupBySingleBucketed, expectedSingleGroupByQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATime, groupBySingleBucketed, expectedSingleGroupByQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, groupBySingleBucketed, expectedSingleGroupByQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedAllGroupsAtOnce, groupByOfUnionBucketed, expectedGroupByOfUnion, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATime, groupByOfUnionBucketed, expectedGroupByOfUnion, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, groupByOfUnionBucketed, expectedGroupByOfUnion, assertRemoteExchangesCount(1));
-
-            // cannot be executed in a grouped manner but should still produce correct result
-            assertQuery(colocatedOneGroupAtATime, groupByOfUnionMixed, expectedGroupByOfUnion, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATime, groupByOfUnionOfGroupByMixed, expectedGroupByOfUnionOfGroupBy, assertRemoteExchangesCount(2));
-
-            //
-            // GROUP BY and JOIN mixed
-            // ========================
-            @Language("SQL") String joinGroupedWithGrouped =
-                    "SELECT key1, count1, count2\n" +
-                            "FROM (\n" +
-                            "  SELECT keyD key1, count(valueD) count1\n" +
-                            "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
-                            ") JOIN (\n" +
-                            "  SELECT keyD key2, count(valueD) count2\n" +
-                            "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
-                            ")\n" +
-                            "ON key1 = key2";
-            @Language("SQL") String expectedJoinGroupedWithGrouped = "SELECT orderkey, 2, 2 FROM orders";
-            @Language("SQL") String joinGroupedWithUngrouped =
-                    "SELECT keyD, countD, valueN\n" +
-                            "FROM (\n" +
-                            "  SELECT keyD, count(valueD) countD\n" +
-                            "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
-                            ") JOIN (\n" +
-                            "  SELECT keyN, valueN\n" +
-                            "  FROM test_grouped_joinN\n" +
-                            ")\n" +
-                            "ON keyD = keyN";
-            @Language("SQL") String expectedJoinGroupedWithUngrouped = "SELECT orderkey, 2, comment FROM orders";
-            @Language("SQL") String joinUngroupedWithGrouped =
-                    "SELECT keyN, valueN, countD\n" +
-                            "FROM (\n" +
-                            "  SELECT keyN, valueN\n" +
-                            "  FROM test_grouped_joinN\n" +
-                            ") JOIN (\n" +
-                            "  SELECT keyD, count(valueD) countD\n" +
-                            "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
-                            ")\n" +
-                            "ON keyN = keyD";
-            @Language("SQL") String expectedJoinUngroupedWithGrouped = "SELECT orderkey, comment, 2 FROM orders";
-            @Language("SQL") String groupOnJoinResult =
-                    "SELECT keyD, count(valueD), count(valueN)\n" +
-                            "FROM\n" +
-                            "  test_grouped_joinDual\n" +
-                            "JOIN\n" +
-                            "  test_grouped_joinN\n" +
-                            "ON keyD=keyN\n" +
-                            "GROUP BY keyD";
-            @Language("SQL") String expectedGroupOnJoinResult = "SELECT orderkey, 2, 2 FROM orders";
-
-            @Language("SQL") String groupOnUngroupedJoinResult =
-                    "SELECT key4_bucket, count(value4), count(valueN)\n" +
-                            "FROM\n" +
-                            "  test_grouped_join4\n" +
-                            "JOIN\n" +
-                            "  test_grouped_joinN\n" +
-                            "ON key4_non_bucket=keyN\n" +
-                            "GROUP BY key4_bucket";
-            @Language("SQL") String expectedGroupOnUngroupedJoinResult = "SELECT orderkey, count(*), count(*) FROM orders group by orderkey";
-
-            // Eligible GROUP BYs run in the same fragment regardless of colocated_join flag
-            assertQuery(colocatedAllGroupsAtOnce, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATime, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
-            assertQuery(colocatedAllGroupsAtOnce, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATime, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped, assertRemoteExchangesCount(2));
-            assertQuery(colocatedAllGroupsAtOnce, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATime, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
-
-            assertQuery(broadcastOneGroupAtATime, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(broadcastOneGroupAtATime, groupOnUngroupedJoinResult, expectedGroupOnUngroupedJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(broadcastOneGroupAtATimeDynamic, groupOnUngroupedJoinResult, expectedGroupOnUngroupedJoinResult, assertRemoteExchangesCount(2));
-
-            // cannot be executed in a grouped manner but should still produce correct result
-            assertQuery(colocatedOneGroupAtATime, joinUngroupedWithGrouped, expectedJoinUngroupedWithGrouped, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATime, groupOnUngroupedJoinResult, expectedGroupOnUngroupedJoinResult, assertRemoteExchangesCount(4));
+            assertQuery(session, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
 
             //
             // Outer JOIN (that involves LookupOuterOperator)
@@ -5704,16 +5507,6 @@ public abstract class BaseHiveConnectorTest
                             "  (SELECT * FROM test_grouped_joinN WHERE mod(keyN, 3) = 0)\n" +
                             "ON key1 = keyN";
             // The preceding test case, which then feeds into another join
-            @Language("SQL") String chainedSharedBuildOuterJoin =
-                    "SELECT key1, value1, keyN, valueN, key3, value3\n" +
-                            "FROM\n" +
-                            "  (SELECT key1, arbitrary(value1) value1 FROM test_grouped_join1 WHERE mod(key1, 2) = 0 group by key1)\n" +
-                            "RIGHT JOIN\n" +
-                            "  (SELECT * FROM test_grouped_joinN WHERE mod(keyN, 3) = 0)\n" +
-                            "ON key1 = keyN\n" +
-                            "FULL JOIN\n" +
-                            "  (SELECT * FROM test_grouped_join3 WHERE mod(key3, 5) = 0)\n" +
-                            "ON keyN = key3";
             @Language("SQL") String expectedChainedOuterJoinResult = "SELECT\n" +
                     "  CASE WHEN mod(orderkey, 2 * 3) = 0 THEN orderkey END,\n" +
                     "  CASE WHEN mod(orderkey, 2 * 3) = 0 THEN comment END,\n" +
@@ -5731,64 +5524,8 @@ public abstract class BaseHiveConnectorTest
                     "FROM ORDERS\n" +
                     "WHERE mod(orderkey, 3) = 0";
 
-            assertQuery(notColocated, chainedOuterJoin, expectedChainedOuterJoinResult);
-            assertQuery(colocatedAllGroupsAtOnce, chainedOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATime, chainedOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, chainedOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(1));
-            assertQuery(notColocated, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
-            assertQuery(colocatedAllGroupsAtOnce, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATime, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATime, chainedSharedBuildOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, chainedSharedBuildOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(2));
-
-            //
-            // Window function
-            // ===============
-            assertQuery(
-                    colocatedOneGroupAtATime,
-                    "SELECT key, count(*) OVER (PARTITION BY key ORDER BY value) FROM test_grouped_window",
-                    "VALUES\n" +
-                            "(1, 1),\n" +
-                            "(2, 1),\n" +
-                            "(2, 2),\n" +
-                            "(4, 1),\n" +
-                            "(4, 2),\n" +
-                            "(4, 3),\n" +
-                            "(4, 4),\n" +
-                            "(4, 5),\n" +
-                            "(5, 1),\n" +
-                            "(5, 2)",
-                    assertRemoteExchangesCount(1));
-
-            assertQuery(
-                    colocatedOneGroupAtATime,
-                    "SELECT key, row_number() OVER (PARTITION BY key ORDER BY value) FROM test_grouped_window",
-                    "VALUES\n" +
-                            "(1, 1),\n" +
-                            "(2, 1),\n" +
-                            "(2, 2),\n" +
-                            "(4, 1),\n" +
-                            "(4, 2),\n" +
-                            "(4, 3),\n" +
-                            "(4, 4),\n" +
-                            "(4, 5),\n" +
-                            "(5, 1),\n" +
-                            "(5, 2)",
-                    assertRemoteExchangesCount(1));
-
-            assertQuery(
-                    colocatedOneGroupAtATime,
-                    "SELECT key, n FROM (SELECT key, row_number() OVER (PARTITION BY key ORDER BY value) AS n FROM test_grouped_window) WHERE n <= 2",
-                    "VALUES\n" +
-                            "(1, 1),\n" +
-                            "(2, 1),\n" +
-                            "(2, 2),\n" +
-                            "(4, 1),\n" +
-                            "(4, 2),\n" +
-                            "(5, 1),\n" +
-                            "(5, 2)",
-                    assertRemoteExchangesCount(1));
+            assertQuery(session, chainedOuterJoin, expectedChainedOuterJoinResult);
+            assertQuery(session, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
 
             //
             // Filter out all or majority of splits
@@ -5820,21 +5557,14 @@ public abstract class BaseHiveConnectorTest
                     "FROM ORDERS\n" +
                     "WHERE mod(orderkey, 13) IN (1, 11)";
 
-            assertQuery(notColocated, noSplits, expectedNoSplits);
-            assertQuery(colocatedAllGroupsAtOnce, noSplits, expectedNoSplits, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATime, noSplits, expectedNoSplits, assertRemoteExchangesCount(1));
-            assertQuery(notColocated, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
-            assertQuery(colocatedAllGroupsAtOnce, joinMismatchedBuckets, expectedJoinMismatchedBuckets, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATime, joinMismatchedBuckets, expectedJoinMismatchedBuckets, assertRemoteExchangesCount(1));
+            assertQuery(session, noSplits, expectedNoSplits);
+            assertQuery(session, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join1");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join2");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join3");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_join4");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_joinN");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_joinDual");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_window");
         }
     }
 
@@ -7700,8 +7430,22 @@ public abstract class BaseHiveConnectorTest
                         .hasMessage("Unsupported codec: LZ4");
                 return;
             }
+
+            if (!isSupportedCodec(hiveStorageFormat, compressionCodec)) {
+                assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
+                        .hasMessage("Compression codec " + compressionCodec + " not supported for " + hiveStorageFormat);
+                return;
+            }
             testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec);
         });
+    }
+
+    private boolean isSupportedCodec(HiveStorageFormat storageFormat, HiveCompressionCodec codec)
+    {
+        if (storageFormat == HiveStorageFormat.AVRO && codec == HiveCompressionCodec.LZ4) {
+            return false;
+        }
+        return true;
     }
 
     @DataProvider
@@ -7900,7 +7644,7 @@ public abstract class BaseHiveConnectorTest
         assertThat(getTableFiles(tableName)).hasSameElementsAs(compactedFiles);
 
         // optimize with delimited procedure name
-        assertQueryFails(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Procedure optimize not registered for catalog hive");
+        assertQueryFails(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Table procedure not registered: optimize");
         assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\"");
         // optimize with delimited parameter name (and procedure name)
         assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"file_size_threshold\" => '10B')"); // TODO (https://github.com/trinodb/trino/issues/11326) this should fail
@@ -8265,6 +8009,30 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test(dataProvider = "hiddenColumnNames")
+    public void testHiddenColumnNameConflict(String columnName)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_hidden_column_name_conflict",
+                format("(\"%s\" int, _bucket int, _partition int) WITH (partitioned_by = ARRAY['_partition'], bucketed_by = ARRAY['_bucket'], bucket_count = 10)", columnName))) {
+            assertThatThrownBy(() -> query("SELECT * FROM " + table.getName()))
+                    .hasMessageContaining("Multiple entries with same key: " + columnName);
+        }
+    }
+
+    @DataProvider
+    public Object[][] hiddenColumnNames()
+    {
+        return new Object[][] {
+                {"$path"},
+                {"$bucket"},
+                {"$file_size"},
+                {"$file_modified_time"},
+                {"$partition"},
+        };
+    }
+
     @Test(dataProvider = "legalUseColumnNamesProvider")
     public void testUseColumnAddDrop(HiveStorageFormat format, boolean formatUseColumnNames)
     {
@@ -8547,8 +8315,14 @@ public abstract class BaseHiveConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("time")
-                || typeName.equals("timestamp(3) with time zone")) {
+                || typeName.equals("time(6)")
+                || typeName.equals("timestamp(3) with time zone")
+                || typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+        if (typeName.equals("timestamp(6)")) {
+            // It's supported depending on hive timestamp precision configuration, so the exception message doesn't match the expected for asUnsupported().
+            return Optional.empty();
         }
 
         return Optional.of(dataMappingTestSetup);
@@ -8558,6 +8332,19 @@ public abstract class BaseHiveConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Hive connector does not support column default values");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        // This value depends on metastore type
+        return OptionalInt.of(255);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Failed to create directory");
     }
 
     private Session withTimestampPrecision(Session session, HiveTimestampPrecision precision)

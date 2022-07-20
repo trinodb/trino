@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.spi.ErrorCode;
@@ -123,6 +124,7 @@ public class MockManagedQueryExecution
                         new Duration(3, NANOSECONDS),
                         new Duration(4, NANOSECONDS),
                         new Duration(5, NANOSECONDS),
+                        99,
                         6,
                         7,
                         8,
@@ -145,7 +147,8 @@ public class MockManagedQueryExecution
                         OptionalDouble.empty()),
                 null,
                 null,
-                Optional.empty());
+                Optional.empty(),
+                RetryPolicy.NONE);
     }
 
     @Override
@@ -155,7 +158,6 @@ public class MockManagedQueryExecution
                 new QueryId("test"),
                 session.toSessionRepresentation(),
                 state,
-                !state.isDone(),
                 URI.create("http://test"),
                 ImmutableList.of(),
                 "SELECT 1",
@@ -198,7 +200,7 @@ public class MockManagedQueryExecution
                         DataSize.ofBytes(25),
                         DataSize.ofBytes(26),
 
-                        true,
+                        !state.isDone(),
                         new Duration(20, NANOSECONDS),
                         new Duration(21, NANOSECONDS),
                         new Duration(22, NANOSECONDS),
@@ -229,10 +231,16 @@ public class MockManagedQueryExecution
                         28,
                         0,
 
+                        new Duration(221, NANOSECONDS),
+                        new Duration(222, NANOSECONDS),
+
                         DataSize.ofBytes(29),
                         DataSize.ofBytes(0),
                         30,
                         0,
+
+                        new Duration(223, NANOSECONDS),
+                        new Duration(224, NANOSECONDS),
 
                         DataSize.ofBytes(31),
                         DataSize.ofBytes(0),
@@ -261,7 +269,8 @@ public class MockManagedQueryExecution
                 ImmutableList.of(),
                 state.isDone(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                RetryPolicy.NONE);
     }
 
     @Override

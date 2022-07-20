@@ -32,7 +32,9 @@ import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorManager;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.event.SplitMonitor;
@@ -61,10 +63,8 @@ import io.trino.memory.MemoryInfo;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.MemoryResource;
 import io.trino.memory.NodeMemoryConfig;
-import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.CatalogManager;
-import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.DiscoveryNodeManager;
 import io.trino.metadata.ForNodeManager;
@@ -76,19 +76,15 @@ import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.LiteralFunction;
-import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ProcedureRegistry;
-import io.trino.metadata.SchemaPropertyManager;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.StaticCatalogStore;
 import io.trino.metadata.StaticCatalogStoreConfig;
 import io.trino.metadata.SystemFunctionBundle;
 import io.trino.metadata.SystemSecurityMetadata;
-import io.trino.metadata.TableProceduresPropertyManager;
+import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresRegistry;
-import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.operator.DirectExchangeClientConfig;
 import io.trino.operator.DirectExchangeClientFactory;
@@ -100,6 +96,9 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
+import io.trino.operator.scalar.json.JsonExistsFunction;
+import io.trino.operator.scalar.json.JsonQueryFunction;
+import io.trino.operator.scalar.json.JsonValueFunction;
 import io.trino.server.ExpressionSerialization.ExpressionDeserializer;
 import io.trino.server.ExpressionSerialization.ExpressionSerializer;
 import io.trino.server.PluginManager.PluginsProvider;
@@ -146,9 +145,9 @@ import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Expression;
-import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
+import io.trino.type.JsonPath2016Type;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeOperatorsCache;
 import io.trino.type.TypeSignatureDeserializer;
@@ -239,27 +238,8 @@ public class ServerMainModule
 
         // session properties
         newSetBinder(binder, SystemSessionPropertiesProvider.class).addBinding().to(SystemSessionProperties.class);
-        binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(SessionPropertyDefaults.class).in(Scopes.SINGLETON);
-
-        // schema properties
-        binder.bind(SchemaPropertyManager.class).in(Scopes.SINGLETON);
-
-        // table properties
-        binder.bind(TablePropertyManager.class).in(Scopes.SINGLETON);
-
-        // materialized view properties
-        binder.bind(MaterializedViewPropertyManager.class).in(Scopes.SINGLETON);
-
-        // column properties
-        binder.bind(ColumnPropertyManager.class).in(Scopes.SINGLETON);
-
-        // analyze properties
-        binder.bind(AnalyzePropertyManager.class).in(Scopes.SINGLETON);
-
-        // table procedures properties
-        binder.bind(TableProceduresPropertyManager.class).in(Scopes.SINGLETON);
 
         // node manager
         discoveryBinder(binder).bindSelector("trino");
@@ -364,9 +344,6 @@ public class ServerMainModule
         jaxrsBinder(binder).bind(MemoryResource.class);
         jsonCodecBinder(binder).bindJsonCodec(MemoryInfo.class);
 
-        // transaction manager
-        configBinder(binder).bindConfig(TransactionManagerConfig.class);
-
         // data stream provider
         binder.bind(PageSourceManager.class).in(Scopes.SINGLETON);
         binder.bind(PageSourceProvider.class).to(PageSourceManager.class).in(Scopes.SINGLETON);
@@ -391,6 +368,7 @@ public class ServerMainModule
         newExporter(binder).export(TypeOperatorsCache.class).withGeneratedName();
         binder.bind(ProcedureRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TableProceduresRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
         binder.bind(PlannerContext.class).in(Scopes.SINGLETON);
 
         // function
@@ -406,6 +384,7 @@ public class ServerMainModule
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TypeManager.class).to(InternalTypeManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, Type.class);
+        binder.bind(RegisterJsonPath2016Type.class).asEagerSingleton();
 
         // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
@@ -421,6 +400,8 @@ public class ServerMainModule
 
         // connector
         binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorServicesProvider.class).to(ConnectorManager.class).in(Scopes.SINGLETON);
+        binder.install(new CatalogServiceProviderModule());
 
         // system connector
         binder.install(new SystemConnectorModule());
@@ -479,7 +460,7 @@ public class ServerMainModule
         binder.bind(SingleStreamSpillerFactory.class).to(FileSingleStreamSpillerFactory.class).in(Scopes.SINGLETON);
         binder.bind(PartitioningSpillerFactory.class).to(GenericPartitioningSpillerFactory.class).in(Scopes.SINGLETON);
         binder.bind(SpillerStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(SpillerFactory.class).withGeneratedName();
+        newExporter(binder).export(SpillerStats.class).withGeneratedName();
         binder.bind(LocalSpillManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(NodeSpillConfig.class);
 
@@ -522,6 +503,27 @@ public class ServerMainModule
     public static FunctionBundle literalFunctionBundle(BlockEncodingSerde blockEncodingSerde)
     {
         return new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde));
+    }
+
+    @ProvidesIntoSet
+    @Singleton
+    // not adding to system function bundle to avoid mutual dependency FunctionManager <-> MetadataManager in testing instance constructors
+    public static FunctionBundle jsonFunctionBundle(FunctionManager functionManager, Metadata metadata, TypeManager typeManager)
+    {
+        return new InternalFunctionBundle(
+                new JsonExistsFunction(functionManager, metadata, typeManager),
+                new JsonValueFunction(functionManager, metadata, typeManager),
+                new JsonQueryFunction(functionManager, metadata, typeManager));
+    }
+
+    // working around circular dependency Type <-> TypeManager
+    private static class RegisterJsonPath2016Type
+    {
+        @Inject
+        public RegisterJsonPath2016Type(BlockEncodingSerde blockEncodingSerde, TypeManager typeManager, TypeRegistry typeRegistry)
+        {
+            typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
+        }
     }
 
     @Provides

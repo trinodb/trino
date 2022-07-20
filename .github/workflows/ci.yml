@@ -15,7 +15,7 @@ env:
   MAVEN: ./mvnw
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
+  MAVEN_INSTALL_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
   MAVEN_TEST: "-B --strict-checksums -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
   RETRY: .github/bin/retry
@@ -40,11 +40,12 @@ jobs:
       fail-fast: false
       matrix:
         java-version:
-          - 11
           - 17
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
@@ -55,7 +56,7 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
+          $RETRY $MAVEN clean install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -66,7 +67,7 @@ jobs:
         with:
           platforms: arm64
       - name: Test Docker Image
-        run: core/docker/build-local.sh
+        run: core/docker/build.sh
 
   error-prone-checks:
     runs-on: ubuntu-latest
@@ -80,14 +81,14 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -102,6 +103,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # checkout all commits: it's not needed here, but it's needed almost always, so let's do this for completeness
       - name: Web UI Checks
         run: core/trino-main/bin/check_webui.sh
 
@@ -117,14 +120,14 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Test old JDBC vs current server
         run: |
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-driver gib-impacted.log; then
@@ -177,14 +180,14 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-hive-hadoop2
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -am -pl :trino-hive-hadoop2
       - name: Run Hive Tests
         run: |
           source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
@@ -293,19 +296,20 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Maven Tests
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
             !:trino-main,
             !:trino-tests,
+            !:trino-faulttolerant-tests,
             !:trino-raptor-legacy,
             !:trino-accumulo,
             !:trino-cassandra,
@@ -320,11 +324,12 @@ jobs:
             !:trino-mysql,
             !:trino-postgresql,
             !:trino-sqlserver,
+            !:trino-mariadb,
             !:trino-oracle,
             !:trino-kudu,
             !:trino-druid,
             !:trino-iceberg,
-            !:trino-phoenix,!:trino-phoenix5,
+            !:trino-phoenix5,
             !:trino-jdbc,!:trino-base-jdbc,!:trino-thrift,!:trino-memory,
             !:trino-docs,!:trino-server,!:trino-server-rpm,
             !:trino-test-jdbc-compatibility-old-server,
@@ -364,7 +369,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
       - name: Maven validate
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -378,6 +383,10 @@ jobs:
           include:
             - { modules: core/trino-main }
             - { modules: testing/trino-tests }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-1 }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-2 }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
             - { modules: plugin/trino-raptor-legacy }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-cassandra }
@@ -385,8 +394,6 @@ jobs:
             - { modules: plugin/trino-delta-lake }
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: test-parquet }
-            - { modules: plugin/trino-hive, profile: test-failure-recovery }
-            - { modules: plugin/trino-hive, profile: test-fault-tolerant-execution }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-elasticsearch, profile: test-stats }
             - { modules: plugin/trino-mongodb }
@@ -397,13 +404,12 @@ jobs:
             - { modules: plugin/trino-postgresql }
             - { modules: plugin/trino-sqlserver }
             - { modules: plugin/trino-singlestore }
+            - { modules: plugin/trino-mariadb }
             - { modules: plugin/trino-oracle }
-            # TODO: re-enable kudu tests after this issue is resolved: https://github.com/trinodb/trino/issues/11203
-            # - { modules: plugin/trino-kudu }
+            - { modules: plugin/trino-kudu }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-iceberg }
-            - { modules: plugin/trino-iceberg, profile: test-failure-recovery }
-            - { modules: [ plugin/trino-phoenix, plugin/trino-phoenix5 ] }
+            - { modules: plugin/trino-phoenix5 }
             - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
             - { modules: plugin/trino-bigquery }
           EOF
@@ -428,7 +434,7 @@ jobs:
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
@@ -439,7 +445,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl "${{ matrix.modules }}"
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
         if: matrix.modules != 'plugin/trino-singlestore'
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
@@ -472,7 +478,7 @@ jobs:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
         if: matrix.modules == 'plugin/trino-bigquery' && env.BIGQUERY_CREDENTIALS_KEY != ''
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
+          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" -Dtesting.gcp-storage-bucket="trino-ci-test"
       - name: Cloud BigQuery Case Insensitive Mapping Tests
         env:
           BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
@@ -519,24 +525,66 @@ jobs:
 
   build-pt:
     runs-on: ubuntu-latest
+    outputs:
+      have_azure_secrets: ${{ steps.check-secrets.outputs.have_azure_secrets }}
+      have_databricks_secrets: ${{ steps.check-databricks-secrets.outputs.have_databricks_secrets }}
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
+      - name: Check secrets
+        run: |
+          if [[ "${{ secrets.AZURE_ABFS_CONTAINER }}" != "" && \
+                "${{ secrets.AZURE_ABFS_ACCOUNT }}" != "" && \
+                "${{ secrets.AZURE_ABFS_ACCESSKEY }}" != ""
+          ]]; \
+          then
+            echo "Secrets to run product tests were configured in the repo"
+            echo "::set-output name=have_azure_secrets::true"
+          else
+            echo "Secrets to run product tests were not configured in the repo"
+            echo "::set-output name=have_azure_secrets::false"
+          fi
+        id: check-secrets
+      - name: Check Delta Databricks secrets
+        id: check-databricks-secrets
+        run: |
+          if [[ "${{ secrets.DATABRICKS_TOKEN }}" != "" ]]; \
+          then
+            echo "Secrets to run Delta Databricks product tests were configured in the repo"
+            echo "::set-output name=have_databricks_secrets::true"
+          else
+            echo "Secrets to run Delta Databricks product tests were not configured in the repo"
+            echo "::set-output name=have_databricks_secrets::false"
+          fi
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # GIB needs to be explicitly disabled, because the gib profile enables it, but the trino-server module requires all of its dependencies to be built
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -Dgib.disable -pl '!:trino-docs,!:trino-server-rpm'
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -Dgib.disable -pl '!:trino-docs,!:trino-server-rpm'
+      - name: Map impacted plugins to features
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $MAVEN validate ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
+          # GIB doesn't run on master, so make sure the file always exist
+          touch gib-impacted.log
+          testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar -i gib-impacted.log -p core/trino-server/target/trino-server-*-hardlinks/plugin > impacted-features.log
+          echo "Impacted plugin features:"
+          cat impacted-features.log
       - name: Product tests artifact
         uses: actions/upload-artifact@v2
         with:
           name: product tests and server tarball
           path: |
             core/trino-server/target/*.tar.gz
+            impacted-features.log
             testing/trino-product-tests-launcher/target/*-executable.jar
             testing/trino-product-tests/target/*-executable.jar
             client/trino-cli/target/*-executable.jar
@@ -560,8 +608,8 @@ jobs:
           - suite-3
           # suite-4 does not exist
           - suite-5
-        jdk:
-          - 11
+          - suite-azure
+          - suite-delta-lake-databricks
         exclude:
           - config: cdh5
             ignore exclusion if: >-
@@ -573,9 +621,26 @@ jobs:
           - config: default
             ignore exclusion if: >-
               ${{ github.event_name != 'pull_request'
+               || github.event.pull_request.head.repo.full_name == github.repository
                || contains(github.event.pull_request.labels.*.name, 'tests:all')
                || contains(github.event.pull_request.labels.*.name, 'tests:hive')
                }}
+
+          - suite: suite-azure
+            config: default
+          - suite: suite-azure
+            config: cdh5
+          - suite: suite-azure
+            ignore exclusion if: >-
+              ${{ needs.build-pt.outputs.have_azure_secrets == 'true' }}
+
+          - suite: suite-delta-lake-databricks
+            config: cdh5
+          - suite: suite-delta-lake-databricks
+            config: hdp3
+          - suite: suite-delta-lake-databricks
+            ignore exclusion if: >-
+              ${{ needs.build-pt.outputs.have_databricks_secrets == 'true' }}
 
         ignore exclusion if:
           # Do not use this property outside of the matrix configuration.
@@ -592,52 +657,61 @@ jobs:
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-6-non-generic
-            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-7-non-generic
-            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-8-non-generic
-            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-tpcds
-            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-oauth2
-            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-ldap
-            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-compatibility
-            jdk: 11
           # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
           - config: apache-hive3
             suite: suite-hms-only
-            jdk: 11
           # suite-1 does not contain Kerberos/encrypted Hive environments
           - config: hdp3
             suite: suite-1
-            jdk: 17
           # suite-2 contains Kerberos/encrypted Hive environments
           - config: hdp3
             suite: suite-2
-            jdk: 17
+          # this suite is not meant to be run with different configs
+          - config: default
+            suite: suite-all
+          # this suite is not meant to be run with different configs
+          - config: default
+            suite: suite-delta-lake-oss
     # PT Launcher's timeout defaults to 2h, add some margin
     timeout-minutes: 130
     needs: build-pt
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            product-tests:
+              - 'testing/trino-product-tests*/**'
+              - 'testing/trino-testing-services/**'
+              # run all tests when there are any changes in the trino-server Maven module
+              # because it uses Provisio to determine its dependencies
+              - 'core/trino-server/**'
+              - '.github/**'
       - name: Product tests artifact
         uses: actions/download-artifact@v2
         with:
@@ -645,11 +719,36 @@ jobs:
       - name: Fix artifact permissions
         run: |
           find . -type f -name \*-executable.jar -exec chmod 0777 {} \;
+      - name: Enable impact analysis
+        # don't enable this on pushes to master and in PRs in the main repository (not from forks)
+        # because these are most often used to run all tests with additional secrets
+        if: |
+          steps.filter.outputs.product-tests == 'false' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name != github.repository &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        run: echo "PTL_OPTS=--impacted-features impacted-features.log" >> $GITHUB_ENV
       - name: Product Tests
+        env:
+          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
+          S3_BUCKET: trino-ci-test
+          AWS_REGION: us-east-2
+          DATABRICKS_AWS_ACCESS_KEY_ID: ${{ secrets.DATABRICKS_AWS_ACCESS_KEY_ID }}
+          DATABRICKS_AWS_SECRET_ACCESS_KEY: ${{ secrets.DATABRICKS_AWS_SECRET_ACCESS_KEY }}
+          DATABRICKS_73_JDBC_URL: ${{ secrets.DATABRICKS_73_JDBC_URL }}
+          DATABRICKS_91_JDBC_URL: ${{ secrets.DATABRICKS_91_JDBC_URL }}
+          DATABRICKS_104_JDBC_URL: ${{ secrets.DATABRICKS_104_JDBC_URL }}
+          DATABRICKS_LOGIN: token
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
         run: |
           testing/bin/ptl suite run \
-            --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --bind=off --logs-dir logs/ --timeout 2h \
-            --trino-jdk-version zulu_${{ matrix.jdk }}
+            --suite ${{ matrix.suite }} \
+            --config config-${{ matrix.config }} \
+            $PTL_OPTS \
+            --bind=off --logs-dir logs/ --timeout 2h
       - name: Upload test logs and results
         uses: actions/upload-artifact@v2
         # Upload all test reports only on failure, because the artifacts are large

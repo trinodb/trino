@@ -2,6 +2,15 @@
 Query management properties
 ===========================
 
+``query.client.timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Default value:** ``5m``
+
+Configures how long the cluster runs without contact from the client
+application, such as the CLI, before it abandons and cancels its work.
+
 ``query.execution-policy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -33,7 +42,7 @@ The number of partitions to use for processing distributed operations, such as
 joins, aggregations, partitioned window functions and others.
 
 ``query.low-memory-killer.policy``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-string`
 * **Default value:** ``total-reservation-on-blocked-nodes``
@@ -46,6 +55,42 @@ memory availability. Supports the following values:
 * ``total-reservation-on-blocked-nodes`` - Kill the query currently using the
   most memory specifically on nodes that are now out of memory.
 
+.. note::
+
+    Only applies for queries with task level retries disabled (``retry-policy`` set to ``NONE`` or ``QUERY``)
+
+``task.low-memory-killer.policy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-string`
+* **Default value:** ``total-reservation-on-blocked-nodes``
+
+Configures the behavior to handle killing running tasks in the event of low
+memory availability. Supports the following values:
+
+* ``none`` - Do not kill any tasks in the event of low memory.
+* ``total-reservation-on-blocked-nodes`` - Kill the tasks which are part of the queries
+  which has task retries enabled and are currently using the most memory specifically
+  on nodes that are now out of memory.
+* ``least-waste`` - Kill the tasks which are part of the queries
+  which has task retries enabled and use significant amount of memory on nodes
+  which are now out of memory. This policy avoids killing tasks which are already
+  executing for a long time, so significant amount of work is not wasted.
+
+.. note::
+
+    Only applies for queries with task level retries enabled (``retry-policy=TASK``)
+
+``query.low-memory-killer.delay``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Default value:** ``5m``
+
+The amount of time a query is allowed to recover between running out of memory
+and being killed, if ``query.low-memory-killer.policy`` or
+``task.low-memory-killer.policy`` is set to value differnt than ``none``.
+
 ``query.max-execution-time``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -56,6 +101,16 @@ memory availability. Supports the following values:
 The maximum allowed time for a query to be actively executing on the
 cluster, before it is terminated. Compared to the run time below, execution
 time does not include analysis, query planning or wait times in a queue.
+
+``query.max-length``
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Default value:** ``1,000,000``
+* **Maximum value:** ``1,000,000,000``
+
+The maximum number of characters allowed for the SQL query text. Longer queries
+are not processed, and terminated with error ``QUERY_TEXT_TOO_LARGE``.
 
 ``query.max-planning-time``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -85,7 +140,7 @@ query to exist since creation.
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-integer`
-* **Default value:** ``100``
+* **Default value:** ``150``
 * **Minimum value:** ``1``
 
 The maximum number of stages allowed to be generated per query. If a query
@@ -117,6 +172,16 @@ removed based on age.
 The minimal age of a query in the history before it is expired. An expired
 query is removed from the query history buffer and no longer available in
 the :doc:`/admin/web-interface`.
+
+``query.remote-task.max-error-duration``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Default value:** ``5m``
+
+Timeout value for remote tasks that fail to communicate with the
+coordinator. If the coordinator is unable to receive updates from a remote task
+before this value is reached, the coordinator treats the task as failed.
 
 ``retry-policy``
 ^^^^^^^^^^^^^^^^

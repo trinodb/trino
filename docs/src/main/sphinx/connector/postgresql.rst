@@ -2,6 +2,10 @@
 PostgreSQL connector
 ====================
 
+.. raw:: html
+
+  <img src="../_static/img/postgresql.png" class="connector-logo">
+
 The PostgreSQL connector allows querying and creating tables in an
 external `PostgreSQL <https://www.postgresql.org/>`_ database. This can be used to join data between
 different systems like PostgreSQL and Hive, or between different
@@ -137,7 +141,7 @@ By default, values that require rounding or truncation to fit will cause a failu
 is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
 property, which can be set to ``UNNECESSARY`` (the default),
 ``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
-(see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+(see `RoundingMode <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
 
 .. _postgresql-array-type-handling:
 
@@ -203,10 +207,101 @@ statements, the connector supports the following features:
 
 .. include:: alter-schema-limitation.fragment
 
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access PostgreSQL.
+
+.. _postgresql-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to PostgreSQL, because the full query is pushed down and
+processed in PostgreSQL. This can be useful for accessing native features which
+are not available in Trino or for improving query performance in situations
+where running a query natively may be faster.
+
+As a simple example, to select an entire table::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        postgresql.system.query(
+          query => 'SELECT
+            *
+          FROM
+            tpch.nation'
+        )
+      );
+
+As a practical example, you can leverage
+`frame exclusion from PostgresQL <https://www.postgresql.org/docs/current/sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS>`_
+when using window functions::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        postgresql.system.query(
+          query => 'SELECT
+            *,
+            array_agg(week) OVER (
+              ORDER BY
+                week
+              ROWS
+                BETWEEN 2 PRECEDING
+                AND 2 FOLLOWING
+                EXCLUDE GROUP
+            ) AS week,
+            array_agg(week) OVER (
+              ORDER BY
+                day
+              ROWS
+                BETWEEN 2 PRECEDING
+                AND 2 FOLLOWING
+                EXCLUDE GROUP
+            ) AS all
+          FROM
+            test.time_data'
+        )
+      );
+
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+.. _postgresql-table-statistics:
+
+Table statistics
+^^^^^^^^^^^^^^^^
+
+The PostgreSQL connector can use :doc:`table and column statistics
+</optimizer/statistics>` for :doc:`cost based optimizations
+</optimizer/cost-based-optimizations>`, to improve query processing performance
+based on the actual data in the data source.
+
+The statistics are collected by PostgreSQL and retrieved by the connector.
+
+To collect statistics for a table, execute the following statement in
+PostgreSQL.
+
+.. code-block:: text
+
+    ANALYZE table_schema.table_name;
+
+Refer to PostgreSQL documentation for additional ``ANALYZE`` options.
+
 .. _postgresql-pushdown:
 
 Pushdown
---------
+^^^^^^^^
 
 The connector supports pushdown for a number of operations:
 
@@ -232,6 +327,8 @@ The connector supports pushdown for a number of operations:
 * :func:`corr`
 * :func:`regr_intercept`
 * :func:`regr_slope`
+
+.. include:: join-pushdown-enabled-true.fragment
 
 Predicate pushdown support
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

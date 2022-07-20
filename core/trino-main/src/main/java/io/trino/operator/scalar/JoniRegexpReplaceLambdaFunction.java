@@ -15,7 +15,6 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.joni.Matcher;
-import io.airlift.joni.Option;
 import io.airlift.joni.Region;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -33,6 +32,7 @@ import io.trino.type.JoniRegexp;
 import io.trino.type.JoniRegexpType;
 
 import static io.airlift.slice.SliceUtf8.lengthOfCodePointFromStartByte;
+import static io.trino.operator.scalar.JoniRegexpFunctions.getSearchingOffset;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
 @ScalarFunction("regexp_replace")
@@ -51,7 +51,7 @@ public final class JoniRegexpReplaceLambdaFunction
     {
         // If there is no match we can simply return the original source without doing copy.
         Matcher matcher = pattern.matcher(source.getBytes());
-        if (matcher.search(0, source.length(), Option.DEFAULT) == -1) {
+        if (getSearchingOffset(matcher, 0, source.length()) == -1) {
             return source;
         }
 
@@ -110,8 +110,7 @@ public final class JoniRegexpReplaceLambdaFunction
             }
             output.appendBytes(replaced);
         }
-        while (matcher.search(nextStart, source.length(), Option.DEFAULT) != -1);
-
+        while (getSearchingOffset(matcher, nextStart, source.length()) != -1);
         // Append the last un-matched part
         output.writeBytes(source, appendPosition, source.length() - appendPosition);
         return output.slice();

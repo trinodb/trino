@@ -19,7 +19,6 @@ import com.google.common.io.Files;
 import com.google.common.io.RecursiveDeleteOption;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -61,7 +60,6 @@ import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.nio.file.Files.copy;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -71,7 +69,6 @@ public abstract class AbstractTestHiveLocal
 {
     private static final Logger log = Logger.get(AbstractTestHiveLocal.class);
     private static final String DEFAULT_TEST_DB_NAME = "test";
-    private static final HiveIdentity HIVE_IDENTITY = new HiveIdentity(SESSION.getIdentity());
 
     private File tempDir;
     private final String testDbName;
@@ -86,14 +83,14 @@ public abstract class AbstractTestHiveLocal
         this.testDbName = requireNonNull(testDbName, "testDbName is null");
     }
 
-    protected abstract HiveMetastore createMetastore(File tempDir, HiveIdentity identity);
+    protected abstract HiveMetastore createMetastore(File tempDir);
 
     @BeforeClass(alwaysRun = true)
     public void initialize()
     {
         tempDir = Files.createTempDir();
 
-        HiveMetastore metastore = createMetastore(tempDir, HIVE_IDENTITY);
+        HiveMetastore metastore = createMetastore(tempDir);
 
         metastore.createDatabase(
                 Database.builder()

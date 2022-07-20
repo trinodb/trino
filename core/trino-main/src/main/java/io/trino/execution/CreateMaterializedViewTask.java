@@ -14,7 +14,6 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
@@ -61,8 +60,7 @@ public class CreateMaterializedViewTask
             AccessControl accessControl,
             SqlParser sqlParser,
             AnalyzerFactory analyzerFactory,
-            MaterializedViewPropertyManager materializedViewPropertyManager,
-            FeaturesConfig featuresConfig)
+            MaterializedViewPropertyManager materializedViewPropertyManager)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");

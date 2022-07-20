@@ -54,7 +54,8 @@ public interface QueryBuilder
             ConnectorSession session,
             Connection connection,
             JdbcNamedRelationHandle baseRelation,
-            TupleDomain<ColumnHandle> tupleDomain);
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<String> additionalPredicate);
 
     PreparedStatement prepareStatement(
             JdbcClient client,

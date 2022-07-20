@@ -2,6 +2,10 @@
 Kudu connector
 ==============
 
+.. raw:: html
+
+  <img src="../_static/img/kudu.png" class="connector-logo">
+
 The Kudu connector allows querying, inserting and deleting data in `Apache Kudu`_.
 
 .. _Apache Kudu: https://kudu.apache.org/
@@ -152,7 +156,7 @@ tables are mapped to schemas depending on some conventions.
   the mapping works like:
 
   +----------------------------+---------------------------------+
-  | Kudu Table Name            | Trino Qualified Name            |
+  | Kudu table name            | Trino qualified name            |
   +============================+=================================+
   | ``orders``                 | ``kudu.default.orders``         |
   +----------------------------+---------------------------------+
@@ -169,7 +173,7 @@ tables are mapped to schemas depending on some conventions.
   the mapping works like:
 
   +----------------------------+---------------------------------+
-  | Kudu Table Name            | Trino Qualified Name            |
+  | Kudu table name            | Trino qualified name            |
   +============================+=================================+
   | ``orders``                 | ``kudu.default.orders``         |
   +----------------------------+---------------------------------+
@@ -191,7 +195,7 @@ Data type mapping
 The data types of Trino and Kudu are mapped as far as possible:
 
 +-----------------------+-----------------------+-----------------------+
-| Trino Data Type       | Kudu Data Type        | Comment               |
+| Trino data type       | Kudu data type        | Comment               |
 +=======================+=======================+=======================+
 | ``BOOLEAN``           | ``BOOL``              |                       |
 +-----------------------+-----------------------+-----------------------+
@@ -580,7 +584,7 @@ partition.
     Examples:
 
     +-------------------------------+----------------------------------------------+
-    | Trino Data Type               | JSON string example                          |
+    | Trino data Type               | JSON string example                          |
     +===============================+==============================================+
     | ``BIGINT``                    | ``‘{“lower”: 0, “upper”: 1000000}’``         |
     +-------------------------------+----------------------------------------------+

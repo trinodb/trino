@@ -26,13 +26,34 @@ Examples
 
 Update the status of all purchases that haven't been assigned a ship date::
 
-    UPDATE purchases SET status = 'OVERDUE' WHERE ship_date IS NULL;
+    UPDATE
+      purchases
+    SET
+      status = 'OVERDUE'
+    WHERE
+      ship_date IS NULL;
 
 Update the account manager and account assign date for all customers::
 
-    UPDATE customers SET
+    UPDATE
+      customers
+    SET
       account_manager = 'John Henry',
-      assign_date = DATE '2007-01-01';
+      assign_date = now();
+
+Update the manager to be the name of the employee who matches the manager ID::
+
+    UPDATE
+      new_hires
+    SET
+      manager = (
+        SELECT
+          e.name
+        FROM
+          employees e
+        WHERE
+          e.employee_id = new_hires.manager_id
+      );
 
 Limitations
 -----------

@@ -27,6 +27,8 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
+import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
 public class Int96ArrayBlock
         implements Block
@@ -162,6 +164,15 @@ public class Int96ArrayBlock
     {
         checkReadablePosition(position);
         return valueIsNull != null && valueIsNull[position + positionOffset];
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, positionOffset, positionCount);
+        long[] newHigh = ensureCapacity(high, positionOffset + positionCount + 1);
+        int[] newLow = ensureCapacity(low, positionOffset + positionCount + 1);
+        return new Int96ArrayBlock(positionOffset, positionCount + 1, newValueIsNull, newHigh, newLow);
     }
 
     @Override

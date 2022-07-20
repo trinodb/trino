@@ -78,6 +78,7 @@ public final class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeSpilledDataSize = new HashMap<>();
         Map<PlanNodeId, Long> planNodeScheduledMillis = new HashMap<>();
         Map<PlanNodeId, Long> planNodeCpuMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeBlockedMillis = new HashMap<>();
 
         Map<PlanNodeId, Map<String, BasicOperatorStats>> basicOperatorStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
@@ -103,6 +104,8 @@ public final class PlanNodeStatsSummarizer
 
                 long cpuMillis = operatorStats.getAddInputCpu().toMillis() + operatorStats.getGetOutputCpu().toMillis() + operatorStats.getFinishCpu().toMillis();
                 planNodeCpuMillis.merge(planNodeId, cpuMillis, Long::sum);
+
+                planNodeBlockedMillis.merge(planNodeId, operatorStats.getBlockedWall().toMillis(), Long::sum);
 
                 // A pipeline like hash build before join might link to another "internal" pipelines which provide actual input for this plan node
                 if (operatorStats.getPlanNodeId().equals(inputPlanNode) && !pipelineStats.isInputPipeline()) {
@@ -191,6 +194,7 @@ public final class PlanNodeStatsSummarizer
                         planNodeId,
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeBlockedMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
                         succinctBytes(planNodeInputBytes.get(planNodeId)),
                         outputPositions,
@@ -204,6 +208,7 @@ public final class PlanNodeStatsSummarizer
                         planNodeId,
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeBlockedMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
                         succinctBytes(planNodeInputBytes.get(planNodeId)),
                         outputPositions,
@@ -217,6 +222,7 @@ public final class PlanNodeStatsSummarizer
                         planNodeId,
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeBlockedMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
                         succinctBytes(planNodeInputBytes.get(planNodeId)),
                         outputPositions,

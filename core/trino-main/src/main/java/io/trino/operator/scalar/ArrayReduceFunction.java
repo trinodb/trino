@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
@@ -30,8 +29,6 @@ import io.trino.sql.gen.lambda.UnaryFunctionInterface;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -50,23 +47,23 @@ public final class ArrayReduceFunction
 
     private ArrayReduceFunction()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "reduce",
-                        ImmutableList.of(typeVariable("T"), typeVariable("S"), typeVariable("R")),
-                        ImmutableList.of(),
-                        new TypeSignature("R"),
-                        ImmutableList.of(
-                                arrayType(new TypeSignature("T")),
-                                new TypeSignature("S"),
-                                functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
-                                functionType(new TypeSignature("S"), new TypeSignature("R"))),
-                        false),
-                new FunctionNullability(true, ImmutableList.of(false, true, false, false)),
-                false,
-                false,
-                "Reduce elements of the array into a single value",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name("reduce")
+                        .typeVariable("T")
+                        .typeVariable("S")
+                        .typeVariable("R")
+                        .returnType(new TypeSignature("R"))
+                        .argumentType(arrayType(new TypeSignature("T")))
+                        .argumentType(new TypeSignature("S"))
+                        .argumentType(functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")))
+                        .argumentType(functionType(new TypeSignature("S"), new TypeSignature("R")))
+                        .build())
+                .nullable()
+                .argumentNullability(false, true, false, false)
+                .nondeterministic()
+                .description("Reduce elements of the array into a single value")
+                .build());
     }
 
     @Override

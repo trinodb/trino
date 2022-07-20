@@ -72,30 +72,28 @@ public class TestIcebergHiveViewsCompatibility
             // select some random catalog so we are not biased towards iceberg.default during assertions
             onTrino().executeQuery("USE tpch.tiny");
 
-            // both hive and iceberg catalogs should list all the views.
+            // both hive and iceberg catalogs should list all the tables and views.
+            ImmutableList<QueryAssert.Row> newlyCreated = ImmutableList.<QueryAssert.Row>builder()
+                    .add(row("hive_table"))
+                    .add(row("iceberg_table"))
+                    .add(row("hive_view_qualified_hive"))
+                    .add(row("hive_view_unqualified_hive"))
+                    .add(row("hive_view_qualified_iceberg"))
+                    .add(row("iceberg_view_qualified_hive"))
+                    .add(row("iceberg_view_qualified_iceberg"))
+                    .add(row("iceberg_view_unqualified_iceberg"))
+                    .build();
+
             assertThat(onTrino().executeQuery("SHOW TABLES FROM hive.default"))
                     .containsOnly(ImmutableList.<QueryAssert.Row>builder()
                             .addAll(hivePreexistingTables)
-                            .add(row("hive_table"))
-                            .add(row("iceberg_table")) // TODO: should this be filtered out?
-                            .add(row("hive_view_qualified_hive"))
-                            .add(row("hive_view_unqualified_hive"))
-                            .add(row("hive_view_qualified_iceberg"))
-                            .add(row("iceberg_view_qualified_hive"))
-                            .add(row("iceberg_view_qualified_iceberg"))
-                            .add(row("iceberg_view_unqualified_iceberg"))
+                            .addAll(newlyCreated)
                             .build());
 
             assertThat(onTrino().executeQuery("SHOW TABLES FROM iceberg.default"))
                     .containsOnly(ImmutableList.<QueryAssert.Row>builder()
                             .addAll(icebergPreexistingTables)
-                            .add(row("iceberg_table"))
-                            .add(row("hive_view_qualified_hive"))
-                            .add(row("hive_view_unqualified_hive"))
-                            .add(row("hive_view_qualified_iceberg"))
-                            .add(row("iceberg_view_qualified_hive"))
-                            .add(row("iceberg_view_qualified_iceberg"))
-                            .add(row("iceberg_view_unqualified_iceberg"))
+                            .addAll(newlyCreated)
                             .build());
 
             // try to access all views via hive catalog

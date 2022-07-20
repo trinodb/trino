@@ -44,7 +44,6 @@ import io.trino.exchange.ExchangeManagerModule;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollectorModule;
-import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.StaticCatalogStore;
 import io.trino.security.AccessControlManager;
@@ -54,6 +53,8 @@ import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
+import io.trino.server.security.oauth2.OAuth2Client;
+import io.trino.transaction.TransactionManagerModule;
 import io.trino.version.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -65,7 +66,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
@@ -108,6 +108,7 @@ public class Server
                 new EventListenerModule(),
                 new ExchangeManagerModule(),
                 new CoordinatorDiscoveryModule(),
+                new TransactionManagerModule(),
                 new ServerMainModule(trinoVersion),
                 new GracefulShutdownModule(),
                 new WarningCollectorModule());
@@ -141,6 +142,8 @@ public class Server
             injector.getInstance(CertificateAuthenticatorManager.class).loadCertificateAuthenticator();
             injector.getInstance(optionalKey(HeaderAuthenticatorManager.class))
                     .ifPresent(HeaderAuthenticatorManager::loadHeaderAuthenticator);
+
+            injector.getInstance(optionalKey(OAuth2Client.class)).ifPresent(OAuth2Client::load);
 
             injector.getInstance(Announcer.class).start();
 
@@ -193,10 +196,7 @@ public class Server
         ServiceAnnouncement announcement = getTrinoAnnouncement(announcer.getServiceAnnouncements());
 
         // automatically build connectorIds if not configured
-        Set<String> connectorIds = metadata.getCatalogs().stream()
-                .map(Catalog::getConnectorCatalogName)
-                .map(Object::toString)
-                .collect(toImmutableSet());
+        Set<String> connectorIds = metadata.getCatalogNames();
 
         // build announcement with updated sources
         ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());

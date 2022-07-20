@@ -16,7 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.operator.OperatorStats;
-import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
@@ -30,17 +30,16 @@ import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
+import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
-// TODO (https://github.com/trinodb/trino/issues/11325): hadoop container sometimes fails during the test (e.g. testAnalyzeWithFilesModifiedAfter)
-//   enable the class by making it non-abstract
 // smoke test which covers ANALYZE compatibility with different filesystems is part of AbstractTestDeltaLakeIntegrationSmokeTest
-public abstract class TestDeltaLakeAnalyze
+public class TestDeltaLakeAnalyze
         extends AbstractTestQueryFramework
 {
     private static final String SCHEMA = "default";
@@ -55,14 +54,14 @@ public abstract class TestDeltaLakeAnalyze
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DockerizedMinioDataLake dockerizedMinioDataLake = closeAfterClass(createDockerizedMinioDataLakeForDeltaLake(bucketName));
-
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        hiveMinioDataLake.start();
         return DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
-                dockerizedMinioDataLake.getMinioAddress(),
-                dockerizedMinioDataLake.getTestingHadoop());
+                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getHiveHadoop());
     }
 
     @Test
@@ -103,8 +102,8 @@ public abstract class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
 
         // reanalyze data (1 split is empty values)
@@ -115,8 +114,8 @@ public abstract class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
 
         // insert one more copy; should not influence stats other than rowcount
@@ -129,24 +128,24 @@ public abstract class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 3714.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 354.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
 
         // insert modified rows
         assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
 
-        // without ANALYZE all stats but NDV should be updated
+        // without ANALYZE all stats but size and NDV should be updated
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 49)," +
                         "('regionkey', null, 5.0, 0.0, null, 0, 9)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 3714.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 354.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
 
-        // with analyze we should get new NDV
+        // with analyze we should get new size and NDV
         runAnalyzeVerifySplitCount(tableName, 1);
 
         assertQuery(
@@ -154,8 +153,8 @@ public abstract class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 50.0, 0.0, null, 0, 49)," +
                         "('regionkey', null, 10.0, 0.0, null, 0, 9)," +
-                        "('comment', null, 50.0, 0.0, null, null, null)," +
-                        "('name', null, 50.0, 0.0, null, null, null)," +
+                        "('comment', 5571.0, 50.0, 0.0, null, null, null)," +
+                        "('name', 531.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
     }
 
@@ -186,8 +185,8 @@ public abstract class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, null, null)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
 
         // insert one more copy; should not influence stats other than rowcount
@@ -200,32 +199,32 @@ public abstract class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, null, null)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 3714.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 354.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
 
         // insert modified rows
         assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
 
-        // without ANALYZE all stats but NDV should be updated
+        // without ANALYZE all stats but size and NDV should be updated
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 49)," +
                         "('regionkey', null, 10.0, 0.0, null, null, null)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 3714.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 354.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
 
-        // with analyze we should get new NDV
+        // with analyze we should get new size and NDV
         runAnalyzeVerifySplitCount(tableName, 5);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
                         "('nationkey', null, 50.0, 0.0, null, 0, 49)," +
                         "('regionkey', null, 10.0, 0.0, null, null, null)," +
-                        "('comment', null, 50.0, 0.0, null, null, null)," +
-                        "('name', null, 50.0, 0.0, null, null, null)," +
+                        "('comment', 5571.0, 50.0, 0.0, null, null, null)," +
+                        "('name', 531.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
     }
 
@@ -269,8 +268,8 @@ public abstract class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
     }
 
@@ -326,8 +325,8 @@ public abstract class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 5.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 3.0, 0.0, null, 0, 4)," +
-                        "('comment', null, 5.0, 0.0, null, null, null)," +
-                        "('name', null, 5.0, 0.0, null, null, null)," +
+                        "('comment', 434.0, 5.0, 0.0, null, null, null)," +
+                        "('name', 33.0, 5.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 30.0, null, null)");
     }
 
@@ -391,8 +390,8 @@ public abstract class TestDeltaLakeAnalyze
                 "VALUES " +
                         "('nationkey', null, 50.0, 0.0, null, 0, 49)," +
                         "('regionkey', null, 10.0, 0.0, null, 0, 9)," +
-                        "('comment', null, 50.0, 0.0, null, null, null)," +
-                        "('name', null, 50.0, 0.0, null, null, null)," +
+                        "('comment', 3764.0, 50.0, 0.0, null, null, null)," +
+                        "('name', 379.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
 
         // we and we should be able to reanalyze with a subset of columns
@@ -438,8 +437,8 @@ public abstract class TestDeltaLakeAnalyze
             String extendedStats = "VALUES"
                     + "('nationkey', null, 25.0,  0.0, null,    0,   24),"
                     + "('regionkey', null,  5.0,  0.0, null,    0,    4),"
-                    + "('comment',   null, 25.0,  0.0, null, null, null),"
-                    + "('name',      null, 25.0,  0.0, null, null, null),"
+                    + "('comment', 1857.0, 25.0,  0.0, null, null, null),"
+                    + "('name',     177.0, 25.0,  0.0, null, null, null),"
                     + "(null,        null, null, null, 25.0, null, null)";
 
             assertQuery(query, baseStats);
@@ -478,6 +477,22 @@ public abstract class TestDeltaLakeAnalyze
                             + "('comment',   null, null,  0.0, null, null, null),"
                             + "('name',      null, null,  0.0, null, null, null),"
                             + "(null,        null, null, null, 25.0, null, null)");
+        }
+    }
+
+    @Test
+    public void testDropStatsAccessControl()
+    {
+        String path = "test_deny_drop_stats_" + randomTableSuffix();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_deny_drop_stats",
+                format("WITH (location = '%s') AS SELECT * FROM tpch.sf1.nation", getLocationForTable(path)))) {
+            assertAccessDenied(
+                    format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, SCHEMA, table.getName()),
+                    "Cannot insert into table .*",
+                    privilege(table.getName(), INSERT_TABLE));
         }
     }
 

@@ -102,7 +102,10 @@ public class TestingKuduServer
 
     public HostAndPort getMasterAddress()
     {
-        return HostAndPort.fromParts(master.getContainerIpAddress(), master.getMappedPort(KUDU_MASTER_PORT));
+        // Do not use master.getContainerIpAddress(), it returns "localhost" which the kudu client resolves to:
+        // localhost/127.0.0.1, localhost/0:0:0:0:0:0:0:1
+        // Instead explicitly list only the ipv4 loopback address 127.0.0.1
+        return HostAndPort.fromParts("127.0.0.1", master.getMappedPort(KUDU_MASTER_PORT));
     }
 
     @Override

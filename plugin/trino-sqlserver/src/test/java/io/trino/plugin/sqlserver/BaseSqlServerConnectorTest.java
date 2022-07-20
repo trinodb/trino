@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -46,6 +47,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -70,8 +72,15 @@ public abstract class BaseSqlServerConnectorTest
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_ARRAY:
@@ -124,7 +133,8 @@ public abstract class BaseSqlServerConnectorTest
                 return Optional.empty();
             }
         }
-        if (typeName.equals("timestamp(3) with time zone")) {
+        if (typeName.equals("timestamp(3) with time zone") ||
+                typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
@@ -167,6 +177,12 @@ public abstract class BaseSqlServerConnectorTest
                             "Expecting actual not to be empty).*");
             throw new SkipException("to be fixed");
         }
+    }
+
+    @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e).hasMessageContaining("was deadlocked on lock resources");
     }
 
     @Test
@@ -384,6 +400,13 @@ public abstract class BaseSqlServerConnectorTest
                         ")");
     }
 
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
     @Test(dataProvider = "dataCompression")
     public void testCreateWithDataCompression(DataCompression dataCompression)
     {
@@ -504,6 +527,13 @@ public abstract class BaseSqlServerConnectorTest
     }
 
     @Override
+    public void testNativeQuerySimple()
+    {
+        // override because SQL Server provides an empty string as the name for unnamed column
+        assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT 1 a'))", "VALUES 1");
+    }
+
+    @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
         return "Failed to insert data: Conversion failed when converting date and/or time from character string.";
@@ -521,11 +551,32 @@ public abstract class BaseSqlServerConnectorTest
         return format("Cannot insert the value NULL into column '%s'.*", columnName);
     }
 
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(128);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("The identifier that starts with '.*' is too long. Maximum length is 128.");
+    }
+
     private String getLongInClause(int start, int length)
     {
         String longValues = range(start, start + length)
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
         return "orderkey IN (" + longValues + ")";
+    }
+
+    @Override
+    protected Session joinPushdownEnabled(Session session)
+    {
+        return Session.builder(super.joinPushdownEnabled(session))
+                // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
+                .build();
     }
 }

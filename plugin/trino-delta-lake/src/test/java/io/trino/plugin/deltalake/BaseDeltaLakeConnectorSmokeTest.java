@@ -22,8 +22,9 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.QueryManager;
 import io.trino.operator.OperatorStats;
-import io.trino.plugin.deltalake.util.DockerizedDataLake;
 import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.hive.containers.HiveHadoop;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.BaseConnectorSmokeTest;
@@ -39,7 +40,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
@@ -50,6 +50,9 @@ import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
+import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -98,27 +101,27 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
     protected final String bucketName = "test-delta-lake-integration-smoke-test-" + randomTableSuffix();
 
-    protected DockerizedDataLake dockerizedDataLake;
+    protected HiveMinioDataLake hiveMinioDataLake;
 
-    abstract DockerizedDataLake createDockerizedDataLake()
+    protected abstract HiveMinioDataLake createHiveMinioDataLake()
             throws Exception;
 
-    abstract QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
+    protected abstract QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
             throws Exception;
 
-    abstract void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner);
+    protected abstract void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner);
 
-    abstract String getLocationForTable(String bucketName, String tableName);
+    protected abstract String getLocationForTable(String bucketName, String tableName);
 
-    abstract List<String> getTableFiles(String tableName);
+    protected abstract List<String> getTableFiles(String tableName);
 
-    abstract List<String> listCheckpointFiles(String transactionLogDirectory);
+    protected abstract List<String> listCheckpointFiles(String transactionLogDirectory);
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.dockerizedDataLake = closeAfterClass(createDockerizedDataLake());
+        this.hiveMinioDataLake = closeAfterClass(createHiveMinioDataLake());
 
         QueryRunner queryRunner = createDeltaLakeQueryRunner(
                 ImmutableMap.<String, String>builder()
@@ -157,19 +160,11 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         return queryRunner;
     }
 
-    protected Optional<String> getHadoopBaseImage()
-    {
-        return Optional.of("ghcr.io/trinodb/testing/hdp2.6-hive");
-    }
-
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
             case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE:
                 return false;
 
             case SUPPORTS_DELETE:
@@ -180,6 +175,46 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 return super.hasBehavior(connectorBehavior);
         }
     }
+
+    @Test
+    public void testDropSchemaExternalFiles()
+    {
+        String schemaName = "externalFileSchema";
+        String schemaDir = bucketUrl() + "drop-schema-with-external-files/";
+        String subDir = schemaDir + "subdir/";
+        String externalFile = subDir + "external-file";
+
+        HiveHadoop hadoopContainer = hiveMinioDataLake.getHiveHadoop();
+
+        // Create file in a subdirectory of the schema directory before creating schema
+        hadoopContainer.executeInContainerFailOnError("hdfs", "dfs", "-mkdir", "-p", subDir);
+        hadoopContainer.executeInContainerFailOnError("hdfs", "dfs", "-touchz", externalFile);
+
+        query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
+                .as("external file exists after creating schema")
+                .isEqualTo(0);
+
+        query("DROP SCHEMA " + schemaName);
+        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
+                .as("external file exists after dropping schema")
+                .isEqualTo(0);
+
+        // Test behavior without external file
+        hadoopContainer.executeInContainerFailOnError("hdfs", "dfs", "-rm", "-r", subDir);
+
+        query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-d", schemaDir).getExitCode())
+                .as("schema directory exists after creating schema")
+                .isEqualTo(0);
+
+        query("DROP SCHEMA " + schemaName);
+        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
+                .as("schema directory deleted after dropping schema without external file")
+                .isEqualTo(1);
+    }
+
+    protected abstract String bucketUrl();
 
     @Test
     public void testCharTypeIsNotSupported()
@@ -283,7 +318,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 "hive",
                 "hive",
                 ImmutableMap.of(
-                        "hive.metastore.uri", dockerizedDataLake.getTestingHadoop().getMetastoreAddress(),
+                        "hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
                         "hive.allow-drop-table", "true"));
         String hiveTableName = "foo_hive";
         queryRunner.execute(
@@ -318,20 +353,20 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testHiveViewsCannotBeAccessed()
     {
         String viewName = "dummy_view";
-        dockerizedDataLake.getTestingHadoop().runOnHive(format("CREATE VIEW %1$s.%2$s AS SELECT * FROM %1$s.customer", SCHEMA, viewName));
+        hiveMinioDataLake.getHiveHadoop().runOnHive(format("CREATE VIEW %1$s.%2$s AS SELECT * FROM %1$s.customer", SCHEMA, viewName));
         assertEquals(computeActual(format("SHOW TABLES LIKE '%s'", viewName)).getOnlyValue(), viewName);
         assertThatThrownBy(() -> computeActual("DESCRIBE " + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", SCHEMA, viewName));
-        dockerizedDataLake.getTestingHadoop().runOnHive("DROP VIEW " + viewName);
+        hiveMinioDataLake.getHiveHadoop().runOnHive("DROP VIEW " + viewName);
     }
 
     @Test
     public void testNonDeltaTablesCannotBeAccessed()
     {
         String tableName = "hive_table";
-        dockerizedDataLake.getTestingHadoop().runOnHive(format("CREATE TABLE %s.%s (id BIGINT)", SCHEMA, tableName));
+        hiveMinioDataLake.getHiveHadoop().runOnHive(format("CREATE TABLE %s.%s (id BIGINT)", SCHEMA, tableName));
         assertEquals(computeActual(format("SHOW TABLES LIKE '%s'", tableName)).getOnlyValue(), tableName);
         assertThatThrownBy(() -> computeActual("DESCRIBE " + tableName)).hasMessageContaining(tableName + " is not a Delta Lake table");
-        dockerizedDataLake.getTestingHadoop().runOnHive(format("DROP TABLE %s.%s", SCHEMA, tableName));
+        hiveMinioDataLake.getHiveHadoop().runOnHive(format("DROP TABLE %s.%s", SCHEMA, tableName));
     }
 
     @Test
@@ -570,6 +605,81 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertQuery(
                 "SELECT DISTINCT regexp_replace(\"$path\", '(.*[/][^/]*)[/][^/]*$', '$1') FROM " + schemaName + "." + tableName2,
                 format("VALUES '%s/%s'", schemaLocation, tableName2));
+    }
+
+    @Override
+    public void testRenameTable()
+    {
+        assertThatThrownBy(super::testRenameTable)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+    }
+
+    @Test
+    public void testRenameExternalTable()
+    {
+        String oldTable = "test_external_table_rename_old_" + randomTableSuffix();
+
+        assertUpdate(format("CREATE TABLE %s (a bigint, b double) WITH (location = '%s')", oldTable, getLocationForTable(bucketName, oldTable)));
+        assertUpdate("INSERT INTO " + oldTable + " VALUES (42, 43)", 1);
+        String oldLocation = (String) computeScalar("SELECT \"$path\" FROM " + oldTable);
+
+        String newTable = "test_rename_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+
+        assertThat(query("SHOW TABLES LIKE '" + oldTable + "'"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT a, b FROM " + newTable))
+                .matches("VALUES (BIGINT '42', DOUBLE '43')");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + newTable))
+                .isEqualTo(oldLocation);
+
+        assertUpdate("INSERT INTO " + newTable + " (a, b) VALUES (42, -38.5)", 1);
+        assertThat(query("SELECT a, b FROM " + newTable))
+                .matches("VALUES (BIGINT '42', DOUBLE '43'), (42, -385e-1)");
+
+        assertUpdate("DROP TABLE " + newTable);
+    }
+
+    @Override
+    public void testRenameTableAcrossSchemas()
+    {
+        assertThatThrownBy(super::testRenameTableAcrossSchemas)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+    }
+
+    @Test
+    public void testRenameExternalTableAcrossSchemas()
+    {
+        String oldTable = "test_rename_old_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b double) WITH (location = '%s')", oldTable, getLocationForTable(bucketName, oldTable)));
+        assertUpdate("INSERT INTO " + oldTable + " VALUES (42, 43)", 1);
+        String oldLocation = (String) computeScalar("SELECT \"$path\" FROM " + oldTable);
+
+        String schemaName = "test_schema_" + randomTableSuffix();
+        assertUpdate(createSchemaSql(schemaName));
+
+        String newTableName = "test_rename_new_" + randomTableSuffix();
+        String newTable = schemaName + "." + newTableName;
+        assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+
+        assertThat(query("SHOW TABLES LIKE '" + oldTable + "'"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT a, b FROM " + newTable))
+                .matches("VALUES (BIGINT '42', DOUBLE '43')");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + newTable))
+                .isEqualTo(oldLocation);
+
+        assertUpdate("INSERT INTO " + newTable + " (a, b) VALUES (42, -38.5)", 1);
+        assertThat(query("SELECT CAST(a AS bigint), b FROM " + newTable))
+                .matches("VALUES (BIGINT '42', DOUBLE '43'), (42, -385e-1)");
+
+        assertUpdate("DROP TABLE " + newTable);
+        assertThat(query("SHOW TABLES LIKE '" + newTable + "'"))
+                .returnsEmptyResult();
+
+        assertUpdate("DROP SCHEMA " + schemaName);
     }
 
     @Test
@@ -1111,8 +1221,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 "VALUES " +
                         "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
-                        "('comment', null, 25.0, 0.0, null, null, null)," +
-                        "('name', null, 25.0, 0.0, null, null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
     }
 
@@ -1258,6 +1368,25 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
+    public void testVacuumAccessControl()
+    {
+        String tableName = "test_deny_vacuum_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (location = '" + getLocationForTable(bucketName, tableName) + "') " +
+                "AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertAccessDenied(
+                "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '30d')",
+                "Cannot insert into table .*",
+                privilege(tableName, INSERT_TABLE));
+        assertAccessDenied(
+                "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '30d')",
+                "Cannot delete from table .*",
+                privilege(tableName, DELETE_TABLE));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testOptimize()
     {
         String tableName = "test_optimize_" + randomTableSuffix();
@@ -1310,7 +1439,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         assertQueryFails(
                 "ALTER TABLE no_such_table_exists EXECUTE OPTIMIZE",
-                format("line 1:1: Table 'delta_lake.%s.no_such_table_exists' does not exist", SCHEMA));
+                format("line 1:7: Table 'delta_lake.%s.no_such_table_exists' does not exist", SCHEMA));
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33')",
                 "\\QUnable to set catalog 'delta_lake' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33']: size is not a valid data size string: 33");

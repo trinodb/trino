@@ -51,7 +51,7 @@ public abstract class AbstractRowBlock
     protected abstract boolean[] getRowIsNull();
 
     // the offset in each field block, it can also be viewed as the "entry-based" offset in the RowBlock
-    protected final int getFieldBlockOffset(int position)
+    public final int getFieldBlockOffset(int position)
     {
         int[] offsets = getFieldBlockOffsets();
         return offsets != null ? offsets[position + getOffsetBase()] : position + getOffsetBase();
@@ -72,7 +72,7 @@ public abstract class AbstractRowBlock
     }
 
     @Override
-    public final Block copyPositions(int[] positions, int offset, int length)
+    public Block copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 
@@ -98,12 +98,10 @@ public abstract class AbstractRowBlock
             for (int i = 0; i < length; i++) {
                 newOffsets[i] = fieldBlockPositionCount;
                 int position = positions[offset + i];
-                if (isNull(position)) {
-                    newRowIsNull[i] = true;
-                }
-                else {
-                    fieldBlockPositions[fieldBlockPositionCount++] = getFieldBlockOffset(position);
-                }
+                boolean positionIsNull = isNull(position);
+                newRowIsNull[i] = positionIsNull;
+                fieldBlockPositions[fieldBlockPositionCount] = getFieldBlockOffset(position);
+                fieldBlockPositionCount += positionIsNull ? 0 : 1;
             }
             // Record last offset position
             newOffsets[length] = fieldBlockPositionCount;

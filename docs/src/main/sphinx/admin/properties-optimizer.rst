@@ -117,6 +117,17 @@ the maximum number of joins that can be reordered at once.
 Reduces number of rows produced by joins when optimizer detects that duplicated
 join output rows can be skipped.
 
+``optimizer.use-exact-partitioning``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``false``
+
+Re-partition data unless the partitioning of the upstream
+:ref:`stage <trino-concept-stage>` exactly matches what the downstream stage
+expects. This can also be specified using the ``use_exact_partitioning`` session
+property.
+
 ``optimizer.use-table-scan-node-partitioning``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -176,3 +187,26 @@ conservative estimates by assuming a greater degree of correlation between the
 columns of the clauses in a join. A value of ``0`` results in the optimizer
 assuming that the columns of the join clauses are fully correlated and only
 the most selective clause drives the selectivity of the join.
+
+``optimizer.non-estimatable-predicate-approximation.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``true``
+
+Enables approximation of the output row count of filters whose costs cannot be
+accurately estimated even with complete statistics. This allows the optimizer to
+produce more efficient plans in the presence of filters which were previously
+not estimated.
+
+``optimizer.join-partitioned-build-min-row-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Default value:** ``1000000``
+* **Min allowed value:** ``0``
+
+The minimum number of join build side rows required to use partitioned join lookup.
+If the build side of a join is estimated to be smaller than the configured threshold,
+single threaded join lookup is used to improve join performance.
+A value of ``0`` disables this optimization.

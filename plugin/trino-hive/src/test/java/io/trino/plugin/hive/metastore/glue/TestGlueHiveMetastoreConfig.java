@@ -31,7 +31,7 @@ public class TestGlueHiveMetastoreConfig
                 .setGlueRegion(null)
                 .setGlueEndpointUrl(null)
                 .setPinGlueClientToCurrentRegion(false)
-                .setMaxGlueConnections(5)
+                .setMaxGlueConnections(30)
                 .setMaxGlueErrorRetries(10)
                 .setDefaultWarehouseDir(null)
                 .setIamRole(null)

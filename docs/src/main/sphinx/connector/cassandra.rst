@@ -2,6 +2,10 @@
 Cassandra connector
 ===================
 
+.. raw:: html
+
+  <img src="../_static/img/cassandra.png" class="connector-logo">
+
 The Cassandra connector allows querying data stored in
 `Apache Cassandra <https://cassandra.apache.org/>`_.
 
@@ -26,6 +30,7 @@ nodes, used to discovery the cluster topology:
 
     connector.name=cassandra
     cassandra.contact-points=host1,host2
+    cassandra.load-policy.dc-aware.local-dc=datacenter1
 
 You also need to set ``cassandra.native-protocol-port``, if your
 Cassandra nodes are not using the default port 9042.
@@ -45,7 +50,7 @@ Configuration properties
 The following configuration properties are available:
 
 ================================================== ======================================================================
-Property Name                                      Description
+Property name                                      Description
 ================================================== ======================================================================
 ``cassandra.contact-points``                       Comma-separated list of hosts in a Cassandra cluster. The Cassandra
                                                    driver uses these contact points to discover cluster topology.
@@ -62,8 +67,7 @@ Property Name                                      Description
                                                    ``EACH_QUORUM``, ``QUORUM``, ``LOCAL_QUORUM``, ``ONE``, ``TWO``,
                                                    ``THREE``, ``LOCAL_ONE``, ``ANY``, ``SERIAL``, ``LOCAL_SERIAL``.
 
-``cassandra.allow-drop-table``                     Set to ``true`` to allow dropping Cassandra tables from Trino
-                                                   via :doc:`/sql/drop-table`, defaults to ``false``.
+``cassandra.allow-drop-table``                     Enables :doc:`/sql/drop-table` operations. Defaults to ``false``.
 
 ``cassandra.username``                             Username used for authentication to the Cassandra cluster.
                                                    This is a global setting used for all connections, regardless
@@ -73,9 +77,11 @@ Property Name                                      Description
                                                    This is a global setting used for all connections, regardless
                                                    of the user connected to Trino.
 
-``cassandra.protocol-version``                     It is possible to override the protocol version for older Cassandra clusters.
-                                                   By default, the values from the highest protocol version the driver can use.
-                                                   Possible values include ``V2``, ``V3`` and ``V4``.
+``cassandra.protocol-version``                     It is possible to override the protocol version for older Cassandra
+                                                   clusters.
+                                                   By default, the value corresponds to the default protocol version
+                                                   used in the underlying Cassandra java driver.
+                                                   Possible values include ``V3``, ``V4``, ``V5``, ``V6``.
 ================================================== ======================================================================
 
 .. note::
@@ -88,7 +94,7 @@ Property Name                                      Description
 The following advanced configuration properties are available:
 
 ============================================================= ======================================================================
-Property Name                                                 Description
+Property name                                                 Description
 ============================================================= ======================================================================
 ``cassandra.fetch-size``                                      Number of rows fetched at a time in a Cassandra query.
 
@@ -127,25 +133,18 @@ Property Name                                                 Description
                                                               queries fail with *"not enough replicas"*. The other possible
                                                               values are ``DOWNGRADING_CONSISTENCY`` and ``FALLTHROUGH``.
 
-``cassandra.load-policy.use-dc-aware``                        Set to ``true`` to use ``DCAwareRoundRobinPolicy``,
-                                                              defaults to ``false``.
+``cassandra.load-policy.use-dc-aware``                        Set to ``true`` if the load balancing policy requires a local
+                                                              datacenter, defaults to ``true``.
 
-``cassandra.load-policy.dc-aware.local-dc``                   The name of the local datacenter for ``DCAwareRoundRobinPolicy``.
+``cassandra.load-policy.dc-aware.local-dc``                   The name of the datacenter considered "local".
 
 ``cassandra.load-policy.dc-aware.used-hosts-per-remote-dc``   Uses the provided number of host per remote datacenter
-                                                              as failover for the local hosts for ``DCAwareRoundRobinPolicy``.
+                                                              as failover for the local hosts for ``DefaultLoadBalancingPolicy``.
 
 ``cassandra.load-policy.dc-aware.allow-remote-dc-for-local``  Set to ``true`` to allow to use hosts of
                                                               remote datacenter for local consistency level.
 
-``cassandra.load-policy.use-token-aware``                     Set to ``true`` to use ``TokenAwarePolicy`` (defaults to ``false``).
-
-``cassandra.load-policy.shuffle-replicas``                    Set to ``true`` to use ``TokenAwarePolicy`` with shuffling of replicas,
-                                                              defaults to ``false``.
-
-``cassandra.load-policy.allowed-addresses``                   Comma-separated list of hosts to allow.
-
-``cassandra.no-host-available-retry-timeout``                 Retry timeout for ``NoHostAvailableException``, defaults to ``1m``.
+``cassandra.no-host-available-retry-timeout``                 Retry timeout for ``AllNodesFailedException``, defaults to ``1m``.
 
 ``cassandra.speculative-execution.limit``                     The number of speculative executions. This is disabled by default.
 
@@ -215,7 +214,7 @@ DATE              DATE
 DECIMAL           DOUBLE
 DOUBLE            DOUBLE
 FLOAT             REAL
-INET              VARCHAR(45)
+INET              IPADDRESS
 INT               INTEGER
 LIST<?>           VARCHAR
 MAP<?, ?>         VARCHAR
@@ -278,6 +277,18 @@ statements, the connector supports the following features:
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
+
+DROP TABLE
+^^^^^^^^^^
+
+By default, ``DROP TABLE`` operations are disabled on Cassandra catalogs. To
+enable ``DROP TABLE``, set the ``cassandra.allow-drop-table`` catalog
+configuration property to ``true``:
+
+.. code-block:: properties
+
+  cassandra.allow-drop-table=true
+
 
 .. _sql-delete-limitation:
 

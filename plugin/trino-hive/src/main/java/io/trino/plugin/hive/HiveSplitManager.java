@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
@@ -79,8 +80,8 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
 import static io.trino.plugin.hive.util.HiveCoercionPolicy.canCoerce;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
-import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -97,7 +98,6 @@ public class HiveSplitManager
     private final HivePartitionManager partitionManager;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
-    private final DirectoryLister directoryLister;
     private final Executor executor;
     private final int maxOutstandingSplits;
     private final DataSize maxOutstandingSplitsSize;
@@ -117,7 +117,6 @@ public class HiveSplitManager
             HivePartitionManager partitionManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
-            DirectoryLister directoryLister,
             ExecutorService executorService,
             VersionEmbedder versionEmbedder,
             TypeManager typeManager)
@@ -127,7 +126,6 @@ public class HiveSplitManager
                 partitionManager,
                 namenodeStats,
                 hdfsEnvironment,
-                directoryLister,
                 versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads())),
                 new CounterStat(),
                 hiveConfig.getMaxOutstandingSplits(),
@@ -146,7 +144,6 @@ public class HiveSplitManager
             HivePartitionManager partitionManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
-            DirectoryLister directoryLister,
             Executor executor,
             CounterStat highMemorySplitSourceCounter,
             int maxOutstandingSplits,
@@ -163,7 +160,6 @@ public class HiveSplitManager
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.executor = new ErrorCodedExecutor(executor);
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
@@ -183,14 +179,21 @@ public class HiveSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
-            SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTable.getSchemaTableName();
 
         // get table metadata
-        SemiTransactionalHiveMetastore metastore = transactionManager.get(transaction, session.getIdentity()).getMetastore();
+        TransactionalMetadata transactionalMetadata = transactionManager.get(transaction, session.getIdentity());
+        SemiTransactionalHiveMetastore metastore = transactionalMetadata.getMetastore();
+        if (!metastore.isReadableWithinTransaction(tableName.getSchemaName(), tableName.getTableName())) {
+            // Until transaction is committed, the table data may or may not be visible.
+            throw new TrinoException(NOT_SUPPORTED, format(
+                    "Cannot read from a table %s that was modified within transaction, you need to commit the transaction first",
+                    tableName));
+        }
         Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
@@ -216,12 +219,17 @@ public class HiveSplitManager
 
         // validate bucket bucketed execution
         Optional<HiveBucketHandle> bucketHandle = hiveTable.getBucketHandle();
-        if ((splitSchedulingStrategy == GROUPED_SCHEDULING) && bucketHandle.isEmpty()) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "SchedulingPolicy is bucketed, but BucketHandle is not present");
-        }
 
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
+
+        if (bucketHandle.isPresent()) {
+            if (bucketHandle.get().getReadBucketCount() > bucketHandle.get().getTableBucketCount()) {
+                throw new TrinoException(
+                        GENERIC_INTERNAL_ERROR,
+                        "readBucketCount (%s) is greater than the tableBucketCount (%s) which generally points to an issue in plan generation");
+            }
+        }
 
         Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(session, metastore, table, tableName, partitions, bucketHandle.map(HiveBucketHandle::toTableBucketProperty));
 
@@ -239,7 +247,7 @@ public class HiveSplitManager
                 session,
                 hdfsEnvironment,
                 namenodeStats,
-                directoryLister,
+                transactionalMetadata.getDirectoryLister(),
                 executor,
                 concurrency,
                 recursiveDfsWalkerEnabled,
@@ -249,39 +257,18 @@ public class HiveSplitManager
                         .map(validTxnWriteIdList -> validTxnWriteIdList.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())),
                 hiveTable.getMaxScannedFileSize());
 
-        HiveSplitSource splitSource;
-        switch (splitSchedulingStrategy) {
-            case UNGROUPED_SCHEDULING:
-                splitSource = HiveSplitSource.allAtOnce(
-                        session,
-                        table.getDatabaseName(),
-                        table.getTableName(),
-                        maxInitialSplits,
-                        maxOutstandingSplits,
-                        maxOutstandingSplitsSize,
-                        maxSplitsPerSecond,
-                        hiveSplitLoader,
-                        executor,
-                        highMemorySplitSourceCounter,
-                        hiveTable.isRecordScannedFiles());
-                break;
-            case GROUPED_SCHEDULING:
-                splitSource = HiveSplitSource.bucketed(
-                        session,
-                        table.getDatabaseName(),
-                        table.getTableName(),
-                        maxInitialSplits,
-                        maxOutstandingSplits,
-                        maxOutstandingSplitsSize,
-                        maxSplitsPerSecond,
-                        hiveSplitLoader,
-                        executor,
-                        highMemorySplitSourceCounter,
-                        hiveTable.isRecordScannedFiles());
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingStrategy);
-        }
+        HiveSplitSource splitSource = HiveSplitSource.allAtOnce(
+                session,
+                table.getDatabaseName(),
+                table.getTableName(),
+                maxInitialSplits,
+                maxOutstandingSplits,
+                maxOutstandingSplitsSize,
+                maxSplitsPerSecond,
+                hiveSplitLoader,
+                executor,
+                highMemorySplitSourceCounter,
+                hiveTable.isRecordScannedFiles());
         hiveSplitLoader.start(splitSource);
 
         return splitSource;

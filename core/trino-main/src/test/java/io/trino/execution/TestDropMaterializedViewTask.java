@@ -23,7 +23,7 @@ import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,7 +48,7 @@ public class TestDropMaterializedViewTask
         QualifiedName viewName = qualifiedName("not_existing_materialized_view");
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropMaterializedView(viewName, false)))
-                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasErrorCode(GENERIC_USER_ERROR)
                 .hasMessage("Materialized view '%s' does not exist", viewName);
     }
 
@@ -67,8 +67,8 @@ public class TestDropMaterializedViewTask
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropMaterializedView(asQualifiedName(tableName), false)))
-                .hasErrorCode(TABLE_NOT_FOUND)
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropMaterializedView(asQualifiedName(tableName), true)))
+                .hasErrorCode(GENERIC_USER_ERROR)
                 .hasMessage("Materialized view '%s' does not exist, but a table with that name exists. Did you mean DROP TABLE %s?", tableName, tableName);
     }
 
@@ -78,8 +78,9 @@ public class TestDropMaterializedViewTask
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
 
-        getFutureValue(executeDropMaterializedView(asQualifiedName(tableName), true));
-        // no exception
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropMaterializedView(asQualifiedName(tableName), true)))
+                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasMessage("Materialized view '%s' does not exist, but a table with that name exists. Did you mean DROP TABLE %s?", tableName, tableName);
     }
 
     @Test
@@ -89,7 +90,7 @@ public class TestDropMaterializedViewTask
         metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropMaterializedView(viewName, false)))
-                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasErrorCode(GENERIC_USER_ERROR)
                 .hasMessage("Materialized view '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?", viewName, viewName);
     }
 
@@ -99,8 +100,9 @@ public class TestDropMaterializedViewTask
         QualifiedName viewName = qualifiedName("existing_view");
         metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), false);
 
-        getFutureValue(executeDropMaterializedView(viewName, true));
-        // no exception
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropMaterializedView(viewName, false)))
+                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasMessage("Materialized view '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?", viewName, viewName);
     }
 
     private ListenableFuture<Void> executeDropMaterializedView(QualifiedName viewName, boolean exists)

@@ -30,7 +30,8 @@ public class KafkaClientsModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(KafkaSecurityConfig.class);
-        installClientModule(SecurityProtocol.PLAINTEXT, KafkaClientsModule::configurePlainText);
+        installClientModule(null, KafkaClientsModule::configureDefault);
+        installClientModule(SecurityProtocol.PLAINTEXT, KafkaClientsModule::configureDefault);
         installClientModule(SecurityProtocol.SSL, KafkaClientsModule::configureSsl);
     }
 
@@ -38,22 +39,22 @@ public class KafkaClientsModule
     {
         install(conditionalModule(
                 KafkaSecurityConfig.class,
-                config -> config.getSecurityProtocol().equals(securityProtocol),
+                config -> config.getSecurityProtocol().orElse(null) == securityProtocol,
                 module));
     }
 
-    private static void configurePlainText(Binder binder)
+    private static void configureDefault(Binder binder)
     {
-        binder.bind(KafkaConsumerFactory.class).to(PlainTextKafkaConsumerFactory.class).in(Scopes.SINGLETON);
-        binder.bind(KafkaProducerFactory.class).to(PlainTextKafkaProducerFactory.class).in(Scopes.SINGLETON);
-        binder.bind(KafkaAdminFactory.class).to(PlainTextKafkaAdminFactory.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaConsumerFactory.class).to(DefaultKafkaConsumerFactory.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaProducerFactory.class).to(DefaultKafkaProducerFactory.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaAdminFactory.class).to(DefaultKafkaAdminFactory.class).in(Scopes.SINGLETON);
     }
 
     private static void configureSsl(Binder binder)
     {
-        binder.bind(KafkaConsumerFactory.class).annotatedWith(ForKafkaSsl.class).to(PlainTextKafkaConsumerFactory.class).in(Scopes.SINGLETON);
-        binder.bind(KafkaProducerFactory.class).annotatedWith(ForKafkaSsl.class).to(PlainTextKafkaProducerFactory.class).in(Scopes.SINGLETON);
-        binder.bind(KafkaAdminFactory.class).annotatedWith(ForKafkaSsl.class).to(PlainTextKafkaAdminFactory.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaConsumerFactory.class).annotatedWith(ForKafkaSsl.class).to(DefaultKafkaConsumerFactory.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaProducerFactory.class).annotatedWith(ForKafkaSsl.class).to(DefaultKafkaProducerFactory.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaAdminFactory.class).annotatedWith(ForKafkaSsl.class).to(DefaultKafkaAdminFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(KafkaConsumerFactory.class).to(SslKafkaConsumerFactory.class).in(Scopes.SINGLETON);
         binder.bind(KafkaProducerFactory.class).to(SslKafkaProducerFactory.class).in(Scopes.SINGLETON);

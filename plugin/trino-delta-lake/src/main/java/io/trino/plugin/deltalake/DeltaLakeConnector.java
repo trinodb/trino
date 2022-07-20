@@ -20,6 +20,7 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -36,9 +37,9 @@ import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -59,6 +60,7 @@ public class DeltaLakeConnector
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
     private final List<PropertyMetadata<?>> analyzeProperties;
+    private final Optional<ConnectorAccessControl> accessControl;
     private final Set<EventListener> eventListeners;
     // Delta lake is not transactional but we use Trino transaction boundaries to create a per-query
     // caching Hive metastore clients. DeltaLakeTransactionManager is used to store those.
@@ -77,6 +79,7 @@ public class DeltaLakeConnector
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
             List<PropertyMetadata<?>> analyzeProperties,
+            Optional<ConnectorAccessControl> accessControl,
             Set<EventListener> eventListeners,
             DeltaLakeTransactionManager transactionManager)
     {
@@ -95,6 +98,7 @@ public class DeltaLakeConnector
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
         this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.eventListeners = ImmutableSet.copyOf(requireNonNull(eventListeners, "eventListeners is null"));
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }
@@ -173,6 +177,12 @@ public class DeltaLakeConnector
     }
 
     @Override
+    public ConnectorAccessControl getAccessControl()
+    {
+        return accessControl.orElseThrow(UnsupportedOperationException::new);
+    }
+
+    @Override
     public Iterable<EventListener> getEventListeners()
     {
         return eventListeners;
@@ -182,7 +192,6 @@ public class DeltaLakeConnector
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);
-        verify(autoCommit, "Catalog only supports writes using autocommit: DeltaLake");
         ConnectorTransactionHandle transaction = new HiveTransactionHandle(true);
         transactionManager.begin(transaction);
         return transaction;

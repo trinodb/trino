@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
@@ -48,6 +49,7 @@ public class GlueMetastoreModule
     {
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
         configBinder(binder).bindConfig(HiveConfig.class);
+        binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(RequestHandler2.class, ForGlueHiveMetastore.class));
 
         newOptionalBinder(binder, Key.get(new TypeLiteral<Predicate<Table>>() {}, ForGlueHiveMetastore.class))

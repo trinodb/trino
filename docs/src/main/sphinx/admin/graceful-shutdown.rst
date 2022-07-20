@@ -20,7 +20,7 @@ Keep the following aspects in mind:
 
 * If your cluster is secure, you need to provide a basic-authorization header,
   or satisfy whatever other security you have enabled.
-* If you have HTTPS/TLS enabled, you have to ensure the worker certificate is
+* If you have TLS/HTTPS enabled, you have to ensure the worker certificate is
   CA signed, or trusted by the server calling the shut down endpoint.
   Otherwise, you can make the call ``--insecure``, but that isn't recommended.
 * If :ref:`system information rules <system-file-auth-system_information>` are

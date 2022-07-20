@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.RowPagesBuilder;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.TestingFunctionResolution;
@@ -164,8 +165,7 @@ public class TestTableWriterOperator
     @Test
     public void testTableWriterInfo()
     {
-        PageSinkManager pageSinkManager = new PageSinkManager();
-        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink()));
+        PageSinkManager pageSinkManager = new PageSinkManager(CatalogServiceProvider.singleton(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink())));
         TableWriterOperator tableWriterOperator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
                 new DevNullOperatorFactory(1, new PlanNodeId("test")),
@@ -194,8 +194,7 @@ public class TestTableWriterOperator
     public void testStatisticsAggregation()
             throws Exception
     {
-        PageSinkManager pageSinkManager = new PageSinkManager();
-        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink()));
+        PageSinkManager pageSinkManager = new PageSinkManager(CatalogServiceProvider.singleton(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink())));
         ImmutableList<Type> outputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
         Session session = testSessionBuilder()
                 .setSystemProperty("statistics_cpu_timer_enabled", "true")
@@ -262,8 +261,7 @@ public class TestTableWriterOperator
 
     private Operator createTableWriterOperator(BlockingPageSink blockingPageSink)
     {
-        PageSinkManager pageSinkManager = new PageSinkManager();
-        pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(blockingPageSink));
+        PageSinkManager pageSinkManager = new PageSinkManager(CatalogServiceProvider.singleton(CONNECTOR_ID, new ConstantPageSinkProvider(blockingPageSink)));
         return createTableWriterOperator(pageSinkManager, new DevNullOperatorFactory(1, new PlanNodeId("test")), ImmutableList.of(BIGINT, VARBINARY));
     }
 
@@ -289,15 +287,19 @@ public class TestTableWriterOperator
     {
         List<String> notNullColumnNames = new ArrayList<>(1);
         notNullColumnNames.add(null);
+        SchemaTableName schemaTableName = new SchemaTableName("testSchema", "testTable");
         TableWriterOperatorFactory factory = new TableWriterOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 pageSinkManager,
-                new CreateTarget(new OutputTableHandle(
-                        CONNECTOR_ID,
-                        new ConnectorTransactionHandle() {},
-                        new ConnectorOutputTableHandle() {}),
-                        new SchemaTableName("testSchema", "testTable")),
+                new CreateTarget(
+                        new OutputTableHandle(
+                                CONNECTOR_ID,
+                                schemaTableName,
+                                new ConnectorTransactionHandle() {},
+                                new ConnectorOutputTableHandle() {}),
+                        schemaTableName,
+                        false),
                 ImmutableList.of(0),
                 notNullColumnNames,
                 session,

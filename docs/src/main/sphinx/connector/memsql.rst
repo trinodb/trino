@@ -2,6 +2,10 @@
 SingleStore (MemSQL) connector
 ==============================
 
+.. raw:: html
+
+  <img src="../_static/img/singlestore.png" class="connector-logo">
+
 The SingleStore (formerly known as MemSQL) connector allows querying and
 creating tables in an external SingleStore database.
 
@@ -113,19 +117,6 @@ Type mapping
 
 .. include:: jdbc-type-mapping.fragment
 
-.. _singlestore-pushdown:
-
-Pushdown
---------
-
-The connector supports pushdown for a number of operations:
-
-* :ref:`join-pushdown`
-* :ref:`limit-pushdown`
-* :ref:`topn-pushdown`
-
-.. include:: no-pushdown-text-type.fragment
-
 .. _singlestore-sql-support:
 
 SQL support
@@ -149,3 +140,24 @@ statements, the connector supports the following features:
 .. include:: sql-delete-limitation.fragment
 
 .. include:: alter-table-limitation.fragment
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+.. _singlestore-pushdown:
+
+Pushdown
+^^^^^^^^
+
+The connector supports pushdown for a number of operations:
+
+* :ref:`join-pushdown`
+* :ref:`limit-pushdown`
+* :ref:`topn-pushdown`
+
+.. include:: join-pushdown-enabled-false.fragment
+
+.. include:: no-pushdown-text-type.fragment

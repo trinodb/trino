@@ -30,8 +30,6 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import javax.annotation.Nullable;
-
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
@@ -247,7 +245,7 @@ public class TestKafkaConnectorTest
                 getProducerProperties());
     }
 
-    private static <K, V> ProducerRecord<K, V> setHeader(ProducerRecord<K, V> record, String key, @Nullable String value)
+    private static <K, V> ProducerRecord<K, V> setHeader(ProducerRecord<K, V> record, String key, String value)
     {
         record.headers()
                 .add(key, value != null ? value.getBytes(UTF_8) : null);
@@ -452,6 +450,12 @@ public class TestKafkaConnectorTest
         assertUpdate("INSERT INTO " + TABLE_INSERT_HIGHEST_UNICODE + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
         assertThat(computeActual("SELECT test FROM " + TABLE_INSERT_HIGHEST_UNICODE).getOnlyColumnAsSet())
                 .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
+    }
+
+    @Override
+    public void testInsertRowConcurrently()
+    {
+        throw new SkipException("TODO Prepare a topic in Kafka and enable this test");
     }
 
     private static KafkaTopicDescription createDescription(SchemaTableName schemaTableName, KafkaTopicFieldDescription key, List<KafkaTopicFieldDescription> fields)
@@ -738,10 +742,10 @@ public class TestKafkaConnectorTest
         return ImmutableList.<RoundTripTestCase>builder()
                 .add(new RoundTripTestCase(
                         "all_datatypes_avro",
-                        ImmutableList.of("f_bigint", "f_double", "f_boolean", "f_varchar"),
+                        ImmutableList.of("f_bigint", "f_float", "f_double", "f_boolean", "f_varchar"),
                         ImmutableList.of(
-                                ImmutableList.of(100000, 1000.001, true, "'test'"),
-                                ImmutableList.of(123456, 1234.123, false, "'abcd'"))))
+                                ImmutableList.of(100000, 999.999f, 1000.001, true, "'test'"),
+                                ImmutableList.of(123456, -123.456f, 1234.123, false, "'abcd'"))))
                 .add(new RoundTripTestCase(
                         "all_datatypes_csv",
                         ImmutableList.of("f_bigint", "f_int", "f_smallint", "f_tinyint", "f_double", "f_boolean", "f_varchar"),

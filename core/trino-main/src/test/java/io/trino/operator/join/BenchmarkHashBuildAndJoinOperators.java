@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
 import io.trino.Session;
-import io.trino.execution.Lifespan;
 import io.trino.operator.DriverContext;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.Operator;
@@ -247,6 +246,7 @@ public class BenchmarkHashBuildAndJoinOperators
                     false,
                     false,
                     false,
+                    true,
                     types,
                     hashChannels,
                     hashChannel,
@@ -389,7 +389,7 @@ public class BenchmarkHashBuildAndJoinOperators
             }
         }
 
-        LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide());
+        LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge();
         ListenableFuture<LookupSourceProvider> lookupSourceProvider = lookupSourceFactory.createLookupSourceProvider();
         for (Operator operator : operators) {
             operator.finish();

@@ -16,13 +16,21 @@ Requirements
 
 To connect to Databricks Delta Lake, you need:
 
-* Tables written by Databricks Runtime 7.3 LTS and 9.1 LTS are supported.
-* Deployments using AWS, HDFS, and Azure Storage are fully supported. Using
-  Google Cloud Storage is not supported.
+* Tables written by Databricks Runtime 7.3 LTS, 9.1 LTS and 10.4 LTS are supported.
+* Deployments using AWS, HDFS, and Azure Storage are fully supported. Google
+  Cloud Storage (GCS) is :ref:`partially supported<delta-lake-gcs-support>`.
 * Network access from the coordinator and workers to the Delta Lake storage.
 * Access to the Hive metastore service (HMS) of Delta Lake or a separate HMS.
 * Network access to the HMS from the coordinator and workers. Port 9083 is the
   default port for the Thrift protocol used by the HMS.
+
+.. _delta-lake-gcs-support:
+
+Google Cloud Storage support
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+All read operations against Google Cloud Storage are supported. Additionally,
+the connector supports :doc:`/sql/create-table` and :doc:`/sql/create-table-as`.
 
 Configuration
 -------------
@@ -59,9 +67,11 @@ including the metastore :ref:`Thrift <hive-thrift-metastore>` and :ref:`Glue
 documentation </connector/hive>`.
 
 To configure access to S3 and S3-compatible storage, Azure storage, and others,
-consult the :doc:`Amazon S3 </connector/hive-s3>` section of the Hive connector
-documentation or the :doc:`Azure storage documentation </connector/hive-azure>`,
-respectively.
+consult the appropriate section of the Hive documentation.
+
+* :doc:`Amazon S3 </connector/hive-s3>`
+* :doc:`Azure storage documentation </connector/hive-azure>`
+* :ref:`GCS <hive-google-cloud-storage-configuration>`
 
 Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -85,6 +95,16 @@ values. Typical usage does not require you to configure them.
         to be specified in :ref:`prop-type-data-size` values such as ``64MB``.
         Default is calculated to 10% of the maximum memory allocated to the JVM.
       -
+    * - ``delta.compression-codec``
+      - The compression codec to be used when writing new data files.
+        Possible values are
+
+        * ``NONE``
+        * ``SNAPPY``
+        * ``LZ4``
+        * ``ZSTD``
+        * ``GZIP``
+      - ``SNAPPY``
     * - ``delta.max-partitions-per-writer``
       - Maximum number of partitions per writer.
       - 100
@@ -108,10 +128,31 @@ values. Typical usage does not require you to configure them.
       - Name of the catalog to which ``SELECT`` queries are redirected when a
         Hive table is detected.
       -
+    * - ``delta.checkpoint-row-statistics-writing.enabled``
+      - Enable writing row statistics to checkpoint files.
+      - ``true``
+    * - ``delta.dynamic-filtering.wait-timeout``
+      - Duration to wait for completion of :doc:`dynamic filtering
+        </admin/dynamic-filtering>` during split generation.
+      -
     * - ``delta.table-statistics-enabled``
       - Enables :ref:`Table statistics <delta-lake-table-statistics>` for
         performance improvements.
       - ``true``
+    * - ``delta.per-transaction-metastore-cache-maximum-size``
+      - Maximum number of metastore data objects per transaction in
+        the Hive metastore cache.
+      - ``1000``
+    * - ``delta.delete-schema-locations-fallback``
+      - Whether schema locations should be deleted when Trino can't
+        determine whether they contain external files.
+      - ``false``
+    * - ``delta.parquet.time-zone``
+      - Time zone for Parquet read and write.
+      - JVM default
+    * - ``delta.target-max-file-size``
+      - Target maximum size of written files; the actual size may be larger.
+      - ``1GB``
 
 The following table describes performance tuning catalog properties for the
 connector.
@@ -132,10 +173,11 @@ connector.
       - Description
       - Default
     * - ``delta.domain-compaction-threshold``
-      - Sets the number of transactions to act as threshold. Once reached the
-        connector initiates compaction of the underlying files and the delta
-        files. A higher compaction threshold means reading less data from the
-        underlying data source, but a higher memory and network consumption.
+      - Minimum size of query predicates above which Trino compacts the predicates.
+        Pushing a large list of predicates down to the data source can
+        compromise performance. For optimization in that situation, Trino can
+        compact the large predicates. If necessary, adjust the threshold to
+        ensure a balance between performance and predicate pushdown.
       - 100
     * - ``delta.max-outstanding-splits``
       - The target number of buffered splits for each table scan in a query,
@@ -166,6 +208,10 @@ connector.
         can also use the corresponding catalog session property
         ``<catalog-name>.max_split_size``.
       - ``64MB``
+    * - ``delta.minimum-assigned-split-weight``
+      - A decimal value in the range (0, 1] used as a minimum for weights assigned to each split. A low value may improve performance
+        on tables with small files. A higher value may improve performance for queries with highly skewed aggregations or joins.
+      - 0.05
 
 The following table describes :ref:`catalog session properties
 <session-properties-definition>` supported by the Delta Lake connector to
@@ -293,10 +339,52 @@ statements, the connector supports the following features:
 * :doc:`/sql/create-schema`, see also :ref:`delta-lake-create-schema`
 * :doc:`/sql/create-table`, see also :ref:`delta-lake-create-table`
 * :doc:`/sql/create-table-as`
-* :doc:`/sql/drop-schema`
 * :doc:`/sql/drop-table`
+* :doc:`/sql/alter-table`
+* :doc:`/sql/drop-schema`
 * :doc:`/sql/show-create-schema`
 * :doc:`/sql/show-create-table`
+* :doc:`/sql/comment`
+
+.. _delta-lake-alter-table-execute:
+
+ALTER TABLE EXECUTE
+^^^^^^^^^^^^^^^^^^^
+
+The connector supports the following commands for use with
+:ref:`ALTER TABLE EXECUTE <alter-table-execute>`.
+
+optimize
+""""""""
+
+The ``optimize`` command is used for rewriting the content
+of the specified table so that it is merged into fewer but larger files.
+In case that the table is partitioned, the data compaction
+acts separately on each partition selected for optimization.
+This operation improves read performance.
+
+All files with a size below the optional ``file_size_threshold``
+parameter (default value for the threshold is ``100MB``) are
+merged:
+
+.. code-block:: sql
+
+    ALTER TABLE test_table EXECUTE optimize
+
+The following statement merges files in a table that are
+under 10 megabytes in size:
+
+.. code-block:: sql
+
+    ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
+
+You can use a ``WHERE`` clause with the columns used to partition the table,
+to filter which partitions are optimized:
+
+.. code-block:: sql
+
+    ALTER TABLE test_partitioned_table EXECUTE optimize
+    WHERE partition_key = 1
 
 .. _delta-lake-special-columns:
 
@@ -377,7 +465,7 @@ There are three table properties available for use in table creation.
   * - Property name
     - Description
   * - ``location``
-    - File system location URI for the external table.
+    - File system location URI for the table.
   * - ``partitioned_by``
     - Set partition columns.
   * - ``checkpoint_interval``
@@ -432,7 +520,7 @@ Table statistics
 ^^^^^^^^^^^^^^^^
 
 You can use :doc:`/sql/analyze` statements in Trino to populate the table
-statistics in Delta Lake. Number of distinct values (NDV)
+statistics in Delta Lake. Data size and number of distinct values (NDV)
 statistics are supported, while Minimum value, maximum value, and null value
 count statistics are not supported. The :doc:`cost-based optimizer
 </optimizer/cost-based-optimizations>` then uses these statistics to improve
@@ -536,7 +624,7 @@ All parameters are required, and must be presented in the following order:
 * Table name
 * Retention period
 
-The ``delta.vacuum.min_retention`` config property provides a safety
+The ``delta.vacuum.min-retention`` config property provides a safety
 measure to ensure that files are retained as expected.  The minimum value for
 this property is ``0s``. There is a minimum retention session property as well,
 ``vacuum_min_retention``.

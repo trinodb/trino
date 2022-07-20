@@ -24,7 +24,7 @@ import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -90,7 +90,7 @@ public class TestIcebergOrcMetricsCollection
         HiveMetastore metastore = new FileHiveMetastore(
                 new NodeVersion("test_version"),
                 hdfsEnvironment,
-                new MetastoreConfig(),
+                new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
@@ -341,8 +341,11 @@ public class TestIcebergOrcMetricsCollection
         // Check per-column value count
         datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 3L));
 
-        // TODO: add more checks after NaN info is collected
-        assertNull(datafile.getNanValueCounts());
+        // Check per-column nan value count
+        assertEquals(datafile.getNanValueCounts().size(), 2);
+        assertEquals(datafile.getNanValueCounts().get(2), (Long) 1L);
+        assertEquals(datafile.getNanValueCounts().get(3), (Long) 1L);
+
         assertNull(datafile.getLowerBounds().get(2));
         assertNull(datafile.getLowerBounds().get(3));
         assertNull(datafile.getUpperBounds().get(2));

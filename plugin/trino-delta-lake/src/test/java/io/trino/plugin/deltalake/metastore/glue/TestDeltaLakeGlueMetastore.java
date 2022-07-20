@@ -13,19 +13,22 @@
  */
 package io.trino.plugin.deltalake.metastore.glue;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeModule;
-import io.trino.plugin.deltalake.DeltaLakeSessionProperties;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.NodeVersion;
@@ -79,6 +82,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -131,7 +135,10 @@ public class TestDeltaLakeGlueMetastore
         metadataFactory = injector.getInstance(DeltaLakeMetadataFactory.class);
 
         session = TestingConnectorSession.builder()
-                .setPropertyMetadata(injector.getInstance(DeltaLakeSessionProperties.class).getSessionProperties())
+                .setPropertyMetadata(injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {})).stream()
+                        .map(SessionPropertiesProvider::getSessionProperties)
+                        .flatMap(List::stream)
+                        .collect(toImmutableList()))
                 .build();
 
         databaseName = "test_delta_glue" + randomName();
@@ -168,6 +175,7 @@ public class TestDeltaLakeGlueMetastore
         SchemaTableName deltaLakeTable = new SchemaTableName(databaseName, "delta_lake_table_" + randomName());
         SchemaTableName nonDeltaLakeTable1 = new SchemaTableName(databaseName, "hive_table_" + randomName());
         SchemaTableName nonDeltaLakeTable2 = new SchemaTableName(databaseName, "hive_table_" + randomName());
+        SchemaTableName nonDeltaLakeView1 = new SchemaTableName(databaseName, "hive_view_" + randomName());
 
         String deltaLakeTableLocation = tableLocation(deltaLakeTable);
         createTable(deltaLakeTable, deltaLakeTableLocation, tableBuilder -> {
@@ -183,6 +191,7 @@ public class TestDeltaLakeGlueMetastore
 
         createTable(nonDeltaLakeTable1, tableLocation(nonDeltaLakeTable1), tableBuilder -> {});
         createTable(nonDeltaLakeTable2, tableLocation(nonDeltaLakeTable2), tableBuilder -> tableBuilder.setParameter(TABLE_PROVIDER_PROPERTY, "foo"));
+        createView(nonDeltaLakeView1, tableLocation(nonDeltaLakeTable1), tableBuilder -> {});
 
         DeltaLakeMetadata metadata = metadataFactory.create(SESSION.getIdentity());
 
@@ -225,11 +234,13 @@ public class TestDeltaLakeGlueMetastore
                 .isEmpty();
         assertThat(listTableColumns(metadata, new SchemaTablePrefix(databaseName, nonDeltaLakeTable2.getTableName())))
                 .isEmpty();
+        assertThat(listTableColumns(metadata, new SchemaTablePrefix(databaseName, nonDeltaLakeView1.getTableName())))
+                .isEmpty();
     }
 
     private Set<SchemaTableName> listTableColumns(DeltaLakeMetadata metadata, SchemaTablePrefix tablePrefix)
     {
-        List<TableColumnsMetadata> allTableColumns = metadata.streamTableColumns(session, tablePrefix).collect(toImmutableList());
+        List<TableColumnsMetadata> allTableColumns = ImmutableList.copyOf(metadata.streamTableColumns(session, tablePrefix));
 
         Set<SchemaTableName> redirectedTables = allTableColumns.stream()
                 .filter(tableColumns -> tableColumns.getColumns().isEmpty())
@@ -270,6 +281,25 @@ public class TestDeltaLakeGlueMetastore
                 .setTableName(tableName.getTableName())
                 .setOwner(Optional.of(session.getUser()))
                 .setTableType(EXTERNAL_TABLE.name())
+                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())));
+
+        table.getStorageBuilder()
+                .setStorageFormat(fromHiveStorageFormat(PARQUET))
+                .setLocation(tableLocation);
+
+        tableConfiguration.accept(table);
+
+        PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
+        metastoreClient.createTable(table.build(), principalPrivileges);
+    }
+
+    private void createView(SchemaTableName viewName, String tableLocation, Consumer<Table.Builder> tableConfiguration)
+    {
+        Table.Builder table = Table.builder()
+                .setDatabaseName(viewName.getSchemaName())
+                .setTableName(viewName.getTableName())
+                .setOwner(Optional.of(session.getUser()))
+                .setTableType(VIRTUAL_VIEW.name())
                 .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())));
 
         table.getStorageBuilder()

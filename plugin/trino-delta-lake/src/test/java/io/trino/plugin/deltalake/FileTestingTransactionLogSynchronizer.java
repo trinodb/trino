@@ -15,13 +15,14 @@ package io.trino.plugin.deltalake;
 
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 
 public class FileTestingTransactionLogSynchronizer
         implements TransactionLogSynchronizer
@@ -36,7 +37,7 @@ public class FileTestingTransactionLogSynchronizer
     public void write(ConnectorSession session, String clusterId, Path newLogEntryPath, byte[] entryContents)
     {
         try {
-            FileSystem fileSystem = newLogEntryPath.getFileSystem(new Configuration(false));
+            FileSystem fileSystem = newLogEntryPath.getFileSystem(newEmptyConfiguration());
             try (FSDataOutputStream outputStream = fileSystem.createFile(newLogEntryPath).build()) {
                 outputStream.write(entryContents);
             }

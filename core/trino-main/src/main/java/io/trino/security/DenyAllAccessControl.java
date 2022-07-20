@@ -19,6 +19,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
@@ -32,6 +33,7 @@ import java.util.Set;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -213,6 +215,12 @@ public class DenyAllAccessControl
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName)
     {
         denyCommentTable(tableName.toString());
+    }
+
+    @Override
+    public void checkCanSetViewComment(SecurityContext context, QualifiedObjectName viewName)
+    {
+        denyCommentView(viewName.toString());
     }
 
     @Override
@@ -489,6 +497,12 @@ public class DenyAllAccessControl
     public void checkCanExecuteFunction(SecurityContext context, String functionName)
     {
         denyExecuteFunction(functionName);
+    }
+
+    @Override
+    public void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    {
+        denyExecuteFunction(functionName.toString());
     }
 
     @Override

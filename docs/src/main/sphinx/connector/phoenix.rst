@@ -2,6 +2,10 @@
 Phoenix connector
 =================
 
+.. raw:: html
+
+  <img src="../_static/img/phoenix.png" class="connector-logo">
+
 The Phoenix connector allows querying data stored in
 `Apache HBase <https://hbase.apache.org/>`_ using
 `Apache Phoenix <https://phoenix.apache.org/>`_.
@@ -13,13 +17,7 @@ To query HBase data through Phoenix, you need:
 
 *  Network access from the Trino coordinator and workers to the ZooKeeper
    servers. The default port is 2181.
-*  A compatible version of Phoenix. There are two versions of this connector to
-   support different Phoenix versions:
-
-   *  The ``phoenix`` connector is compatible with all Phoenix 4.x versions
-      starting from 4.14.1.
-   *  The ``phoenix5`` connector is compatible with all Phoenix 5.x versions
-      starting from 5.1.0.
+*  A compatible version of Phoenix: all 5.x versions starting from 5.1.0 are supported.
 
 Configuration
 -------------
@@ -31,23 +29,17 @@ nodes used for discovery of the HBase cluster:
 
 .. code-block:: text
 
-    connector.name=phoenix
+    connector.name=phoenix5
     phoenix.connection-url=jdbc:phoenix:host1,host2,host3:2181:/hbase
     phoenix.config.resources=/path/to/hbase-site.xml
 
 The optional paths to Hadoop resource files, such as ``hbase-site.xml`` are used
 to load custom Phoenix client connection properties.
 
-For HBase 2.x and Phoenix 5.x (5.1.0 or later) use:
-
-.. code-block:: text
-
-    connector.name=phoenix5
-
 The following Phoenix-specific configuration properties are available:
 
 ================================================== ========== ===================================================================================
-Property Name                                      Required   Description
+Property name                                      Required   Description
 ================================================== ========== ===================================================================================
 ``phoenix.connection-url``                         Yes        ``jdbc:phoenix[:zk_quorum][:zk_port][:zk_hbase_path]``.
                                                               The ``zk_quorum`` is a comma separated list of ZooKeeper servers.
@@ -149,7 +141,7 @@ By default, values that require rounding or truncation to fit will cause a failu
 is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
 property, which can be set to ``UNNECESSARY`` (the default),
 ``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
-(see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+(see `RoundingMode <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
 
 .. include:: jdbc-type-mapping.fragment
 
@@ -172,7 +164,7 @@ Table property usage example::
 The following are supported Phoenix table properties from `<https://phoenix.apache.org/language/index.html#options>`_
 
 =========================== ================ ==============================================================================================================
-Property Name               Default Value    Description
+Property name               Default value    Description
 =========================== ================ ==============================================================================================================
 ``rowkeys``                 ``ROWKEY``       Comma-separated list of primary key columns.  See further description below
 
@@ -200,7 +192,7 @@ The following are the supported HBase table properties that are passed through b
 Use them in the same way as above: in the ``WITH`` clause of the ``CREATE TABLE`` statement.
 
 =========================== ================ ==============================================================================================================
-Property Name               Default Value    Description
+Property name               Default value    Description
 =========================== ================ ==============================================================================================================
 ``versions``                ``1``            The maximum number of versions of each cell to keep.
 

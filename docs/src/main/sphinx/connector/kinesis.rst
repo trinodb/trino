@@ -2,6 +2,10 @@
 Kinesis connector
 =================
 
+.. raw:: html
+
+  <img src="../_static/img/kinesis.png" class="connector-logo">
+
 `Kinesis <https://aws.amazon.com/kinesis/>`_ is Amazon's fully managed cloud-based service for real-time processing of large, distributed data streams.
 
 This connector allows the use of Kinesis streams as tables in Trino, such that each data-blob/message
@@ -34,7 +38,7 @@ Configuration properties
 The following configuration properties are available:
 
 ==============================================  =======================================================================
-Property Name                                   Description
+Property name                                   Description
 ==============================================  =======================================================================
 ``kinesis.access-key``                          Access key to AWS account or blank to use default provider chain
 ``kinesis.secret-key``                          Secret key to AWS account or blank to use default provider chain

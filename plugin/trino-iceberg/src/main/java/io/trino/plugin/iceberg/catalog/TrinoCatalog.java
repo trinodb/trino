@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog;
 
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -85,6 +86,8 @@ public interface TrinoCatalog
 
     void updateTableComment(ConnectorSession session, SchemaTableName schemaTableName, Optional<String> comment);
 
+    void updateViewComment(ConnectorSession session, SchemaTableName schemaViewName, Optional<String> comment);
+
     String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName);
 
     void setTablePrincipal(ConnectorSession session, SchemaTableName schemaTableName, TrinoPrincipal principal);
@@ -101,22 +104,24 @@ public interface TrinoCatalog
 
     Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace);
 
-    Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewIdentifier);
+    Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName);
 
     List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace);
 
     void createMaterializedView(
             ConnectorSession session,
-            SchemaTableName schemaViewName,
+            SchemaTableName viewName,
             ConnectorMaterializedViewDefinition definition,
             boolean replace,
             boolean ignoreExisting);
 
-    void dropMaterializedView(ConnectorSession session, SchemaTableName schemaViewName);
+    void dropMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
-    Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName schemaViewName);
+    Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
     void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target);
 
     void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment);
+
+    Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName);
 }

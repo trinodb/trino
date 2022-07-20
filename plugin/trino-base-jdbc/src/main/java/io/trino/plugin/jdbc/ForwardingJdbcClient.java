@@ -85,6 +85,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
+    {
+        return delegate().getTableHandle(session, preparedQuery);
+    }
+
+    @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return delegate().getColumns(session, tableHandle);
@@ -238,6 +244,12 @@ public abstract class ForwardingJdbcClient
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
         return delegate().getTableStatistics(session, handle, tupleDomain);
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return delegate().getTableStatistics(session, handle);
     }
 
     @Override

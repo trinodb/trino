@@ -21,7 +21,6 @@ import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.execution.Lifespan;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
@@ -324,6 +323,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         succinctBytes(context.physicalInputDataSize.get()),
                         context.physicalInputPositions.get(),
+                        new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS),
 
                         succinctBytes(context.internalNetworkInputDataSize.get()),
                         context.internalNetworkInputPositions.get(),
@@ -772,12 +772,6 @@ public class WorkProcessorPipelineSourceOperator
         {
             this.operatorFactories.forEach(WorkProcessorOperatorFactory::close);
             closed = true;
-        }
-
-        @Override
-        public void noMoreOperators(Lifespan lifespan)
-        {
-            this.operatorFactories.forEach(operatorFactory -> operatorFactory.lifespanFinished(lifespan));
         }
     }
 }

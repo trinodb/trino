@@ -31,6 +31,7 @@ import org.apache.iceberg.TableScan;
 import javax.inject.Inject;
 
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -53,7 +54,6 @@ public class IcebergSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle handle,
-            SplitSchedulingStrategy splitSchedulingStrategy,
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
@@ -79,8 +79,9 @@ public class IcebergSplitManager
                 dynamicFilteringWaitTimeout,
                 constraint,
                 typeManager,
-                table.isRecordScannedFiles());
+                table.isRecordScannedFiles(),
+                getMinimumAssignedSplitWeight(session));
 
-        return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
+        return new ClassLoaderSafeConnectorSplitSource(splitSource, IcebergSplitManager.class.getClassLoader());
     }
 }

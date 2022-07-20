@@ -22,11 +22,13 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public class PlanNodeSearcher
@@ -55,6 +57,21 @@ public class PlanNodeSearcher
     {
         this.node = requireNonNull(node, "node is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
+    }
+
+    @SafeVarargs
+    public final PlanNodeSearcher whereIsInstanceOfAny(Class<? extends PlanNode>... classes)
+    {
+        return whereIsInstanceOfAny(asList(classes));
+    }
+
+    public final PlanNodeSearcher whereIsInstanceOfAny(List<Class<? extends PlanNode>> classes)
+    {
+        Predicate<PlanNode> predicate = alwaysFalse();
+        for (Class<?> clazz : classes) {
+            predicate = predicate.or(clazz::isInstance);
+        }
+        return where(predicate);
     }
 
     public PlanNodeSearcher where(Predicate<PlanNode> where)

@@ -30,21 +30,32 @@ import com.amazonaws.services.glue.model.GetTableRequest;
 import com.amazonaws.services.glue.model.GetTablesRequest;
 import com.amazonaws.services.glue.model.GetTablesResult;
 import com.amazonaws.services.glue.model.TableInput;
+import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
+import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.type.TypeManager;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
@@ -54,6 +65,7 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,24 +73,44 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
+import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
+import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
+import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.STORAGE_SCHEMA;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
+import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getMaterializedViewTableInput;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
+import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getViewTableInput;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
+import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
 
 public class TrinoGlueCatalog
         extends AbstractTrinoCatalog
 {
+    private static final Logger LOG = Logger.get(TrinoGlueCatalog.class);
+
     private final HdfsEnvironment hdfsEnvironment;
     private final Optional<String> defaultSchemaLocation;
     private final AWSGlueAsync glueClient;
@@ -87,14 +119,17 @@ public class TrinoGlueCatalog
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
 
     public TrinoGlueCatalog(
+            CatalogName catalogName,
             HdfsEnvironment hdfsEnvironment,
+            TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
+            String trinoVersion,
             AWSGlueAsync glueClient,
             GlueMetastoreStats stats,
             Optional<String> defaultSchemaLocation,
             boolean useUniqueTableLocation)
     {
-        super(tableOperationsProvider, useUniqueTableLocation);
+        super(catalogName, typeManager, tableOperationsProvider, trinoVersion, useUniqueTableLocation);
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.stats = requireNonNull(stats, "stats is null");
@@ -211,12 +246,14 @@ public class TrinoGlueCatalog
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
     {
+        ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
         try {
             List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
-            return namespaces.stream()
-                    .flatMap(glueNamespace -> {
-                        try {
-                            return getPaginatedResults(
+            for (String glueNamespace : namespaces) {
+                try {
+                    // Add all tables from a namespace together, in case it is removed while fetching paginated results
+                    tables.addAll(
+                            getPaginatedResults(
                                     glueClient::getTables,
                                     new GetTablesRequest().withDatabaseName(glueNamespace),
                                     GetTablesRequest::setNextToken,
@@ -224,18 +261,18 @@ public class TrinoGlueCatalog
                                     stats.getGetTables())
                                     .map(GetTablesResult::getTableList)
                                     .flatMap(List::stream)
-                                    .map(table -> new SchemaTableName(glueNamespace, table.getName()));
-                        }
-                        catch (EntityNotFoundException e) {
-                            // Namespace may have been deleted
-                            return Stream.empty();
-                        }
-                    })
-                    .collect(toImmutableList());
+                                    .map(table -> new SchemaTableName(glueNamespace, table.getName()))
+                                    .collect(toImmutableList()));
+                }
+                catch (EntityNotFoundException e) {
+                    // Namespace may have been deleted
+                }
+            }
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
         }
+        return tables.build();
     }
 
     @Override
@@ -301,11 +338,11 @@ public class TrinoGlueCatalog
     {
         boolean newTableCreated = false;
         try {
-            GetTableRequest getTableRequest = new GetTableRequest()
-                    .withDatabaseName(from.getSchemaName())
-                    .withName(from.getTableName());
-            com.amazonaws.services.glue.model.Table table = stats.getGetTable().call(() -> glueClient.getTable(getTableRequest).getTable());
-            TableInput tableInput = getTableInput(to.getTableName(), Optional.ofNullable(table.getOwner()), table.getParameters());
+            Optional<com.amazonaws.services.glue.model.Table> table = getTable(from);
+            if (table.isEmpty()) {
+                throw new TableNotFoundException(from);
+            }
+            TableInput tableInput = getTableInput(to.getTableName(), Optional.ofNullable(table.get().getOwner()), table.get().getParameters());
             CreateTableRequest createTableRequest = new CreateTableRequest()
                     .withDatabaseName(to.getSchemaName())
                     .withTableInput(tableInput);
@@ -326,6 +363,29 @@ public class TrinoGlueCatalog
             }
             throw e;
         }
+    }
+
+    private Optional<com.amazonaws.services.glue.model.Table> getTable(SchemaTableName schemaTableName)
+    {
+        try {
+            return Optional.of(
+                    stats.getGetTable().call(() ->
+                            glueClient.getTable(new GetTableRequest()
+                                    .withDatabaseName(schemaTableName.getSchemaName())
+                                    .withName(schemaTableName.getTableName()))
+                                    .getTable()));
+        }
+        catch (EntityNotFoundException e) {
+            return Optional.empty();
+        }
+    }
+
+    private void createTable(String schemaName, TableInput tableInput)
+    {
+        stats.getCreateTable().call(() ->
+                glueClient.createTable(new CreateTableRequest()
+                        .withDatabaseName(schemaName)
+                        .withTableInput(tableInput)));
     }
 
     private void deleteTable(String schema, String table)
@@ -377,13 +437,77 @@ public class TrinoGlueCatalog
     @Override
     public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
     {
-        throw new TrinoException(NOT_SUPPORTED, "createView is not supported for Iceberg Glue catalogs");
+        // If a view is created between listing the existing view and calling createTable, retry
+        TableInput viewTableInput = getViewTableInput(schemaViewName.getTableName(), encodeViewData(definition), session.getUser(), createViewProperties(session));
+        Failsafe.with(new RetryPolicy<>()
+                .withMaxRetries(3)
+                .withDelay(Duration.ofMillis(100))
+                .abortIf(throwable -> !replace || throwable instanceof ViewAlreadyExistsException))
+                .run(() -> doCreateView(schemaViewName, viewTableInput, replace));
+    }
+
+    private void doCreateView(SchemaTableName schemaViewName, TableInput viewTableInput, boolean replace)
+    {
+        Optional<com.amazonaws.services.glue.model.Table> existing = getTable(schemaViewName);
+        if (existing.isPresent()) {
+            if (!replace || !isPrestoView(existing.get().getParameters())) {
+                // TODO: ViewAlreadyExists is misleading if the name is used by a table https://github.com/trinodb/trino/issues/10037
+                throw new ViewAlreadyExistsException(schemaViewName);
+            }
+
+            stats.getUpdateTable().call(() ->
+                    glueClient.updateTable(new UpdateTableRequest()
+                            .withDatabaseName(schemaViewName.getSchemaName())
+                            .withTableInput(viewTableInput)));
+            return;
+        }
+
+        try {
+            stats.getCreateTable().call(() ->
+                    glueClient.createTable(new CreateTableRequest()
+                            .withDatabaseName(schemaViewName.getSchemaName())
+                            .withTableInput(viewTableInput)));
+        }
+        catch (AlreadyExistsException e) {
+            throw new ViewAlreadyExistsException(schemaViewName);
+        }
     }
 
     @Override
     public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
-        throw new TrinoException(NOT_SUPPORTED, "renameView is not supported for Iceberg Glue catalogs");
+        boolean newTableCreated = false;
+        try {
+            Optional<com.amazonaws.services.glue.model.Table> existingView = getTable(source);
+            if (existingView.isEmpty()) {
+                throw new TableNotFoundException(source);
+            }
+
+            TableInput viewTableInput = getViewTableInput(
+                    target.getTableName(),
+                    existingView.get().getViewOriginalText(),
+                    existingView.get().getOwner(),
+                    createViewProperties(session));
+            CreateTableRequest createTableRequest = new CreateTableRequest()
+                    .withDatabaseName(target.getSchemaName())
+                    .withTableInput(viewTableInput);
+            stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
+            newTableCreated = true;
+            deleteTable(source.getSchemaName(), source.getTableName());
+        }
+        catch (Exception e) {
+            if (newTableCreated) {
+                try {
+                    deleteTable(target.getSchemaName(), target.getTableName());
+                }
+                catch (Exception cleanupException) {
+                    if (!cleanupException.equals(e)) {
+                        e.addSuppressed(cleanupException);
+                    }
+                }
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -395,54 +519,316 @@ public class TrinoGlueCatalog
     @Override
     public void dropView(ConnectorSession session, SchemaTableName schemaViewName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "dropView is not supported for Iceberg Glue catalogs");
+        if (getView(session, schemaViewName).isEmpty()) {
+            throw new ViewNotFoundException(schemaViewName);
+        }
+
+        try {
+            deleteTable(schemaViewName.getSchemaName(), schemaViewName.getTableName());
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
     }
 
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
     {
-        return ImmutableList.of();
+        try {
+            List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
+            return namespaces.stream()
+                    .flatMap(glueNamespace -> {
+                        try {
+                            return getPaginatedResults(
+                                    glueClient::getTables,
+                                    new GetTablesRequest().withDatabaseName(glueNamespace),
+                                    GetTablesRequest::setNextToken,
+                                    GetTablesResult::getNextToken,
+                                    stats.getGetTables())
+                                    .map(GetTablesResult::getTableList)
+                                    .flatMap(List::stream)
+                                    .filter(table -> isPrestoView(table.getParameters()))
+                                    .map(table -> new SchemaTableName(glueNamespace, table.getName()));
+                        }
+                        catch (EntityNotFoundException e) {
+                            // Namespace may have been deleted
+                            return Stream.empty();
+                        }
+                    })
+                    .collect(toImmutableList());
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
+        }
     }
 
     @Override
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace)
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
-        return ImmutableMap.of();
+        Optional<com.amazonaws.services.glue.model.Table> table = getTable(viewName);
+        if (table.isEmpty()) {
+            return Optional.empty();
+        }
+        com.amazonaws.services.glue.model.Table viewDefinition = table.get();
+        return getView(
+                viewName,
+                Optional.ofNullable(viewDefinition.getViewOriginalText()),
+                viewDefinition.getTableType(),
+                viewDefinition.getParameters(),
+                Optional.ofNullable(viewDefinition.getOwner()));
     }
 
     @Override
-    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewIdentifier)
+    public void updateViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
     {
-        return Optional.empty();
+        ConnectorViewDefinition definition = getView(session, viewName)
+                .orElseThrow(() -> new ViewNotFoundException(viewName));
+        ConnectorViewDefinition newDefinition = new ConnectorViewDefinition(
+                definition.getOriginalSql(),
+                definition.getCatalog(),
+                definition.getSchema(),
+                definition.getColumns(),
+                comment,
+                definition.getOwner(),
+                definition.isRunAsInvoker());
+
+        TableInput viewTableInput = getViewTableInput(viewName.getTableName(), encodeViewData(newDefinition), session.getUser(), createViewProperties(session));
+
+        try {
+            stats.getUpdateTable().call(() ->
+                    glueClient.updateTable(new UpdateTableRequest()
+                            .withDatabaseName(viewName.getSchemaName())
+                            .withTableInput(viewTableInput)));
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
+        }
     }
 
     @Override
     public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace)
     {
-        return ImmutableList.of();
+        try {
+            List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
+            return namespaces.stream()
+                    .flatMap(glueNamespace -> {
+                        try {
+                            return getPaginatedResults(
+                                    glueClient::getTables,
+                                    new GetTablesRequest().withDatabaseName(glueNamespace),
+                                    GetTablesRequest::setNextToken,
+                                    GetTablesResult::getNextToken,
+                                    stats.getGetTables())
+                                    .map(GetTablesResult::getTableList)
+                                    .flatMap(List::stream)
+                                    .filter(table -> isTrinoMaterializedView(table.getTableType(), table.getParameters()))
+                                    .map(table -> new SchemaTableName(glueNamespace, table.getName()));
+                        }
+                        catch (EntityNotFoundException e) {
+                            // Namespace may have been deleted
+                            return Stream.empty();
+                        }
+                    })
+                    .collect(toImmutableList());
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
+        }
     }
 
     @Override
-    public void createMaterializedView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            boolean replace,
+            boolean ignoreExisting)
     {
-        throw new TrinoException(NOT_SUPPORTED, "createMaterializedView is not supported for Iceberg Glue catalogs");
+        Optional<com.amazonaws.services.glue.model.Table> existing = getTable(viewName);
+
+        if (existing.isPresent()) {
+            if (!isTrinoMaterializedView(existing.get().getTableType(), existing.get().getParameters())) {
+                throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Existing table is not a Materialized View: " + viewName);
+            }
+            if (!replace) {
+                if (ignoreExisting) {
+                    return;
+                }
+                throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
+            }
+        }
+
+        // Create the storage table
+        SchemaTableName storageTable = createMaterializedViewStorageTable(session, viewName, definition);
+        // Create a view indicating the storage table
+        TableInput materializedViewTableInput = getMaterializedViewTableInput(
+                viewName.getTableName(),
+                encodeMaterializedViewData(fromConnectorMaterializedViewDefinition(definition)),
+                session.getUser(),
+                createMaterializedViewProperties(session, storageTable));
+
+        if (existing.isPresent()) {
+            try {
+                stats.getUpdateTable().call(() ->
+                        glueClient.updateTable(new UpdateTableRequest()
+                                .withDatabaseName(viewName.getSchemaName())
+                                .withTableInput(materializedViewTableInput)));
+            }
+            catch (RuntimeException e) {
+                try {
+                    // Update failed, clean up new storage table
+                    dropTable(session, storageTable);
+                }
+                catch (RuntimeException suppressed) {
+                    LOG.warn(suppressed, "Failed to drop new storage table '%s' for materialized view '%s'", storageTable, viewName);
+                    if (e != suppressed) {
+                        e.addSuppressed(suppressed);
+                    }
+                }
+            }
+            dropStorageTable(session, existing.get());
+        }
+        else {
+            createTable(viewName.getSchemaName(), materializedViewTableInput);
+        }
     }
 
     @Override
-    public void dropMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
+    public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "dropMaterializedView is not supported for Iceberg Glue catalogs");
+        com.amazonaws.services.glue.model.Table view = getTable(viewName)
+                .orElseThrow(() -> new MaterializedViewNotFoundException(viewName));
+
+        if (!isTrinoMaterializedView(view.getTableType(), view.getParameters())) {
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + view.getDatabaseName() + "." + view.getName());
+        }
+        dropStorageTable(session, view);
+        deleteTable(view.getDatabaseName(), view.getName());
+    }
+
+    private void dropStorageTable(ConnectorSession session, com.amazonaws.services.glue.model.Table view)
+    {
+        String storageTableName = view.getParameters().get(STORAGE_TABLE);
+        if (storageTableName != null) {
+            String storageSchema = Optional.ofNullable(view.getParameters().get(STORAGE_SCHEMA))
+                    .orElse(view.getDatabaseName());
+            try {
+                dropTable(session, new SchemaTableName(storageSchema, storageTableName));
+            }
+            catch (TrinoException e) {
+                LOG.warn(e, "Failed to drop storage table '%s.%s' for materialized view '%s'", storageSchema, storageTableName, view.getName());
+            }
+        }
     }
 
     @Override
-    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
+    protected Optional<ConnectorMaterializedViewDefinition> doGetMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        return Optional.empty();
+        Optional<com.amazonaws.services.glue.model.Table> maybeTable = getTable(viewName);
+        if (maybeTable.isEmpty()) {
+            return Optional.empty();
+        }
+
+        com.amazonaws.services.glue.model.Table table = maybeTable.get();
+        if (!isTrinoMaterializedView(table.getTableType(), table.getParameters())) {
+            return Optional.empty();
+        }
+
+        Map<String, String> materializedViewParameters = table.getParameters();
+        String storageTable = materializedViewParameters.get(STORAGE_TABLE);
+        checkState(storageTable != null, "Storage table missing in definition of materialized view " + viewName);
+        String storageSchema = Optional.ofNullable(materializedViewParameters.get(STORAGE_SCHEMA))
+                .orElse(viewName.getSchemaName());
+        SchemaTableName storageTableName = new SchemaTableName(storageSchema, storageTable);
+
+        Table icebergTable;
+        try {
+            icebergTable = loadTable(session, storageTableName);
+        }
+        catch (RuntimeException e) {
+            // The materialized view could be removed concurrently. This may manifest in a number of ways, e.g.
+            // - io.trino.spi.connector.TableNotFoundException
+            // - org.apache.iceberg.exceptions.NotFoundException when accessing manifest file
+            // - other failures when reading storage table's metadata files
+            // Retry, as we're catching broadly.
+            throw new MaterializedViewMayBeBeingRemovedException(e);
+        }
+
+        String viewOriginalText = table.getViewOriginalText();
+        if (viewOriginalText == null) {
+            throw new TrinoException(ICEBERG_BAD_DATA, "Materialized view did not have original text " + viewName);
+        }
+        return Optional.of(getMaterializedViewDefinition(
+                icebergTable,
+                Optional.ofNullable(table.getOwner()),
+                viewOriginalText,
+                storageTableName));
     }
 
     @Override
     public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
-        throw new TrinoException(NOT_SUPPORTED, "renameMaterializedView is not supported for Iceberg Glue catalogs");
+        boolean newTableCreated = false;
+        try {
+            Optional<com.amazonaws.services.glue.model.Table> table = getTable(source);
+            if (table.isEmpty()) {
+                throw new TableNotFoundException(source);
+            }
+            com.amazonaws.services.glue.model.Table glueTable = table.get();
+            if (!isTrinoMaterializedView(glueTable.getTableType(), glueTable.getParameters())) {
+                throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + source);
+            }
+            TableInput tableInput = getMaterializedViewTableInput(target.getTableName(), glueTable.getViewOriginalText(), glueTable.getOwner(), glueTable.getParameters());
+            CreateTableRequest createTableRequest = new CreateTableRequest()
+                    .withDatabaseName(target.getSchemaName())
+                    .withTableInput(tableInput);
+            stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
+            newTableCreated = true;
+            deleteTable(source.getSchemaName(), source.getTableName());
+        }
+        catch (RuntimeException e) {
+            if (newTableCreated) {
+                try {
+                    deleteTable(target.getSchemaName(), target.getTableName());
+                }
+                catch (RuntimeException cleanupException) {
+                    if (!cleanupException.equals(e)) {
+                        e.addSuppressed(cleanupException);
+                    }
+                }
+            }
+            throw e;
+        }
+    }
+
+    @Override
+    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(tableName, "tableName is null");
+        Optional<String> targetCatalogName = getHiveCatalogName(session);
+        if (targetCatalogName.isEmpty()) {
+            return Optional.empty();
+        }
+        if (isHiveSystemSchema(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+
+        // we need to chop off any "$partitions" and similar suffixes from table name while querying the metastore for the Table object
+        int metadataMarkerIndex = tableName.getTableName().lastIndexOf('$');
+        SchemaTableName tableNameBase = (metadataMarkerIndex == -1) ? tableName : schemaTableName(
+                tableName.getSchemaName(),
+                tableName.getTableName().substring(0, metadataMarkerIndex));
+
+        Optional<com.amazonaws.services.glue.model.Table> table = getTable(new SchemaTableName(tableNameBase.getSchemaName(), tableNameBase.getTableName()));
+
+        if (table.isEmpty() || VIRTUAL_VIEW.name().equals(table.get().getTableType())) {
+            return Optional.empty();
+        }
+        if (!isIcebergTable(table.get().getParameters())) {
+            // After redirecting, use the original table name, with "$partitions" and similar suffixes
+            return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, tableName));
+        }
+        return Optional.empty();
     }
 }

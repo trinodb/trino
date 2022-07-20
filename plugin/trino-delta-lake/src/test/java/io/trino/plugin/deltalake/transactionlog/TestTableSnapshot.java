@@ -47,6 +47,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -73,7 +74,7 @@ public class TestTableSnapshot
         URI deltaLogPath = getClass().getClassLoader().getResource("databricks/person").toURI();
         tableLocation = new Path(deltaLogPath);
 
-        Configuration conf = new Configuration(false);
+        Configuration conf = newEmptyConfiguration();
         FileSystem filesystem = tableLocation.getFileSystem(conf);
         accessTrackingFileSystem = new AccessTrackingFileSystem(filesystem);
 
@@ -100,7 +101,7 @@ public class TestTableSnapshot
         assertEquals(accessTrackingFileSystem.getOpenCount(), expectedFileAccess);
     }
 
-    // TODO: Can't test the FileSystem access here because the DeltaLakePageSourceProvider doesn't use the FileSystem passed into the TableSnapshot.
+    // TODO: Can't test the FileSystem access here because the DeltaLakePageSourceProvider doesn't use the FileSystem passed into the TableSnapshot. (https://github.com/trinodb/trino/issues/12040)
     @Test
     public void readsCheckpointFile()
             throws IOException

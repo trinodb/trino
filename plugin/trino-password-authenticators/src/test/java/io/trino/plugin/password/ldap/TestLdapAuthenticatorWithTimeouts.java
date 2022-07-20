@@ -15,6 +15,8 @@ package io.trino.plugin.password.ldap;
 
 import com.google.common.io.Closer;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.ldap.JdkLdapClient;
+import io.trino.plugin.base.ldap.LdapClientConfig;
 import io.trino.plugin.password.ldap.TestingOpenLdapServer.DisposableSubContext;
 import io.trino.spi.security.BasicPrincipal;
 import org.testcontainers.containers.Network;
@@ -73,19 +75,23 @@ public class TestLdapAuthenticatorWithTimeouts
     {
         try (DisposableSubContext organization = openLdapServer.createOrganization();
                 DisposableSubContext ignored = openLdapServer.createUser(organization, "alice", "alice-pass")) {
-            LdapConfig ldapConfig = new LdapConfig()
+            LdapClientConfig ldapConfig = new LdapClientConfig()
                     .setLdapUrl(proxyLdapUrl)
-                    .setLdapConnectionTimeout(new Duration(1, SECONDS))
+                    .setLdapConnectionTimeout(new Duration(1, SECONDS));
+            LdapAuthenticatorConfig ldapAuthenticatorConfig = new LdapAuthenticatorConfig()
                     .setUserBindSearchPatterns("uid=${USER}," + organization.getDistinguishedName());
 
-            LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(new JdkLdapAuthenticatorClient(ldapConfig), ldapConfig);
+            LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
+                    new LdapAuthenticatorClient(
+                            new JdkLdapClient(ldapConfig)),
+                    ldapAuthenticatorConfig);
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageMatching(".*Authentication error.*");
 
-            LdapConfig withIncreasedTimeout = ldapConfig.setLdapConnectionTimeout(new Duration(30, SECONDS));
+            LdapClientConfig withIncreasedTimeout = ldapConfig.setLdapConnectionTimeout(new Duration(30, SECONDS));
             assertEquals(
-                    new LdapAuthenticator(new JdkLdapAuthenticatorClient(withIncreasedTimeout), withIncreasedTimeout)
+                    new LdapAuthenticator(new LdapAuthenticatorClient(new JdkLdapClient(withIncreasedTimeout)), ldapAuthenticatorConfig)
                             .createAuthenticatedPrincipal("alice", "alice-pass"),
                     new BasicPrincipal("alice"));
         }
@@ -100,21 +106,29 @@ public class TestLdapAuthenticatorWithTimeouts
                 DisposableSubContext alice = openLdapServer.createUser(organization, "alice", "alice-pass")) {
             openLdapServer.addUserToGroup(alice, group);
 
-            LdapConfig ldapConfig = new LdapConfig()
+            LdapClientConfig ldapConfig = new LdapClientConfig()
                     .setLdapUrl(proxyLdapUrl)
-                    .setLdapReadTimeout(new Duration(1, SECONDS))
+                    .setLdapReadTimeout(new Duration(1, SECONDS));
+
+            LdapAuthenticatorConfig ldapAuthenticatorConfig = new LdapAuthenticatorConfig()
                     .setUserBindSearchPatterns("uid=${USER}," + organization.getDistinguishedName())
                     .setUserBaseDistinguishedName(organization.getDistinguishedName())
                     .setGroupAuthorizationSearchPattern(format("(&(objectClass=groupOfNames)(cn=group_*)(member=uid=${USER},%s))", organization.getDistinguishedName()));
 
-            LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(new JdkLdapAuthenticatorClient(ldapConfig), ldapConfig);
+            LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
+                    new LdapAuthenticatorClient(
+                            new JdkLdapClient(ldapConfig)),
+                    ldapAuthenticatorConfig);
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageMatching(".*Authentication error.*");
 
-            LdapConfig withIncreasedTimeout = ldapConfig.setLdapReadTimeout(new Duration(30, SECONDS));
+            LdapClientConfig withIncreasedTimeout = ldapConfig.setLdapReadTimeout(new Duration(30, SECONDS));
             assertEquals(
-                    new LdapAuthenticator(new JdkLdapAuthenticatorClient(withIncreasedTimeout), withIncreasedTimeout)
+                    new LdapAuthenticator(
+                            new LdapAuthenticatorClient(
+                                    new JdkLdapClient(withIncreasedTimeout)),
+                            ldapAuthenticatorConfig)
                             .createAuthenticatedPrincipal("alice", "alice-pass"),
                     new BasicPrincipal("alice"));
         }

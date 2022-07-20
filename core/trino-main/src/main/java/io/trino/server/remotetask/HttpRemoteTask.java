@@ -30,12 +30,12 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.DynamicFiltersCollector;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.FutureStateChange;
-import io.trino.execution.Lifespan;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.PartitionedSplitsInfo;
 import io.trino.execution.RemoteTask;
@@ -142,8 +142,6 @@ public final class HttpRemoteTask
     @GuardedBy("this")
     private volatile long pendingSourceSplitsWeight;
     @GuardedBy("this")
-    private final SetMultimap<PlanNodeId, Lifespan> pendingNoMoreSplitsForLifespan = HashMultimap.create();
-    @GuardedBy("this")
     // The keys of this map represent all plan nodes that have "no more splits".
     // The boolean value of each entry represents whether the "no more splits" notification is pending delivery to workers.
     private final Map<PlanNodeId, Boolean> noMoreSplits = new HashMap<>();
@@ -200,7 +198,8 @@ public final class HttpRemoteTask
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             RemoteTaskStats stats,
             DynamicFilterService dynamicFilterService,
-            Set<DynamicFilterId> outboundDynamicFilterIds)
+            Set<DynamicFilterId> outboundDynamicFilterIds,
+            Optional<DataSize> estimatedMemory)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -216,6 +215,7 @@ public final class HttpRemoteTask
         requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
         requireNonNull(stats, "stats is null");
         requireNonNull(outboundDynamicFilterIds, "outboundDynamicFilterIds is null");
+        requireNonNull(estimatedMemory, "estimatedMemory is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -245,7 +245,7 @@ public final class HttpRemoteTask
             long pendingSourceSplitsWeight = 0;
             for (PlanNodeId planNodeId : planFragment.getPartitionedSources()) {
                 Collection<Split> tableScanSplits = initialSplits.get(planNodeId);
-                if (tableScanSplits != null && !tableScanSplits.isEmpty()) {
+                if (!tableScanSplits.isEmpty()) {
                     pendingSourceSplitCount += tableScanSplits.size();
                     pendingSourceSplitsWeight = addExact(pendingSourceSplitsWeight, SplitWeight.rawValueSum(tableScanSplits, Split::getSplitWeight));
                 }
@@ -297,7 +297,8 @@ public final class HttpRemoteTask
                     executor,
                     updateScheduledExecutor,
                     errorScheduledExecutor,
-                    stats);
+                    stats,
+                    estimatedMemory);
 
             taskStatusFetcher.addStateChangeListener(newStatus -> {
                 TaskState state = newStatus.getState();
@@ -410,14 +411,6 @@ public final class HttpRemoteTask
 
         noMoreSplits.put(sourceId, true);
         triggerUpdate();
-    }
-
-    @Override
-    public synchronized void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan)
-    {
-        if (pendingNoMoreSplitsForLifespan.put(sourceId, lifespan)) {
-            triggerUpdate();
-        }
     }
 
     @Override
@@ -556,9 +549,6 @@ public final class HttpRemoteTask
             if (assignment.isNoMoreSplits()) {
                 noMoreSplits.put(planNodeId, false);
             }
-            for (Lifespan lifespan : assignment.getNoMoreSplitsForLifespan()) {
-                pendingNoMoreSplitsForLifespan.remove(planNodeId, lifespan);
-            }
             if (isPartitionedSource) {
                 pendingSourceSplitCount -= removed;
                 pendingSourceSplitsWeight -= removedWeight;
@@ -666,11 +656,10 @@ public final class HttpRemoteTask
         Set<ScheduledSplit> splits = pendingSplits.get(planNodeId);
         boolean pendingNoMoreSplits = Boolean.TRUE.equals(this.noMoreSplits.get(planNodeId));
         boolean noMoreSplits = this.noMoreSplits.containsKey(planNodeId);
-        Set<Lifespan> noMoreSplitsForLifespan = pendingNoMoreSplitsForLifespan.get(planNodeId);
 
         SplitAssignment assignment = null;
-        if (!splits.isEmpty() || !noMoreSplitsForLifespan.isEmpty() || pendingNoMoreSplits) {
-            assignment = new SplitAssignment(planNodeId, splits, noMoreSplitsForLifespan, noMoreSplits);
+        if (!splits.isEmpty() || pendingNoMoreSplits) {
+            assignment = new SplitAssignment(planNodeId, splits, noMoreSplits);
         }
         return assignment;
     }

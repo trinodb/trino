@@ -17,6 +17,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
@@ -188,6 +189,12 @@ public abstract class ForwardingAccessControl
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanSetTableComment(context, tableName);
+    }
+
+    @Override
+    public void checkCanSetViewComment(SecurityContext context, QualifiedObjectName viewName)
+    {
+        delegate().checkCanSetViewComment(context, viewName);
     }
 
     @Override
@@ -446,6 +453,12 @@ public abstract class ForwardingAccessControl
     public void checkCanExecuteFunction(SecurityContext context, String functionName)
     {
         delegate().checkCanExecuteFunction(context, functionName);
+    }
+
+    @Override
+    public void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    {
+        delegate().checkCanExecuteFunction(context, functionKind, functionName);
     }
 
     @Override

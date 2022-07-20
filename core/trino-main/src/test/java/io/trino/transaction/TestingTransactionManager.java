@@ -15,11 +15,10 @@
 package io.trino.transaction;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import io.trino.connector.CatalogName;
-import io.trino.metadata.Catalog;
+import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
@@ -62,6 +61,15 @@ public class TestingTransactionManager
     }
 
     @Override
+    public Optional<TransactionInfo> getTransactionInfoIfExist(TransactionId transactionId)
+    {
+        if (transactions.containsKey(transactionId)) {
+            return Optional.of(getTransactionInfo(transactionId));
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public List<TransactionInfo> getAllTransactionInfos()
     {
         return transactions.keySet().stream()
@@ -84,9 +92,9 @@ public class TestingTransactionManager
     }
 
     @Override
-    public Map<String, Catalog> getCatalogs(TransactionId transactionId)
+    public List<CatalogInfo> getCatalogs(TransactionId transactionId)
     {
-        return ImmutableMap.of();
+        return ImmutableList.of();
     }
 
     @Override

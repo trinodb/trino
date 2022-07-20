@@ -34,6 +34,7 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // Single-threaded because H2 DDL operations can sometimes take a global lock, leading to apparent deadlocks
 // like in https://github.com/trinodb/trino/issues/7209.
@@ -65,8 +66,11 @@ public class TestJdbcConnectorTest
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_ARRAY:
@@ -122,6 +126,13 @@ public class TestJdbcConnectorTest
         }
 
         return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Test
@@ -244,6 +255,13 @@ public class TestJdbcConnectorTest
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return format("NULL not allowed for column \"%s\"(?s).*", columnName.toUpperCase(ENGLISH));
+    }
+
+    @Override
+    public void testAddColumnConcurrently()
+    {
+        // TODO: Difficult to determine whether the exception is concurrent issue or not from the error message
+        throw new SkipException("TODO: Enable this test after finding the failure cause");
     }
 
     @Override

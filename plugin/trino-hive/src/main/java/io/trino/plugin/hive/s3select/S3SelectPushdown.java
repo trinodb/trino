@@ -106,9 +106,10 @@ public final class S3SelectPushdown
     public static boolean isCompressionCodecSupported(InputFormat<?, ?> inputFormat, Path path)
     {
         if (inputFormat instanceof TextInputFormat) {
+            // S3 Select supports the following formats: uncompressed, GZIP and BZIP2.
             return getCompressionCodec((TextInputFormat) inputFormat, path)
                     .map(codec -> (codec instanceof GzipCodec) || (codec instanceof BZip2Codec))
-                    .orElse(false); // TODO (https://github.com/trinodb/trino/issues/2475) fix S3 Select when file not compressed
+                    .orElse(true);
         }
 
         return false;

@@ -15,8 +15,9 @@ package io.trino.plugin.deltalake.procedure;
 
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
@@ -42,15 +43,16 @@ public class DropExtendedStatsProcedure
             DropExtendedStatsProcedure.class,
             "dropStats",
             ConnectorSession.class,
+            ConnectorAccessControl.class,
             // Schema name and table name
             String.class,
             String.class);
 
     private final DeltaLakeMetadataFactory metadataFactory;
-    private final DeltaLakeStatisticsAccess statsAccess;
+    private final ExtendedStatisticsAccess statsAccess;
 
     @Inject
-    public DropExtendedStatsProcedure(DeltaLakeMetadataFactory metadataFactory, DeltaLakeStatisticsAccess statsAccess)
+    public DropExtendedStatsProcedure(DeltaLakeMetadataFactory metadataFactory, ExtendedStatisticsAccess statsAccess)
     {
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory");
         this.statsAccess = requireNonNull(statsAccess, "statsAccess");
@@ -68,7 +70,7 @@ public class DropExtendedStatsProcedure
                 PROCEDURE_METHOD.bindTo(this));
     }
 
-    public void dropStats(ConnectorSession session, String schema, String table)
+    public void dropStats(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table)
     {
         checkProcedureArgument(schema != null, "schema_name cannot be null");
         checkProcedureArgument(table != null, "table_name cannot be null");
@@ -78,6 +80,7 @@ public class DropExtendedStatsProcedure
         if (metadata.getTableHandle(session, name) == null) {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", name));
         }
-        statsAccess.deleteDeltaLakeStatistics(session, metadata.getMetastore().getTableLocation(name, session));
+        accessControl.checkCanInsertIntoTable(null, name);
+        statsAccess.deleteExtendedStatistics(session, metadata.getMetastore().getTableLocation(name, session));
     }
 }

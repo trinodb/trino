@@ -26,6 +26,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.AcidInfo.OriginalFileInfo;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -41,7 +42,7 @@ public class TestOriginalFilesUtils
             throws Exception
     {
         tablePath = new File(Resources.getResource(("dummy_id_data_orc")).toURI()).getPath();
-        config = new JobConf(new Configuration(false));
+        config = new JobConf(newEmptyConfiguration());
     }
 
     @Test

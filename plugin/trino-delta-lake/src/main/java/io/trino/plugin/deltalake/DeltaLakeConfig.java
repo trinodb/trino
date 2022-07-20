@@ -16,18 +16,25 @@ package io.trino.plugin.deltalake;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
+import org.joda.time.DateTimeZone;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DeltaLakeConfig
 {
@@ -46,6 +53,7 @@ public class DeltaLakeConfig
     private int maxInitialSplits = 200;
     private DataSize maxInitialSplitSize;
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
+    private double minimumAssignedSplitWeight = 0.05;
     private int maxPartitionsPerWriter = 100;
     private boolean unsafeWritesEnabled;
     private boolean checkpointRowStatisticsWritingEnabled = true;
@@ -53,9 +61,14 @@ public class DeltaLakeConfig
     private boolean ignoreCheckpointWriteFailures;
     private Duration vacuumMinRetention = new Duration(7, DAYS);
     private Optional<String> hiveCatalogName = Optional.empty();
+    private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
     private HiveCompressionCodec compressionCodec = HiveCompressionCodec.SNAPPY;
+    private long perTransactionMetastoreCacheMaximumSize = 1000;
+    private boolean deleteSchemaLocationsFallback;
+    private String parquetTimeZone = TimeZone.getDefault().getID();
+    private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
 
     public Duration getMetadataCacheTtl()
     {
@@ -165,6 +178,21 @@ public class DeltaLakeConfig
         return this;
     }
 
+    @Config("delta.minimum-assigned-split-weight")
+    @ConfigDescription("Minimum weight that a split can be assigned")
+    public DeltaLakeConfig setMinimumAssignedSplitWeight(double minimumAssignedSplitWeight)
+    {
+        this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
+        return this;
+    }
+
+    @DecimalMax("1")
+    @DecimalMin(value = "0", inclusive = false)
+    public double getMinimumAssignedSplitWeight()
+    {
+        return minimumAssignedSplitWeight;
+    }
+
     @Min(1)
     public int getMaxPartitionsPerWriter()
     {
@@ -256,6 +284,20 @@ public class DeltaLakeConfig
         return this;
     }
 
+    @NotNull
+    public Duration getDynamicFilteringWaitTimeout()
+    {
+        return dynamicFilteringWaitTimeout;
+    }
+
+    @Config("delta.dynamic-filtering.wait-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation")
+    public DeltaLakeConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
+    {
+        this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
+        return this;
+    }
+
     public boolean isTableStatisticsEnabled()
     {
         return tableStatisticsEnabled;
@@ -293,6 +335,67 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    @Min(1)
+    public long getPerTransactionMetastoreCacheMaximumSize()
+    {
+        return perTransactionMetastoreCacheMaximumSize;
+    }
+
+    @LegacyConfig("hive.per-transaction-metastore-cache-maximum-size")
+    @Config("delta.per-transaction-metastore-cache-maximum-size")
+    public DeltaLakeConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
+    {
+        this.perTransactionMetastoreCacheMaximumSize = perTransactionMetastoreCacheMaximumSize;
+        return this;
+    }
+
+    public boolean isDeleteSchemaLocationsFallback()
+    {
+        return this.deleteSchemaLocationsFallback;
+    }
+
+    @Config("delta.delete-schema-locations-fallback")
+    @ConfigDescription("Whether schema locations should be deleted when Trino can't determine whether they contain external files.")
+    public DeltaLakeConfig setDeleteSchemaLocationsFallback(boolean deleteSchemaLocationsFallback)
+    {
+        this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
+        return this;
+    }
+
+    public DateTimeZone getParquetDateTimeZone()
+    {
+        return DateTimeZone.forID(parquetTimeZone);
+    }
+
+    @NotNull
+    public String getParquetTimeZone()
+    {
+        return parquetTimeZone;
+    }
+
+    @LegacyConfig("hive.parquet.time-zone")
+    @Config("delta.parquet.time-zone")
+    @ConfigDescription("Time zone for Parquet read and write")
+    public DeltaLakeConfig setParquetTimeZone(String parquetTimeZone)
+    {
+        this.parquetTimeZone = parquetTimeZone;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getTargetMaxFileSize()
+    {
+        return targetMaxFileSize;
+    }
+
+    @Config("delta.target-max-file-size")
+    @ConfigDescription("Target maximum size of written files; the actual size may be larger")
+    public DeltaLakeConfig setTargetMaxFileSize(DataSize targetMaxFileSize)
+    {
+        this.targetMaxFileSize = targetMaxFileSize;
         return this;
     }
 }

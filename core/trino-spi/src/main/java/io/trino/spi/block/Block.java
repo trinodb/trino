@@ -326,4 +326,13 @@ public interface Block
     {
         return Collections.emptyList();
     }
+
+    /**
+     * Returns a block that contains a copy of the contents of the current block, and an appended null at the end. The
+     * original block will not be modified. The purpose of this method is to leverage the contents of a block and the
+     * structure of the implementation to efficiently produce a copy of the block with a NULL element inserted - so that
+     * it can be used as a dictionary. This method is expected to be invoked on completely built {@link Block} instances
+     * i.e. not on in-progress block builders.
+     */
+    Block copyWithAppendedNull();
 }

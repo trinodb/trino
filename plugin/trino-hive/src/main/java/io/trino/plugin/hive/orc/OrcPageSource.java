@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
@@ -22,7 +23,9 @@ import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcRecordReader;
 import io.trino.orc.metadata.ColumnMetadata;
+import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcType;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveUpdateProcessor;
@@ -35,6 +38,7 @@ import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 
 import java.io.IOException;
@@ -64,6 +68,7 @@ public class OrcPageSource
         implements ConnectorPageSource
 {
     private static final Block ORIGINAL_FILE_TRANSACTION_ID_BLOCK = nativeValueToBlock(BIGINT, 0L);
+    public static final String ORC_CODEC_METRIC_PREFIX = "OrcReaderCompressionFormat_";
 
     private final OrcRecordReader recordReader;
     private final List<ColumnAdaptation> columnAdaptations;
@@ -79,6 +84,7 @@ public class OrcPageSource
 
     // Row ID relative to all the original files of the same bucket ID before this file in lexicographic order
     private final Optional<Long> originalFileRowId;
+    private final CompressionKind compressionKind;
 
     private long completedPositions;
 
@@ -91,7 +97,8 @@ public class OrcPageSource
             Optional<OrcDeletedRows> deletedRows,
             Optional<Long> originalFileRowId,
             AggregatedMemoryContext memoryContext,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            CompressionKind compressionKind)
     {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
         this.columnAdaptations = ImmutableList.copyOf(requireNonNull(columnAdaptations, "columnAdaptations is null"));
@@ -101,6 +108,7 @@ public class OrcPageSource
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.localMemoryContext = memoryContext.newLocalMemoryContext(OrcPageSource.class.getSimpleName());
         this.originalFileRowId = requireNonNull(originalFileRowId, "originalFileRowId is null");
+        this.compressionKind = requireNonNull(compressionKind, "compressionKind is null");
     }
 
     @Override
@@ -177,14 +185,14 @@ public class OrcPageSource
         MaskDeletedRowsFunction maskDeletedRowsFunction = deletedRows
                 .map(deletedRows -> deletedRows.getMaskDeletedRowsFunction(page, startRowId))
                 .orElseGet(() -> MaskDeletedRowsFunction.noMaskForPage(page));
-        return getColumnAdaptationsPage(page, maskDeletedRowsFunction, recordReader.getFilePosition());
+        return getColumnAdaptationsPage(page, maskDeletedRowsFunction, recordReader.getFilePosition(), startRowId);
     }
 
-    private Page getColumnAdaptationsPage(Page page, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+    private Page getColumnAdaptationsPage(Page page, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
     {
         Block[] blocks = new Block[columnAdaptations.size()];
         for (int i = 0; i < columnAdaptations.size(); i++) {
-            blocks[i] = columnAdaptations.get(i).block(page, maskDeletedRowsFunction, filePosition);
+            blocks[i] = columnAdaptations.get(i).block(page, maskDeletedRowsFunction, filePosition, startRowId);
         }
         return new Page(maskDeletedRowsFunction.getPositionCount(), blocks);
     }
@@ -245,9 +253,15 @@ public class OrcPageSource
         return memoryContext.getBytes();
     }
 
+    @Override
+    public Metrics getMetrics()
+    {
+        return new Metrics(ImmutableMap.of(ORC_CODEC_METRIC_PREFIX + compressionKind.name(), new LongCount(recordReader.getTotalDataLength())));
+    }
+
     public interface ColumnAdaptation
     {
-        Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition);
+        Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId);
 
         static ColumnAdaptation nullColumn(Type type)
         {
@@ -278,6 +292,16 @@ public class OrcPageSource
         {
             return new UpdatedRowAdaptation(updateProcessor, dependencyColumns);
         }
+
+        static ColumnAdaptation constantColumn(Block singleValueBlock)
+        {
+            return new ConstantAdaptation(singleValueBlock);
+        }
+
+        static ColumnAdaptation positionColumn()
+        {
+            return new PositionAdaptation();
+        }
     }
 
     private static class NullColumn
@@ -295,7 +319,7 @@ public class OrcPageSource
         }
 
         @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
             return new RunLengthEncodedBlock(nullBlock, maskDeletedRowsFunction.getPositionCount());
         }
@@ -321,7 +345,7 @@ public class OrcPageSource
         }
 
         @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
             Block block = sourcePage.getBlock(index);
             return new LazyBlock(maskDeletedRowsFunction.getPositionCount(), new MaskingBlockLoader(maskDeletedRowsFunction, block));
@@ -366,7 +390,7 @@ public class OrcPageSource
             implements ColumnAdaptation
     {
         @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
             Block rowBlock = maskDeletedRowsFunction.apply(fromFieldBlocks(
                     sourcePage.getPositionCount(),
@@ -398,7 +422,7 @@ public class OrcPageSource
         }
 
         @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
             return updateProcessor.createUpdateRowBlock(sourcePage, nonUpdatedSourceChannels, maskDeletedRowsFunction);
         }
@@ -428,14 +452,14 @@ public class OrcPageSource
         }
 
         @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
             int positionCount = sourcePage.getPositionCount();
             ImmutableList.Builder<Block> originalFilesBlockBuilder = ImmutableList.builder();
             originalFilesBlockBuilder.add(
                     new RunLengthEncodedBlock(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
                     new RunLengthEncodedBlock(bucketBlock, positionCount),
-                    createOriginalFilesRowIdBlock(startingRowId, filePosition, positionCount));
+                    createRowNumberBlock(startingRowId, filePosition, positionCount));
             for (int channel = 0; channel < sourcePage.getChannelCount(); channel++) {
                 originalFilesBlockBuilder.add(sourcePage.getBlock(channel));
             }
@@ -457,7 +481,7 @@ public class OrcPageSource
         }
 
         @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
             int positionCount = sourcePage.getPositionCount();
             Block rowBlock = maskDeletedRowsFunction.apply(fromFieldBlocks(
@@ -466,13 +490,43 @@ public class OrcPageSource
                     new Block[] {
                             new RunLengthEncodedBlock(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
                             new RunLengthEncodedBlock(bucketBlock, positionCount),
-                            createOriginalFilesRowIdBlock(startingRowId, filePosition, positionCount)
+                            createRowNumberBlock(startingRowId, filePosition, positionCount)
                     }));
             return rowBlock;
         }
     }
 
-    private static Block createOriginalFilesRowIdBlock(long startingRowId, long filePosition, int positionCount)
+    private static class ConstantAdaptation
+            implements ColumnAdaptation
+    {
+        private final Block singleValueBlock;
+
+        public ConstantAdaptation(Block singleValueBlock)
+        {
+            requireNonNull(singleValueBlock, "singleValueBlock is null");
+            checkArgument(singleValueBlock.getPositionCount() == 1, "ConstantColumnAdaptation singleValueBlock may only contain one position");
+            this.singleValueBlock = singleValueBlock;
+        }
+
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
+        {
+            return new RunLengthEncodedBlock(singleValueBlock, sourcePage.getPositionCount());
+        }
+    }
+
+    private static class PositionAdaptation
+            implements ColumnAdaptation
+    {
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
+        {
+            checkArgument(startRowId.isEmpty(), "startRowId should not be specified when using PositionAdaptation");
+            return createRowNumberBlock(0, filePosition, sourcePage.getPositionCount());
+        }
+    }
+
+    private static Block createRowNumberBlock(long startingRowId, long filePosition, int positionCount)
     {
         long[] translatedRowIds = new long[positionCount];
         for (int index = 0; index < positionCount; index++) {

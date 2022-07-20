@@ -27,6 +27,7 @@ import java.net.URI;
 import java.util.Properties;
 
 import static org.apache.hadoop.hive.serde.serdeConstants.ESCAPE_CHAR;
+import static org.apache.hadoop.hive.serde.serdeConstants.FIELD_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.QUOTE_CHAR;
 
 class S3SelectCsvRecordReader
@@ -41,6 +42,7 @@ class S3SelectCsvRecordReader
      */
 
     private static final String COMMENTS_CHAR_STR = "\uFDD0";
+    private static final String DEFAULT_FIELD_DELIMITER = ",";
 
     public S3SelectCsvRecordReader(
             Configuration configuration,
@@ -90,5 +92,11 @@ class S3SelectCsvRecordReader
         selectObjectRequest.setOutputSerialization(selectObjectOutputSerialization);
 
         return selectObjectRequest;
+    }
+
+    protected String getFieldDelimiter(Properties schema)
+    {
+        // Use the field delimiter only if it is specified in the schema. If not, use a default field delimiter ','
+        return schema.getProperty(FIELD_DELIM, DEFAULT_FIELD_DELIMITER);
     }
 }

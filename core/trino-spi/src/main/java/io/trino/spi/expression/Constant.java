@@ -13,8 +13,11 @@
  */
 package io.trino.spi.expression;
 
+import io.airlift.slice.Slice;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;
@@ -32,12 +35,13 @@ public class Constant
     /**
      * @param value the value encoded using the native "stack" representation for the given type.
      */
-    public Constant(Object value, Type type)
+    public Constant(@Nullable Object value, Type type)
     {
         super(type);
         this.value = value;
     }
 
+    @Nullable
     public Object getValue()
     {
         return value;
@@ -73,6 +77,11 @@ public class Constant
     @Override
     public String toString()
     {
+        // String and Char literals can be wrapped as Slice multiple times thus
+        // generating different toString representations that can be checked for equality in tests' assertions.
+        if (value instanceof Slice) {
+            return "Slice[hash=" + value.hashCode() + ",length=" + ((Slice) value).length() + "]::" + getType();
+        }
         return value + "::" + getType();
     }
 }

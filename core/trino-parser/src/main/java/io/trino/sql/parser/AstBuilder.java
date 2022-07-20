@@ -62,6 +62,8 @@ import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.Descriptor;
+import io.trino.sql.tree.DescriptorField;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
@@ -111,6 +113,16 @@ import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinCriteria;
 import io.trino.sql.tree.JoinOn;
 import io.trino.sql.tree.JoinUsing;
+import io.trino.sql.tree.JsonArray;
+import io.trino.sql.tree.JsonArrayElement;
+import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonObject;
+import io.trino.sql.tree.JsonObjectMember;
+import io.trino.sql.tree.JsonPathInvocation;
+import io.trino.sql.tree.JsonPathParameter;
+import io.trino.sql.tree.JsonPathParameter.JsonFormat;
+import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Lateral;
@@ -208,13 +220,17 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableArgument;
 import io.trino.sql.tree.TableElement;
 import io.trino.sql.tree.TableExecute;
+import io.trino.sql.tree.TableFunctionArgument;
+import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.TransactionMode;
+import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.TypeParameter;
@@ -255,6 +271,24 @@ import static io.trino.sql.parser.SqlBaseParser.TIME;
 import static io.trino.sql.parser.SqlBaseParser.TIMESTAMP;
 import static io.trino.sql.tree.AnchorPattern.Type.PARTITION_END;
 import static io.trino.sql.tree.AnchorPattern.Type.PARTITION_START;
+import static io.trino.sql.tree.DescriptorArgument.descriptorArgument;
+import static io.trino.sql.tree.DescriptorArgument.nullDescriptorArgument;
+import static io.trino.sql.tree.JsonExists.ErrorBehavior.ERROR;
+import static io.trino.sql.tree.JsonExists.ErrorBehavior.FALSE;
+import static io.trino.sql.tree.JsonExists.ErrorBehavior.TRUE;
+import static io.trino.sql.tree.JsonExists.ErrorBehavior.UNKNOWN;
+import static io.trino.sql.tree.JsonPathParameter.JsonFormat.JSON;
+import static io.trino.sql.tree.JsonPathParameter.JsonFormat.UTF16;
+import static io.trino.sql.tree.JsonPathParameter.JsonFormat.UTF32;
+import static io.trino.sql.tree.JsonPathParameter.JsonFormat.UTF8;
+import static io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior.CONDITIONAL;
+import static io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior.UNCONDITIONAL;
+import static io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior.WITHOUT;
+import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY;
+import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_OBJECT;
+import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
+import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
+import static io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior.DEFAULT;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_OMIT_EMPTY;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_SHOW_EMPTY;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_WITH_UNMATCHED;
@@ -601,6 +635,18 @@ class AstBuilder
     }
 
     @Override
+    public Node visitCommentView(SqlBaseParser.CommentViewContext context)
+    {
+        Optional<String> comment = Optional.empty();
+
+        if (context.string() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+
+        return new Comment(getLocation(context), Comment.Type.VIEW, getQualifiedName(context.qualifiedName()), comment);
+    }
+
+    @Override
     public Node visitCommentColumn(SqlBaseParser.CommentColumnContext context)
     {
         Optional<String> comment = Optional.empty();
@@ -675,7 +721,8 @@ class AstBuilder
         }
 
         return new TableExecute(
-                new Table(getLocation(context), getQualifiedName(context.tableName)),
+                getLocation(context),
+                new Table(getLocation(context.TABLE()), getQualifiedName(context.tableName)),
                 (Identifier) visit(context.procedureName),
                 arguments,
                 visitIfPresent(context.booleanExpression(), Expression.class));
@@ -1773,6 +1820,117 @@ class AstBuilder
     }
 
     @Override
+    public Node visitTableFunctionInvocation(SqlBaseParser.TableFunctionInvocationContext context)
+    {
+        return visit(context.tableFunctionCall());
+    }
+
+    @Override
+    public Node visitTableFunctionCall(SqlBaseParser.TableFunctionCallContext context)
+    {
+        QualifiedName name = getQualifiedName(context.qualifiedName());
+        List<TableFunctionArgument> arguments = visit(context.tableFunctionArgument(), TableFunctionArgument.class);
+        List<List<QualifiedName>> copartitioning = ImmutableList.of();
+        if (context.COPARTITION() != null) {
+            copartitioning = context.copartitionTables().stream()
+                    .map(tablesList -> tablesList.qualifiedName().stream()
+                            .map(this::getQualifiedName)
+                            .collect(toImmutableList()))
+                    .collect(toImmutableList());
+        }
+
+        return new TableFunctionInvocation(getLocation(context), name, arguments, copartitioning);
+    }
+
+    @Override
+    public Node visitTableFunctionArgument(SqlBaseParser.TableFunctionArgumentContext context)
+    {
+        Optional<Identifier> name = visitIfPresent(context.identifier(), Identifier.class);
+        Node value;
+        if (context.tableArgument() != null) {
+            value = visit(context.tableArgument());
+        }
+        else if (context.descriptorArgument() != null) {
+            value = visit(context.descriptorArgument());
+        }
+        else {
+            value = visit(context.expression());
+        }
+
+        return new TableFunctionArgument(getLocation(context), name, value);
+    }
+
+    @Override
+    public Node visitTableArgument(SqlBaseParser.TableArgumentContext context)
+    {
+        Relation table = (Relation) visit(context.tableArgumentRelation());
+
+        Optional<List<Expression>> partitionBy = Optional.empty();
+        if (context.PARTITION() != null) {
+            partitionBy = Optional.of(visit(context.expression(), Expression.class));
+        }
+
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(visit(context.sortItem(), SortItem.class)));
+        }
+
+        boolean pruneWhenEmpty = context.PRUNE() != null;
+
+        return new TableArgument(getLocation(context), table, partitionBy, orderBy, pruneWhenEmpty);
+    }
+
+    @Override
+    public Node visitTableArgumentTable(SqlBaseParser.TableArgumentTableContext context)
+    {
+        Relation relation = new Table(getLocation(context.TABLE()), getQualifiedName(context.qualifiedName()));
+
+        if (context.identifier() != null) {
+            Identifier alias = (Identifier) visit(context.identifier());
+            List<Identifier> columnNames = ImmutableList.of();
+            if (context.columnAliases() != null) {
+                columnNames = visit(context.columnAliases().identifier(), Identifier.class);
+            }
+            relation = new AliasedRelation(getLocation(context.TABLE()), relation, alias, columnNames);
+        }
+
+        return relation;
+    }
+
+    @Override
+    public Node visitTableArgumentQuery(SqlBaseParser.TableArgumentQueryContext context)
+    {
+        Relation relation = new TableSubquery(getLocation(context.TABLE()), (Query) visit(context.query()));
+
+        if (context.identifier() != null) {
+            Identifier alias = (Identifier) visit(context.identifier());
+            List<Identifier> columnNames = ImmutableList.of();
+            if (context.columnAliases() != null) {
+                columnNames = visit(context.columnAliases().identifier(), Identifier.class);
+            }
+            relation = new AliasedRelation(getLocation(context.TABLE()), relation, alias, columnNames);
+        }
+
+        return relation;
+    }
+
+    @Override
+    public Node visitDescriptorArgument(SqlBaseParser.DescriptorArgumentContext context)
+    {
+        if (context.NULL() != null) {
+            return nullDescriptorArgument(getLocation(context));
+        }
+        List<DescriptorField> fields = visit(context.descriptorField(), DescriptorField.class);
+        return descriptorArgument(getLocation(context), new Descriptor(getLocation(context.DESCRIPTOR()), fields));
+    }
+
+    @Override
+    public Node visitDescriptorField(SqlBaseParser.DescriptorFieldContext context)
+    {
+        return new DescriptorField(getLocation(context), (Identifier) visit(context.identifier()), visitIfPresent(context.type(), DataType.class));
+    }
+
+    @Override
     public Node visitParenthesizedRelation(SqlBaseParser.ParenthesizedRelationContext context)
     {
         return visit(context.relation());
@@ -2101,6 +2259,303 @@ class AstBuilder
     }
 
     @Override
+    public Node visitTrim(SqlBaseParser.TrimContext context)
+    {
+        if (context.FROM() != null && context.trimsSpecification() == null && context.trimChar == null) {
+            throw parseError("The 'trim' function must have specification, char or both arguments when it takes FROM", context);
+        }
+
+        Trim.Specification specification = context.trimsSpecification() == null ? Trim.Specification.BOTH : toTrimSpecification((Token) context.trimsSpecification().getChild(0).getPayload());
+        return new Trim(
+                getLocation(context),
+                specification,
+                (Expression) visit(context.trimSource),
+                visitIfPresent(context.trimChar, Expression.class));
+    }
+
+    private static Trim.Specification toTrimSpecification(Token token)
+    {
+        switch (token.getType()) {
+            case SqlBaseLexer.BOTH:
+                return Trim.Specification.BOTH;
+            case SqlBaseLexer.LEADING:
+                return Trim.Specification.LEADING;
+            case SqlBaseLexer.TRAILING:
+                return Trim.Specification.TRAILING;
+        }
+        throw new IllegalArgumentException("Unsupported trim specification: " + token.getText());
+    }
+
+    @Override
+    public Node visitJsonExists(SqlBaseParser.JsonExistsContext context)
+    {
+        JsonPathInvocation jsonPathInvocation = (JsonPathInvocation) visit(context.jsonPathInvocation());
+
+        SqlBaseParser.JsonExistsErrorBehaviorContext errorBehaviorContext = context.jsonExistsErrorBehavior();
+        JsonExists.ErrorBehavior errorBehavior;
+        if (errorBehaviorContext == null || errorBehaviorContext.FALSE() != null) {
+            errorBehavior = FALSE;
+        }
+        else if (errorBehaviorContext.TRUE() != null) {
+            errorBehavior = TRUE;
+        }
+        else if (errorBehaviorContext.UNKNOWN() != null) {
+            errorBehavior = UNKNOWN;
+        }
+        else if (errorBehaviorContext.ERROR() != null) {
+            errorBehavior = ERROR;
+        }
+        else {
+            throw parseError("Unexpected error behavior: " + errorBehaviorContext.getText(), errorBehaviorContext);
+        }
+
+        return new JsonExists(
+                Optional.of(getLocation(context)),
+                jsonPathInvocation,
+                errorBehavior);
+    }
+
+    @Override
+    public Node visitJsonValue(SqlBaseParser.JsonValueContext context)
+    {
+        JsonPathInvocation jsonPathInvocation = (JsonPathInvocation) visit(context.jsonPathInvocation());
+
+        Optional<DataType> returnedType = visitIfPresent(context.type(), DataType.class);
+
+        SqlBaseParser.JsonValueBehaviorContext emptyBehaviorContext = context.emptyBehavior;
+        JsonValue.EmptyOrErrorBehavior emptyBehavior;
+        Optional<Expression> emptyDefault = Optional.empty();
+        if (emptyBehaviorContext == null || emptyBehaviorContext.NULL() != null) {
+            emptyBehavior = JsonValue.EmptyOrErrorBehavior.NULL;
+        }
+        else if (emptyBehaviorContext.ERROR() != null) {
+            emptyBehavior = JsonValue.EmptyOrErrorBehavior.ERROR;
+        }
+        else if (emptyBehaviorContext.DEFAULT() != null) {
+            emptyBehavior = DEFAULT;
+            emptyDefault = visitIfPresent(emptyBehaviorContext.expression(), Expression.class);
+        }
+        else {
+            throw parseError("Unexpected empty behavior: " + emptyBehaviorContext.getText(), emptyBehaviorContext);
+        }
+
+        SqlBaseParser.JsonValueBehaviorContext errorBehaviorContext = context.errorBehavior;
+        JsonValue.EmptyOrErrorBehavior errorBehavior;
+        Optional<Expression> errorDefault = Optional.empty();
+        if (errorBehaviorContext == null || errorBehaviorContext.NULL() != null) {
+            errorBehavior = JsonValue.EmptyOrErrorBehavior.NULL;
+        }
+        else if (errorBehaviorContext.ERROR() != null) {
+            errorBehavior = JsonValue.EmptyOrErrorBehavior.ERROR;
+        }
+        else if (errorBehaviorContext.DEFAULT() != null) {
+            errorBehavior = DEFAULT;
+            errorDefault = visitIfPresent(errorBehaviorContext.expression(), Expression.class);
+        }
+        else {
+            throw parseError("Unexpected error behavior: " + errorBehaviorContext.getText(), errorBehaviorContext);
+        }
+
+        return new JsonValue(
+                Optional.of(getLocation(context)),
+                jsonPathInvocation,
+                returnedType,
+                emptyBehavior,
+                emptyDefault,
+                errorBehavior,
+                errorDefault);
+    }
+
+    @Override
+    public Node visitJsonQuery(SqlBaseParser.JsonQueryContext context)
+    {
+        JsonPathInvocation jsonPathInvocation = (JsonPathInvocation) visit(context.jsonPathInvocation());
+
+        Optional<DataType> returnedType = visitIfPresent(context.type(), DataType.class);
+
+        Optional<JsonFormat> jsonOutputFormat = Optional.empty();
+        if (context.FORMAT() != null) {
+            jsonOutputFormat = Optional.of(getJsonFormat(context.jsonRepresentation()));
+        }
+
+        SqlBaseParser.JsonQueryWrapperBehaviorContext wrapperBehaviorContext = context.jsonQueryWrapperBehavior();
+        JsonQuery.ArrayWrapperBehavior wrapperBehavior;
+        if (wrapperBehaviorContext == null || wrapperBehaviorContext.WITHOUT() != null) {
+            wrapperBehavior = WITHOUT;
+        }
+        else if (wrapperBehaviorContext.CONDITIONAL() != null) {
+            wrapperBehavior = CONDITIONAL;
+        }
+        else {
+            wrapperBehavior = UNCONDITIONAL;
+        }
+
+        Optional<JsonQuery.QuotesBehavior> quotesBehavior = Optional.empty();
+        if (context.KEEP() != null) {
+            quotesBehavior = Optional.of(KEEP);
+        }
+        else if (context.OMIT() != null) {
+            quotesBehavior = Optional.of(OMIT);
+        }
+
+        SqlBaseParser.JsonQueryBehaviorContext emptyBehaviorContext = context.emptyBehavior;
+        JsonQuery.EmptyOrErrorBehavior emptyBehavior;
+        if (emptyBehaviorContext == null || emptyBehaviorContext.NULL() != null) {
+            emptyBehavior = JsonQuery.EmptyOrErrorBehavior.NULL;
+        }
+        else if (emptyBehaviorContext.ERROR() != null) {
+            emptyBehavior = JsonQuery.EmptyOrErrorBehavior.ERROR;
+        }
+        else if (emptyBehaviorContext.ARRAY() != null) {
+            emptyBehavior = EMPTY_ARRAY;
+        }
+        else if (emptyBehaviorContext.OBJECT() != null) {
+            emptyBehavior = EMPTY_OBJECT;
+        }
+        else {
+            throw parseError("Unexpected empty behavior: " + emptyBehaviorContext.getText(), emptyBehaviorContext);
+        }
+
+        SqlBaseParser.JsonQueryBehaviorContext errorBehaviorContext = context.errorBehavior;
+        JsonQuery.EmptyOrErrorBehavior errorBehavior;
+        if (errorBehaviorContext == null || errorBehaviorContext.NULL() != null) {
+            errorBehavior = JsonQuery.EmptyOrErrorBehavior.NULL;
+        }
+        else if (errorBehaviorContext.ERROR() != null) {
+            errorBehavior = JsonQuery.EmptyOrErrorBehavior.ERROR;
+        }
+        else if (errorBehaviorContext.ARRAY() != null) {
+            errorBehavior = EMPTY_ARRAY;
+        }
+        else if (errorBehaviorContext.OBJECT() != null) {
+            errorBehavior = EMPTY_OBJECT;
+        }
+        else {
+            throw parseError("Unexpected error behavior: " + errorBehaviorContext.getText(), errorBehaviorContext);
+        }
+
+        return new JsonQuery(
+                Optional.of(getLocation(context)),
+                jsonPathInvocation,
+                returnedType,
+                jsonOutputFormat,
+                wrapperBehavior,
+                quotesBehavior,
+                emptyBehavior,
+                errorBehavior);
+    }
+
+    @Override
+    public Node visitJsonPathInvocation(SqlBaseParser.JsonPathInvocationContext context)
+    {
+        Expression jsonInput = (Expression) visit(context.jsonValueExpression().expression());
+
+        JsonFormat inputFormat;
+        if (context.jsonValueExpression().FORMAT() == null) {
+            inputFormat = JSON; // default
+        }
+        else {
+            inputFormat = getJsonFormat(context.jsonValueExpression().jsonRepresentation());
+        }
+
+        StringLiteral jsonPath = (StringLiteral) visit(context.path);
+        List<JsonPathParameter> pathParameters = visit(context.jsonArgument(), JsonPathParameter.class);
+
+        return new JsonPathInvocation(Optional.of(getLocation(context)), jsonInput, inputFormat, jsonPath, pathParameters);
+    }
+
+    private JsonFormat getJsonFormat(SqlBaseParser.JsonRepresentationContext context)
+    {
+        if (context.UTF8() != null) {
+            return UTF8;
+        }
+        if (context.UTF16() != null) {
+            return UTF16;
+        }
+        if (context.UTF32() != null) {
+            return UTF32;
+        }
+        return JSON;
+    }
+
+    @Override
+    public Node visitJsonArgument(SqlBaseParser.JsonArgumentContext context)
+    {
+        return new JsonPathParameter(
+                Optional.of(getLocation(context)),
+                (Identifier) visit(context.identifier()),
+                (Expression) visit(context.jsonValueExpression().expression()),
+                Optional.ofNullable(context.jsonValueExpression().jsonRepresentation())
+                        .map(this::getJsonFormat));
+    }
+
+    @Override
+    public Node visitJsonObject(SqlBaseParser.JsonObjectContext context)
+    {
+        List<JsonObjectMember> members = visit(context.jsonObjectMember(), JsonObjectMember.class);
+
+        boolean nullOnNull = true;
+        if (context.ABSENT() != null) {
+            nullOnNull = false;
+        }
+
+        boolean uniqueKeys = false;
+        if (context.WITH() != null) {
+            uniqueKeys = true;
+        }
+
+        Optional<DataType> returnedType = visitIfPresent(context.type(), DataType.class);
+
+        Optional<JsonFormat> jsonOutputFormat = Optional.empty();
+        if (context.FORMAT() != null) {
+            jsonOutputFormat = Optional.of(getJsonFormat(context.jsonRepresentation()));
+        }
+
+        return new JsonObject(Optional.of(getLocation(context)), members, nullOnNull, uniqueKeys, returnedType, jsonOutputFormat);
+    }
+
+    @Override
+    public Node visitJsonObjectMember(SqlBaseParser.JsonObjectMemberContext context)
+    {
+        return new JsonObjectMember(
+                getLocation(context),
+                (Expression) visit(context.expression()),
+                (Expression) visit(context.jsonValueExpression().expression()),
+                Optional.ofNullable(context.jsonValueExpression().jsonRepresentation())
+                        .map(this::getJsonFormat));
+    }
+
+    @Override
+    public Node visitJsonArray(SqlBaseParser.JsonArrayContext context)
+    {
+        List<JsonArrayElement> elements = visit(context.jsonValueExpression(), JsonArrayElement.class);
+
+        boolean nullOnNull = false;
+        if (context.NULL(0) != null && context.NULL(1) != null) { // "NULL ON NULL"
+            nullOnNull = true;
+        }
+
+        Optional<DataType> returnedType = visitIfPresent(context.type(), DataType.class);
+
+        Optional<JsonFormat> jsonOutputFormat = Optional.empty();
+        if (context.FORMAT() != null) {
+            jsonOutputFormat = Optional.of(getJsonFormat(context.jsonRepresentation()));
+        }
+
+        return new JsonArray(Optional.of(getLocation(context)), elements, nullOnNull, returnedType, jsonOutputFormat);
+    }
+
+    @Override
+    public Node visitJsonValueExpression(SqlBaseParser.JsonValueExpressionContext context)
+    {
+        return new JsonArrayElement(
+                getLocation(context),
+                (Expression) visit(context.expression()),
+                Optional.ofNullable(context.jsonRepresentation())
+                        .map(this::getJsonFormat));
+    }
+
+    @Override
     public Node visitSubstring(SqlBaseParser.SubstringContext context)
     {
         return new FunctionCall(getLocation(context), QualifiedName.of("substr"), visit(context.valueExpression(), Expression.class));
@@ -2263,7 +2718,7 @@ class AstBuilder
         }
 
         if (name.toString().equalsIgnoreCase("$internal$bind")) {
-            check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one arguments", context);
+            check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one argument", context);
             check(!window.isPresent(), "OVER clause not valid for '$internal$bind' function", context);
             check(!distinct, "DISTINCT not valid for '$internal$bind' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for '$internal$bind' function", context);
@@ -3281,5 +3736,19 @@ class AstBuilder
                 return QueryPeriod.RangeType.VERSION;
         }
         throw new IllegalArgumentException("Unsupported query period range type: " + token.getText());
+    }
+
+    private static Trim.Specification toTrimSpecification(String functionName)
+    {
+        requireNonNull(functionName, "functionName is null");
+        switch (functionName) {
+            case "trim":
+                return Trim.Specification.BOTH;
+            case "ltrim":
+                return Trim.Specification.LEADING;
+            case "rtrim":
+                return Trim.Specification.TRAILING;
+        }
+        throw new IllegalArgumentException("Unsupported trim specification: " + functionName);
     }
 }

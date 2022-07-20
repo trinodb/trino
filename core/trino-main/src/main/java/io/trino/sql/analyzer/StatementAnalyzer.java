@@ -23,13 +23,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
+import com.google.common.math.IntMath;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Column;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
-import io.trino.metadata.FunctionKind;
+import io.trino.metadata.CatalogSchemaFunctionName;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
@@ -38,6 +40,8 @@ import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableExecuteHandle;
+import io.trino.metadata.TableFunctionMetadata;
+import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
@@ -50,6 +54,7 @@ import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.security.SecurityContext;
 import io.trino.security.ViewAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
@@ -59,10 +64,23 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.ptf.Argument;
+import io.trino.spi.ptf.ArgumentSpecification;
+import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.ptf.Descriptor;
+import io.trino.spi.ptf.DescriptorArgumentSpecification;
+import io.trino.spi.ptf.ReturnTypeSpecification;
+import io.trino.spi.ptf.ReturnTypeSpecification.DescribedTable;
+import io.trino.spi.ptf.ScalarArgument;
+import io.trino.spi.ptf.ScalarArgumentSpecification;
+import io.trino.spi.ptf.TableArgumentSpecification;
+import io.trino.spi.ptf.TableFunctionAnalysis;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
@@ -70,6 +88,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
@@ -84,6 +103,7 @@ import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
+import io.trino.sql.analyzer.Analysis.TableFunctionInvocationAnalysis;
 import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalyzer.PatternRecognitionAnalysis;
 import io.trino.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
@@ -114,6 +134,7 @@ import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.DescriptorArgument;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropSchema;
@@ -124,6 +145,8 @@ import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FrameBound;
@@ -190,6 +213,8 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableExecute;
+import io.trino.sql.tree.TableFunctionArgument;
+import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.Union;
@@ -207,8 +232,12 @@ import io.trino.sql.tree.WindowReference;
 import io.trino.sql.tree.WindowSpecification;
 import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
+import io.trino.transaction.TransactionManager;
 import io.trino.type.TypeCoercion;
 
+import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -234,11 +263,11 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxGroupingSets;
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.FunctionKind.WINDOW;
+import static io.trino.metadata.FunctionResolver.toPath;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_RETURN_TYPE;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
@@ -247,6 +276,7 @@ import static io.trino.spi.StandardErrorCode.DUPLICATE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_WINDOW_NAME;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_WINDOW;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
@@ -260,10 +290,12 @@ import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_REFERENCE;
 import static io.trino.spi.StandardErrorCode.MISMATCHED_COLUMN_ALIASES;
+import static io.trino.spi.StandardErrorCode.MISSING_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_ALIASES;
 import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_GROUP_BY;
 import static io.trino.spi.StandardErrorCode.MISSING_ORDER_BY;
+import static io.trino.spi.StandardErrorCode.MISSING_RETURN_TYPE;
 import static io.trino.spi.StandardErrorCode.NESTED_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.NESTED_ROW_PATTERN_RECOGNITION;
 import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
@@ -279,10 +311,17 @@ import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_STALE;
 import static io.trino.spi.connector.StandardWarningCode.REDUNDANT_ORDER_BY;
+import static io.trino.spi.function.FunctionKind.AGGREGATE;
+import static io.trino.spi.function.FunctionKind.WINDOW;
+import static io.trino.spi.ptf.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static io.trino.spi.ptf.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
@@ -330,7 +369,9 @@ class StatementAnalyzer
     private final SqlParser sqlParser;
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
+    private final TransactionManager transactionManager;
     private final TableProceduresRegistry tableProceduresRegistry;
+    private final TableFunctionRegistry tableFunctionRegistry;
     private final SessionPropertyManager sessionPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
@@ -346,8 +387,10 @@ class StatementAnalyzer
             SqlParser sqlParser,
             GroupProvider groupProvider,
             AccessControl accessControl,
+            TransactionManager transactionManager,
             Session session,
             TableProceduresRegistry tableProceduresRegistry,
+            TableFunctionRegistry tableFunctionRegistry,
             SessionPropertyManager sessionPropertyManager,
             TablePropertyManager tablePropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
@@ -363,8 +406,10 @@ class StatementAnalyzer
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.session = requireNonNull(session, "session is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
+        this.tableFunctionRegistry = requireNonNull(tableFunctionRegistry, "tableFunctionRegistry is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
@@ -743,10 +788,12 @@ class StatementAnalyzer
             analysis.setUpdateType("ANALYZE");
             analysis.setUpdateTarget(tableName, Optional.empty(), Optional.empty());
 
-            // verify the target table exists and it's not a view
             if (metadata.isView(session, tableName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
+
+            TableHandle tableHandle = metadata.getTableHandle(session, tableName)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
 
             validateProperties(node.getProperties(), scope);
             CatalogName catalogName = getRequiredCatalogHandle(metadata, session, node, tableName.getCatalogName());
@@ -759,8 +806,8 @@ class StatementAnalyzer
                     accessControl,
                     analysis.getParameters(),
                     true);
-            TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
-                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
+
+            analysis.setAnalyzeMetadata(metadata.getStatisticsCollectionMetadata(session, tableHandle, analyzeProperties));
 
             // user must have read and insert permission in order to analyze stats of a table
             analysis.addTableColumnReferences(
@@ -776,7 +823,6 @@ class StatementAnalyzer
                 throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName));
             }
 
-            analysis.setAnalyzeTarget(tableHandle);
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
 
@@ -1096,6 +1142,7 @@ class StatementAnalyzer
                             tableProperties)
                             .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on table '%s'", procedureName, tableName));
 
+            analysis.setTableExecuteReadsData(procedureMetadata.getExecutionMode().isReadsData());
             analysis.setTableExecuteHandle(executeHandle);
 
             analysis.setUpdateType("ALTER TABLE EXECUTE");
@@ -1434,6 +1481,261 @@ class StatementAnalyzer
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
+        }
+
+        @Override
+        protected Scope visitTableFunctionInvocation(TableFunctionInvocation node, Optional<Scope> scope)
+        {
+            TableFunctionMetadata tableFunctionMetadata = resolveTableFunction(node)
+                    .orElseThrow(() -> semanticException(FUNCTION_NOT_FOUND, node, "Table function %s not registered", node.getName()));
+
+            ConnectorTableFunction function = tableFunctionMetadata.getFunction();
+            CatalogName catalogName = tableFunctionMetadata.getCatalogName();
+
+            Map<String, Argument> passedArguments = analyzeArguments(node, function.getArguments(), node.getArguments());
+
+            // a call to getRequiredCatalogHandle() is necessary so that the catalog is recorded by the TransactionManager
+            ConnectorTransactionHandle transactionHandle = transactionManager.getConnectorTransaction(session.getRequiredTransactionId(), catalogName);
+            TableFunctionAnalysis functionAnalysis = function.analyze(session.toConnectorSession(catalogName), transactionHandle, passedArguments);
+            analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(catalogName, function.getName(), passedArguments, functionAnalysis.getHandle(), transactionHandle));
+
+            // TODO handle the DescriptorMapping descriptorsToTables mapping from the TableFunction.Analysis:
+            // This is a mapping of descriptor arguments to table arguments. It consists of two parts:
+            // - mapping by descriptor field: (arg name of descriptor argument, and position in the descriptor) to (arg name of table argument)
+            // - mapping by descriptor: (arg name of descriptor argument) to (arg name of table argument)
+            // 1. get the DescriptorField from the designated DescriptorArgument (or all fields for mapping by descriptor)
+            // 2. validate there is no DataType specified,
+            // 3. analyze the Identifier in the scope of the designated table (it is recorded, because args were already analyzed). Disable correlation.
+            // 4. at this point, the Identifier should be recorded as a column reference to the appropriate table
+            // 5. record the mapping NameAndPosition -> Identifier
+            // ... later translate Identifier to Symbol in Planner, and eventually translate it to channel before execution
+            if (!functionAnalysis.getDescriptorMapping().isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "Table arguments are not yet supported for table functions");
+            }
+
+            // TODO process the copartitioning:
+            // 1. validate input table references
+            // 2. the copartitioned tables in each set must be partitioned, and have the same number of partitioning columns
+            // 3. the corresponding columns must be comparable
+            // 4. within a set, determine and record coercions of the corresponding columns to a common supertype
+            // Note that if a table is part of multiple copartitioning sets, it might require a different coercion for a column
+            // per each set. Additionally, there might be another coercion required by the Table Function logic. Also, since
+            // all partitioning columns are passed-through, we also need an un-coerced copy.
+            // See ExpressionAnalyzer.sortKeyCoercionsForFrameBoundCalculation for multiple coercions on a column.
+            if (!node.getCopartitioning().isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "COPARTITION clause is not yet supported for table functions");
+            }
+
+            // determine the result relation type.
+            // The result relation type of a table function consists of:
+            // 1. passed columns from input tables:
+            // - for tables with the "pass through columns" option, these are all columns of the table,
+            // - for tables without the "pass through columns" option, these are the partitioning columns of the table, if any.
+            // 2. columns created by the table function, called the proper columns.
+            ReturnTypeSpecification returnTypeSpecification = function.getReturnTypeSpecification();
+            Optional<Descriptor> analyzedProperColumnsDescriptor = functionAnalysis.getReturnedType();
+            Descriptor properColumnsDescriptor;
+            if (returnTypeSpecification == ONLY_PASS_THROUGH) {
+                // this option is only allowed if there are input tables
+                throw semanticException(NOT_SUPPORTED, node, "Returning only pass through columns is not yet supported for table functions");
+            }
+            if (returnTypeSpecification == GENERIC_TABLE) {
+                properColumnsDescriptor = analyzedProperColumnsDescriptor
+                        .orElseThrow(() -> semanticException(MISSING_RETURN_TYPE, node, "Cannot determine returned relation type for table function " + node.getName()));
+            }
+            else {
+                // returned type is statically declared at function declaration and cannot be overridden
+                if (analyzedProperColumnsDescriptor.isPresent()) {
+                    throw semanticException(AMBIGUOUS_RETURN_TYPE, node, "Returned relation type for table function %s is ambiguous", node.getName());
+                }
+                properColumnsDescriptor = ((DescribedTable) returnTypeSpecification).getDescriptor();
+            }
+
+            // currently we don't support input tables, so the output consists of proper columns only
+            List<Field> fields = properColumnsDescriptor.getFields().stream()
+                    // per spec, field names are mandatory
+                    .map(field -> Field.newUnqualified(field.getName(), field.getType().orElseThrow(() -> new IllegalStateException("missing returned type for proper field"))))
+                    .collect(toImmutableList());
+
+            return createAndAssignScope(node, scope, fields);
+        }
+
+        private Optional<TableFunctionMetadata> resolveTableFunction(TableFunctionInvocation node)
+        {
+            for (CatalogSchemaFunctionName name : toPath(session, node.getName())) {
+                CatalogName catalogName = new CatalogName(name.getCatalogName());
+                Optional<ConnectorTableFunction> resolved = tableFunctionRegistry.resolve(catalogName, name.getSchemaFunctionName());
+                if (resolved.isPresent()) {
+                    accessControl.checkCanExecuteFunction(SecurityContext.of(session), FunctionKind.TABLE, new QualifiedObjectName(
+                            name.getCatalogName(),
+                            name.getSchemaFunctionName().getSchemaName(),
+                            name.getSchemaFunctionName().getFunctionName()));
+                    return Optional.of(new TableFunctionMetadata(catalogName, resolved.get()));
+                }
+            } return Optional.empty();
+        }
+
+        private Map<String, Argument> analyzeArguments(Node node, List<ArgumentSpecification> argumentSpecifications, List<TableFunctionArgument> arguments)
+        {
+            Node errorLocation = node;
+            if (!arguments.isEmpty()) {
+                errorLocation = arguments.get(0);
+            }
+
+            if (argumentSpecifications.size() < arguments.size()) {
+                throw semanticException(INVALID_ARGUMENTS, errorLocation, "Too many arguments. Expected at most %s arguments, got %s arguments", argumentSpecifications.size(), arguments.size());
+            }
+
+            if (argumentSpecifications.isEmpty()) {
+                return ImmutableMap.of();
+            }
+
+            boolean argumentsPassedByName = !arguments.isEmpty() && arguments.stream().allMatch(argument -> argument.getName().isPresent());
+            boolean argumentsPassedByPosition = arguments.stream().allMatch(argument -> argument.getName().isEmpty());
+            if (!argumentsPassedByName && !argumentsPassedByPosition) {
+                throw semanticException(INVALID_ARGUMENTS, errorLocation, "All arguments must be passed by name or all must be passed positionally");
+            }
+
+            ImmutableMap.Builder<String, Argument> passedArguments = ImmutableMap.builder();
+            if (argumentsPassedByName) {
+                Map<String, ArgumentSpecification> argumentSpecificationsByName = new HashMap<>();
+                for (ArgumentSpecification argumentSpecification : argumentSpecifications) {
+                    if (argumentSpecificationsByName.put(argumentSpecification.getName(), argumentSpecification) != null) {
+                        throw new IllegalStateException("Duplicate argument specification for name: " + argumentSpecification.getName());
+                    }
+                }
+                Set<String> uniqueArgumentNames = new HashSet<>();
+                for (TableFunctionArgument argument : arguments) {
+                    String argumentName = argument.getName().get().getCanonicalValue();
+                    if (!uniqueArgumentNames.add(argumentName)) {
+                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: " + argumentName);
+                    }
+                    ArgumentSpecification argumentSpecification = argumentSpecificationsByName.remove(argumentName);
+                    if (argumentSpecification == null) {
+                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected argument name: " + argumentName);
+                    }
+                    passedArguments.put(argumentSpecification.getName(), analyzeArgument(argumentSpecification, argument));
+                }
+                // apply defaults for not specified arguments
+                for (Map.Entry<String, ArgumentSpecification> entry : argumentSpecificationsByName.entrySet()) {
+                    ArgumentSpecification argumentSpecification = entry.getValue();
+                    passedArguments.put(argumentSpecification.getName(), analyzeDefault(argumentSpecification, errorLocation));
+                }
+            }
+            else {
+                for (int i = 0; i < arguments.size(); i++) {
+                    TableFunctionArgument argument = arguments.get(i);
+                    ArgumentSpecification argumentSpecification = argumentSpecifications.get(i); // TODO args passed positionally - can one only pass some prefix of args?
+                    passedArguments.put(argumentSpecification.getName(), analyzeArgument(argumentSpecification, argument));
+                }
+                // apply defaults for not specified arguments
+                for (int i = arguments.size(); i < argumentSpecifications.size(); i++) {
+                    ArgumentSpecification argumentSpecification = argumentSpecifications.get(i);
+                    passedArguments.put(argumentSpecification.getName(), analyzeDefault(argumentSpecification, errorLocation));
+                }
+            }
+
+            return passedArguments.buildOrThrow();
+        }
+
+        private Argument analyzeArgument(ArgumentSpecification argumentSpecification, TableFunctionArgument argument)
+        {
+            String actualType;
+            if (argument.getValue() instanceof Relation) {
+                actualType = "table";
+            }
+            else if (argument.getValue() instanceof DescriptorArgument) {
+                actualType = "descriptor";
+            }
+            else if (argument.getValue() instanceof Expression) {
+                actualType = "expression";
+            }
+            else {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected table function argument type: " + argument.getClass().getSimpleName());
+            }
+
+            if (argumentSpecification instanceof TableArgumentSpecification) {
+                if (!(argument.getValue() instanceof Relation)) {
+                    if (argument.getValue() instanceof FunctionCall) {
+                        // probably an attempt to pass a table function call, which is not supported, and was parsed as a function call
+                        throw semanticException(NOT_SUPPORTED, argument, "Invalid table argument %s. Table functions are not allowed as table function arguments", argumentSpecification.getName());
+                    }
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected table, got %s", argumentSpecification.getName(), actualType);
+                }
+                // TODO analyze the argument
+                // 1. process the Relation
+                // 2. partitioning and ordering must only apply to tables with set semantics
+                // 3. validate partitioning and ordering using `validateAndGetInputField()`
+                // 4. validate the prune when empty property vs argument specification (forbidden for row semantics; override? -> check spec)
+                // 5. return Argument
+                throw semanticException(NOT_SUPPORTED, argument, "Table arguments are not yet supported for table functions");
+            }
+            if (argumentSpecification instanceof DescriptorArgumentSpecification) {
+                if (!(argument.getValue() instanceof DescriptorArgument)) {
+                    if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
+                        // malformed descriptor which parsed as a function call
+                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid descriptor argument %s. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'", argumentSpecification.getName());
+                    }
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected descriptor, got %s", argumentSpecification.getName(), actualType);
+                }
+                throw semanticException(NOT_SUPPORTED, argument, "Descriptor arguments are not yet supported for table functions");
+            }
+            if (argumentSpecification instanceof ScalarArgumentSpecification) {
+                if (!(argument.getValue() instanceof Expression)) {
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected expression, got %s", argumentSpecification.getName(), actualType);
+                }
+                Expression expression = (Expression) argument.getValue();
+                // 'descriptor' as a function name is not allowed in this context
+                if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "'descriptor' function is not allowed as a table function argument");
+                }
+                // inline parameters
+                Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
+                {
+                    @Override
+                    public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                    {
+                        if (analysis.isDescribe()) {
+                            // We cannot handle DESCRIBE when a table function argument involves a parameter.
+                            // In DESCRIBE, the parameter values are not known. We cannot pass a dummy value for a parameter.
+                            // The value of a table function argument can affect the returned relation type. The returned
+                            // relation type can affect the assumed types for other parameters in the query.
+                            throw semanticException(NOT_SUPPORTED, node, "DESCRIBE is not supported if a table function uses parameters");
+                        }
+                        return analysis.getParameters().get(NodeRef.of(node));
+                    }
+                }, expression);
+                Type expectedArgumentType = ((ScalarArgumentSpecification) argumentSpecification).getType();
+                // currently, only constant arguments are supported
+                Object constantValue = ExpressionInterpreter.evaluateConstantExpression(inlined, expectedArgumentType, plannerContext, session, accessControl, analysis.getParameters());
+                return ScalarArgument.builder()
+                        .type(expectedArgumentType)
+                        .value(constantValue)
+                        .build();
+            }
+
+            throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
+        }
+
+        private Argument analyzeDefault(ArgumentSpecification argumentSpecification, Node errorLocation)
+        {
+            if (argumentSpecification.isRequired()) {
+                throw semanticException(MISSING_ARGUMENT, errorLocation, "Missing argument: " + argumentSpecification.getName());
+            }
+
+            checkArgument(!(argumentSpecification instanceof TableArgumentSpecification), "invalid table argument specification: default set");
+
+            if (argumentSpecification instanceof DescriptorArgumentSpecification) {
+                throw semanticException(NOT_SUPPORTED, errorLocation, "Descriptor arguments are not yet supported for table functions");
+            }
+            if (argumentSpecification instanceof ScalarArgumentSpecification) {
+                return ScalarArgument.builder()
+                        .type(((ScalarArgumentSpecification) argumentSpecification).getType())
+                        .value(argumentSpecification.getDefaultValue())
+                        .build();
+            }
+
+            throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
         }
 
         private Optional<QualifiedName> getMaterializedViewStorageTableName(MaterializedViewDefinition viewDefinition)
@@ -2103,15 +2405,7 @@ class StatementAnalyzer
                 throw semanticException(INVALID_ARGUMENTS, samplePercentage, "Sample percentage cannot be NULL");
             }
 
-            if (samplePercentageType != DOUBLE) {
-                ResolvedFunction coercion = metadata.getCoercion(session, samplePercentageType, DOUBLE);
-                InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
-                samplePercentageObject = functionInvoker.invoke(coercion, session.toConnectorSession(), samplePercentageObject);
-                verify(samplePercentageObject != null, "Coercion from %s to %s returned null", samplePercentageType, DOUBLE);
-            }
-
-            double samplePercentageValue = (double) samplePercentageObject;
-
+            double samplePercentageValue = (double) coerce(samplePercentageType, samplePercentageObject, DOUBLE);
             if (samplePercentageValue < 0.0) {
                 throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, samplePercentage, "Sample percentage must be greater than or equal to 0");
             }
@@ -2212,7 +2506,7 @@ class StatementAnalyzer
             if (analysis.isAggregation(node) && node.getOrderBy().isPresent()) {
                 ImmutableList.Builder<Expression> aggregates = ImmutableList.<Expression>builder()
                         .addAll(groupByAnalysis.getOriginalExpressions())
-                        .addAll(extractAggregateFunctions(orderByExpressions, metadata))
+                        .addAll(extractAggregateFunctions(orderByExpressions, session, metadata))
                         .addAll(extractExpressions(orderByExpressions, GroupingOperation.class));
 
                 analysis.setOrderByAggregates(node.getOrderBy().get(), aggregates.build());
@@ -2373,7 +2667,7 @@ class StatementAnalyzer
             }
             if (criteria instanceof JoinOn) {
                 Expression expression = ((JoinOn) criteria).getExpression();
-                verifyNoAggregateWindowOrGroupingFunctions(metadata, expression, "JOIN clause");
+                verifyNoAggregateWindowOrGroupingFunctions(session, metadata, expression, "JOIN clause");
 
                 // Need to register coercions in case when join criteria requires coercion (e.g. join on char(1) = char(2))
                 // Correlations are only currently support in the join criteria for INNER joins
@@ -2821,7 +3115,7 @@ class StatementAnalyzer
         private List<FunctionCall> analyzeWindowFunctions(QuerySpecification node, List<Expression> expressions)
         {
             for (Expression expression : expressions) {
-                new WindowFunctionValidator(metadata).process(expression, analysis);
+                new WindowFunctionValidator(session, metadata).process(expression, analysis);
             }
 
             List<FunctionCall> windowFunctions = extractWindowFunctions(expressions);
@@ -2864,7 +3158,7 @@ class StatementAnalyzer
                 List<Type> argumentTypes = mappedCopy(windowFunction.getArguments(), analysis::getType);
 
                 ResolvedFunction resolvedFunction = metadata.resolveFunction(session, windowFunction.getName(), fromTypes(argumentTypes));
-                FunctionKind kind = metadata.getFunctionMetadata(resolvedFunction).getKind();
+                FunctionKind kind = metadata.getFunctionMetadata(session, resolvedFunction).getKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
                     throw semanticException(FUNCTION_NOT_WINDOW, node, "Not a window function: %s", windowFunction.getName());
                 }
@@ -2955,10 +3249,10 @@ class StatementAnalyzer
                                 }
 
                                 column = outputExpressions.get(toIntExact(ordinal - 1));
-                                verifyNoAggregateWindowOrGroupingFunctions(metadata, column, "GROUP BY clause");
+                                verifyNoAggregateWindowOrGroupingFunctions(session, metadata, column, "GROUP BY clause");
                             }
                             else {
-                                verifyNoAggregateWindowOrGroupingFunctions(metadata, column, "GROUP BY clause");
+                                verifyNoAggregateWindowOrGroupingFunctions(session, metadata, column, "GROUP BY clause");
                                 analyzeExpression(column, scope);
                             }
 
@@ -3046,7 +3340,7 @@ class StatementAnalyzer
                     .addAll(getSortItemsFromOrderBy(node.getOrderBy()))
                     .build();
 
-            List<FunctionCall> aggregates = extractAggregateFunctions(toExtract, metadata);
+            List<FunctionCall> aggregates = extractAggregateFunctions(toExtract, session, metadata);
 
             return !aggregates.isEmpty();
         }
@@ -3379,7 +3673,7 @@ class StatementAnalyzer
 
         private void analyzeWhere(Node node, Scope scope, Expression predicate)
         {
-            verifyNoAggregateWindowOrGroupingFunctions(metadata, predicate, "WHERE clause");
+            verifyNoAggregateWindowOrGroupingFunctions(session, metadata, predicate, "WHERE clause");
 
             ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
             analysis.recordSubqueries(node, expressionAnalysis);
@@ -3432,7 +3726,7 @@ class StatementAnalyzer
         {
             checkState(orderByExpressions.isEmpty() || orderByScope.isPresent(), "non-empty orderByExpressions list without orderByScope provided");
 
-            List<FunctionCall> aggregates = extractAggregateFunctions(Iterables.concat(outputExpressions, orderByExpressions), metadata);
+            List<FunctionCall> aggregates = extractAggregateFunctions(Iterables.concat(outputExpressions, orderByExpressions), session, metadata);
             analysis.setAggregates(node, aggregates);
 
             if (analysis.isAggregation(node)) {
@@ -3444,11 +3738,11 @@ class StatementAnalyzer
                 List<Expression> distinctGroupingColumns = ImmutableSet.copyOf(groupByAnalysis.getOriginalExpressions()).asList();
 
                 for (Expression expression : outputExpressions) {
-                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis);
+                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, session, metadata, analysis);
                 }
 
                 for (Expression expression : orderByExpressions) {
-                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.orElseThrow(), expression, metadata, analysis);
+                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.orElseThrow(), expression, session, metadata, analysis);
                 }
             }
         }
@@ -3592,7 +3886,7 @@ class StatementAnalyzer
 
             analysis.registerTableForRowFiltering(name, currentIdentity);
 
-            verifyNoAggregateWindowOrGroupingFunctions(metadata, expression, format("Row filter for '%s'", name));
+            verifyNoAggregateWindowOrGroupingFunctions(session, metadata, expression, format("Row filter for '%s'", name));
 
             ExpressionAnalysis expressionAnalysis;
             try {
@@ -3648,7 +3942,7 @@ class StatementAnalyzer
             ExpressionAnalysis expressionAnalysis;
             analysis.registerTableForColumnMasking(tableName, column, currentIdentity);
 
-            verifyNoAggregateWindowOrGroupingFunctions(metadata, expression, format("Column mask for '%s.%s'", table.getName(), column));
+            verifyNoAggregateWindowOrGroupingFunctions(session, metadata, expression, format("Column mask for '%s.%s'", table.getName(), column));
 
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
@@ -4275,8 +4569,8 @@ class StatementAnalyzer
         private RedirectionAwareTableHandle getTableHandle(Table table, QualifiedObjectName name, Optional<Scope> scope)
         {
             if (table.getQueryPeriod().isPresent()) {
-                Optional<TableVersion> startVersion = extractTableVersion(table, name, table.getQueryPeriod().get().getStart(), scope);
-                Optional<TableVersion> endVersion = extractTableVersion(table, name, table.getQueryPeriod().get().getEnd(), scope);
+                Optional<TableVersion> startVersion = extractTableVersion(table, table.getQueryPeriod().get().getStart(), scope);
+                Optional<TableVersion> endVersion = extractTableVersion(table, table.getQueryPeriod().get().getEnd(), scope);
                 return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion);
             }
             return metadata.getRedirectionAwareTableHandle(session, name);
@@ -4285,7 +4579,7 @@ class StatementAnalyzer
         /**
          * Analyzes the version pointer in a query period and extracts an evaluated version value
          */
-        private Optional<TableVersion> extractTableVersion(Table table, QualifiedObjectName tableName, Optional<Expression> version, Optional<Scope> scope)
+        private Optional<TableVersion> extractTableVersion(Table table, Optional<Expression> version, Optional<Scope> scope)
         {
             Optional<TableVersion> tableVersion = Optional.empty();
             if (version.isEmpty()) {
@@ -4297,36 +4591,51 @@ class StatementAnalyzer
             // Once the range value is analyzed, we can evaluate it
             Type versionType = expressionAnalysis.getType(version.get());
             PointerType pointerType = toPointerType(table.getQueryPeriod().get().getRangeType());
+            if (versionType == UNKNOWN) {
+                throw semanticException(INVALID_ARGUMENTS, table.getQueryPeriod().get(), "Pointer value cannot be NULL");
+            }
             Object evaluatedVersion = evaluateConstantExpression(version.get(), versionType, plannerContext, session, accessControl, ImmutableMap.of());
             TableVersion extractedVersion = new TableVersion(pointerType, versionType, evaluatedVersion);
-
-            // Before checking if the connector supports the version type, verify that version is a valid time-based type
-            if (extractedVersion.getPointerType() == PointerType.TEMPORAL) {
-                if (!isValidTemporalType(extractedVersion.getObjectType())) {
-                    throw semanticException(
-                            TYPE_MISMATCH,
-                            table.getQueryPeriod().get(),
-                            format(
-                                    "Type %s invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.",
-                                    extractedVersion.getObjectType().getDisplayName()));
-                }
-            }
-
-            if (!metadata.isValidTableVersion(session, tableName, extractedVersion)) {
-                throw semanticException(
-                        TYPE_MISMATCH,
-                        table.getQueryPeriod().get(),
-                        format("Type %s not supported by this connector.", extractedVersion.getObjectType().getDisplayName()));
-            }
-
+            validateVersionPointer(table.getQueryPeriod().get(), extractedVersion);
             return Optional.of(extractedVersion);
         }
 
-        private boolean isValidTemporalType(Type type)
+        private void validateVersionPointer(QueryPeriod queryPeriod, TableVersion extractedVersion)
         {
-            return (type instanceof TimestampWithTimeZoneType ||
-                    type instanceof TimestampType ||
-                    type instanceof DateType);
+            Type type = extractedVersion.getObjectType();
+            Object pointer = extractedVersion.getPointer();
+            if (extractedVersion.getPointerType() == PointerType.TEMPORAL) {
+                // Before checking if the connector supports the version type, verify that version is a valid time-based type
+                if (!(type instanceof TimestampWithTimeZoneType ||
+                        type instanceof TimestampType ||
+                        type instanceof DateType)) {
+                    throw semanticException(TYPE_MISMATCH, queryPeriod, format(
+                            "Type %s invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.",
+                            type.getDisplayName()));
+                }
+                if (pointer == null) {
+                    throw semanticException(INVALID_ARGUMENTS, queryPeriod, "Pointer value cannot be NULL");
+                }
+                Instant pointerInstant = getInstantWithRoundUp((LongTimestampWithTimeZone) coerce(type, pointer, createTimestampWithTimeZoneType(TimestampWithTimeZoneType.MAX_PRECISION)));
+                if (!pointerInstant.isBefore(session.getStart())) {
+                    String varchar = ((Slice) coerce(type, pointer, createUnboundedVarcharType())).toStringUtf8();
+                    throw semanticException(
+                            INVALID_ARGUMENTS,
+                            queryPeriod,
+                            format("Pointer value '%s' is not in the past", varchar));
+                }
+            }
+            else {
+                if (pointer == null) {
+                    throw semanticException(INVALID_ARGUMENTS, queryPeriod, "Pointer value cannot be NULL");
+                }
+            }
+        }
+
+        private Instant getInstantWithRoundUp(LongTimestampWithTimeZone value)
+        {
+            return Instant.ofEpochMilli(value.getEpochMillis())
+                    .plus(IntMath.divide(value.getPicosOfMilli(), PICOSECONDS_PER_NANOSECOND, RoundingMode.CEILING), ChronoUnit.NANOS);
         }
 
         private PointerType toPointerType(QueryPeriod.RangeType type)
@@ -4338,6 +4647,16 @@ class StatementAnalyzer
                     return PointerType.TARGET_ID;
             }
             throw new UnsupportedOperationException("Unsupported range type: " + type);
+        }
+
+        private Object coerce(Type sourceType, Object value, Type targetType)
+        {
+            if (sourceType.equals(targetType)) {
+                return value;
+            }
+            ResolvedFunction coercion = metadata.getCoercion(session, sourceType, targetType);
+            InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
+            return functionInvoker.invoke(coercion, session.toConnectorSession(), value);
         }
     }
 

@@ -20,7 +20,6 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.execution.Lifespan;
 import io.trino.execution.TaskId;
 import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.MemoryTrackingContext;
@@ -77,7 +76,6 @@ public class DriverContext
     private final DriverYieldSignal yieldSignal;
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
-    private final Lifespan lifespan;
     private final long splitWeight;
 
     public DriverContext(
@@ -85,14 +83,12 @@ public class DriverContext
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             MemoryTrackingContext driverMemoryContext,
-            Lifespan lifespan,
             long splitWeight)
     {
         this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.driverMemoryContext = requireNonNull(driverMemoryContext, "driverMemoryContext is null");
-        this.lifespan = requireNonNull(lifespan, "lifespan is null");
         this.yieldSignal = new DriverYieldSignal();
         this.splitWeight = splitWeight;
         checkArgument(splitWeight >= 0, "splitWeight must be >= 0, found: %s", splitWeight);
@@ -331,7 +327,6 @@ public class DriverContext
 
         DataSize internalNetworkInputDataSize;
         long internalNetworkInputPositions;
-        Duration internalNetworkInputReadTime;
 
         DataSize rawInputDataSize;
         long rawInputPositions;
@@ -339,16 +334,17 @@ public class DriverContext
 
         DataSize processedInputDataSize;
         long processedInputPositions;
+        Duration inputBlockedTime;
         DataSize outputDataSize;
         long outputPositions;
+        Duration outputBlockedTime;
         if (inputOperator != null) {
             physicalInputDataSize = inputOperator.getPhysicalInputDataSize();
             physicalInputPositions = inputOperator.getPhysicalInputPositions();
-            physicalInputReadTime = inputOperator.getAddInputWall();
+            physicalInputReadTime = inputOperator.getPhysicalInputReadTime();
 
             internalNetworkInputDataSize = inputOperator.getInternalNetworkInputDataSize();
             internalNetworkInputPositions = inputOperator.getInternalNetworkInputPositions();
-            internalNetworkInputReadTime = inputOperator.getAddInputWall();
 
             rawInputDataSize = inputOperator.getRawInputDataSize();
             rawInputPositions = inputOperator.getInputPositions();
@@ -357,9 +353,13 @@ public class DriverContext
             processedInputDataSize = inputOperator.getInputDataSize();
             processedInputPositions = inputOperator.getInputPositions();
 
+            inputBlockedTime = inputOperator.getBlockedWall();
+
             OperatorStats outputOperator = requireNonNull(getLast(operators, null));
             outputDataSize = outputOperator.getOutputDataSize();
             outputPositions = outputOperator.getOutputPositions();
+
+            outputBlockedTime = outputOperator.getBlockedWall();
         }
         else {
             physicalInputDataSize = DataSize.ofBytes(0);
@@ -368,7 +368,6 @@ public class DriverContext
 
             internalNetworkInputDataSize = DataSize.ofBytes(0);
             internalNetworkInputPositions = 0;
-            internalNetworkInputReadTime = new Duration(0, MILLISECONDS);
 
             rawInputDataSize = DataSize.ofBytes(0);
             rawInputPositions = 0;
@@ -377,8 +376,12 @@ public class DriverContext
             processedInputDataSize = DataSize.ofBytes(0);
             processedInputPositions = 0;
 
+            inputBlockedTime = new Duration(0, MILLISECONDS);
+
             outputDataSize = DataSize.ofBytes(0);
             outputPositions = 0;
+
+            outputBlockedTime = new Duration(0, MILLISECONDS);
         }
 
         ImmutableSet.Builder<BlockedReason> builder = ImmutableSet.builder();
@@ -391,7 +394,6 @@ public class DriverContext
         }
 
         return new DriverStats(
-                lifespan,
                 createdTime,
                 executionStartTime,
                 executionEndTime,
@@ -409,14 +411,15 @@ public class DriverContext
                 physicalInputReadTime,
                 internalNetworkInputDataSize.succinct(),
                 internalNetworkInputPositions,
-                internalNetworkInputReadTime,
                 rawInputDataSize.succinct(),
                 rawInputPositions,
                 rawInputReadTime,
                 processedInputDataSize.succinct(),
                 processedInputPositions,
+                inputBlockedTime,
                 outputDataSize.succinct(),
                 outputPositions,
+                outputBlockedTime,
                 succinctBytes(physicalWrittenDataSize),
                 operators);
     }
@@ -431,11 +434,6 @@ public class DriverContext
         return operatorContexts.stream()
                 .map(operatorContext -> operatorContext.accept(visitor, context))
                 .collect(toList());
-    }
-
-    public Lifespan getLifespan()
-    {
-        return lifespan;
     }
 
     public ScheduledExecutorService getYieldExecutor()

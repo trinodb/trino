@@ -36,11 +36,8 @@ public class TestFeaturesConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(FeaturesConfig.class)
-                .setGroupedExecutionEnabled(false)
-                .setDynamicScheduleForGroupedExecutionEnabled(false)
-                .setConcurrentLifespansPerTask(0)
                 .setRedistributeWrites(true)
-                .setScaleWriters(false)
+                .setScaleWriters(true)
                 .setWriterMinSize(DataSize.of(32, MEGABYTE))
                 .setRegexLibrary(JONI)
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
@@ -66,18 +63,16 @@ public class TestFeaturesConfig
                 .setLegacyCatalogRoles(false)
                 .setIncrementalHashArrayLoadFactorEnabled(true)
                 .setHideInaccessibleColumns(false)
-                .setAllowSetViewAuthorization(false));
+                .setAllowSetViewAuthorization(false)
+                .setForceSpillingJoin(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("grouped-execution-enabled", "true")
-                .put("dynamic-schedule-for-grouped-execution", "true")
-                .put("concurrent-lifespans-per-task", "1")
                 .put("redistribute-writes", "false")
-                .put("scale-writers", "true")
+                .put("scale-writers", "false")
                 .put("writer-min-size", "42GB")
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
@@ -104,14 +99,12 @@ public class TestFeaturesConfig
                 .put("incremental-hash-array-load-factor.enabled", "false")
                 .put("hide-inaccessible-columns", "true")
                 .put("legacy.allow-set-view-authorization", "true")
+                .put("force-spilling-join-operator", "true")
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
-                .setGroupedExecutionEnabled(true)
-                .setDynamicScheduleForGroupedExecutionEnabled(true)
-                .setConcurrentLifespansPerTask(1)
                 .setRedistributeWrites(false)
-                .setScaleWriters(true)
+                .setScaleWriters(false)
                 .setWriterMinSize(DataSize.of(42, GIGABYTE))
                 .setRegexLibrary(RE2J)
                 .setRe2JDfaStatesLimit(42)
@@ -137,7 +130,8 @@ public class TestFeaturesConfig
                 .setLegacyCatalogRoles(true)
                 .setIncrementalHashArrayLoadFactorEnabled(false)
                 .setHideInaccessibleColumns(true)
-                .setAllowSetViewAuthorization(true);
+                .setAllowSetViewAuthorization(true)
+                .setForceSpillingJoin(true);
         assertFullMapping(properties, expected);
     }
 }

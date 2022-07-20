@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
@@ -241,7 +240,7 @@ public class IndexLoader
 
         PageRecordSet pageRecordSet = new PageRecordSet(keyTypes, indexKeyTuple);
         PlanNodeId planNodeId = driverFactory.getSourceId().get();
-        ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(pageRecordSet), Lifespan.taskWide()));
+        ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(pageRecordSet)));
         driver.updateSplitAssignment(new SplitAssignment(planNodeId, ImmutableSet.of(split), true));
 
         return new StreamingIndexedData(outputTypes, keyEqualOperators, indexKeyTuple, pageBuffer, driver);
@@ -337,10 +336,10 @@ public class IndexLoader
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
             try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
                 PlanNodeId sourcePlanNodeId = driverFactory.getSourceId().get();
-                ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(recordSetForLookupSource), Lifespan.taskWide()));
+                ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(recordSetForLookupSource)));
                 driver.updateSplitAssignment(new SplitAssignment(sourcePlanNodeId, ImmutableSet.of(split), true));
                 while (!driver.isFinished()) {
-                    ListenableFuture<Void> process = driver.process();
+                    ListenableFuture<Void> process = driver.processUntilBlocked();
                     checkState(process.isDone(), "Driver should never block");
                 }
             }

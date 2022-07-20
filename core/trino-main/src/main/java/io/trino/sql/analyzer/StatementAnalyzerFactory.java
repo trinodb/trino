@@ -15,9 +15,11 @@ package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
@@ -25,6 +27,8 @@ import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
+import io.trino.transaction.NoOpTransactionManager;
+import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
@@ -35,8 +39,10 @@ public class StatementAnalyzerFactory
     private final PlannerContext plannerContext;
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
+    private final TransactionManager transactionManager;
     private final GroupProvider groupProvider;
     private final TableProceduresRegistry tableProceduresRegistry;
+    private final TableFunctionRegistry tableFunctionRegistry;
     private final SessionPropertyManager sessionPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
@@ -47,8 +53,10 @@ public class StatementAnalyzerFactory
             PlannerContext plannerContext,
             SqlParser sqlParser,
             AccessControl accessControl,
+            TransactionManager transactionManager,
             GroupProvider groupProvider,
             TableProceduresRegistry tableProceduresRegistry,
+            TableFunctionRegistry tableFunctionRegistry,
             SessionPropertyManager sessionPropertyManager,
             TablePropertyManager tablePropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
@@ -57,8 +65,10 @@ public class StatementAnalyzerFactory
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
+        this.tableFunctionRegistry = requireNonNull(tableFunctionRegistry, "tableFunctionRegistry is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
@@ -71,8 +81,10 @@ public class StatementAnalyzerFactory
                 plannerContext,
                 sqlParser,
                 accessControl,
+                transactionManager,
                 groupProvider,
                 tableProceduresRegistry,
+                tableFunctionRegistry,
                 sessionPropertyManager,
                 tablePropertyManager,
                 analyzePropertyManager,
@@ -92,8 +104,10 @@ public class StatementAnalyzerFactory
                 sqlParser,
                 groupProvider,
                 accessControl,
+                transactionManager,
                 session,
                 tableProceduresRegistry,
+                tableFunctionRegistry,
                 sessionPropertyManager,
                 tablePropertyManager,
                 analyzePropertyManager,
@@ -112,11 +126,13 @@ public class StatementAnalyzerFactory
                 plannerContext,
                 new SqlParser(),
                 accessControl,
+                new NoOpTransactionManager(),
                 user -> ImmutableSet.of(),
-                new TableProceduresRegistry(),
+                new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")),
+                new TableFunctionRegistry(CatalogServiceProvider.fail("table functions are not supported in testing analyzer")),
                 new SessionPropertyManager(),
                 tablePropertyManager,
                 analyzePropertyManager,
-                new TableProceduresPropertyManager());
+                new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")));
     }
 }

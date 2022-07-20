@@ -243,7 +243,7 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("UInt8", "0", SMALLINT, "SMALLINT '0'") // min value in ClickHouse
                 .addRoundTrip("UInt8", "255", SMALLINT, "SMALLINT '255'") // max value in ClickHouse
                 .addRoundTrip("Nullable(UInt8)", "NULL", SMALLINT, "CAST(null AS SMALLINT)")
-                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_uint8"));
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_uint8"));
     }
 
     @Test
@@ -279,7 +279,7 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("UInt16", "0", INTEGER, "0") // min value in ClickHouse
                 .addRoundTrip("UInt16", "65535", INTEGER, "65535") // max value in ClickHouse
                 .addRoundTrip("Nullable(UInt16)", "NULL", INTEGER, "CAST(null AS INTEGER)")
-                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_uint16"));
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_uint16"));
     }
 
     @Test
@@ -315,7 +315,7 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("UInt32", "BIGINT '0'", BIGINT, "BIGINT '0'") // min value in ClickHouse
                 .addRoundTrip("UInt32", "BIGINT '4294967295'", BIGINT, "BIGINT '4294967295'") // max value in ClickHouse
                 .addRoundTrip("Nullable(UInt32)", "NULL", BIGINT, "CAST(null AS BIGINT)")
-                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_uint32"));
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_uint32"));
     }
 
     @Test
@@ -351,7 +351,7 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("UInt64", "CAST('0' AS decimal(20, 0))", createDecimalType(20), "CAST('0' AS decimal(20, 0))") // min value in ClickHouse
                 .addRoundTrip("UInt64", "CAST('18446744073709551615' AS decimal(20, 0))", createDecimalType(20), "CAST('18446744073709551615' AS decimal(20, 0))") // max value in ClickHouse
                 .addRoundTrip("Nullable(UInt64)", "NULL", createDecimalType(20), "CAST(null AS decimal(20, 0))")
-                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_uint64"));
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_uint64"));
     }
 
     @Test
@@ -625,12 +625,18 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
                 .addRoundTrip("date", "DATE '2106-02-07'", DATE, "DATE '2106-02-07'") // max value in ClickHouse
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
 
         // Null
         SqlDataTypeTest.create()
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
         SqlDataTypeTest.create()
                 .addRoundTrip("Nullable(date)", "NULL", DATE, "CAST(NULL AS DATE)")
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"));
@@ -663,8 +669,10 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
                 .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
                 .addRoundTrip("timestamp(0)", "timestamp '2105-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '2105-12-31 23:59:59'") // max value in ClickHouse
-                .execute(getQueryRunner(), session, trinoCreateAsSelect("tpch.test_timestamp"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert("tpch.test_timestamp"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
 
         addTimestampRoundTrips("timestamp")
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_timestamp"));
@@ -764,7 +772,7 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("IPv6", "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", IPADDRESS, "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'")
                 .addRoundTrip("Nullable(IPv4)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
                 .addRoundTrip("Nullable(IPv6)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
-                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_ip"));
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_ip"));
     }
 
     private static Session mapStringAsVarcharSession()
@@ -801,7 +809,7 @@ public class TestClickHouseTypeMapping
         return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(clickhouseServer::execute), tableNamePrefix);
     }
 
-    private DataSetup clickhouseCreateTrinoInsert(String tableNamePrefix)
+    private DataSetup clickhouseCreateAndTrinoInsert(String tableNamePrefix)
     {
         return new CreateAndTrinoInsertDataSetup(new ClickHouseSqlExecutor(clickhouseServer::execute), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }

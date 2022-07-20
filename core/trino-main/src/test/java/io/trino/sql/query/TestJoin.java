@@ -78,6 +78,40 @@ public class TestJoin
     }
 
     @Test
+    public void testJoinWithComplexCriteria()
+    {
+        // Test for https://github.com/trinodb/trino/issues/13145
+        // The issue happens because ReorderJoins evaluates candidates for equality inference
+        // based on one form of the join criteria (i.e., CAST(...) = CASE ... END)) and then
+        // attempts to make reformulate the join criteria based on another form of the expression
+        // with the terms flipped (i.e., CASE ... END = CAST(...)). Because NullabilityAnalyzer.mayReturnNullOnNonNullInput
+        // could return an inconsistent result for both forms, the expression ended being dropped
+        // from the join clause.
+        assertThat(assertions.query("" +
+                "WITH " +
+                "    t1 (id, v) as ( " +
+                "        VALUES " +
+                "            (1, 100), " +
+                "            (2, 200) " +
+                "    ), " +
+                "    t2 (id, x, y) AS ( " +
+                "        VALUES\n" +
+                "            (1, 10, 'a'), " +
+                "            (2, 10, 'b') " +
+                "    ), " +
+                "    t AS ( " +
+                "        SELECT " +
+                "            x " +
+                "            , IF(t1.v = 0, 'cc', y) as z " +
+                "        FROM t1 JOIN t2 ON (t1.id = t2.id) " +
+                "    ) " +
+                "SELECT * " +
+                "FROM t " +
+                "WHERE x = 10 AND z = 'b'"))
+                .matches("VALUES (10, CAST('b' AS varchar(2)))");
+    }
+
+    @Test
     public void testInPredicateInJoinCriteria()
     {
         // IN with subquery containing column references
@@ -224,5 +258,25 @@ public class TestJoin
                                                         values("y")),
                                                 values())
                                                 .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates)))));
+    }
+
+    @Test
+    public void testPredicateOverOuterJoin()
+    {
+        assertThat(assertions.query(
+                "SELECT 5 " +
+                        "FROM (VALUES (1,'foo')) l(l1, l2) " +
+                        "LEFT JOIN (VALUES (2,'bar')) r(r1, r2) " +
+                        "ON l2 = r2 " +
+                        "WHERE l1 >= COALESCE(r1, 0)"))
+                .matches("VALUES 5");
+
+        assertThat(assertions.query(
+                "SELECT 5 " +
+                        "FROM (VALUES (2,'foo')) l(l1, l2) " +
+                        "RIGHT JOIN (VALUES (1,'bar')) r(r1, r2) " +
+                        "ON l2 = r2 " +
+                        "WHERE r1 >= COALESCE(l1, 0)"))
+                .matches("VALUES 5");
     }
 }

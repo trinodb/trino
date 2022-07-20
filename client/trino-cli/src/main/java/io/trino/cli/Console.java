@@ -166,6 +166,7 @@ public class Console
                 clientOptions.truststorePath,
                 clientOptions.truststorePassword,
                 clientOptions.truststoreType,
+                clientOptions.useSystemTruststore,
                 clientOptions.insecure,
                 clientOptions.accessToken,
                 clientOptions.user,
@@ -187,10 +188,10 @@ public class Console
                         query,
                         clientOptions.outputFormat,
                         clientOptions.ignoreErrors,
-                        clientOptions.progress);
+                        clientOptions.progress.orElse(false));
             }
 
-            runConsole(queryRunner, exiting, clientOptions.editingMode);
+            runConsole(queryRunner, exiting, clientOptions.editingMode, clientOptions.progress.orElse(true), clientOptions.disableAutoSuggestion);
             return true;
         }
         finally {
@@ -220,10 +221,10 @@ public class Console
         return reader.readLine("Password: ", (char) 0);
     }
 
-    private static void runConsole(QueryRunner queryRunner, AtomicBoolean exiting, ClientOptions.EditingMode editingMode)
+    private static void runConsole(QueryRunner queryRunner, AtomicBoolean exiting, ClientOptions.EditingMode editingMode, boolean progress, boolean disableAutoSuggestion)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
-                InputReader reader = new InputReader(editingMode, getHistoryFile(), commandCompleter(), tableNameCompleter)) {
+                InputReader reader = new InputReader(editingMode, getHistoryFile(), disableAutoSuggestion, commandCompleter(), tableNameCompleter)) {
             tableNameCompleter.populateCache();
             String remaining = "";
             while (!exiting.get()) {
@@ -288,7 +289,7 @@ public class Console
                         outputFormat = OutputFormat.VERTICAL;
                     }
 
-                    process(queryRunner, split.statement(), outputFormat, tableNameCompleter::populateCache, true, true, reader.getTerminal(), System.out, System.out);
+                    process(queryRunner, split.statement(), outputFormat, tableNameCompleter::populateCache, true, progress, reader.getTerminal(), System.out, System.out);
                 }
 
                 // replace remaining with trailing partial statement

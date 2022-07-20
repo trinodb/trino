@@ -16,6 +16,7 @@ package io.trino.memory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -28,13 +29,16 @@ import io.airlift.units.Duration;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryIdGenerator;
+import io.trino.execution.QueryInfo;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
-import io.trino.execution.TaskStatus;
-import io.trino.memory.LowMemoryKiller.QueryMemoryInfo;
+import io.trino.memory.LowMemoryKiller.ForQueryLowMemoryKiller;
+import io.trino.memory.LowMemoryKiller.ForTaskLowMemoryKiller;
+import io.trino.memory.LowMemoryKiller.RunningQueryInfo;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.ServerConfig;
 import io.trino.spi.QueryId;
@@ -66,6 +70,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Sets.difference;
@@ -76,6 +81,7 @@ import static io.trino.ExceededMemoryLimitException.exceededGlobalUserLimit;
 import static io.trino.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static io.trino.SystemSessionProperties.getQueryMaxMemory;
 import static io.trino.SystemSessionProperties.getQueryMaxTotalMemory;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.SHUTTING_DOWN;
@@ -99,7 +105,7 @@ public class ClusterMemoryManager
     private final JsonCodec<MemoryInfo> memoryInfoCodec;
     private final DataSize maxQueryMemory;
     private final DataSize maxQueryTotalMemory;
-    private final LowMemoryKiller lowMemoryKiller;
+    private final List<LowMemoryKiller> lowMemoryKillers;
     private final Duration killOnOutOfMemoryDelay;
     private final AtomicLong totalAvailableProcessors = new AtomicLong();
     private final AtomicLong clusterUserMemoryReservation = new AtomicLong();
@@ -120,7 +126,7 @@ public class ClusterMemoryManager
     private long lastTimeNotOutOfMemory = System.nanoTime();
 
     @GuardedBy("this")
-    private KillTarget lastKillTarget;
+    private Optional<KillTarget> lastKillTarget = Optional.empty();
 
     @Inject
     public ClusterMemoryManager(
@@ -130,7 +136,8 @@ public class ClusterMemoryManager
             MBeanExporter exporter,
             JsonCodec<MemoryInfo> memoryInfoCodec,
             QueryIdGenerator queryIdGenerator,
-            LowMemoryKiller lowMemoryKiller,
+            @ForTaskLowMemoryKiller LowMemoryKiller taskLowMemoryKiller,
+            @ForQueryLowMemoryKiller LowMemoryKiller queryLowMemoryKiller,
             ServerConfig serverConfig,
             MemoryManagerConfig config,
             NodeMemoryConfig nodeMemoryConfig)
@@ -145,7 +152,11 @@ public class ClusterMemoryManager
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
         this.memoryInfoCodec = requireNonNull(memoryInfoCodec, "memoryInfoCodec is null");
-        this.lowMemoryKiller = requireNonNull(lowMemoryKiller, "lowMemoryKiller is null");
+        requireNonNull(taskLowMemoryKiller, "taskLowMemoryKiller is null");
+        requireNonNull(queryLowMemoryKiller, "queryLowMemoryKiller is null");
+        this.lowMemoryKillers = ImmutableList.of(
+                taskLowMemoryKiller, // try to kill tasks first
+                queryLowMemoryKiller);
         this.maxQueryMemory = config.getMaxQueryMemory();
         this.maxQueryTotalMemory = config.getMaxQueryTotalMemory();
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
@@ -191,6 +202,14 @@ public class ClusterMemoryManager
             boolean resourceOvercommit = resourceOvercommit(query.getSession());
             long userMemoryReservation = query.getUserMemoryReservation().toBytes();
             long totalMemoryReservation = query.getTotalMemoryReservation().toBytes();
+            totalUserMemoryBytes += userMemoryReservation;
+            totalMemoryBytes += totalMemoryReservation;
+
+            if (getRetryPolicy(query.getSession()) == RetryPolicy.TASK) {
+                // Memory limit for fault tolerant queries should only be enforced by the MemoryPool.
+                // LowMemoryKiller is responsible for freeing up the MemoryPool if necessary.
+                continue;
+            }
 
             if (resourceOvercommit && outOfMemory) {
                 // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
@@ -213,19 +232,16 @@ public class ClusterMemoryManager
                     queryKilled = true;
                 }
             }
-
-            totalUserMemoryBytes += userMemoryReservation;
-            totalMemoryBytes += totalMemoryReservation;
         }
 
         clusterUserMemoryReservation.set(totalUserMemoryBytes);
         clusterTotalMemoryReservation.set(totalMemoryBytes);
 
-        if (!(lowMemoryKiller instanceof NoneLowMemoryKiller) &&
+        if (!lowMemoryKillers.isEmpty() &&
                 outOfMemory &&
                 !queryKilled &&
                 nanosSince(lastTimeNotOutOfMemory).compareTo(killOnOutOfMemoryDelay) > 0) {
-            if (isLastKillTargetGone(runningQueries)) {
+            if (isLastKillTargetGone()) {
                 callOomKiller(runningQueries);
             }
             else {
@@ -239,65 +255,69 @@ public class ClusterMemoryManager
 
     private synchronized void callOomKiller(Iterable<QueryExecution> runningQueries)
     {
-        List<QueryMemoryInfo> queryMemoryInfoList = Streams.stream(runningQueries)
+        List<RunningQueryInfo> runningQueryInfos = Streams.stream(runningQueries)
                 .map(this::createQueryMemoryInfo)
                 .collect(toImmutableList());
 
-        List<MemoryInfo> nodeMemoryInfos = nodes.values().stream()
-                .map(RemoteNodeMemory::getInfo)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(toImmutableList());
+        Map<String, MemoryInfo> nodeMemoryInfosByNode = nodes.entrySet().stream()
+                .filter(entry -> entry.getValue().getInfo().isPresent())
+                .collect(toImmutableMap(
+                        Entry::getKey,
+                        entry -> entry.getValue().getInfo().get()));
 
-        Optional<KillTarget> killTarget = lowMemoryKiller.chooseQueryToKill(queryMemoryInfoList, nodeMemoryInfos);
+        for (LowMemoryKiller lowMemoryKiller : lowMemoryKillers) {
+            List<MemoryInfo> nodeMemoryInfos = ImmutableList.copyOf(nodeMemoryInfosByNode.values());
+            Optional<KillTarget> killTarget = lowMemoryKiller.chooseTargetToKill(runningQueryInfos, nodeMemoryInfos);
 
-        if (killTarget.isPresent()) {
-            if (killTarget.get().isWholeQuery()) {
-                QueryId queryId = killTarget.get().getQuery();
-                log.debug("Low memory killer chose %s", queryId);
-                Optional<QueryExecution> chosenQuery = findRunningQuery(runningQueries, killTarget.get().getQuery());
-                if (chosenQuery.isPresent()) {
-                    // See comments in  isQueryGone for why chosenQuery might be absent.
-                    chosenQuery.get().fail(new TrinoException(CLUSTER_OUT_OF_MEMORY, "Query killed because the cluster is out of memory. Please try again in a few minutes."));
-                    queriesKilledDueToOutOfMemory.incrementAndGet();
-                    lastKillTarget = killTarget.get();
-                    logQueryKill(queryId, nodeMemoryInfos);
-                }
-            }
-            else {
-                Set<TaskId> tasks = killTarget.get().getTasks();
-                log.debug("Low memory killer chose %s", tasks);
-                ImmutableSet.Builder<TaskId> killedTasksBuilder = ImmutableSet.builder();
-                for (TaskId task : tasks) {
-                    Optional<QueryExecution> runningQuery = findRunningQuery(runningQueries, task.getQueryId());
-                    if (runningQuery.isPresent()) {
-                        runningQuery.get().failTask(task, new TrinoException(CLUSTER_OUT_OF_MEMORY, "Task killed because the cluster is out of memory."));
-                        tasksKilledDueToOutOfMemory.incrementAndGet();
-                        killedTasksBuilder.add(task);
+            if (killTarget.isPresent()) {
+                if (killTarget.get().isWholeQuery()) {
+                    QueryId queryId = killTarget.get().getQuery();
+                    log.debug("Low memory killer chose %s", queryId);
+                    Optional<QueryExecution> chosenQuery = findRunningQuery(runningQueries, killTarget.get().getQuery());
+                    if (chosenQuery.isPresent()) {
+                        // See comments in  isQueryGone for why chosenQuery might be absent.
+                        chosenQuery.get().fail(new TrinoException(CLUSTER_OUT_OF_MEMORY, "Query killed because the cluster is out of memory. Please try again in a few minutes."));
+                        queriesKilledDueToOutOfMemory.incrementAndGet();
+                        lastKillTarget = killTarget;
+                        logQueryKill(queryId, nodeMemoryInfosByNode);
                     }
                 }
-                // only record tasks actually killed
-                ImmutableSet<TaskId> killedTasks = killedTasksBuilder.build();
-                if (!killedTasks.isEmpty()) {
-                    lastKillTarget = KillTarget.selectedTasks(killedTasks);
-                    logTasksKill(killedTasks, nodeMemoryInfos);
+                else {
+                    Set<TaskId> tasks = killTarget.get().getTasks();
+                    log.debug("Low memory killer chose %s", tasks);
+                    ImmutableSet.Builder<TaskId> killedTasksBuilder = ImmutableSet.builder();
+                    for (TaskId task : tasks) {
+                        Optional<QueryExecution> runningQuery = findRunningQuery(runningQueries, task.getQueryId());
+                        if (runningQuery.isPresent()) {
+                            runningQuery.get().failTask(task, new TrinoException(CLUSTER_OUT_OF_MEMORY, "Task killed because the cluster is out of memory."));
+                            tasksKilledDueToOutOfMemory.incrementAndGet();
+                            killedTasksBuilder.add(task);
+                        }
+                    }
+                    // only record tasks actually killed
+                    ImmutableSet<TaskId> killedTasks = killedTasksBuilder.build();
+                    if (!killedTasks.isEmpty()) {
+                        lastKillTarget = Optional.of(KillTarget.selectedTasks(killedTasks));
+                        logTasksKill(killedTasks, nodeMemoryInfosByNode);
+                    }
                 }
+                break; // skip other killers
             }
         }
     }
 
     @GuardedBy("this")
-    private boolean isLastKillTargetGone(Iterable<QueryExecution> runningQueries)
+    private boolean isLastKillTargetGone()
     {
-        if (lastKillTarget == null) {
+        if (lastKillTarget.isEmpty()) {
             return true;
         }
 
-        if (lastKillTarget.isWholeQuery()) {
-            return isQueryGone(lastKillTarget.getQuery());
+        if (lastKillTarget.get().isWholeQuery()) {
+            return isQueryGone(lastKillTarget.get().getQuery());
         }
 
-        return areTasksGone(lastKillTarget.getTasks(), runningQueries);
+        return areTasksGone(lastKillTarget.get().getTasks());
     }
 
     private boolean isQueryGone(QueryId killedQuery)
@@ -307,7 +327,7 @@ public class ClusterMemoryManager
         // Even if the weak references to the leaked queries are GCed in the ClusterMemoryLeakDetector, it will mark the same queries
         // as leaked in its next run, and eventually the ClusterMemoryManager will make progress.
         if (memoryLeakDetector.wasQueryPossiblyLeaked(killedQuery)) {
-            lastKillTarget = null;
+            lastKillTarget = Optional.empty();
             return true;
         }
 
@@ -320,27 +340,23 @@ public class ClusterMemoryManager
                 .containsKey(killedQuery);
     }
 
-    private boolean areTasksGone(Set<TaskId> tasks, Iterable<QueryExecution> runningQueries)
+    private boolean areTasksGone(Set<TaskId> tasks)
     {
-        List<QueryExecution> queryExecutions = tasks.stream()
-                .map(TaskId::getQueryId)
-                .distinct()
-                .map(query -> findRunningQuery(runningQueries, query))
+        // We build list of tasks based on MemoryPoolInfo objects, so it is consistent with memory usage reported for nodes.
+        // This will only contain tasks for queries with task retries enabled - but this is what we want.
+        Set<TaskId> runningTasks = getRunningTasks();
+        return tasks.stream().noneMatch(runningTasks::contains);
+    }
+
+    private ImmutableSet<TaskId> getRunningTasks()
+    {
+        return nodes.values().stream()
+                .map(RemoteNodeMemory::getInfo)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .collect(toImmutableList());
-
-        if (queryExecutions.isEmpty()) {
-            // all queries we care about are gone
-            return true;
-        }
-
-        Set<TaskId> runningTasks = queryExecutions.stream()
-                .flatMap(query -> getRunningTasksForQuery(query).stream())
-                .map(TaskStatus::getTaskId)
+                .flatMap(memoryInfo -> memoryInfo.getPool().getTaskMemoryReservations().keySet().stream())
+                .map(TaskId::valueOf)
                 .collect(toImmutableSet());
-
-        return tasks.stream().noneMatch(runningTasks::contains);
     }
 
     private Optional<QueryExecution> findRunningQuery(Iterable<QueryExecution> runningQueries, QueryId queryId)
@@ -348,18 +364,18 @@ public class ClusterMemoryManager
         return Streams.stream(runningQueries).filter(query -> queryId.equals(query.getQueryId())).collect(toOptional());
     }
 
-    private void logQueryKill(QueryId killedQueryId, List<MemoryInfo> nodes)
+    private void logQueryKill(QueryId killedQueryId, Map<String, MemoryInfo> nodeMemoryInfosByNode)
     {
         if (!log.isInfoEnabled()) {
             return;
         }
         StringBuilder nodeDescription = new StringBuilder();
         nodeDescription.append("Query Kill Decision: Killed ").append(killedQueryId).append("\n");
-        nodeDescription.append(formatKillScenario(nodes));
+        nodeDescription.append(formatKillScenario(nodeMemoryInfosByNode));
         log.info("%s", nodeDescription);
     }
 
-    private void logTasksKill(Set<TaskId> tasks, List<MemoryInfo> nodes)
+    private void logTasksKill(Set<TaskId> tasks, Map<String, MemoryInfo> nodeMemoryInfosByNode)
     {
         if (!log.isInfoEnabled()) {
             return;
@@ -367,26 +383,25 @@ public class ClusterMemoryManager
         StringBuilder nodeDescription = new StringBuilder();
         nodeDescription.append("Query Kill Decision: Tasks Killed ")
                 .append(tasks)
-                .append("(")
-                .append(tasks)
-                .append(")")
                 .append("\n");
-        nodeDescription.append(formatKillScenario(nodes));
+        nodeDescription.append(formatKillScenario(nodeMemoryInfosByNode));
         log.info("%s", nodeDescription);
     }
 
-    private String formatKillScenario(List<MemoryInfo> nodes)
+    private String formatKillScenario(Map<String, MemoryInfo> nodes)
     {
         StringBuilder stringBuilder = new StringBuilder();
-        for (MemoryInfo nodeMemoryInfo : nodes) {
+        for (Entry<String, MemoryInfo> entry : nodes.entrySet()) {
+            String nodeId = entry.getKey();
+            MemoryInfo nodeMemoryInfo = entry.getValue();
             MemoryPoolInfo memoryPoolInfo = nodeMemoryInfo.getPool();
-            stringBuilder.append("Query Kill Scenario: ");
+            stringBuilder.append("Node[").append(nodeId).append("]: ");
             stringBuilder.append("MaxBytes ").append(memoryPoolInfo.getMaxBytes()).append(' ');
             stringBuilder.append("FreeBytes ").append(memoryPoolInfo.getFreeBytes() + memoryPoolInfo.getReservedRevocableBytes()).append(' ');
             stringBuilder.append("Queries ");
-            Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, memoryPoolInfo.getQueryMemoryReservations());
+            Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, memoryPoolInfo.getQueryMemoryReservations()).append((' '));
             stringBuilder.append("Tasks ");
-            Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, nodeMemoryInfo.getTasksMemoryInfo().asMap());
+            Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, memoryPoolInfo.getTaskMemoryReservations());
             stringBuilder.append('\n');
         }
         return stringBuilder.toString();
@@ -403,32 +418,25 @@ public class ClusterMemoryManager
         return pool.getBlockedNodes() > 0;
     }
 
-    private QueryMemoryInfo createQueryMemoryInfo(QueryExecution query)
+    private RunningQueryInfo createQueryMemoryInfo(QueryExecution query)
     {
-        return new QueryMemoryInfo(query.getQueryId(), query.getTotalMemoryReservation().toBytes());
+        QueryInfo queryInfo = query.getQueryInfo();
+        ImmutableMap.Builder<TaskId, TaskInfo> taskInfosBuilder = ImmutableMap.builder();
+        queryInfo.getOutputStage().ifPresent(stage -> getTaskInfos(stage, taskInfosBuilder));
+        return new RunningQueryInfo(
+                query.getQueryId(),
+                query.getTotalMemoryReservation().toBytes(),
+                taskInfosBuilder.buildOrThrow(),
+                getRetryPolicy(query.getSession()));
     }
 
-    private List<TaskStatus> getRunningTasksForQuery(QueryExecution query)
+    private void getTaskInfos(StageInfo stageInfo, ImmutableMap.Builder<TaskId, TaskInfo> taskInfosBuilder)
     {
-        Optional<StageInfo> outputStage = query.getQueryInfo().getOutputStage();
-        if (outputStage.isEmpty()) {
-            return ImmutableList.of();
+        for (TaskInfo taskInfo : stageInfo.getTasks()) {
+            taskInfosBuilder.put(taskInfo.getTaskStatus().getTaskId(), taskInfo);
         }
-        ImmutableList.Builder<TaskStatus> builder = ImmutableList.builder();
-        collectRunningTasksForStage(outputStage.get(), builder);
-        return builder.build();
-    }
-
-    private void collectRunningTasksForStage(StageInfo stage, ImmutableList.Builder<TaskStatus> builder)
-    {
-        for (TaskInfo task : stage.getTasks()) {
-            TaskStatus taskStatus = task.getTaskStatus();
-            if (!taskStatus.getState().isDone()) {
-                builder.add(taskStatus);
-            }
-        }
-        for (StageInfo subStage : stage.getSubStages()) {
-            collectRunningTasksForStage(subStage, builder);
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            getTaskInfos(subStage, taskInfosBuilder);
         }
     }
 

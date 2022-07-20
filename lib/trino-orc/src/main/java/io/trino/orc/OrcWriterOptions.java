@@ -61,6 +61,7 @@ public class OrcWriterOptions
     private final DataSize maxCompressionBufferSize;
     private final Set<String> bloomFilterColumns;
     private final double bloomFilterFpp;
+    private final boolean shouldCompactMinMax;
 
     public OrcWriterOptions()
     {
@@ -74,7 +75,8 @@ public class OrcWriterOptions
                 DEFAULT_MAX_STRING_STATISTICS_LIMIT,
                 DEFAULT_MAX_COMPRESSION_BUFFER_SIZE,
                 ImmutableSet.of(),
-                DEFAULT_BLOOM_FILTER_FPP);
+                DEFAULT_BLOOM_FILTER_FPP,
+                true);
     }
 
     private OrcWriterOptions(
@@ -87,7 +89,8 @@ public class OrcWriterOptions
             DataSize maxStringStatisticsLimit,
             DataSize maxCompressionBufferSize,
             Set<String> bloomFilterColumns,
-            double bloomFilterFpp)
+            double bloomFilterFpp,
+            boolean shouldCompactMinMax)
     {
         requireNonNull(stripeMinSize, "stripeMinSize is null");
         requireNonNull(stripeMaxSize, "stripeMaxSize is null");
@@ -109,6 +112,7 @@ public class OrcWriterOptions
         this.maxCompressionBufferSize = maxCompressionBufferSize;
         this.bloomFilterColumns = ImmutableSet.copyOf(bloomFilterColumns);
         this.bloomFilterFpp = bloomFilterFpp;
+        this.shouldCompactMinMax = shouldCompactMinMax;
     }
 
     public WriterIdentification getWriterIdentification()
@@ -231,6 +235,18 @@ public class OrcWriterOptions
                 .build();
     }
 
+    public boolean isShouldCompactMinMax()
+    {
+        return shouldCompactMinMax;
+    }
+
+    public OrcWriterOptions withShouldCompactMinMax(boolean shouldCompactMinMax)
+    {
+        return builderFrom(this)
+                .setShouldCompactMinMax(shouldCompactMinMax)
+                .build();
+    }
+
     @Override
     public String toString()
     {
@@ -269,6 +285,7 @@ public class OrcWriterOptions
         private DataSize maxCompressionBufferSize;
         private Set<String> bloomFilterColumns;
         private double bloomFilterFpp;
+        private boolean shouldCompactMinMax;
 
         private Builder(OrcWriterOptions options)
         {
@@ -284,6 +301,7 @@ public class OrcWriterOptions
             this.maxCompressionBufferSize = options.maxCompressionBufferSize;
             this.bloomFilterColumns = ImmutableSet.copyOf(options.bloomFilterColumns);
             this.bloomFilterFpp = options.bloomFilterFpp;
+            this.shouldCompactMinMax = options.shouldCompactMinMax;
         }
 
         public Builder setWriterIdentification(WriterIdentification writerIdentification)
@@ -346,6 +364,12 @@ public class OrcWriterOptions
             return this;
         }
 
+        public Builder setShouldCompactMinMax(boolean shouldCompactMinMax)
+        {
+            this.shouldCompactMinMax = shouldCompactMinMax;
+            return this;
+        }
+
         public OrcWriterOptions build()
         {
             return new OrcWriterOptions(
@@ -358,7 +382,8 @@ public class OrcWriterOptions
                     maxStringStatisticsLimit,
                     maxCompressionBufferSize,
                     bloomFilterColumns,
-                    bloomFilterFpp);
+                    bloomFilterFpp,
+                    shouldCompactMinMax);
         }
     }
 }

@@ -25,27 +25,17 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
-import io.trino.client.ClientTypeSignature;
-import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.Column;
 import io.trino.client.FailureInfo;
-import io.trino.client.NamedClientTypeSignature;
 import io.trino.client.ProtocolHeaders;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
-import io.trino.client.RowFieldName;
-import io.trino.client.StageStats;
-import io.trino.client.StatementStats;
-import io.trino.client.Warning;
-import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
-import io.trino.execution.QueryStats;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
-import io.trino.execution.TaskInfo;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
@@ -54,24 +44,11 @@ import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
-import io.trino.spi.TrinoWarning;
-import io.trino.spi.WarningCode;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
-import io.trino.sql.ExpressionFormatter;
-import io.trino.sql.analyzer.TypeSignatureTranslator;
-import io.trino.sql.tree.DataType;
-import io.trino.sql.tree.DateTimeDataType;
-import io.trino.sql.tree.GenericDataType;
-import io.trino.sql.tree.IntervalDayTimeDataType;
-import io.trino.sql.tree.NumericParameter;
-import io.trino.sql.tree.RowDataType;
-import io.trino.sql.tree.TypeParameter;
 import io.trino.transaction.TransactionId;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -81,7 +58,6 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -90,12 +66,10 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -103,20 +77,16 @@ import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.execution.QueryState.FAILED;
+import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.server.protocol.ProtocolUtil.createColumn;
+import static io.trino.server.protocol.ProtocolUtil.toStatementStats;
 import static io.trino.server.protocol.QueryInfoUrlFactory.getQueryInfoUri;
 import static io.trino.server.protocol.QueryResultRows.queryResultRowsBuilder;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
-import static io.trino.spi.type.StandardTypes.ROW;
-import static io.trino.spi.type.StandardTypes.TIME;
-import static io.trino.spi.type.StandardTypes.TIMESTAMP;
-import static io.trino.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
-import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.util.Failures.toFailure;
 import static io.trino.util.MoreLists.mappedCopy;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -147,6 +117,9 @@ class Query
 
     @GuardedBy("this")
     private long lastToken = -1;
+
+    @GuardedBy("this")
+    private boolean resultsConsumed;
 
     @GuardedBy("this")
     private List<Column> columns;
@@ -212,7 +185,9 @@ class Query
         result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
         result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
-            if (state.isDone()) {
+            // Wait for the query info to become available and close the exchange client if there is no output stage for the query results to be pulled from.
+            // This listener also makes sure the exchange client is always properly closed upon query failure.
+            if (state.isDone() || state == FINISHING) {
                 QueryInfo queryInfo = queryManager.getFullQueryInfo(result.getQueryId());
                 result.closeExchangeClientIfNecessary(queryInfo);
             }
@@ -370,6 +345,10 @@ class Query
             return exchangeClient.isBlocked();
         }
 
+        if (!resultsConsumed) {
+            return immediateVoidFuture();
+        }
+
         // otherwise, wait for the query to finish
         queryManager.recordHeartbeat(queryId);
         try {
@@ -440,6 +419,13 @@ class Query
             updateCount = updatedRowsCount.orElse(null);
         }
 
+        if (queryInfo.getOutputStage().isEmpty() || (exchangeClient.isFinished() && resultRows.isEmpty())) {
+            queryManager.resultsConsumed(queryId);
+            resultsConsumed = true;
+            // update query since the query might have been transitioned to the FINISHED state
+            queryInfo = queryManager.getFullQueryInfo(queryId);
+        }
+
         // advance next token
         // only return a next if
         // (1) the query is not done AND the query state is not FAILED
@@ -496,7 +482,7 @@ class Query
                 resultRows.isEmpty() ? null : resultRows, // client excepts null that indicates "no data"
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo, typeSerializationException),
-                mappedCopy(queryInfo.getWarnings(), Query::toClientWarning),
+                mappedCopy(queryInfo.getWarnings(), ProtocolUtil::toClientWarning),
                 queryInfo.getUpdateType(),
                 updateCount);
 
@@ -510,9 +496,9 @@ class Query
     private synchronized QueryResultRows removePagesFromExchange(QueryInfo queryInfo, long targetResultBytes)
     {
         // For queries with no output, return a fake boolean result for clients that require it.
-        if ((queryInfo.getState() == QueryState.FINISHED) && queryInfo.getOutputStage().isEmpty()) {
+        if (!resultsConsumed && queryInfo.getOutputStage().isEmpty()) {
             return queryResultRowsBuilder(session)
-                    .withSingleBooleanValue(createColumn("result", BooleanType.BOOLEAN), true)
+                    .withSingleBooleanValue(createColumn("result", BooleanType.BOOLEAN, supportsParametricDateTime), true)
                     .build();
         }
 
@@ -553,10 +539,9 @@ class Query
     private synchronized void closeExchangeClientIfNecessary(QueryInfo queryInfo)
     {
         // Close the exchange client if the query has failed, or if the query
-        // is done and it does not have an output stage. The latter happens
+        // does not have an output stage. The latter happens
         // for data definition executions, as those do not have output.
-        if ((queryInfo.getState() == FAILED) ||
-                (queryInfo.getState().isDone() && queryInfo.getOutputStage().isEmpty())) {
+        if (queryInfo.getState() == FAILED || (!exchangeClient.isFinished() && queryInfo.getOutputStage().isEmpty())) {
             exchangeClient.close();
         }
     }
@@ -586,7 +571,7 @@ class Query
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < columnNames.size(); i++) {
-                list.add(createColumn(columnNames.get(i), columnTypes.get(i)));
+                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime));
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();
@@ -629,190 +614,6 @@ class Query
                 .build();
     }
 
-    private Column createColumn(String name, Type type)
-    {
-        String formatted = formatType(TypeSignatureTranslator.toSqlType(type));
-
-        return new Column(name, formatted, toClientTypeSignature(type.getTypeSignature()));
-    }
-
-    private String formatType(DataType type)
-    {
-        if (type instanceof DateTimeDataType) {
-            DateTimeDataType dataTimeType = (DateTimeDataType) type;
-            if (!supportsParametricDateTime) {
-                if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && dataTimeType.isWithTimeZone()) {
-                    return TIMESTAMP_WITH_TIME_ZONE;
-                }
-                if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && !dataTimeType.isWithTimeZone()) {
-                    return TIMESTAMP;
-                }
-                if (dataTimeType.getType() == DateTimeDataType.Type.TIME && !dataTimeType.isWithTimeZone()) {
-                    return TIME;
-                }
-                if (dataTimeType.getType() == DateTimeDataType.Type.TIME && dataTimeType.isWithTimeZone()) {
-                    return TIME_WITH_TIME_ZONE;
-                }
-            }
-
-            return ExpressionFormatter.formatExpression(type);
-        }
-        if (type instanceof RowDataType) {
-            RowDataType rowDataType = (RowDataType) type;
-            return rowDataType.getFields().stream()
-                    .map(field -> field.getName().map(name -> name + " ").orElse("") + formatType(field.getType()))
-                    .collect(Collectors.joining(", ", ROW + "(", ")"));
-        }
-        if (type instanceof GenericDataType) {
-            GenericDataType dataType = (GenericDataType) type;
-            if (dataType.getArguments().isEmpty()) {
-                return dataType.getName().getValue();
-            }
-
-            return dataType.getArguments().stream()
-                    .map(parameter -> {
-                        if (parameter instanceof NumericParameter) {
-                            return ((NumericParameter) parameter).getValue();
-                        }
-                        if (parameter instanceof TypeParameter) {
-                            return formatType(((TypeParameter) parameter).getValue());
-                        }
-                        throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
-                    })
-                    .collect(Collectors.joining(", ", dataType.getName().getValue() + "(", ")"));
-        }
-        if (type instanceof IntervalDayTimeDataType) {
-            return ExpressionFormatter.formatExpression(type);
-        }
-
-        throw new IllegalArgumentException("Unsupported data type: " + type.getClass().getName());
-    }
-
-    private ClientTypeSignature toClientTypeSignature(TypeSignature signature)
-    {
-        if (!supportsParametricDateTime) {
-            if (signature.getBase().equalsIgnoreCase(TIMESTAMP)) {
-                return new ClientTypeSignature(TIMESTAMP);
-            }
-            if (signature.getBase().equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
-                return new ClientTypeSignature(TIMESTAMP_WITH_TIME_ZONE);
-            }
-            if (signature.getBase().equalsIgnoreCase(TIME)) {
-                return new ClientTypeSignature(TIME);
-            }
-            if (signature.getBase().equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
-                return new ClientTypeSignature(TIME_WITH_TIME_ZONE);
-            }
-        }
-
-        return new ClientTypeSignature(signature.getBase(), signature.getParameters().stream()
-                .map(this::toClientTypeSignatureParameter)
-                .collect(toImmutableList()));
-    }
-
-    private ClientTypeSignatureParameter toClientTypeSignatureParameter(TypeSignatureParameter parameter)
-    {
-        switch (parameter.getKind()) {
-            case TYPE:
-                return ClientTypeSignatureParameter.ofType(toClientTypeSignature(parameter.getTypeSignature()));
-            case NAMED_TYPE:
-                return ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
-                        parameter.getNamedTypeSignature().getFieldName().map(value ->
-                                new RowFieldName(value.getName())),
-                        toClientTypeSignature(parameter.getNamedTypeSignature().getTypeSignature())));
-            case LONG:
-                return ClientTypeSignatureParameter.ofLong(parameter.getLongLiteral());
-            case VARIABLE:
-                // not expected here
-        }
-        throw new IllegalArgumentException("Unsupported kind: " + parameter.getKind());
-    }
-
-    private static StatementStats toStatementStats(QueryInfo queryInfo)
-    {
-        QueryStats queryStats = queryInfo.getQueryStats();
-        StageInfo outputStage = queryInfo.getOutputStage().orElse(null);
-
-        return StatementStats.builder()
-                .setState(queryInfo.getState().toString())
-                .setQueued(queryInfo.getState() == QueryState.QUEUED)
-                .setScheduled(queryInfo.isScheduled())
-                .setNodes(globalUniqueNodes(outputStage).size())
-                .setTotalSplits(queryStats.getTotalDrivers())
-                .setQueuedSplits(queryStats.getQueuedDrivers())
-                .setRunningSplits(queryStats.getRunningDrivers() + queryStats.getBlockedDrivers())
-                .setCompletedSplits(queryStats.getCompletedDrivers())
-                .setCpuTimeMillis(queryStats.getTotalCpuTime().toMillis())
-                .setWallTimeMillis(queryStats.getTotalScheduledTime().toMillis())
-                .setQueuedTimeMillis(queryStats.getQueuedTime().toMillis())
-                .setElapsedTimeMillis(queryStats.getElapsedTime().toMillis())
-                .setProcessedRows(queryStats.getRawInputPositions())
-                .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
-                .setPhysicalInputBytes(queryStats.getPhysicalInputDataSize().toBytes())
-                .setPeakMemoryBytes(queryStats.getPeakUserMemoryReservation().toBytes())
-                .setSpilledBytes(queryStats.getSpilledDataSize().toBytes())
-                .setRootStage(toStageStats(outputStage))
-                .build();
-    }
-
-    private static StageStats toStageStats(StageInfo stageInfo)
-    {
-        if (stageInfo == null) {
-            return null;
-        }
-
-        io.trino.execution.StageStats stageStats = stageInfo.getStageStats();
-
-        ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            subStages.add(toStageStats(subStage));
-        }
-
-        Set<String> uniqueNodes = new HashSet<>();
-        for (TaskInfo task : stageInfo.getTasks()) {
-            // todo add nodeId to TaskInfo
-            URI uri = task.getTaskStatus().getSelf();
-            uniqueNodes.add(uri.getHost() + ":" + uri.getPort());
-        }
-
-        return StageStats.builder()
-                .setStageId(String.valueOf(stageInfo.getStageId().getId()))
-                .setState(stageInfo.getState().toString())
-                .setDone(stageInfo.getState().isDone())
-                .setNodes(uniqueNodes.size())
-                .setTotalSplits(stageStats.getTotalDrivers())
-                .setQueuedSplits(stageStats.getQueuedDrivers())
-                .setRunningSplits(stageStats.getRunningDrivers() + stageStats.getBlockedDrivers())
-                .setCompletedSplits(stageStats.getCompletedDrivers())
-                .setCpuTimeMillis(stageStats.getTotalCpuTime().toMillis())
-                .setWallTimeMillis(stageStats.getTotalScheduledTime().toMillis())
-                .setProcessedRows(stageStats.getRawInputPositions())
-                .setProcessedBytes(stageStats.getRawInputDataSize().toBytes())
-                .setPhysicalInputBytes(stageStats.getPhysicalInputDataSize().toBytes())
-                .setFailedTasks(stageStats.getFailedTasks())
-                .setCoordinatorOnly(stageInfo.isCoordinatorOnly())
-                .setSubStages(subStages.build())
-                .build();
-    }
-
-    private static Set<String> globalUniqueNodes(StageInfo stageInfo)
-    {
-        if (stageInfo == null) {
-            return ImmutableSet.of();
-        }
-        ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
-        for (TaskInfo task : stageInfo.getTasks()) {
-            // todo add nodeId to TaskInfo
-            URI uri = task.getTaskStatus().getSelf();
-            nodes.add(uri.getHost() + ":" + uri.getPort());
-        }
-
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            nodes.addAll(globalUniqueNodes(subStage));
-        }
-        return nodes.build();
-    }
-
     private static Optional<Integer> findCancelableLeafStage(QueryInfo queryInfo)
     {
         // if query is running, find the leaf-most running stage
@@ -841,48 +642,19 @@ class Query
 
     private static QueryError toQueryError(QueryInfo queryInfo, Optional<Throwable> exception)
     {
-        QueryState state = queryInfo.getState();
-        if (state != FAILED && exception.isEmpty()) {
-            return null;
+        if (queryInfo.getFailureInfo() == null && exception.isPresent()) {
+            ErrorCode errorCode = SERIALIZATION_ERROR.toErrorCode();
+            FailureInfo failure = toFailure(exception.get()).toFailureInfo();
+            return new QueryError(
+                    firstNonNull(failure.getMessage(), "Internal error"),
+                    null,
+                    errorCode.getCode(),
+                    errorCode.getName(),
+                    errorCode.getType().toString(),
+                    failure.getErrorLocation(),
+                    failure);
         }
 
-        ExecutionFailureInfo executionFailure;
-        if (queryInfo.getFailureInfo() != null) {
-            executionFailure = queryInfo.getFailureInfo();
-        }
-        else if (exception.isPresent()) {
-            executionFailure = toFailure(exception.get());
-        }
-        else {
-            log.warn("Query %s in state %s has no failure info", queryInfo.getQueryId(), state);
-            executionFailure = toFailure(new RuntimeException(format("Query is %s (reason unknown)", state)));
-        }
-        FailureInfo failure = executionFailure.toFailureInfo();
-
-        ErrorCode errorCode;
-        if (queryInfo.getErrorCode() != null) {
-            errorCode = queryInfo.getErrorCode();
-        }
-        else if (exception.isPresent()) {
-            errorCode = SERIALIZATION_ERROR.toErrorCode();
-        }
-        else {
-            errorCode = GENERIC_INTERNAL_ERROR.toErrorCode();
-            log.warn("Failed query %s has no error code", queryInfo.getQueryId());
-        }
-        return new QueryError(
-                firstNonNull(failure.getMessage(), "Internal error"),
-                null,
-                errorCode.getCode(),
-                errorCode.getName(),
-                errorCode.getType().toString(),
-                failure.getErrorLocation(),
-                failure);
-    }
-
-    private static Warning toClientWarning(TrinoWarning warning)
-    {
-        WarningCode code = warning.getWarningCode();
-        return new Warning(new Warning.Code(code.getCode(), code.getName()), warning.getMessage());
+        return ProtocolUtil.toQueryError(queryInfo);
     }
 }

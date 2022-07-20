@@ -17,12 +17,10 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.LongVariableConstraint;
 import io.trino.metadata.Signature;
-import io.trino.metadata.TypeVariableConstraint;
 import io.trino.operator.ParametricImplementation;
+import io.trino.operator.aggregation.AggregationFromAnnotationsParser.AccumulatorStateDetails;
 import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
-import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
@@ -40,6 +38,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -49,7 +48,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
@@ -58,6 +56,7 @@ import static io.trino.operator.aggregation.AggregationFunctionAdapter.Aggregati
 import static io.trino.operator.annotations.FunctionsParserHelper.containsAnnotation;
 import static io.trino.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
+import static io.trino.operator.annotations.FunctionsParserHelper.parseLongVariableConstraints;
 import static io.trino.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static io.trino.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
@@ -218,10 +217,12 @@ public class AggregationImplementation
             Class<?> methodDeclaredType = argumentNativeContainerTypes.get(i).getJavaType();
             boolean isCurrentBlockPosition = argumentNativeContainerTypes.get(i).isBlockPosition();
 
+            // block and position works for any type, but if block is annotated with SqlType nativeContainerType, then only types with the
+            // specified container type match
             if (isCurrentBlockPosition && methodDeclaredType.isAssignableFrom(Block.class)) {
                 continue;
             }
-            if (!isCurrentBlockPosition && methodDeclaredType.isAssignableFrom(argumentType)) {
+            if (methodDeclaredType.isAssignableFrom(argumentType)) {
                 continue;
             }
             return false;
@@ -234,7 +235,7 @@ public class AggregationImplementation
     public AggregationImplementation withAlias(String alias)
     {
         return new AggregationImplementation(
-                signatureWithName(alias, signature),
+                signature.withName(alias),
                 definitionClass,
                 inputFunction,
                 removeInputFunction,
@@ -262,18 +263,15 @@ public class AggregationImplementation
         private final List<ImplementationDependency> outputDependencies;
         private final List<AggregationParameterKind> inputParameterKinds;
 
-        private final List<LongVariableConstraint> longVariableConstraints;
-        private final List<TypeVariableConstraint> typeVariableConstraints;
-        private final List<TypeSignature> inputTypes;
-        private final TypeSignature returnType;
+        private final Signature.Builder signatureBuilder = Signature.builder();
 
-        private final String name;
         private final Set<String> literalParameters;
         private final List<TypeParameter> typeParameters;
 
         private Parser(
                 Class<?> aggregationDefinition,
                 String name,
+                List<AccumulatorStateDetails<?>> stateDetails,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
@@ -281,7 +279,7 @@ public class AggregationImplementation
         {
             // rewrite data passed directly
             this.aggregationDefinition = aggregationDefinition;
-            this.name = name;
+            signatureBuilder.name(name);
 
             // parse declared literal and type parameters
             // it is required to declare all literal and type parameters in input function
@@ -298,9 +296,10 @@ public class AggregationImplementation
             inputParameterKinds = parseInputParameterKinds(inputFunction);
 
             // parse constraints
-            longVariableConstraints = FunctionsParserHelper.parseLongVariableConstraints(inputFunction);
+            parseLongVariableConstraints(inputFunction, signatureBuilder);
             List<ImplementationDependency> allDependencies =
                     Stream.of(
+                            stateDetails.stream().map(AccumulatorStateDetails::getDependencies).flatMap(Collection::stream),
                             inputDependencies.stream(),
                             removeInputDependencies.stream(),
                             outputDependencies.stream(),
@@ -308,14 +307,15 @@ public class AggregationImplementation
                             .reduce(Stream::concat)
                             .orElseGet(Stream::empty)
                             .collect(toImmutableList());
-            typeVariableConstraints = createTypeVariableConstraints(typeParameters, allDependencies);
+            createTypeVariableConstraints(typeParameters, allDependencies)
+                    .forEach(signatureBuilder::typeVariableConstraint);
 
             // parse native types of arguments
             argumentNativeContainerTypes = parseSignatureArgumentsTypes(inputFunction);
 
             // determine TypeSignatures of function declaration
-            inputTypes = getInputTypesSignatures(inputFunction);
-            returnType = parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value(), literalParameters);
+            signatureBuilder.argumentTypes(getInputTypesSignatures(inputFunction));
+            signatureBuilder.returnType(parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value(), literalParameters));
 
             inputHandle = methodHandle(inputFunction);
             removeInputHandle = removeInputFunction.map(Reflection::methodHandle);
@@ -325,15 +325,8 @@ public class AggregationImplementation
 
         private AggregationImplementation get()
         {
-            Signature signature = new Signature(
-                    name,
-                    typeVariableConstraints,
-                    longVariableConstraints,
-                    returnType,
-                    inputTypes,
-                    false);
-
-            return new AggregationImplementation(signature,
+            return new AggregationImplementation(
+                    signatureBuilder.build(),
                     aggregationDefinition,
                     inputHandle,
                     removeInputHandle,
@@ -350,12 +343,13 @@ public class AggregationImplementation
         public static AggregationImplementation parseImplementation(
                 Class<?> aggregationDefinition,
                 String name,
+                List<AccumulatorStateDetails<?>> stateDetails,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
                 Optional<Method> combineFunction)
         {
-            return new Parser(aggregationDefinition, name, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
+            return new Parser(aggregationDefinition, name, stateDetails, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
         }
 
         private static List<AggregationParameterKind> parseInputParameterKinds(Method method)
@@ -454,7 +448,16 @@ public class AggregationImplementation
                     continue;
                 }
 
-                builder.add(new AggregateNativeContainerType(inputFunction.getParameterTypes()[i], isParameterBlock(annotations)));
+                Optional<Class<?>> nativeContainerType = Arrays.stream(annotations)
+                        .filter(SqlType.class::isInstance)
+                        .map(SqlType.class::cast)
+                        .findFirst()
+                        .map(SqlType::nativeContainerType);
+                // Note: this cannot be done as a chain due to strange generic type mismatches
+                if (nativeContainerType.isPresent() && !nativeContainerType.get().equals(Object.class)) {
+                    parameterType = nativeContainerType.get();
+                }
+                builder.add(new AggregateNativeContainerType(parameterType, isParameterBlock(annotations)));
             }
 
             return builder.build();
@@ -512,11 +515,6 @@ public class AggregationImplementation
             }
 
             return builder.build();
-        }
-
-        public static Class<?> findAggregationStateParamType(Method inputFunction)
-        {
-            return inputFunction.getParameterTypes()[findAggregationStateParamId(inputFunction)];
         }
 
         public static int findAggregationStateParamId(Method method)

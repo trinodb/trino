@@ -2,6 +2,10 @@
 Oracle connector
 ================
 
+.. raw:: html
+
+  <img src="../_static/img/oracle.png" class="connector-logo">
+
 The Oracle connector allows querying and creating tables in an external Oracle
 database. Connectors let Trino join data provided by different databases,
 like Oracle and Hive, or different Oracle database instances.
@@ -25,16 +29,20 @@ properties in the file:
 .. code-block:: text
 
     connector.name=oracle
-    # The exact format of the connection-url varies by Oracle version. Refer to
-    # the Oracle Database documentation for version-specific information on the
-    # JDBC Thin driver.
-    connection-url=jdbc:oracle:thin:@//example.net:1521/ORCLCDB
+    # The correct syntax of the connection-url varies by Oracle version and
+    # configuration. The following example URL connects to an Oracle SID named
+    # "orcl".
+    connection-url=jdbc:oracle:thin:@example.net:1521:orcl
     connection-user=root
     connection-password=secret
 
 The ``connection-url`` defines the connection information and parameters to pass
-to the Oracle JDBC Thin driver. See the `Oracle Database JDBC driver
-documentation <https://docs.oracle.com/cd/B28359_01/java.111/b31224/urls.htm#BEIDHCBA>`_
+to the JDBC driver. The Oracle connector uses the Oracle JDBC Thin driver,
+and the syntax of the URL may be different depending on your Oracle
+configuration. For example, the connection URL is different if you are
+connecting to an Oracle SID or an Oracle service name. See the `Oracle
+Database JDBC driver documentation
+<https://docs.oracle.com/en/database/oracle/oracle-database/21/jjdbc/data-sources-and-URLs.html#GUID-088B1600-C6C2-4F19-A020-2DAF8FE1F1C3>`_
 for more information.
 
 The ``connection-user`` and ``connection-password`` are typically required and
@@ -369,8 +377,100 @@ Number to decimal configuration properties
 
     - ``UNNECESSARY``
 
+.. _oracle-sql-support:
+
+SQL support
+-----------
+
+The connector provides read access and write access to data and metadata in
+Oracle. In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following statements:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/delete`
+* :doc:`/sql/truncate`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/alter-table`
+* :doc:`/sql/comment`
+
+.. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access Oracle.
+
+.. _oracle-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to Oracle, because the full query is pushed down and
+processed in Oracle. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+As a simple example, to select an entire table::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        oracle.system.query(
+          query => 'SELECT
+            *
+          FROM
+            tpch.nation'
+        )
+      );
+
+As a practical example, you can use the
+`MODEL clause from Oracle SQL <https://docs.oracle.com/cd/B19306_01/server.102/b14223/sqlmodel.htm>`_::
+
+    SELECT
+      SUBSTR(country, 1, 20) country,
+      SUBSTR(product, 1, 15) product,
+      year,
+      sales
+    FROM
+      TABLE(
+        oracle.system.query(
+          query => 'SELECT
+            *
+          FROM
+            sales_view
+          MODEL
+            RETURN UPDATED ROWS
+            MAIN
+              simple_model
+            PARTITION BY
+              country
+            MEASURES
+              sales
+            RULES
+              (sales['Bounce', 2001] = 1000,
+              sales['Bounce', 2002] = sales['Bounce', 2001] + sales['Bounce', 2000],
+              sales['Y Box', 2002] = sales['Y Box', 2001])
+          ORDER BY
+            country'
+        )
+      );
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
 Synonyms
---------
+^^^^^^^^
 
 Based on performance reasons, Trino disables support for Oracle ``SYNONYM``. To
 include ``SYNONYM``, add the following configuration property:
@@ -382,7 +482,7 @@ include ``SYNONYM``, add the following configuration property:
 .. _oracle-pushdown:
 
 Pushdown
---------
+^^^^^^^^
 
 The connector supports pushdown for a number of operations:
 
@@ -390,10 +490,35 @@ The connector supports pushdown for a number of operations:
 * :ref:`limit-pushdown`
 * :ref:`topn-pushdown`
 
+In addition, the connector supports :ref:`aggregation-pushdown` for the
+following functions:
+
+* :func:`avg()`
+* :func:`count()`, also ``count(distinct x)``
+* :func:`max()`
+* :func:`min()`
+* :func:`sum()`
+
+Pushdown is only supported for ``DOUBLE`` type columns with the
+following functions:
+
+* :func:`stddev()` and :func:`stddev_samp()`
+* :func:`stddev_pop()`
+* :func:`var_pop()`
+* :func:`variance()` and :func:`var_samp()`
+
+Pushdown is only supported for ``REAL`` or ``DOUBLE`` type column
+with the following functions:
+
+* :func:`covar_samp()`
+* :func:`covar_pop()`
+
+.. include:: join-pushdown-enabled-false.fragment
+
 .. _oracle-predicate-pushdown:
 
 Predicate pushdown support
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""
 
 The connector does not support pushdown of any predicates on columns that use
 the ``CLOB``, ``NCLOB``, ``BLOB``, or ``RAW(n)`` Oracle database types, or Trino
@@ -434,26 +559,3 @@ since ``name`` is a column of type ``VARCHAR(25)``, which maps to
 
     SELECT * FROM nation WHERE name > 'CANADA';
     SELECT * FROM nation WHERE name = 'CANADA';
-
-.. _oracle-sql-support:
-
-SQL support
------------
-
-The connector provides read access and write access to data and metadata in
-Oracle. In addition to the :ref:`globally available <sql-globally-available>`
-and :ref:`read operation <sql-read-operations>` statements, the connector
-supports the following statements:
-
-* :doc:`/sql/insert`
-* :doc:`/sql/delete`
-* :doc:`/sql/truncate`
-* :doc:`/sql/create-table`
-* :doc:`/sql/create-table-as`
-* :doc:`/sql/drop-table`
-* :doc:`/sql/alter-table`
-* :doc:`/sql/comment`
-
-.. include:: sql-delete-limitation.fragment
-
-.. include:: alter-table-limitation.fragment

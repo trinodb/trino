@@ -121,7 +121,7 @@ public class TestValidateAggregationsWithDefaultValues
                         .source(builder.exchange(e -> e
                                 .type(REPARTITION)
                                 .scope(REMOTE)
-                                .fixedHashDistributionParitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
+                                .fixedHashDistributionPartitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
                                 .addInputsSet(symbol)
                                 .addSource(builder.aggregation(ap -> ap
                                         .step(PARTIAL)
@@ -140,7 +140,7 @@ public class TestValidateAggregationsWithDefaultValues
                         .source(builder.exchange(e -> e
                                 .type(REPARTITION)
                                 .scope(LOCAL)
-                                .fixedHashDistributionParitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
+                                .fixedHashDistributionPartitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
                                 .addInputsSet(symbol)
                                 .addSource(builder.aggregation(ap -> ap
                                         .step(PARTIAL)
@@ -161,7 +161,7 @@ public class TestValidateAggregationsWithDefaultValues
                                 builder.exchange(e -> e
                                         .type(REPARTITION)
                                         .scope(LOCAL)
-                                        .fixedHashDistributionParitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
+                                        .fixedHashDistributionPartitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
                                         .addInputsSet(symbol)
                                         .addSource(builder.aggregation(ap -> ap
                                                 .step(PARTIAL)

@@ -19,9 +19,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
 import io.trino.metadata.Split;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
@@ -62,6 +63,7 @@ import static org.testng.Assert.assertTrue;
 public class TestMemoryBlocking
 {
     private static final QueryId QUERY_ID = new QueryId("test_query");
+    private static final TaskId TASK_ID = new TaskId(new StageId(QUERY_ID, 0), 0, 0);
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -112,10 +114,10 @@ public class TestMemoryBlocking
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertSame(driver.getDriverContext(), driverContext);
         assertFalse(driver.isFinished());
-        Split testSplit = new Split(new CatalogName("test"), new TestSplit(), Lifespan.taskWide());
+        Split testSplit = new Split(new CatalogName("test"), new TestSplit());
         driver.updateSplitAssignment(new SplitAssignment(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
 
-        ListenableFuture<Void> blocked = driver.processFor(new Duration(1, NANOSECONDS));
+        ListenableFuture<Void> blocked = driver.processForDuration(new Duration(1, NANOSECONDS));
 
         // the driver shouldn't block in the first call as it will be able to move a page between source and the sink operator
         // but the operator should be blocked
@@ -125,19 +127,19 @@ public class TestMemoryBlocking
         // in the subsequent calls both the driver and the operator should be blocked
         // and they should stay blocked until more memory becomes available
         for (int i = 0; i < 10; i++) {
-            blocked = driver.processFor(new Duration(1, NANOSECONDS));
+            blocked = driver.processForDuration(new Duration(1, NANOSECONDS));
             assertFalse(blocked.isDone());
             assertFalse(source.getOperatorContext().isWaitingForMemory().isDone());
         }
 
         // free up some memory
-        memoryPool.free(QUERY_ID, "test", memoryPool.getReservedBytes());
+        memoryPool.free(TASK_ID, "test", memoryPool.getReservedBytes());
 
         // the operator should be unblocked
         assertTrue(source.getOperatorContext().isWaitingForMemory().isDone());
 
         // the driver shouldn't be blocked
-        blocked = driver.processFor(new Duration(1, NANOSECONDS));
+        blocked = driver.processForDuration(new Duration(1, NANOSECONDS));
         assertTrue(blocked.isDone());
     }
 

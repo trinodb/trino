@@ -239,7 +239,7 @@ public class TestDetermineSemiJoinDistributionType
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
 
-        // B table is small enough to be replicated in AUTOMATIC_RESTRICTED mode
+        // B table is small enough to be replicated according to JOIN_MAX_BROADCAST_TABLE_SIZE limit
         assertDetermineSemiJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
@@ -275,7 +275,7 @@ public class TestDetermineSemiJoinDistributionType
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
 
-        // B table exceeds AUTOMATIC_RESTRICTED limit therefore it is partitioned
+        // B table exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit therefore it is partitioned
         assertDetermineSemiJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
@@ -323,7 +323,7 @@ public class TestDetermineSemiJoinDistributionType
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 64, 10)))
                 .build();
 
-        // build side exceeds AUTOMATIC_RESTRICTED limit but source plan nodes are small
+        // build side exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit but source plan nodes are small
         // therefore replicated distribution type is chosen
         assertDetermineSemiJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())

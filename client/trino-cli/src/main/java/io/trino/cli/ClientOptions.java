@@ -92,6 +92,9 @@ public class ClientOptions
     @Option(names = "--truststore-type", paramLabel = "<type>", description = "Truststore type")
     public Optional<String> truststoreType;
 
+    @Option(names = "--use-system-truststore", description = "Use default system (OS) truststore")
+    public boolean useSystemTruststore;
+
     @Option(names = "--insecure", description = "Skip validation of HTTP server certificates (should only be used for debugging)")
     public boolean insecure;
 
@@ -137,8 +140,8 @@ public class ClientOptions
     @Option(names = "--network-logging", paramLabel = "<level>", defaultValue = "NONE", description = "Network logging level [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
     public HttpLoggingInterceptor.Level networkLogging;
 
-    @Option(names = "--progress", paramLabel = "<progress>", description = "Show query progress in batch mode")
-    public boolean progress;
+    @Option(names = "--progress", paramLabel = "<progress>", description = "Show query progress", negatable = true)
+    public Optional<Boolean> progress;
 
     @Option(names = "--execute", paramLabel = "<execute>", description = "Execute specified statements and exit")
     public String execute;
@@ -179,6 +182,9 @@ public class ClientOptions
     @Option(names = "--editing-mode", paramLabel = "<editing-mode>", defaultValue = "EMACS", description = "Editing mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
     public EditingMode editingMode;
 
+    @Option(names = "--disable-auto-suggestion", description = "Disable auto suggestion")
+    public boolean disableAutoSuggestion;
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -215,7 +221,7 @@ public class ClientOptions
     {
         return new ClientSession(
                 parseServer(server),
-                user.orElse(null),
+                user,
                 sessionUser,
                 source,
                 Optional.ofNullable(traceToken),

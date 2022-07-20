@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.trino.hive.orc.NullMemoryManager;
 import io.trino.plugin.raptor.legacy.util.SyncingFileSystem;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -45,7 +46,6 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.apache.hadoop.hive.shims.ShimLoader;
 import org.apache.hadoop.util.VersionInfo;
-import org.apache.orc.NullMemoryManager;
 
 import java.io.Closeable;
 import java.io.File;
@@ -61,6 +61,7 @@ import java.util.Properties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.trino.plugin.raptor.legacy.storage.Row.extractRow;
 import static io.trino.plugin.raptor.legacy.storage.StorageType.arrayOf;
@@ -92,7 +93,7 @@ public class OrcFileWriter
         }
     }
 
-    private static final Configuration CONFIGURATION = new Configuration(false);
+    private static final Configuration CONFIGURATION = newEmptyConfiguration();
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 

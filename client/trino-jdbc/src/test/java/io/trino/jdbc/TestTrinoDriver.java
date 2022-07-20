@@ -391,7 +391,7 @@ public class TestTrinoDriver
 
         assertThat(infos)
                 .extracting(TestTrinoDriver::driverPropertyInfoToString)
-                .contains("{name=user, required=true}")
+                .contains("{name=user, required=false}")
                 .contains("{name=password, required=false}")
                 .contains("{name=accessToken, required=false}")
                 .contains("{name=SSL, required=false, choices=[true, false]}");
@@ -413,7 +413,7 @@ public class TestTrinoDriver
 
         assertThat(infos)
                 .extracting(TestTrinoDriver::driverPropertyInfoToString)
-                .contains("{name=user, value=test, required=true}")
+                .contains("{name=user, value=test, required=false}")
                 .contains("{name=SSL, value=true, required=false, choices=[true, false]}")
                 .contains("{name=SSLVerification, required=false, choices=[FULL, CA, NONE]}")
                 .contains("{name=SSLTrustStorePath, required=false}");
@@ -774,22 +774,10 @@ public class TestTrinoDriver
     }
 
     @Test
-    public void testUserIsRequired()
-    {
-        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl()))
-                .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'user' is required");
-    }
-
-    @Test
     public void testNullConnectProperties()
             throws Exception
     {
-        Driver driver = DriverManager.getDriver("jdbc:trino:");
-
-        assertThatThrownBy(() -> driver.connect(jdbcUrl(), null))
-                .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'user' is required");
+        DriverManager.getDriver("jdbc:trino:").connect(jdbcUrl(), null);
     }
 
     @Test

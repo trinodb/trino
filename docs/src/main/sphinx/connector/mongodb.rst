@@ -2,6 +2,10 @@
 MongoDB connector
 =================
 
+.. raw:: html
+
+  <img src="../_static/img/mongodb.png" class="connector-logo">
+
 The ``mongodb`` connector allows the use of `MongoDB <https://www.mongodb.com/>`_ collections as tables in Trino.
 
 
@@ -13,6 +17,8 @@ To connect to MongoDB, you need:
 * MongoDB 4.0 or higher.
 * Network access from the Trino coordinator and workers to MongoDB.
   Port 27017 is the default port.
+* Write access to the :ref:`schema information collection <table-definition-label>`
+  in MongoDB.
 
 Configuration
 -------------
@@ -41,7 +47,7 @@ Configuration properties
 The following configuration properties are available:
 
 ========================================== ==============================================================
-Property Name                              Description
+Property name                              Description
 ========================================== ==============================================================
 ``mongodb.seeds``                          List of all MongoDB servers
 ``mongodb.connection-url``                 The connection url that the driver uses to connect to a MongoDB deployment
@@ -71,9 +77,14 @@ This property is deprecated and will be removed in a future release. Use ``mongo
 ``mongodb.connection-url``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A string containing the protocol, credential and host info for use in connection to your MongoDB deployment.
+A connection string containing the protocol, credential, and host info for use
+inconnection to your MongoDB deployment.
 
-This could be ``mongodb://<user>:<pass>@<host>:<port>/?<options>`` or ``mongodb+srv://<user>:<pass>@<host>/?<options>``.
+For example, the connection string may use the format
+``mongodb://<user>:<pass>@<host>:<port>/?<options>`` or
+``mongodb+srv://<user>:<pass>@<host>/?<options>``, depending on the protocol
+used. The user/pass credentials must be for a user with write access to the
+:ref:`schema information collection <table-definition-label>`.
 
 See the `MongoDB Connection URI <https://docs.mongodb.com/drivers/java/sync/current/fundamentals/connection/#connection-uri>`_ for more information.
 
@@ -240,6 +251,10 @@ A schema collection consists of a MongoDB document for a table.
         }
     }
 
+The connector quotes the fields for a row type when auto-generating the schema.
+However, if the schema is being fixed manually in the collection then
+the fields need to be explicitly quoted. ``row("UpperCase" varchar)``
+
 =============== ========= ============== =============================
 Field           Required  Type           Description
 =============== ========= ============== =============================
@@ -374,5 +389,6 @@ statements, the connector supports the following features:
 ALTER TABLE
 ^^^^^^^^^^^
 
-The connector does not support ``ALTER TABLE RENAME`` operations. Other uses of
-``ALTER TABLE`` are supported.
+The connector supports ``ALTER TABLE RENAME TO``, ``ALTER TABLE ADD COLUMN``
+and ``ALTER TABLE DROP COLUMN`` operations.
+Other uses of ``ALTER TABLE`` are not supported.

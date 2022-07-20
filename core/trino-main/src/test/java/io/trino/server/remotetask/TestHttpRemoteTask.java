@@ -33,7 +33,6 @@ import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
-import io.trino.execution.Lifespan;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.RemoteTask;
@@ -108,7 +107,6 @@ import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -183,13 +181,9 @@ public class TestHttpRemoteTask
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
 
-        Lifespan lifespan = Lifespan.driverGroup(3);
-        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), lifespan)));
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new CatalogName("test"), TestingSplit.createLocalSplit())));
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID) != null);
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() == 1);
-
-        remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID, lifespan);
-        poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getNoMoreSplitsForLifespan().size() == 1);
 
         remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID);
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).isNoMoreSplits());
@@ -221,7 +215,7 @@ public class TestHttpRemoteTask
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
                 new TypeOperators(),
-                newDirectExecutorService());
+                new DynamicFilterConfig());
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
 
@@ -279,7 +273,6 @@ public class TestHttpRemoteTask
         assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 4L);
 
         httpRemoteTaskFactory.stop();
-        dynamicFilterService.stop();
     }
 
     @Test(timeOut = 30_000)
@@ -302,7 +295,7 @@ public class TestHttpRemoteTask
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
                 new TypeOperators(),
-                newDirectExecutorService());
+                new DynamicFilterConfig());
         dynamicFilterService.registerQuery(
                 queryId,
                 TEST_SESSION,
@@ -374,7 +367,6 @@ public class TestHttpRemoteTask
                 ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L)));
 
         httpRemoteTaskFactory.stop();
-        dynamicFilterService.stop();
     }
 
     private void runTest(FailureScenario failureScenario)
@@ -413,8 +405,7 @@ public class TestHttpRemoteTask
     private void addSplit(RemoteTask remoteTask, TestingTaskResource testingTaskResource, int expectedSplitsCount)
             throws InterruptedException
     {
-        Lifespan lifespan = Lifespan.driverGroup(3);
-        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), lifespan)));
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new CatalogName("test"), TestingSplit.createLocalSplit())));
         // wait for splits to be received by remote task
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID) != null);
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() == expectedSplitsCount);
@@ -431,6 +422,7 @@ public class TestHttpRemoteTask
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
                 outboundDynamicFilterIds,
+                Optional.empty(),
                 true);
     }
 
@@ -622,7 +614,7 @@ public class TestHttpRemoteTask
             if (assignment == null) {
                 return null;
             }
-            return new SplitAssignment(assignment.getPlanNodeId(), assignment.getSplits(), assignment.getNoMoreSplitsForLifespan(), assignment.isNoMoreSplits());
+            return new SplitAssignment(assignment.getPlanNodeId(), assignment.getSplits(), assignment.isNoMoreSplits());
         }
 
         @GET
@@ -739,6 +731,7 @@ public class TestHttpRemoteTask
                     initialTaskInfo.getOutputBuffers(),
                     initialTaskInfo.getNoMoreSplits(),
                     initialTaskInfo.getStats(),
+                    initialTaskInfo.getEstimatedMemory(),
                     initialTaskInfo.isNeedsPlan());
         }
 
@@ -773,13 +766,13 @@ public class TestHttpRemoteTask
                     taskState,
                     initialTaskStatus.getSelf(),
                     "fake",
-                    ImmutableSet.of(),
                     initialTaskStatus.getFailures(),
                     initialTaskStatus.getQueuedPartitionedDrivers(),
                     initialTaskStatus.getRunningPartitionedDrivers(),
                     initialTaskStatus.isOutputBufferOverutilized(),
                     initialTaskStatus.getPhysicalWrittenDataSize(),
                     initialTaskStatus.getMemoryReservation(),
+                    initialTaskStatus.getPeakMemoryReservation(),
                     initialTaskStatus.getRevocableMemoryReservation(),
                     initialTaskStatus.getFullGcCount(),
                     initialTaskStatus.getFullGcTime(),

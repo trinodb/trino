@@ -36,11 +36,13 @@ public class CassandraRecordSetProvider
     private static final Logger log = Logger.get(CassandraRecordSetProvider.class);
 
     private final CassandraSession cassandraSession;
+    private final CassandraTypeManager cassandraTypeManager;
 
     @Inject
-    public CassandraRecordSetProvider(CassandraSession cassandraSession)
+    public CassandraRecordSetProvider(CassandraSession cassandraSession, CassandraTypeManager cassandraTypeManager)
     {
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
+        this.cassandraTypeManager = requireNonNull(cassandraTypeManager);
     }
 
     @Override
@@ -53,7 +55,7 @@ public class CassandraRecordSetProvider
                 .map(column -> (CassandraColumnHandle) column)
                 .collect(toList());
 
-        String selectCql = CassandraCqlUtils.selectFrom(cassandraTable, cassandraColumns).getQueryString();
+        String selectCql = CassandraCqlUtils.selectFrom(cassandraTable, cassandraColumns).asCql();
         StringBuilder sb = new StringBuilder(selectCql);
         if (sb.charAt(sb.length() - 1) == ';') {
             sb.setLength(sb.length() - 1);
@@ -62,6 +64,6 @@ public class CassandraRecordSetProvider
         String cql = sb.toString();
         log.debug("Creating record set: %s", cql);
 
-        return new CassandraRecordSet(cassandraSession, cql, cassandraColumns);
+        return new CassandraRecordSet(cassandraSession, cassandraTypeManager, cql, cassandraColumns);
     }
 }

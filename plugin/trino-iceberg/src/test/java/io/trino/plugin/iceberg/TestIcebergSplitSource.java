@@ -40,6 +40,8 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.apache.iceberg.PartitionSpecParser;
+import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
@@ -61,8 +63,8 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.tpch.TpchTable.NATION;
@@ -100,7 +102,10 @@ public class TestIcebergSplitSource
                 false,
                 false);
 
-        return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of(NATION), Optional.of(metastoreDir));
+        return IcebergQueryRunner.builder()
+                .setInitialTables(NATION)
+                .setMetastoreDirectory(metastoreDir)
+                .build();
     }
 
     @AfterClass(alwaysRun = true)
@@ -116,18 +121,27 @@ public class TestIcebergSplitSource
     {
         long startMillis = System.currentTimeMillis();
         SchemaTableName schemaTableName = new SchemaTableName("tpch", "nation");
+        Table nationTable = catalog.loadTable(SESSION, schemaTableName);
         IcebergTableHandle tableHandle = new IcebergTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 TableType.DATA,
                 Optional.empty(),
+                SchemaParser.toJson(nationTable.schema()),
+                PartitionSpecParser.toJson(nationTable.spec()),
+                1,
                 TupleDomain.all(),
                 TupleDomain.all(),
                 ImmutableSet.of(),
+                Optional.empty(),
+                nationTable.location(),
+                nationTable.properties(),
+                NO_RETRIES,
+                ImmutableList.of(),
+                false,
                 Optional.empty());
-        Table nationTable = catalog.loadTable(SESSION, schemaTableName);
 
-        IcebergSplitSource splitSource = new IcebergSplitSource(
+        try (IcebergSplitSource splitSource = new IcebergSplitSource(
                 tableHandle,
                 nationTable.newScan(),
                 Optional.empty(),
@@ -173,21 +187,22 @@ public class TestIcebergSplitSource
                 new Duration(2, SECONDS),
                 alwaysTrue(),
                 new TestingTypeManager(),
-                false);
-
-        ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
-        while (!splitSource.isFinished()) {
-            splitSource.getNextBatch(null, 100).get()
-                    .getSplits()
-                    .stream()
-                    .map(IcebergSplit.class::cast)
-                    .forEach(splits::add);
+                false,
+                new IcebergConfig().getMinimumAssignedSplitWeight())) {
+            ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
+            while (!splitSource.isFinished()) {
+                splitSource.getNextBatch(100).get()
+                        .getSplits()
+                        .stream()
+                        .map(IcebergSplit.class::cast)
+                        .forEach(splits::add);
+            }
+            assertThat(splits.build().size()).isGreaterThan(0);
+            assertTrue(splitSource.isFinished());
+            assertThat(System.currentTimeMillis() - startMillis)
+                    .as("IcebergSplitSource failed to wait for dynamicFilteringWaitTimeout")
+                    .isGreaterThanOrEqualTo(2000);
         }
-        assertThat(splits.build().size()).isGreaterThan(0);
-        assertTrue(splitSource.isFinished());
-        assertThat(System.currentTimeMillis() - startMillis)
-                .as("IcebergSplitSource failed to wait for dynamicFilteringWaitTimeout")
-                .isGreaterThanOrEqualTo(2000);
     }
 
     @Test

@@ -13,62 +13,104 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.Statement;
-import com.datastax.driver.core.WriteType;
-import com.datastax.driver.core.exceptions.DriverException;
-import com.datastax.driver.core.policies.DefaultRetryPolicy;
-import com.datastax.driver.core.policies.RetryPolicy;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.context.DriverContext;
+import com.datastax.oss.driver.api.core.retry.RetryDecision;
+import com.datastax.oss.driver.api.core.retry.RetryPolicy;
+import com.datastax.oss.driver.api.core.servererrors.CoordinatorException;
+import com.datastax.oss.driver.api.core.servererrors.DefaultWriteType;
+import com.datastax.oss.driver.api.core.servererrors.WriteType;
+import com.datastax.oss.driver.api.core.session.Request;
+import io.airlift.log.Logger;
 
 import java.util.concurrent.ThreadLocalRandom;
 
 public class BackoffRetryPolicy
         implements RetryPolicy
 {
-    public static final BackoffRetryPolicy INSTANCE = new BackoffRetryPolicy();
+    private static final Logger log = Logger.get(BackoffRetryPolicy.class);
 
-    private BackoffRetryPolicy() {}
+    private final String logPrefix;
+
+    public BackoffRetryPolicy(DriverContext context, String profileName)
+    {
+        this.logPrefix = (context != null ? context.getSessionName() : null) + "|" + profileName;
+    }
 
     @Override
-    public RetryDecision onUnavailable(Statement statement, ConsistencyLevel consistencyLevel, int requiredReplica, int aliveReplica, int retries)
+    public RetryDecision onReadTimeout(Request request, ConsistencyLevel consistencyLevel, int blockFor, int received, boolean dataPresent, int retryCount)
+    {
+        RetryDecision decision =
+                (retryCount == 0 && received >= blockFor && !dataPresent)
+                        ? RetryDecision.RETRY_SAME
+                        : RetryDecision.RETHROW;
+
+        if (decision == RetryDecision.RETRY_SAME) {
+            log.debug(
+                    "[%s] Retrying on read timeout on same host (consistency: %s, required responses: %s, received responses: %s, data retrieved: %s, retries: %s)",
+                    logPrefix,
+                    consistencyLevel,
+                    blockFor,
+                    received,
+                    false,
+                    retryCount);
+        }
+
+        return decision;
+    }
+
+    @Override
+    public RetryDecision onWriteTimeout(Request request, ConsistencyLevel consistencyLevel, WriteType writeType, int blockFor, int received, int retryCount)
+    {
+        RetryDecision decision =
+                (retryCount == 0 && writeType == DefaultWriteType.BATCH_LOG)
+                        ? RetryDecision.RETRY_SAME
+                        : RetryDecision.RETHROW;
+
+        if (decision == RetryDecision.RETRY_SAME && log.isDebugEnabled()) {
+            log.debug(
+                    "[%s] Retrying on write timeout on same host (consistency: %s, write type: %s, required acknowledgments: %s, received acknowledgments: %s, retries: %s)",
+                    logPrefix,
+                    consistencyLevel,
+                    writeType,
+                    blockFor,
+                    received,
+                    retryCount);
+        }
+        return decision;
+    }
+
+    @Override
+    public RetryDecision onUnavailable(Request request, ConsistencyLevel consistencyLevel, int required, int alive, int retries)
     {
         if (retries >= 10) {
-            return RetryDecision.rethrow();
+            return RetryDecision.RETHROW;
         }
 
         try {
             int jitter = ThreadLocalRandom.current().nextInt(100);
             int delay = (100 * (retries + 1)) + jitter;
             Thread.sleep(delay);
-            return RetryDecision.retry(consistencyLevel);
+            return RetryDecision.RETRY_SAME;
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return RetryDecision.rethrow();
+            return RetryDecision.RETHROW;
         }
     }
 
     @Override
-    public RetryDecision onReadTimeout(Statement statement, ConsistencyLevel cl, int requiredResponses, int receivedResponses, boolean dataRetrieved, int nbRetry)
+    public RetryDecision onRequestAborted(Request request, Throwable error, int retryCount)
     {
-        return DefaultRetryPolicy.INSTANCE.onReadTimeout(statement, cl, requiredResponses, receivedResponses, dataRetrieved, nbRetry);
+        return RetryDecision.RETHROW;
     }
 
     @Override
-    public RetryDecision onWriteTimeout(Statement statement, ConsistencyLevel cl, WriteType writeType, int requiredAcks, int receivedAcks, int nbRetry)
+    public RetryDecision onErrorResponse(Request request, CoordinatorException error, int retryCount)
     {
-        return DefaultRetryPolicy.INSTANCE.onWriteTimeout(statement, cl, writeType, requiredAcks, receivedAcks, nbRetry);
+        log.debug(error, "[%s] Retrying on node error on next host (retries: %s)", logPrefix, retryCount);
+        return RetryDecision.RETRY_NEXT;
     }
-
-    @Override
-    public RetryDecision onRequestError(Statement statement, ConsistencyLevel cl, DriverException e, int nbRetry)
-    {
-        return RetryDecision.tryNextHost(cl);
-    }
-
-    @Override
-    public void init(Cluster cluster) {}
 
     @Override
     public void close() {}

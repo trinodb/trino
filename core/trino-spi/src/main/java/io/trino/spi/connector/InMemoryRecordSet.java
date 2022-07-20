@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
@@ -315,6 +316,9 @@ public class InMemoryRecordSet
             }
             else if (value instanceof LongTimestampWithTimeZone) {
                 completedBytes += LongTimestampWithTimeZone.INSTANCE_SIZE;
+            }
+            else if (value instanceof LongTimeWithTimeZone) {
+                completedBytes += LongTimeWithTimeZone.INSTANCE_SIZE;
             }
             else if (value instanceof Int128) {
                 completedBytes += Int128.INSTANCE_SIZE;

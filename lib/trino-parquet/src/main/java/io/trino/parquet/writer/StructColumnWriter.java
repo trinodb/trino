@@ -86,7 +86,12 @@ public class StructColumnWriter
     @Override
     public long getBufferedBytes()
     {
-        return columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum();
+        // Avoid using streams here for performance reasons
+        long bufferedBytes = 0;
+        for (ColumnWriter columnWriter : columnWriters) {
+            bufferedBytes += columnWriter.getBufferedBytes();
+        }
+        return bufferedBytes;
     }
 
     @Override

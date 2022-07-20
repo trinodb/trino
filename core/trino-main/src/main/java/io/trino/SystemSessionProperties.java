@@ -39,7 +39,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
@@ -61,8 +60,6 @@ public final class SystemSessionProperties
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
-    public static final String GROUPED_EXECUTION = "grouped_execution";
-    public static final String DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION = "dynamic_schedule_for_grouped_execution";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
@@ -89,7 +86,6 @@ public final class SystemSessionProperties
     public static final String SPATIAL_JOIN = "spatial_join";
     public static final String SPATIAL_PARTITIONING_TABLE_NAME = "spatial_partitioning_table_name";
     public static final String COLOCATED_JOIN = "colocated_join";
-    public static final String CONCURRENT_LIFESPANS_PER_NODE = "concurrent_lifespans_per_task";
     public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
     public static final String MAX_REORDERED_JOINS = "max_reordered_joins";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
@@ -105,6 +101,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_OUTER_JOIN = "push_aggregation_through_outer_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
+    public static final String PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED = "pre_aggregate_case_aggregations_enabled";
     public static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "parse_decimal_literals_as_double";
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
@@ -125,6 +122,7 @@ public final class SystemSessionProperties
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String FILTER_CONJUNCTION_INDEPENDENCE_FACTOR = "filter_conjunction_independence_factor";
+    public static final String NON_ESTIMATABLE_PREDICATE_APPROXIMATION_ENABLED = "non_estimatable_predicate_approximation_enabled";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_PUSHDOWN_INTO_CONNECTORS = "allow_pushdown_into_connectors";
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
@@ -152,17 +150,26 @@ public final class SystemSessionProperties
     public static final String QUERY_RETRY_ATTEMPTS = "query_retry_attempts";
     public static final String TASK_RETRY_ATTEMPTS_OVERALL = "task_retry_attempts_overall";
     public static final String TASK_RETRY_ATTEMPTS_PER_TASK = "task_retry_attempts_per_task";
+    public static final String MAX_TASKS_WAITING_FOR_NODE_PER_STAGE = "max_tasks_waiting_for_node_per_stage";
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
+    public static final String RETRY_DELAY_SCALE_FACTOR = "retry_delay_scale_factor";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE = "fault_tolerant_execution_target_task_input_size";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_TASK_SPLIT_COUNT = "fault_tolerant_execution_min_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT = "fault_tolerant_execution_target_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT = "fault_tolerant_execution_max_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY = "fault_tolerant_execution_task_memory";
+    public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR = "fault_tolerant_execution_task_memory_growth_factor";
+    public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE = "fault_tolerant_execution_task_memory_estimation_quantile";
+    public static final String FAULT_TOLERANT_EXECUTION_PARTITION_COUNT = "fault_tolerant_execution_partition_count";
+    public static final String FAULT_TOLERANT_EXECUTION_PRESERVE_INPUT_PARTITIONS_IN_WRITE_STAGE = "fault_tolerant_execution_preserve_input_partitions_in_write_stage";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
+    public static final String JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT = "join_partitioned_build_min_row_count";
+    public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
+    public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -230,16 +237,6 @@ public final class SystemSessionProperties
                         HASH_PARTITION_COUNT,
                         "Number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getHashPartitionCount(),
-                        false),
-                booleanProperty(
-                        GROUPED_EXECUTION,
-                        "Use grouped execution when possible",
-                        featuresConfig.isGroupedExecutionEnabled(),
-                        false),
-                booleanProperty(
-                        DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION,
-                        "Experimental: Use dynamic schedule for grouped execution when possible",
-                        featuresConfig.isDynamicScheduleForGroupedExecutionEnabled(),
                         false),
                 booleanProperty(
                         PREFER_STREAMING_OPERATORS,
@@ -414,11 +411,6 @@ public final class SystemSessionProperties
                         "Name of the table containing spatial partitioning scheme",
                         null,
                         false),
-                integerProperty(
-                        CONCURRENT_LIFESPANS_PER_NODE,
-                        "Experimental: Run a fixed number of groups concurrently for eligible JOINs",
-                        featuresConfig.getConcurrentLifespansPerTask(),
-                        false),
                 booleanProperty(
                         SPILL_ENABLED,
                         "Enable spilling",
@@ -463,6 +455,11 @@ public final class SystemSessionProperties
                         PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
                         "Push partial aggregations below joins",
                         optimizerConfig.isPushPartialAggregationThoughJoin(),
+                        false),
+                booleanProperty(
+                        PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED,
+                        "Pre-aggregate rows before GROUP BY with multiple CASE aggregations on same column",
+                        optimizerConfig.isPreAggregateCaseAggregationsEnabled(),
                         false),
                 booleanProperty(
                         PARSE_DECIMAL_LITERALS_AS_DOUBLE,
@@ -578,6 +575,11 @@ public final class SystemSessionProperties
                         false,
                         value -> validateDoubleRange(value, FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, 0.0, 1.0),
                         value -> value),
+                booleanProperty(
+                        NON_ESTIMATABLE_PREDICATE_APPROXIMATION_ENABLED,
+                        "Approximate the cost of filters which cannot be accurately estimated even with complete statistics",
+                        optimizerConfig.isNonEstimatablePredicateApproximationEnabled(),
+                        false),
                 booleanProperty(
                         SKIP_REDUNDANT_SORT,
                         "Skip redundant sort operations",
@@ -724,6 +726,11 @@ public final class SystemSessionProperties
                         "Maximum number of task retry attempts per single task",
                         queryManagerConfig.getTaskRetryAttemptsPerTask(),
                         false),
+                integerProperty(
+                        MAX_TASKS_WAITING_FOR_NODE_PER_STAGE,
+                        "Maximum possible number of tasks waiting for node allocation per stage before scheduling of new tasks for stage is paused",
+                        queryManagerConfig.getMaxTasksWaitingForNodePerStage(),
+                        false),
                 durationProperty(
                         RETRY_INITIAL_DELAY,
                         "Initial delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt up to 'retry_max_delay'",
@@ -733,6 +740,18 @@ public final class SystemSessionProperties
                         RETRY_MAX_DELAY,
                         "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
                         queryManagerConfig.getRetryMaxDelay(),
+                        false),
+                doubleProperty(
+                        RETRY_DELAY_SCALE_FACTOR,
+                        "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
+                        queryManagerConfig.getRetryDelayScaleFactor(),
+                        value -> {
+                            if (value < 1.0) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be greater or equal to 1.0", RETRY_MAX_DELAY));
+                            }
+                        },
                         false),
                 booleanProperty(
                         HIDE_INACCESSIBLE_COLUMNS,
@@ -765,6 +784,27 @@ public final class SystemSessionProperties
                         "Estimated amount of memory a single task will use when task level retries are used; value is used allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantExecutionTaskMemory(),
                         false),
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR,
+                        "Factor by which estimated task memory is increased if task execution runs out of memory; value is used allocating nodes for tasks execution",
+                        memoryManagerConfig.getFaultTolerantExecutionTaskMemoryGrowthFactor(),
+                        false),
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE,
+                        "What quantile of memory usage of completed tasks to look at when estimating memory usage for upcoming tasks",
+                        memoryManagerConfig.getFaultTolerantExecutionTaskMemoryEstimationQuantile(),
+                        value -> validateDoubleRange(value, FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE, 0.0, 1.0),
+                        false),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_PARTITION_COUNT,
+                        "Number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
+                        queryManagerConfig.getFaultTolerantExecutionPartitionCount(),
+                        false),
+                booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_PRESERVE_INPUT_PARTITIONS_IN_WRITE_STAGE,
+                        "Ensure single task reads single hash partitioned input partition for stages which write table data",
+                        queryManagerConfig.getFaultTolerantPreserveInputPartitionsInWriteStage(),
+                        false),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
@@ -779,6 +819,22 @@ public final class SystemSessionProperties
                         ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD,
                         "Ratio between aggregation output and input rows above which partial aggregation might be adaptively turned off",
                         optimizerConfig.getAdaptivePartialAggregationUniqueRowsRatioThreshold(),
+                        false),
+                longProperty(
+                        JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT,
+                        "Minimum number of join build side rows required to use partitioned join lookup",
+                        optimizerConfig.getJoinPartitionedBuildMinRowCount(),
+                        value -> validateNonNegativeLongValue(value, JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT),
+                        false),
+                booleanProperty(
+                        USE_EXACT_PARTITIONING,
+                        "When enabled this forces data repartitioning unless the partitioning of upstream stage matches exactly what downstream stage expects",
+                        optimizerConfig.isUseExactPartitioning(),
+                        false),
+                booleanProperty(
+                        FORCE_SPILLING_JOIN,
+                        "Force the usage of spliing join operator in favor of the non-spilling one, even if spill is not enabled",
+                        featuresConfig.isForceSpillingJoin(),
                         false));
     }
 
@@ -821,16 +877,6 @@ public final class SystemSessionProperties
     public static int getHashPartitionCount(Session session)
     {
         return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
-    }
-
-    public static boolean isGroupedExecutionEnabled(Session session)
-    {
-        return session.getSystemProperty(GROUPED_EXECUTION, Boolean.class);
-    }
-
-    public static boolean isDynamicScheduleForGroupedExecution(Session session)
-    {
-        return session.getSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, Boolean.class);
     }
 
     public static boolean preferStreamingOperators(Session session)
@@ -963,16 +1009,6 @@ public final class SystemSessionProperties
         return Optional.ofNullable(session.getSystemProperty(SPATIAL_PARTITIONING_TABLE_NAME, String.class));
     }
 
-    public static OptionalInt getConcurrentLifespansPerNode(Session session)
-    {
-        Integer result = session.getSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, Integer.class);
-        if (result == 0) {
-            return OptionalInt.empty();
-        }
-        checkArgument(result > 0, "Concurrent lifespans per node is negative: %s", result);
-        return OptionalInt.of(result);
-    }
-
     public static int getInitialSplitsPerNode(Session session)
     {
         return session.getSystemProperty(INITIAL_SPLITS_PER_NODE, Integer.class);
@@ -1045,6 +1081,11 @@ public final class SystemSessionProperties
     public static boolean isPushPartialAggregationThroughJoin(Session session)
     {
         return session.getSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, Boolean.class);
+    }
+
+    public static boolean isPreAggregateCaseAggregationsEnabled(Session session)
+    {
+        return session.getSystemProperty(PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED, Boolean.class);
     }
 
     public static boolean isParseDecimalLiteralsAsDouble(Session session)
@@ -1160,6 +1201,13 @@ public final class SystemSessionProperties
         return intValue;
     }
 
+    private static void validateNonNegativeLongValue(Long value, String property)
+    {
+        if (value < 0) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than 0", property));
+        }
+    }
+
     private static double validateDoubleRange(Object value, String property, double lowerBoundIncluded, double upperBoundIncluded)
     {
         double doubleValue = (double) value;
@@ -1206,6 +1254,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, Double.class);
     }
 
+    public static boolean isNonEstimatablePredicateApproximationEnabled(Session session)
+    {
+        return session.getSystemProperty(NON_ESTIMATABLE_PREDICATE_APPROXIMATION_ENABLED, Boolean.class);
+    }
+
     public static boolean isSkipRedundantSort(Session session)
     {
         return session.getSystemProperty(SKIP_REDUNDANT_SORT, Boolean.class);
@@ -1233,6 +1286,10 @@ public final class SystemSessionProperties
 
     public static boolean isEnableDynamicFiltering(Session session)
     {
+        if (getRetryPolicy(session) == RetryPolicy.TASK) {
+            // dynamic filtering is not supported with task level failure recovery enabled
+            return false;
+        }
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
     }
 
@@ -1323,18 +1380,7 @@ public final class SystemSessionProperties
 
     public static RetryPolicy getRetryPolicy(Session session)
     {
-        RetryPolicy retryPolicy = session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
-        if (retryPolicy != RetryPolicy.NONE) {
-            if (retryPolicy != RetryPolicy.QUERY && isEnableDynamicFiltering(session)) {
-                throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic task retries enabled");
-            }
-        }
-        if (retryPolicy == RetryPolicy.TASK) {
-            if (isGroupedExecutionEnabled(session) || isDynamicScheduleForGroupedExecution(session)) {
-                throw new TrinoException(NOT_SUPPORTED, "Grouped execution is not supported with task level retries enabled");
-            }
-        }
-        return retryPolicy;
+        return session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
     }
 
     public static int getQueryRetryAttempts(Session session)
@@ -1352,6 +1398,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(TASK_RETRY_ATTEMPTS_PER_TASK, Integer.class);
     }
 
+    public static int getMaxTasksWaitingForNodePerStage(Session session)
+    {
+        return session.getSystemProperty(MAX_TASKS_WAITING_FOR_NODE_PER_STAGE, Integer.class);
+    }
+
     public static Duration getRetryInitialDelay(Session session)
     {
         return session.getSystemProperty(RETRY_INITIAL_DELAY, Duration.class);
@@ -1360,6 +1411,11 @@ public final class SystemSessionProperties
     public static Duration getRetryMaxDelay(Session session)
     {
         return session.getSystemProperty(RETRY_MAX_DELAY, Duration.class);
+    }
+
+    public static double getRetryDelayScaleFactor(Session session)
+    {
+        return session.getSystemProperty(RETRY_DELAY_SCALE_FACTOR, Double.class);
     }
 
     public static boolean isHideInaccessibleColumns(Session session)
@@ -1392,6 +1448,26 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY, DataSize.class);
     }
 
+    public static double getFaultTolerantExecutionTaskMemoryGrowthFactor(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR, Double.class);
+    }
+
+    public static double getFaultTolerantExecutionTaskMemoryEstimationQuantile(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE, Double.class);
+    }
+
+    public static boolean getFaultTolerantPreserveInputPartitionsInWriteStage(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_PRESERVE_INPUT_PARTITIONS_IN_WRITE_STAGE, Boolean.class);
+    }
+
+    public static int getFaultTolerantExecutionPartitionCount(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_PARTITION_COUNT, Integer.class);
+    }
+
     public static boolean isAdaptivePartialAggregationEnabled(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_ENABLED, Boolean.class);
@@ -1405,5 +1481,20 @@ public final class SystemSessionProperties
     public static double getAdaptivePartialAggregationUniqueRowsRatioThreshold(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD, Double.class);
+    }
+
+    public static long getJoinPartitionedBuildMinRowCount(Session session)
+    {
+        return session.getSystemProperty(JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT, Long.class);
+    }
+
+    public static boolean isUseExactPartitioning(Session session)
+    {
+        return session.getSystemProperty(USE_EXACT_PARTITIONING, Boolean.class);
+    }
+
+    public static boolean isForceSpillingOperator(Session session)
+    {
+        return session.getSystemProperty(FORCE_SPILLING_JOIN, Boolean.class);
     }
 }

@@ -52,6 +52,7 @@ public class DeltaLakeTableHandle
     private final TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint;
     private final Optional<WriteType> writeType;
     private final long readVersion;
+    private final boolean retriesEnabled;
 
     private final Optional<Set<ColumnHandle>> projectedColumns;
     // UPDATE only: The list of columns being updated
@@ -79,7 +80,8 @@ public class DeltaLakeTableHandle
             @JsonProperty("updatedColumns") Optional<List<DeltaLakeColumnHandle>> updatedColumns,
             @JsonProperty("updateRowIdColumns") Optional<List<DeltaLakeColumnHandle>> updateRowIdColumns,
             @JsonProperty("analyzeHandle") Optional<AnalyzeHandle> analyzeHandle,
-            @JsonProperty("readVersion") long readVersion)
+            @JsonProperty("readVersion") long readVersion,
+            @JsonProperty("retriesEnabled") boolean retriesEnabled)
     {
         this(
                 schemaName,
@@ -95,7 +97,8 @@ public class DeltaLakeTableHandle
                 analyzeHandle,
                 false,
                 Optional.empty(),
-                readVersion);
+                readVersion,
+                retriesEnabled);
     }
 
     public DeltaLakeTableHandle(
@@ -112,7 +115,8 @@ public class DeltaLakeTableHandle
             Optional<AnalyzeHandle> analyzeHandle,
             boolean recordScannedFiles,
             Optional<DataSize> maxScannedFileSize,
-            long readVersion)
+            long readVersion,
+            boolean retriesEnabled)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -130,6 +134,7 @@ public class DeltaLakeTableHandle
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.readVersion = readVersion;
+        this.retriesEnabled = retriesEnabled;
     }
 
     public static DeltaLakeTableHandle forDelete(
@@ -140,7 +145,8 @@ public class DeltaLakeTableHandle
             TupleDomain<DeltaLakeColumnHandle> enforcedConstraint,
             TupleDomain<DeltaLakeColumnHandle> unenforcedConstraint,
             Optional<Set<ColumnHandle>> projectedColumns,
-            long readVersion)
+            long readVersion,
+            boolean retriesEnabled)
     {
         return new DeltaLakeTableHandle(
                 schemaName,
@@ -154,7 +160,8 @@ public class DeltaLakeTableHandle
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                readVersion);
+                readVersion,
+                retriesEnabled);
     }
 
     public static DeltaLakeTableHandle forUpdate(
@@ -167,7 +174,8 @@ public class DeltaLakeTableHandle
             Optional<Set<ColumnHandle>> projectedColumns,
             List<DeltaLakeColumnHandle> updatedColumns,
             List<DeltaLakeColumnHandle> updateRowIdColumns,
-            long readVersion)
+            long readVersion,
+            boolean retriesEnabled)
     {
         checkArgument(!updatedColumns.isEmpty(), "Update must specify at least one column to set");
         return new DeltaLakeTableHandle(
@@ -182,7 +190,8 @@ public class DeltaLakeTableHandle
                 Optional.of(updatedColumns),
                 Optional.of(updateRowIdColumns),
                 Optional.empty(),
-                readVersion);
+                readVersion,
+                retriesEnabled);
     }
 
     public DeltaLakeTableHandle withProjectedColumns(Set<ColumnHandle> projectedColumns)
@@ -199,7 +208,8 @@ public class DeltaLakeTableHandle
                 getUpdatedColumns(),
                 getUpdateRowIdColumns(),
                 getAnalyzeHandle(),
-                getReadVersion());
+                getReadVersion(),
+                isRetriesEnabled());
     }
 
     public DeltaLakeTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
@@ -218,7 +228,8 @@ public class DeltaLakeTableHandle
                 analyzeHandle,
                 recordScannedFiles,
                 Optional.of(maxScannedFileSize),
-                readVersion);
+                readVersion,
+                false);
     }
 
     @JsonProperty
@@ -306,6 +317,12 @@ public class DeltaLakeTableHandle
         return readVersion;
     }
 
+    @JsonProperty
+    public boolean isRetriesEnabled()
+    {
+        return retriesEnabled;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -341,7 +358,8 @@ public class DeltaLakeTableHandle
                 Objects.equals(updateRowIdColumns, that.updateRowIdColumns) &&
                 Objects.equals(analyzeHandle, that.analyzeHandle) &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
-                readVersion == that.readVersion;
+                readVersion == that.readVersion &&
+                retriesEnabled == that.retriesEnabled;
     }
 
     @Override
@@ -361,6 +379,7 @@ public class DeltaLakeTableHandle
                 analyzeHandle,
                 recordScannedFiles,
                 maxScannedFileSize,
-                readVersion);
+                readVersion,
+                retriesEnabled);
     }
 }

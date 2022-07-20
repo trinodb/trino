@@ -35,12 +35,12 @@ public class TrackingTransactionLogAccess
             ConnectorSession session,
             TypeManager typeManager,
             CheckpointSchemaManager checkpointSchemaManager,
-            DeltaLakeConfig config,
+            DeltaLakeConfig deltaLakeConfig,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             HdfsEnvironment hdfsEnvironment,
             ParquetReaderConfig parquetReaderConfig)
     {
-        super(typeManager, checkpointSchemaManager, config, fileFormatDataSourceStats, hdfsEnvironment, parquetReaderConfig, new DeltaLakeConfig());
+        super(typeManager, checkpointSchemaManager, deltaLakeConfig, fileFormatDataSourceStats, hdfsEnvironment, parquetReaderConfig);
         this.fileSystem = new AccessTrackingFileSystem(super.getFileSystem(tableLocation, new SchemaTableName("schema", tableName), session));
     }
 

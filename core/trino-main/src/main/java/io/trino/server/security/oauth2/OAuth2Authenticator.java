@@ -18,6 +18,7 @@ import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
+import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 
@@ -25,6 +26,8 @@ import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
 import java.net.URI;
+import java.sql.Date;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,16 +42,20 @@ import static java.util.Objects.requireNonNull;
 public class OAuth2Authenticator
         extends AbstractBearerAuthenticator
 {
-    private final OAuth2Service service;
+    private final OAuth2Client client;
     private final String principalField;
     private final Optional<String> groupsField;
     private final UserMapping userMapping;
+    private final TokenPairSerializer tokenPairSerializer;
+    private final TokenRefresher tokenRefresher;
 
     @Inject
-    public OAuth2Authenticator(OAuth2Service service, OAuth2Config config)
+    public OAuth2Authenticator(OAuth2Client client, OAuth2Config config, TokenRefresher tokenRefresher, TokenPairSerializer tokenPairSerializer)
     {
-        this.service = requireNonNull(service, "service is null");
+        this.client = requireNonNull(client, "service is null");
         this.principalField = config.getPrincipalField();
+        this.tokenRefresher = requireNonNull(tokenRefresher, "tokenRefresher is null");
+        this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
         groupsField = requireNonNull(config.getGroupsField(), "groupsField is null");
         userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
     }
@@ -57,25 +64,34 @@ public class OAuth2Authenticator
     protected Optional<Identity> createIdentity(String token)
             throws UserMappingException
     {
-        try {
-            Optional<Map<String, Object>> claims = service.convertTokenToClaims(token);
-            if (claims.isEmpty()) {
-                return Optional.empty();
-            }
-            String principal = (String) claims.get().get(principalField);
-            Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal));
-            builder.withPrincipal(new BasicPrincipal(principal));
-            groupsField.flatMap(field -> Optional.ofNullable((List<String>) claims.get().get(field)))
-                    .ifPresent(groups -> builder.withGroups(ImmutableSet.copyOf(groups)));
-            return Optional.of(builder.build());
-        }
-        catch (ChallengeFailedException e) {
+        TokenPair tokenPair = tokenPairSerializer.deserialize(token);
+        if (tokenPair.getExpiration().before(Date.from(Instant.now()))) {
             return Optional.empty();
         }
+        Optional<Map<String, Object>> claims = client.getClaims(tokenPair.getAccessToken());
+        if (claims.isEmpty()) {
+            return Optional.empty();
+        }
+        String principal = (String) claims.get().get(principalField);
+        Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal));
+        builder.withPrincipal(new BasicPrincipal(principal));
+        groupsField.flatMap(field -> Optional.ofNullable((List<String>) claims.get().get(field)))
+                .ifPresent(groups -> builder.withGroups(ImmutableSet.copyOf(groups)));
+        return Optional.of(builder.build());
     }
 
     @Override
-    protected AuthenticationException needAuthentication(ContainerRequestContext request, String message)
+    protected AuthenticationException needAuthentication(ContainerRequestContext request, Optional<String> currentToken, String message)
+    {
+        return currentToken
+                .map(tokenPairSerializer::deserialize)
+                .flatMap(tokenRefresher::refreshToken)
+                .map(refreshId -> request.getUriInfo().getBaseUri().resolve(getTokenUri(refreshId)))
+                .map(tokenUri -> new AuthenticationException(message, format("Bearer x_token_server=\"%s\"", tokenUri)))
+                .orElseGet(() -> needAuthentication(request, message));
+    }
+
+    private AuthenticationException needAuthentication(ContainerRequestContext request, String message)
     {
         UUID authId = UUID.randomUUID();
         URI initiateUri = request.getUriInfo().getBaseUri().resolve(getInitiateUri(authId));

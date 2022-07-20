@@ -101,6 +101,13 @@ public class HdfsInputFile
         }
 
         @Override
+        public int read(byte[] b, int off, int len)
+                throws IOException
+        {
+            return delegate.read(b, off, len);
+        }
+
+        @Override
         public long getPos()
                 throws IOException
         {

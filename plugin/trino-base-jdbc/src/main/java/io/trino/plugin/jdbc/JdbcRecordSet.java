@@ -43,7 +43,7 @@ public class JdbcRecordSet
 
         this.table = requireNonNull(table, "table is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        ImmutableList.Builder<Type> types = ImmutableList.builderWithExpectedSize(columnHandles.size());
         for (JdbcColumnHandle column : columnHandles) {
             types.add(column.getColumnType());
         }

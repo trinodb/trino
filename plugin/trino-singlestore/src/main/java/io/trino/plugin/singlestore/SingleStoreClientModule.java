@@ -19,16 +19,18 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.singlestore.jdbc.Driver;
-import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.spi.ptf.ConnectorTableFunction;
 
 import java.util.Properties;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class SingleStoreClientModule
@@ -38,14 +40,16 @@ public class SingleStoreClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SingleStoreClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(SingleStoreJdbcConfig.class);
         configBinder(binder).bindConfig(SingleStoreConfig.class);
         binder.install(new DecimalModule());
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, SingleStoreConfig singleStoreConfig)
+    public static ConnectionFactory createConnectionFactory(SingleStoreJdbcConfig config, CredentialProvider credentialProvider, SingleStoreConfig singleStoreConfig)
     {
         Properties connectionProperties = new Properties();
         // we don't want to interpret tinyInt type (with cardinality as 2) as boolean/bit

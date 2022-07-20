@@ -18,10 +18,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.plugin.deltalake.DeltaHiveTypeTranslator.toHiveType;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -32,6 +34,8 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakeColumnHandle
         implements ColumnHandle
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DeltaLakeColumnHandle.class).instanceSize();
+
     public static final String ROW_ID_COLUMN_NAME = "$row_id";
     public static final Type ROW_ID_COLUMN_TYPE = BIGINT;
 
@@ -46,16 +50,28 @@ public class DeltaLakeColumnHandle
 
     private final String name;
     private final Type type;
+    // Hold field names in Parquet files
+    // The value is same as 'name' when the column mapping mode is none
+    // The value is same as 'delta.columnMapping.physicalName' when the column mapping mode is name. e.g. col-6707cc9e-f3aa-4e6b-b8ef-1b03d3475680
+    private final String physicalName;
+    // Hold type in Parquet files
+    // The value is same as 'type' when the column mapping mode is none
+    // The value is same as 'delta.columnMapping.physicalName' when the column mapping mode is name. e.g. row(col-5924c8b3-04cf-4146-abb5-2c229e7ff708 integer)
+    private final Type physicalType;
     private final DeltaLakeColumnType columnType;
 
     @JsonCreator
     public DeltaLakeColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
+            @JsonProperty("physicalName") String physicalName,
+            @JsonProperty("physicalType") Type physicalType,
             @JsonProperty("columnType") DeltaLakeColumnType columnType)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
+        this.physicalName = requireNonNull(physicalName, "physicalName is null");
+        this.physicalType = requireNonNull(physicalType, "physicalType is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
     }
 
@@ -69,6 +85,18 @@ public class DeltaLakeColumnHandle
     public Type getType()
     {
         return type;
+    }
+
+    @JsonProperty
+    public String getPhysicalName()
+    {
+        return physicalName;
+    }
+
+    @JsonProperty
+    public Type getPhysicalType()
+    {
+        return physicalType;
     }
 
     @JsonProperty
@@ -89,13 +117,21 @@ public class DeltaLakeColumnHandle
         DeltaLakeColumnHandle other = (DeltaLakeColumnHandle) obj;
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
+                Objects.equals(this.physicalName, other.physicalName) &&
+                Objects.equals(this.physicalType, other.physicalType) &&
                 this.columnType == other.columnType;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // type is not accounted for as the instances are cached (by TypeRegistry) and shared
+        return INSTANCE_SIZE + estimatedSizeOf(name);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, columnType);
+        return Objects.hash(name, type, physicalName, physicalType, columnType);
     }
 
     @Override
@@ -107,10 +143,10 @@ public class DeltaLakeColumnHandle
     public HiveColumnHandle toHiveColumnHandle()
     {
         return new HiveColumnHandle(
-                name,
+                physicalName, // this name is used for accessing Parquet files, so it should be physical name
                 0, // hiveColumnIndex; we provide fake value because we always find columns by name
-                toHiveType(type),
-                type,
+                toHiveType(physicalType),
+                physicalType,
                 Optional.empty(),
                 columnType.toHiveColumnType(),
                 Optional.empty());
@@ -118,16 +154,16 @@ public class DeltaLakeColumnHandle
 
     public static DeltaLakeColumnHandle pathColumnHandle()
     {
-        return new DeltaLakeColumnHandle(PATH_COLUMN_NAME, PATH_TYPE, SYNTHESIZED);
+        return new DeltaLakeColumnHandle(PATH_COLUMN_NAME, PATH_TYPE, PATH_COLUMN_NAME, PATH_TYPE, SYNTHESIZED);
     }
 
     public static DeltaLakeColumnHandle fileSizeColumnHandle()
     {
-        return new DeltaLakeColumnHandle(FILE_SIZE_COLUMN_NAME, FILE_SIZE_TYPE, SYNTHESIZED);
+        return new DeltaLakeColumnHandle(FILE_SIZE_COLUMN_NAME, FILE_SIZE_TYPE, FILE_SIZE_COLUMN_NAME, FILE_SIZE_TYPE, SYNTHESIZED);
     }
 
     public static DeltaLakeColumnHandle fileModifiedTimeColumnHandle()
     {
-        return new DeltaLakeColumnHandle(FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_TYPE, SYNTHESIZED);
+        return new DeltaLakeColumnHandle(FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_TYPE, FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_TYPE, SYNTHESIZED);
     }
 }

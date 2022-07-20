@@ -25,6 +25,7 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
@@ -213,7 +214,6 @@ public class FailedDispatchQuery
                 session.getQueryId(),
                 session.toSessionRepresentation(),
                 QueryState.FAILED,
-                false,
                 self,
                 ImmutableList.of(),
                 query,
@@ -240,7 +240,8 @@ public class FailedDispatchQuery
                 ImmutableList.of(),
                 true,
                 resourceGroupId,
-                Optional.empty());
+                Optional.empty(),
+                RetryPolicy.NONE);
 
         return queryInfo;
     }
@@ -307,10 +308,14 @@ public class FailedDispatchQuery
                 DataSize.ofBytes(0),
                 0,
                 0,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 0,
                 0,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 ImmutableList.of(),

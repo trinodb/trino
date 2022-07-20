@@ -21,6 +21,8 @@ import java.util.Optional;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
+import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -215,5 +217,19 @@ public class ArrayBlock
                 valueIsNull,
                 offsets,
                 loadedValuesBlock);
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        boolean[] newValueIsNull = copyIsNullAndAppendNull(getValueIsNull(), getOffsetBase(), getPositionCount());
+        int[] newOffsets = copyOffsetsAndAppendNull(getOffsets(), getOffsetBase(), getPositionCount());
+
+        return createArrayBlockInternal(
+                getOffsetBase(),
+                getPositionCount() + 1,
+                newValueIsNull,
+                newOffsets,
+                getRawElementBlock());
     }
 }

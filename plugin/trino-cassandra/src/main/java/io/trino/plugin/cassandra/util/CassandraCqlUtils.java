@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.cassandra.util;
 
-import com.datastax.driver.core.querybuilder.QueryBuilder;
-import com.datastax.driver.core.querybuilder.Select;
-import com.datastax.driver.core.querybuilder.Select.Selection;
+import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.querybuilder.select.Select;
+import com.datastax.oss.driver.api.querybuilder.select.SelectFrom;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.cassandra.CassandraColumnHandle;
@@ -26,7 +26,8 @@ import io.trino.spi.connector.ColumnHandle;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.datastax.driver.core.Metadata.quote;
+import static com.datastax.oss.driver.internal.core.util.Strings.doubleQuote;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -39,12 +40,12 @@ public final class CassandraCqlUtils
 
     public static String validSchemaName(String identifier)
     {
-        return quote(identifier);
+        return doubleQuote(identifier);
     }
 
     public static String validTableName(String identifier)
     {
-        return quote(identifier);
+        return doubleQuote(identifier);
     }
 
     public static String validColumnName(String identifier)
@@ -53,7 +54,7 @@ public final class CassandraCqlUtils
             return "\"\"";
         }
 
-        return quote(identifier);
+        return doubleQuote(identifier);
     }
 
     public static String quoteStringLiteral(String string)
@@ -100,30 +101,33 @@ public final class CassandraCqlUtils
         return name;
     }
 
-    public static Selection select(List<CassandraColumnHandle> columns)
+    public static List<String> selection(List<CassandraColumnHandle> columns)
     {
-        Selection selection = QueryBuilder.select();
-        for (CassandraColumnHandle column : columns) {
-            selection.column(validColumnName(column.getName()));
-        }
-        return selection;
+        return columns.stream()
+                .map(column -> validColumnName(column.getName()))
+                .collect(toImmutableList());
     }
 
     public static Select selectFrom(CassandraTableHandle tableHandle, List<CassandraColumnHandle> columns)
     {
-        return from(select(columns), tableHandle);
+        SelectFrom selectFrom = from(tableHandle);
+        return columns.isEmpty() ? selectFrom.all() : selectFrom.columns(selection(columns));
     }
 
-    public static Select from(Selection selection, CassandraTableHandle tableHandle)
+    public static SelectFrom from(CassandraTableHandle tableHandle)
     {
         String schema = validSchemaName(tableHandle.getSchemaName());
         String table = validTableName(tableHandle.getTableName());
-        return selection.from(schema, table);
+        return QueryBuilder.selectFrom(schema, table);
     }
 
     public static Select selectDistinctFrom(CassandraTableHandle tableHandle, List<CassandraColumnHandle> columns)
     {
-        return from(select(columns).distinct(), tableHandle);
+        SelectFrom selectFrom = from(tableHandle).distinct();
+        if (columns.isEmpty()) {
+            return selectFrom.all();
+        }
+        return selectFrom.columns(selection(columns));
     }
 
     private static String getWhereCondition(String partition, String clusteringKeyPredicates)

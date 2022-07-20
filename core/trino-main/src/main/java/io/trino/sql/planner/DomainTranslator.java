@@ -21,10 +21,12 @@ import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
@@ -64,6 +66,7 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.transaction.NoOpTransactionManager;
 import io.trino.type.LikeFunctions;
 import io.trino.type.TypeCoercion;
 
@@ -310,12 +313,14 @@ public final class DomainTranslator
                         plannerContext,
                         new SqlParser(),
                         new AllowAllAccessControl(),
+                        new NoOpTransactionManager(),
                         user -> ImmutableSet.of(),
-                        new TableProceduresRegistry(),
+                        new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in domain translator")),
+                        new TableFunctionRegistry(CatalogServiceProvider.fail("table functions are not supported in domain translator")),
                         new SessionPropertyManager(),
-                        new TablePropertyManager(),
-                        new AnalyzePropertyManager(),
-                        new TableProceduresPropertyManager()));
+                        new TablePropertyManager(CatalogServiceProvider.fail("table properties not supported in domain translator")),
+                        new AnalyzePropertyManager(CatalogServiceProvider.fail("analyze properties not supported in domain translator")),
+                        new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in domain translator"))));
         return new Visitor(plannerContext, session, types, typeAnalyzer).process(predicate, false);
     }
 
@@ -1004,10 +1009,11 @@ public final class DomainTranslator
             VarcharType varcharType = (VarcharType) type;
 
             Symbol symbol = Symbol.from(node.getValue());
-            Slice pattern = ((StringLiteral) node.getPattern()).getSlice();
+            Slice pattern = Slices.utf8Slice(((StringLiteral) node.getPattern()).getValue());
             Optional<Slice> escape = node.getEscape()
                     .map(StringLiteral.class::cast)
-                    .map(StringLiteral::getSlice);
+                    .map(StringLiteral::getValue)
+                    .map(Slices::utf8Slice);
 
             int patternConstantPrefixBytes = LikeFunctions.patternConstantPrefixBytes(pattern, escape);
             if (patternConstantPrefixBytes == pattern.length()) {
@@ -1077,7 +1083,7 @@ public final class DomainTranslator
             }
 
             Symbol symbol = Symbol.from(target);
-            Slice constantPrefix = ((StringLiteral) prefix).getSlice();
+            Slice constantPrefix = Slices.utf8Slice(((StringLiteral) prefix).getValue());
 
             return createRangeDomain(type, constantPrefix).map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), node));
         }

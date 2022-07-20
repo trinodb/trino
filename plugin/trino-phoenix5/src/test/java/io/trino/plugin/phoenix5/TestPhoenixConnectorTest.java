@@ -34,6 +34,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -59,6 +60,7 @@ import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPhoenixConnectorTest
@@ -89,8 +91,11 @@ public class TestPhoenixConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_RENAME_TABLE:
@@ -198,8 +203,11 @@ public class TestPhoenixConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("timestamp")
-                || typeName.equals("timestamp(3) with time zone")) {
+        if (typeName.equals("time(6)") ||
+                typeName.equals("timestamp") ||
+                typeName.equals("timestamp(6)") ||
+                typeName.equals("timestamp(3) with time zone") ||
+                typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
@@ -291,6 +299,14 @@ public class TestPhoenixConnectorTest
         }
     }
 
+    @Override
+    public void testCharTrailingSpace()
+    {
+        assertThatThrownBy(super::testCharTrailingSpace)
+                .hasMessageContaining("The table does not have a primary key. tableName=TPCH.CHAR_TRAILING_SPACE");
+        throw new SkipException("Implement test for Phoenix");
+    }
+
     // Overridden because Phoenix requires a ROWID column
     @Override
     public void testCountDistinctWithStringTypes()
@@ -306,6 +322,13 @@ public class TestPhoenixConnectorTest
             assertQuery("SELECT count(DISTINCT t_char) FROM " + testTable.getName(), "VALUES 6");
             assertQuery("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(), "VALUES (6, 6)");
         }
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Test
@@ -544,9 +567,116 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
+    public void testNativeQuerySimple()
+    {
+        // not implemented
+        assertQueryFails("SELECT * FROM TABLE(system.query(query => 'SELECT 1'))", "line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQueryParameters()
+    {
+        // not implemented
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query_simple", "SELECT * FROM TABLE(system.query(query => ?))")
+                .addPreparedStatement("my_query", "SELECT * FROM TABLE(system.query(query => format('SELECT %s FROM %s', ?, ?)))")
+                .build();
+        assertQueryFails(session, "EXECUTE my_query_simple USING 'SELECT 1 a'", "line 1:21: Table function system.query not registered");
+        assertQueryFails(session, "EXECUTE my_query USING 'a', '(SELECT 2 a) t'", "line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQuerySelectFromNation()
+    {
+        // not implemented
+        assertQueryFails(
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                "line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQuerySelectFromTestTable()
+    {
+        // not implemented
+        try (TestTable testTable = simpleTable()) {
+            assertQueryFails(
+                    format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
+                    "line 1:21: Table function system.query not registered");
+        }
+    }
+
+    @Override
+    public void testNativeQueryCreateStatement()
+    {
+        // not implemented
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .hasMessage("line 1:21: Table function system.query not registered");
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        // not implemented
+        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .hasMessage("line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        // not implemented
+        try (TestTable testTable = simpleTable()) {
+            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .hasMessage("line 1:21: Table function system.query not registered");
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("VALUES BIGINT '1', BIGINT '2'");
+        }
+    }
+
+    @Override
+    public void testNativeQueryIncorrectSyntax()
+    {
+        // not implemented
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessage("line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    protected TestTable simpleTable()
+    {
+        // override because Phoenix requires primary key specification
+        return new PhoenixTestTable(onRemoteDatabase(), "tpch.simple_table", "(col BIGINT PRIMARY KEY)", ImmutableList.of("1", "2"));
+    }
+
+    @Override
     protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
     {
         return new TestTable(onRemoteDatabase(), name, "(t_double double primary key, u_double double, v_real float, w_real float)", rows);
+    }
+
+    @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessageContaining("Concurrent modification to table");
+    }
+
+    @Override
+    public void testCreateTableWithLongTableName()
+    {
+        // TODO: Find the maximum table name length in Phoenix and enable this test.
+        // Table name length with 65536 chars throws "startRow's length must be less than or equal to 32767 to meet the criteria for a row key."
+        // 32767 chars still causes the same error and shorter names (e.g. 10000) causes timeout.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(32767);
     }
 
     @Override

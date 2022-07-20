@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.cassandra;
 
-import com.datastax.driver.core.utils.Bytes;
 import io.airlift.units.Duration;
 import io.trino.jdbc.Row;
 import io.trino.tempto.ProductTest;
@@ -32,6 +31,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.function.Consumer;
 
+import static com.datastax.oss.driver.api.core.data.ByteUtils.fromHexString;
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -185,13 +185,13 @@ public class TestSelect
                 CONNECTOR_NAME, KEY_SPACE, CASSANDRA_ALL_TYPES.getName()));
 
         assertThat(query)
-                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, VARCHAR,
+                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, JAVA_OBJECT,
                         INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, JAVA_OBJECT, JAVA_OBJECT,
                         VARCHAR, VARCHAR)
                 .containsOnly(
                         row("\0",
                                 Long.MIN_VALUE,
-                                Bytes.fromHexString("0x00").array(),
+                                fromHexString("0x00").array(),
                                 false,
                                 0f,
                                 Double.MIN_VALUE,
@@ -299,13 +299,13 @@ public class TestSelect
                 CONNECTOR_NAME, KEY_SPACE, materializedViewName));
 
         assertThat(query)
-                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, VARCHAR,
+                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, JAVA_OBJECT,
                         INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, JAVA_OBJECT, JAVA_OBJECT,
                         VARCHAR, VARCHAR)
                 .containsOnly(
                         row("\0",
                                 Long.MIN_VALUE,
-                                Bytes.fromHexString("0x00").array(),
+                                fromHexString("0x00").array(),
                                 false,
                                 0f,
                                 Double.MIN_VALUE,

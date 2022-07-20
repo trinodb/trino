@@ -14,11 +14,11 @@
 package io.trino.tests.product.launcher.env.common;
 
 import com.google.inject.Inject;
+import io.trino.testing.containers.wait.strategy.SelectedPortWaitStrategy;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
-import io.trino.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
@@ -34,6 +34,8 @@ public class HydraIdentityProvider
         implements EnvironmentExtender
 {
     private static final int TTL_ACCESS_TOKEN_IN_SECONDS = 5;
+    private static final int TTL_REFRESH_TOKEN_IN_SECONDS = 15;
+
     private static final String HYDRA_IMAGE = "oryd/hydra:v1.10.6";
     private static final String DSN = "postgres://hydra:mysecretpassword@hydra-db:5432/hydra?sslmode=disable";
     private final PortBinder binder;
@@ -84,6 +86,7 @@ public class HydraIdentityProvider
                 .withEnv("SERVE_TLS_CERT_PATH", "/tmp/certs/hydra.pem")
                 .withEnv("STRATEGIES_ACCESS_TOKEN", "jwt")
                 .withEnv("TTL_ACCESS_TOKEN", TTL_ACCESS_TOKEN_IN_SECONDS + "s")
+                .withEnv("TTL_REFRESH_TOKEN", TTL_REFRESH_TOKEN_IN_SECONDS + "s")
                 .withEnv("OAUTH2_ALLOWED_TOP_LEVEL_CLAIMS", "groups")
                 .withCommand("serve", "all", "--dangerous-force-http")
                 .withCopyFileToContainer(forHostPath(configDir.getPath("cert/hydra.pem")), "/tmp/certs/hydra.pem")

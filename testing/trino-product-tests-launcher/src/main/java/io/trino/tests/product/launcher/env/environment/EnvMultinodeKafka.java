@@ -52,6 +52,7 @@ public final class EnvMultinodeKafka
     {
         builder.configureContainer(COORDINATOR, this::addCatalogs);
         builder.configureContainer(WORKER, this::addCatalogs);
+        builder.addConnector("kafka");
 
         configureTempto(builder, configDir);
     }

@@ -29,12 +29,13 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -59,7 +60,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimeType.TIME_SECONDS;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -84,18 +84,46 @@ public class TestSingleStoreTypeMapping
 
     protected TestingSingleStoreServer singleStoreServer;
 
+    private final ZoneId jvmZone = ZoneId.systemDefault();
+
+    // no DST in 1970, but has DST in later years (e.g. 2018)
+    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
+
+    // minutes offset change since 1970-01-01, no DST
+    private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        singleStoreServer = new TestingSingleStoreServer();
+        singleStoreServer = closeAfterClass(new TestingSingleStoreServer());
         return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
     }
 
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
+    @BeforeClass
+    public void setUp()
     {
-        singleStoreServer.close();
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
+        LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
+        checkIsGap(jvmZone, timeGapInJvmZone1);
+        LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
+        checkIsGap(jvmZone, timeGapInJvmZone2);
+        LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
+        checkIsDoubled(jvmZone, timeDoubledInJvmZone);
+
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        checkIsGap(vilnius, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        checkIsDoubled(vilnius, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
+        LocalDateTime timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
+        checkIsGap(vilnius, timeGapInVilnius);
+        LocalDateTime timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
+        checkIsDoubled(vilnius, timeDoubledInVilnius);
+
+        LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
+        checkIsGap(kathmandu, timeGapInKathmandu);
     }
 
     @Test
@@ -600,53 +628,34 @@ public class TestSingleStoreTypeMapping
                 .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_binary"));
     }
 
-    @Test
-    public void testDate()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testDate(ZoneId sessionZone)
     {
-        ZoneId jvmZone = ZoneId.systemDefault();
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
 
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        verify(jvmZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay()).isEmpty());
-
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        verify(someZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay()).isEmpty());
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        verify(someZone.getRules().getValidOffsets(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1)).size() == 2);
-
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
-                    .build();
-
-            SqlDataTypeTest.create()
-                    .addRoundTrip("date", "CAST(NULL AS date)", DATE, "CAST(NULL AS date)")
-                    .addRoundTrip("date", "CAST('0000-01-01' AS date)", DATE, "DATE '0000-01-01'")
-                    .addRoundTrip("date", "CAST('0001-01-01' AS date)", DATE, "DATE '0001-01-01'")
-                    .addRoundTrip("date", "CAST('1000-01-01' AS date)", DATE, "DATE '1000-01-01'") // min date in docs
-                    .addRoundTrip("date", "CAST('1582-10-04' AS date)", DATE, "DATE '1582-10-04'") // before julian->gregorian switch
-                    .addRoundTrip("date", "CAST('1582-10-05' AS date)", DATE, "DATE '1582-10-05'") // begin julian->gregorian switch
-                    .addRoundTrip("date", "CAST('1582-10-14' AS date)", DATE, "DATE '1582-10-14'") // end julian->gregorian switch
-                    .addRoundTrip("date", "CAST('1952-04-03' AS date)", DATE, "DATE '1952-04-03'") // before epoch
-                    .addRoundTrip("date", "CAST('1970-01-01' AS date)", DATE, "DATE '1970-01-01'")
-                    .addRoundTrip("date", "CAST('1970-02-03' AS date)", DATE, "DATE '1970-02-03'")
-                    .addRoundTrip("date", "CAST('2017-07-01' AS date)", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
-                    .addRoundTrip("date", "CAST('2017-01-01' AS date)", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
-                    .addRoundTrip("date", "CAST('9999-12-31' AS date)", DATE, "DATE '9999-12-31'") // max value
-                    .addRoundTrip("date", "CAST('" + dateOfLocalTimeChangeForwardAtMidnightInJvmZone.toString() + "' AS date)",
-                            DATE, "DATE '" + dateOfLocalTimeChangeForwardAtMidnightInJvmZone.toString() + "'")
-                    .addRoundTrip("date", "CAST('" + dateOfLocalTimeChangeForwardAtMidnightInSomeZone.toString() + "' AS date)",
-                            DATE, "DATE '" + dateOfLocalTimeChangeForwardAtMidnightInSomeZone.toString() + "'")
-                    .addRoundTrip("date", "CAST('" + dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.toString() + "' AS date)",
-                            DATE, "DATE '" + dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.toString() + "'")
-                    .execute(getQueryRunner(), session, singleStoreCreateAndInsert("tpch.test_date"))
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
-                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
-                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
-        }
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "CAST(NULL AS date)", DATE, "CAST(NULL AS date)")
+                .addRoundTrip("date", "CAST('0000-01-01' AS date)", DATE, "DATE '0000-01-01'")
+                .addRoundTrip("date", "CAST('0001-01-01' AS date)", DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", "CAST('1000-01-01' AS date)", DATE, "DATE '1000-01-01'") // min date in docs
+                .addRoundTrip("date", "CAST('1582-10-04' AS date)", DATE, "DATE '1582-10-04'") // before julian->gregorian switch
+                .addRoundTrip("date", "CAST('1582-10-05' AS date)", DATE, "DATE '1582-10-05'") // begin julian->gregorian switch
+                .addRoundTrip("date", "CAST('1582-10-14' AS date)", DATE, "DATE '1582-10-14'") // end julian->gregorian switch
+                .addRoundTrip("date", "CAST('1952-04-03' AS date)", DATE, "DATE '1952-04-03'") // before epoch
+                .addRoundTrip("date", "CAST('1970-01-01' AS date)", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", "CAST('1970-02-03' AS date)", DATE, "DATE '1970-02-03'")
+                .addRoundTrip("date", "CAST('2017-07-01' AS date)", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("date", "CAST('2017-01-01' AS date)", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("date", "CAST('9999-12-31' AS date)", DATE, "DATE '9999-12-31'") // max value
+                .addRoundTrip("date", "CAST('1983-04-01' AS date)", DATE, "DATE '1983-04-01'")
+                .addRoundTrip("date", "CAST('1983-10-01' AS date)", DATE, "DATE '1983-10-01'")
+                .execute(getQueryRunner(), session, singleStoreCreateAndInsert("tpch.test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
@@ -676,7 +685,9 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("time(6)", "TIME '01:02:03.123456'", TIME_MICROS, "TIME '01:02:03.123456'")
                 .addRoundTrip("time(6)", "TIME '23:59:59.999999'", TIME_MICROS, "TIME '23:59:59.999999'")
                 .addRoundTrip("time(6)", "TIME '00:00:00.000000'", TIME_MICROS, "TIME '00:00:00.000000'") // round by engine
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));
 
         SqlDataTypeTest.create()
@@ -898,7 +909,9 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("timestamp(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
 
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_datetime"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_datetime"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_datetime"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_datetime"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_datetime"));
     }
 
     @DataProvider
@@ -1019,5 +1032,20 @@ public class TestSingleStoreTypeMapping
     private static String toLongTimestamp(String value)
     {
         return format("TO_TIMESTAMP('%s', 'YYYY-MM-DD HH24:MI:SS.FF6')", value);
+    }
+
+    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
+    }
+
+    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        return zone.getRules().getValidOffsets(dateTime).isEmpty();
+    }
+
+    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 }

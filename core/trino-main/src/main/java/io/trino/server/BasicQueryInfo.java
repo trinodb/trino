@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.SessionRepresentation;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
@@ -53,6 +54,7 @@ public class BasicQueryInfo
     private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final Optional<QueryType> queryType;
+    private final RetryPolicy retryPolicy;
 
     @JsonCreator
     public BasicQueryInfo(
@@ -68,7 +70,8 @@ public class BasicQueryInfo
             @JsonProperty("queryStats") BasicQueryStats queryStats,
             @JsonProperty("errorType") ErrorType errorType,
             @JsonProperty("errorCode") ErrorCode errorCode,
-            @JsonProperty("queryType") Optional<QueryType> queryType)
+            @JsonProperty("queryType") Optional<QueryType> queryType,
+            @JsonProperty("retryPolicy") RetryPolicy retryPolicy)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.session = requireNonNull(session, "session is null");
@@ -83,6 +86,7 @@ public class BasicQueryInfo
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
+        this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
     }
 
     public BasicQueryInfo(QueryInfo queryInfo)
@@ -99,7 +103,8 @@ public class BasicQueryInfo
                 new BasicQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getErrorType(),
                 queryInfo.getErrorCode(),
-                queryInfo.getQueryType());
+                queryInfo.getQueryType(),
+                queryInfo.getRetryPolicy());
     }
 
     @JsonProperty
@@ -180,6 +185,12 @@ public class BasicQueryInfo
     public Optional<QueryType> getQueryType()
     {
         return queryType;
+    }
+
+    @JsonProperty
+    public RetryPolicy getRetryPolicy()
+    {
+        return retryPolicy;
     }
 
     @Override

@@ -19,6 +19,7 @@ import com.google.common.io.Closer;
 import com.google.inject.Module;
 import io.airlift.discovery.server.testing.TestingDiscoveryServer;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.airlift.testing.Assertions;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -72,6 +73,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.airlift.log.Level.DEBUG;
+import static io.airlift.log.Level.ERROR;
+import static io.airlift.log.Level.WARN;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
@@ -118,6 +122,8 @@ public class DistributedQueryRunner
         if (backupCoordinatorProperties.isPresent()) {
             checkArgument(nodeCount >= 2, "the nodeCount must be greater than or equal to two!");
         }
+
+        setupLogging();
 
         try {
             long start = System.nanoTime();
@@ -204,6 +210,15 @@ public class DistributedQueryRunner
         log.info("Added functions in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
+    private static void setupLogging()
+    {
+        Logging logging = Logging.initialize();
+        logging.setLevel("Bootstrap", WARN);
+        logging.setLevel("org.glassfish", ERROR);
+        logging.setLevel("org.eclipse.jetty.server", WARN);
+        logging.setLevel("io.trino.plugin.hive.util.RetryDriver", DEBUG);
+    }
+
     private static TestingTrinoServer createTestingTrinoServer(
             URI discoveryUri,
             boolean coordinator,
@@ -216,7 +231,6 @@ public class DistributedQueryRunner
     {
         long start = System.nanoTime();
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.<String, String>builder()
-                .put("internal-communication.shared-secret", "test-secret")
                 .put("query.client.timeout", "10m")
                 // Use few threads in tests to preserve resources on CI
                 .put("discovery.http-client.min-threads", "1") // default 8

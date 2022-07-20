@@ -16,10 +16,12 @@ package io.trino.plugin.memory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.sql.planner.OptimizerConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.STATISTICS_PRECALCULATION_FOR_PUSHDOWN_ENABLED;
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 import static io.trino.tpch.TpchTable.NATION;
@@ -85,16 +87,16 @@ public class TestMemoryTableStatistics
         assertThat(query(query)).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
 
         assertQuery(
+                disableStatisticsPrecalculation(getSession()),
                 "SHOW STATS FOR (" + query + ")",
                 "VALUES " +
                         "('nationkey', null, null, null, null, null, null)," +
                         "('name', null, null, null, null, null, null)," +
                         "('regionkey', null, null, null, null, null, null)," +
                         "('comment', null, null, null, null, null, null)," +
-                        "(null, null, null, null, 25, null, null)"); // TODO should be 3
+                        "(null, null, null, null, 25, null, null)");
 
         assertQuery(
-                enableStatisticsPrecalculation(getSession()),
                 "SHOW STATS FOR (" + query + ")",
                 "VALUES " +
                         "('nationkey', null, null, null, null, null, null)," +
@@ -111,16 +113,16 @@ public class TestMemoryTableStatistics
         assertThat(query(query)).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
 
         assertQuery(
+                disableStatisticsPrecalculation(getSession()),
                 "SHOW STATS FOR (" + query + ")",
                 "VALUES " +
                         "('nationkey', null, null, null, null, null, null)," +
                         "('name', null, null, null, null, null, null)," +
                         "('regionkey', null, null, null, null, null, null)," +
                         "('comment', null, null, null, null, null, null)," +
-                        "(null, null, null, null, 25, null, null)"); // TODO should be 12.5
+                        "(null, null, null, null, 25, null, null)");
 
         assertQuery(
-                enableStatisticsPrecalculation(getSession()),
                 "SHOW STATS FOR (" + query + ")",
                 "VALUES " +
                         "('nationkey', null, null, null, null, null, null)," +
@@ -130,10 +132,11 @@ public class TestMemoryTableStatistics
                         "(null, null, null, null, 12.5, null, null)");
     }
 
-    private Session enableStatisticsPrecalculation(Session base)
+    private Session disableStatisticsPrecalculation(Session base)
     {
+        verify(new OptimizerConfig().isStatisticsPrecalculationForPushdownEnabled(), "this assumes precalculation is enabled by default");
         return Session.builder(base)
-                .setSystemProperty(STATISTICS_PRECALCULATION_FOR_PUSHDOWN_ENABLED, "true")
+                .setSystemProperty(STATISTICS_PRECALCULATION_FOR_PUSHDOWN_ENABLED, "false")
                 .build();
     }
 }

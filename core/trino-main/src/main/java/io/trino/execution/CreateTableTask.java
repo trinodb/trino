@@ -71,6 +71,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -125,7 +126,16 @@ public class CreateTableTask
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
-        Optional<TableHandle> tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle;
+        try {
+            tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
+        }
+        catch (TrinoException e) {
+            if (e.getErrorCode().equals(UNSUPPORTED_TABLE_TYPE.toErrorCode())) {
+                throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' of unsupported type already exists", tableName);
+            }
+            throw e;
+        }
         if (tableHandle.isPresent()) {
             if (!statement.isNotExists()) {
                 throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
@@ -186,9 +196,10 @@ public class CreateTableTask
                 TableHandle likeTable = redirection.getTableHandle()
                         .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "LIKE table '%s' does not exist", originalLikeTableName));
 
+                LikeClause.PropertiesOption propertiesOption = likeClause.getPropertiesOption().orElse(EXCLUDING);
                 QualifiedObjectName likeTableName = redirection.getRedirectedTableName().orElse(originalLikeTableName);
-                if (!tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
-                    String message = "CREATE TABLE LIKE across catalogs is not supported";
+                if (propertiesOption == INCLUDING && !tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
+                    String message = "CREATE TABLE LIKE table INCLUDING PROPERTIES across catalogs is not supported";
                     if (!originalLikeTableName.equals(likeTableName)) {
                         message += format(". LIKE table '%s' redirected to '%s'.", originalLikeTableName, likeTableName);
                     }
@@ -197,8 +208,7 @@ public class CreateTableTask
 
                 TableMetadata likeTableMetadata = plannerContext.getMetadata().getTableMetadata(session, likeTable);
 
-                Optional<LikeClause.PropertiesOption> propertiesOption = likeClause.getPropertiesOption();
-                if (propertiesOption.isPresent() && propertiesOption.get() == LikeClause.PropertiesOption.INCLUDING) {
+                if (propertiesOption == INCLUDING) {
                     if (includingProperties) {
                         throw semanticException(NOT_SUPPORTED, statement, "Only one LIKE clause can specify INCLUDING PROPERTIES");
                     }
@@ -217,7 +227,7 @@ public class CreateTableTask
                 catch (AccessDeniedException e) {
                     throw new AccessDeniedException("Cannot reference columns of table " + likeTableName);
                 }
-                if (propertiesOption.orElse(EXCLUDING) == INCLUDING) {
+                if (propertiesOption == INCLUDING) {
                     try {
                         accessControl.checkCanShowCreateTable(session.toSecurityContext(), likeTableName);
                     }

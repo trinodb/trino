@@ -2,6 +2,10 @@
 BigQuery connector
 ==================
 
+.. raw:: html
+
+  <img src="../_static/img/bigquery.png" class="connector-logo">
+
 The BigQuery connector allows querying the data stored in `BigQuery
 <https://cloud.google.com/bigquery/>`_. This can be used to join data between
 different systems like BigQuery and Hive. The connector uses the `BigQuery
@@ -125,12 +129,16 @@ Property                                              Description               
 ``bigquery.view-expire-duration``                     Expire duration for the materialized view.                     ``24h``
 ``bigquery.view-materialization-project``             The project where the materialized view is going to be created The view's project
 ``bigquery.view-materialization-dataset``             The dataset where the materialized view is going to be created The view's dataset
+``bigquery.skip-view-materialization``                Use REST API to access views instead of Storage API. BigQuery
+                                                      ``BIGNUMERIC`` and ``TIMESTAMP`` types are unsupported.        ``false``
 ``bigquery.views-cache-ttl``                          Duration for which the materialization of a view will be       ``15m``
                                                       cached and reused. Set to ``0ms`` to disable the cache.
 ``bigquery.max-read-rows-retries``                    The number of retries in case of retryable server issues       ``3``
 ``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See the `requirements <#requirements>`_ section.
 ``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See the `requirements <#requirements>`_ section.
 ``bigquery.case-insensitive-name-matching``           Match dataset and table names case-insensitively               ``false``
+``bigquery.query-results-cache.enabled``              Enable `query results cache
+                                                      <https://cloud.google.com/bigquery/docs/cached-results>`_      ``false``
 ===================================================== ============================================================== ======================================================
 
 Data types
@@ -165,15 +173,45 @@ For each Trino table which maps to BigQuery view there exists a system table whi
 Given a BigQuery view ``customer_view`` you can send query
 ``SELECT * customer_view$view_definition`` to see the SQL which defines view in BigQuery.
 
+.. _bigquery_special_columns:
+
+Special columns
+---------------
+
+In addition to the defined columns, the BigQuery connector exposes
+partition information in a number of hidden columns:
+
+* ``$partition_date``: Equivalent to ``_PARTITIONDATE`` pseudo-column in BigQuery
+
+* ``$partition_time``: Equivalent to ``_PARTITIONTIME`` pseudo-column in BigQuery
+
+You can use these columns in your SQL statements like any other column. They
+can be selected directly, or used in conditional statements. For example, you
+can inspect the partition date and time for each record::
+
+    SELECT *, "$partition_date", "$partition_time"
+    FROM bigquery.web.page_views;
+
+Retrieve all records stored in the partition ``_PARTITIONDATE = '2022-04-07'``::
+
+    SELECT *
+    FROM bigquery.web.page_views
+    WHERE "$partition_date" = date '2022-04-07';
+
+.. note::
+
+  Two special partitions ``__NULL__`` and ``__UNPARTITIONED__`` are not supported.
+
 .. _bigquery-sql-support:
 
 SQL support
 -----------
 
-The connector provides read and write access to data and metadata in
-the BigQuery database. In addition to the :ref:`globally available
-<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
-statements, the connector supports the following features:
+The connector provides read and write access to data and metadata in the
+BigQuery database, though write access is limited. In addition to the
+:ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements, the connector supports
+the following features:
 
 * :doc:`/sql/create-table`
 * :doc:`/sql/drop-table`

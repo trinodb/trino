@@ -23,6 +23,7 @@ import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,7 +69,7 @@ public class TestDropTableTask
         metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropTable(viewName, false)))
-                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasErrorCode(GENERIC_USER_ERROR)
                 .hasMessage("Table '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?", viewName, viewName);
     }
 
@@ -78,8 +79,9 @@ public class TestDropTableTask
         QualifiedName viewName = qualifiedName("existing_view");
         metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), false);
 
-        getFutureValue(executeDropTable(viewName, true));
-        // no exception
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropTable(viewName, true)))
+                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasMessage("Table '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?", viewName, viewName);
     }
 
     @Test
@@ -89,7 +91,7 @@ public class TestDropTableTask
         metadata.createMaterializedView(testSession, asQualifiedObjectName(viewName), someMaterializedView(), false, false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropTable(viewName, false)))
-                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasErrorCode(GENERIC_USER_ERROR)
                 .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean DROP MATERIALIZED VIEW %s?", viewName, viewName);
     }
 
@@ -99,8 +101,9 @@ public class TestDropTableTask
         QualifiedName viewName = qualifiedName("existing_materialized_view");
         metadata.createMaterializedView(testSession, asQualifiedObjectName(viewName), someMaterializedView(), false, false);
 
-        getFutureValue(executeDropTable(viewName, true));
-        // no exception
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropTable(viewName, true)))
+                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean DROP MATERIALIZED VIEW %s?", viewName, viewName);
     }
 
     private ListenableFuture<Void> executeDropTable(QualifiedName tableName, boolean exists)

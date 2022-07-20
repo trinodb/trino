@@ -20,13 +20,18 @@ import io.trino.plugin.hive.HiveCompressionCodec;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.trino.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestDeltaLakeConfig
 {
@@ -42,6 +47,7 @@ public class TestDeltaLakeConfig
                 .setMaxInitialSplits(200)
                 .setMaxInitialSplitSize(DataSize.of(32, DataSize.Unit.MEGABYTE))
                 .setMaxSplitSize(DataSize.of(64, DataSize.Unit.MEGABYTE))
+                .setMinimumAssignedSplitWeight(0.05)
                 .setMaxPartitionsPerWriter(100)
                 .setUnsafeWritesEnabled(false)
                 .setDefaultCheckpointWritingInterval(10)
@@ -49,9 +55,14 @@ public class TestDeltaLakeConfig
                 .setCheckpointRowStatisticsWritingEnabled(true)
                 .setVacuumMinRetention(new Duration(7, DAYS))
                 .setHiveCatalogName(null)
+                .setDynamicFilteringWaitTimeout(new Duration(0, SECONDS))
                 .setTableStatisticsEnabled(true)
                 .setExtendedStatisticsEnabled(true)
-                .setCompressionCodec(HiveCompressionCodec.SNAPPY));
+                .setCompressionCodec(HiveCompressionCodec.SNAPPY)
+                .setDeleteSchemaLocationsFallback(false)
+                .setParquetTimeZone(TimeZone.getDefault().getID())
+                .setPerTransactionMetastoreCacheMaximumSize(1000)
+                .setTargetMaxFileSize(DataSize.of(1, GIGABYTE)));
     }
 
     @Test
@@ -66,6 +77,7 @@ public class TestDeltaLakeConfig
                 .put("delta.max-initial-splits", "5")
                 .put("delta.max-initial-split-size", "1 GB")
                 .put("delta.max-split-size", "10 MB")
+                .put("delta.minimum-assigned-split-weight", "0.01")
                 .put("delta.max-partitions-per-writer", "200")
                 .put("delta.enable-non-concurrent-writes", "true")
                 .put("delta.default-checkpoint-writing-interval", "15")
@@ -73,9 +85,14 @@ public class TestDeltaLakeConfig
                 .put("delta.checkpoint-row-statistics-writing.enabled", "false")
                 .put("delta.vacuum.min-retention", "13h")
                 .put("delta.hive-catalog-name", "hive")
+                .put("delta.dynamic-filtering.wait-timeout", "30m")
                 .put("delta.table-statistics-enabled", "false")
                 .put("delta.extended-statistics.enabled", "false")
                 .put("delta.compression-codec", "GZIP")
+                .put("delta.per-transaction-metastore-cache-maximum-size", "500")
+                .put("delta.delete-schema-locations-fallback", "true")
+                .put("delta.parquet.time-zone", nonDefaultTimeZone().getID())
+                .put("delta.target-max-file-size", "2 GB")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -85,8 +102,9 @@ public class TestDeltaLakeConfig
                 .setMaxOutstandingSplits(200)
                 .setMaxSplitsPerSecond(10)
                 .setMaxInitialSplits(5)
-                .setMaxInitialSplitSize(DataSize.of(1, DataSize.Unit.GIGABYTE))
+                .setMaxInitialSplitSize(DataSize.of(1, GIGABYTE))
                 .setMaxSplitSize(DataSize.of(10, DataSize.Unit.MEGABYTE))
+                .setMinimumAssignedSplitWeight(0.01)
                 .setMaxPartitionsPerWriter(200)
                 .setUnsafeWritesEnabled(true)
                 .setDefaultCheckpointWritingInterval(15)
@@ -94,9 +112,14 @@ public class TestDeltaLakeConfig
                 .setCheckpointRowStatisticsWritingEnabled(false)
                 .setVacuumMinRetention(new Duration(13, HOURS))
                 .setHiveCatalogName("hive")
+                .setDynamicFilteringWaitTimeout(new Duration(30, MINUTES))
                 .setTableStatisticsEnabled(false)
                 .setExtendedStatisticsEnabled(false)
-                .setCompressionCodec(HiveCompressionCodec.GZIP);
+                .setCompressionCodec(HiveCompressionCodec.GZIP)
+                .setDeleteSchemaLocationsFallback(true)
+                .setParquetTimeZone(nonDefaultTimeZone().getID())
+                .setPerTransactionMetastoreCacheMaximumSize(500)
+                .setTargetMaxFileSize(DataSize.of(2, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

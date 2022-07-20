@@ -46,6 +46,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -70,8 +71,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPostgreSqlConnectorTest
@@ -120,7 +119,10 @@ public class TestPostgreSqlConnectorTest
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_ARRAY:
@@ -159,18 +161,8 @@ public class TestPostgreSqlConnectorTest
     {
         return new TestTable(
                 onRemoteDatabase(),
-                "test_unsupported_column_present",
+                "tpch.test_unsupported_column_present",
                 "(one bigint, two decimal(50,0), three varchar(10))");
-    }
-
-    @Test
-    public void testDropTable()
-    {
-        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
-
-        assertUpdate("DROP TABLE test_drop");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
     }
 
     @Test
@@ -200,6 +192,20 @@ public class TestPostgreSqlConnectorTest
         computeActual("SELECT * FROM test_ft");
         onRemoteDatabase().execute("DROP FOREIGN TABLE test_ft");
         onRemoteDatabase().execute("DROP SERVER devnull");
+    }
+
+    @Test
+    public void testErrorDuringInsert()
+    {
+        onRemoteDatabase().execute("CREATE TABLE test_with_constraint (x bigint primary key)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_with_constraint"));
+        Session nonTransactional = Session.builder(getSession())
+                .setCatalogSessionProperty("postgresql", "non_transactional_insert", "true")
+                .build();
+        assertUpdate(nonTransactional, "INSERT INTO test_with_constraint VALUES (1)", 1);
+        assertQueryFails(nonTransactional, "INSERT INTO test_with_constraint VALUES (1)", "[\\s\\S]*ERROR: duplicate key value[\\s\\S]*");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_with_constraint"));
+        onRemoteDatabase().execute("DROP TABLE test_with_constraint");
     }
 
     @Test
@@ -631,10 +637,11 @@ public class TestPostgreSqlConnectorTest
     @Test
     public void testDecimalPredicatePushdown()
     {
-        try (TestTable table = new TestTable(onRemoteDatabase(), "test_decimal_pushdown",
-                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
-            onRemoteDatabase().execute("INSERT INTO " + table.getName() + " VALUES (123.321, 123456789.987654321)");
-
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_decimal_pushdown",
+                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))",
+                List.of("123.321, 123456789.987654321"))) {
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE short_decimal <= 124"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
@@ -662,12 +669,13 @@ public class TestPostgreSqlConnectorTest
     @Test
     public void testCharPredicatePushdown()
     {
-        try (TestTable table = new TestTable(onRemoteDatabase(), "test_char_pushdown",
-                "(char_1 char(1), char_5 char(5), char_10 char(10))")) {
-            onRemoteDatabase().execute("INSERT INTO " + table.getName() + " VALUES" +
-                    "('0', '0'    , '0'         )," +
-                    "('1', '12345', '1234567890')");
-
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_char_pushdown",
+                "(char_1 char(1), char_5 char(5), char_10 char(10))",
+                List.of(
+                        "'0', '0', '0'",
+                        "'1', '12345', '1234567890'"))) {
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE char_1 = '0' AND char_5 = '0'"))
                     .matches("VALUES (CHAR'0', CHAR'0    ', CHAR'0         ')")
                     .isFullyPushedDown();
@@ -681,21 +689,6 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
-    public void testCharTrailingSpace()
-    {
-        onRemoteDatabase().execute("CREATE TABLE char_trailing_space (x char(10))");
-        assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
-
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test  '", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test        '", "VALUES 'test'");
-
-        assertEquals(getQueryRunner().execute("SELECT * FROM char_trailing_space WHERE x = char ' test'").getRowCount(), 0);
-
-        assertUpdate("DROP TABLE char_trailing_space");
-    }
-
-    @Test
     public void testOrPredicatePushdown()
     {
         assertThat(query("SELECT * FROM nation WHERE nationkey != 3 OR regionkey = 4")).isFullyPushedDown();
@@ -703,6 +696,14 @@ public class TestPostgreSqlConnectorTest
         assertThat(query("SELECT * FROM nation WHERE name = 'ALGERIA' OR regionkey = 4")).isFullyPushedDown();
         assertThat(query("SELECT * FROM nation WHERE name IS NULL OR regionkey = 4")).isFullyPushedDown();
         assertThat(query("SELECT * FROM nation WHERE name = NULL OR regionkey = 4")).isNotFullyPushedDown(FilterNode.class); // TODO `name = NULL` should be eliminated by the engine
+    }
+
+    @Test
+    public void testArithmeticPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % nationkey = 2"))
+                .isFullyPushedDown()
+                .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
     }
 
     @Test
@@ -946,5 +947,26 @@ public class TestPostgreSqlConnectorTest
     {
         long secondsToSleep = round(minimalQueryDuration.convertTo(SECONDS).getValue() + 1);
         return new TestView(onRemoteDatabase(), "test_sleeping_view", format("SELECT 1 FROM pg_sleep(%d)", secondsToSleep));
+    }
+
+    @Override
+    protected Session joinPushdownEnabled(Session session)
+    {
+        return Session.builder(super.joinPushdownEnabled(session))
+                // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
+                .build();
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(63);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessage("Table name must be shorter than or equal to '63' characters but got '64'");
     }
 }

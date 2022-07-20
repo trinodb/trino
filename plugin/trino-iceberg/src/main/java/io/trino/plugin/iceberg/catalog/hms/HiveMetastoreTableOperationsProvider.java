@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg.catalog.hms;
 
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreFactory;
 import io.trino.plugin.iceberg.FileIoProvider;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -31,13 +31,13 @@ public class HiveMetastoreTableOperationsProvider
         implements IcebergTableOperationsProvider
 {
     private final FileIoProvider fileIoProvider;
-    private final ThriftMetastore thriftMetastore;
+    private final ThriftMetastoreFactory thriftMetastoreFactory;
 
     @Inject
-    public HiveMetastoreTableOperationsProvider(FileIoProvider fileIoProvider, ThriftMetastore thriftMetastore)
+    public HiveMetastoreTableOperationsProvider(FileIoProvider fileIoProvider, ThriftMetastoreFactory thriftMetastoreFactory)
     {
         this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
-        this.thriftMetastore = requireNonNull(thriftMetastore, "thriftMetastore is null");
+        this.thriftMetastoreFactory = requireNonNull(thriftMetastoreFactory, "thriftMetastoreFactory is null");
     }
 
     @Override
@@ -52,7 +52,7 @@ public class HiveMetastoreTableOperationsProvider
         return new HiveMetastoreTableOperations(
                 fileIoProvider.createFileIo(new HdfsContext(session), session.getQueryId()),
                 ((TrinoHiveCatalog) catalog).getMetastore(),
-                thriftMetastore,
+                thriftMetastoreFactory.createMetastore(Optional.of(session.getIdentity())),
                 session,
                 database,
                 table,

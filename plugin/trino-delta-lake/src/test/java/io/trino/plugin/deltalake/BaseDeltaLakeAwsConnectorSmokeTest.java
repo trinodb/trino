@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.deltalake.util.DockerizedDataLake;
-import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.QueryRunner;
 
 import java.util.List;
@@ -26,38 +24,33 @@ import static java.lang.String.format;
 public abstract class BaseDeltaLakeAwsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
 {
-    protected DockerizedMinioDataLake dockerizedMinioDataLake;
-
     @Override
-    DockerizedDataLake createDockerizedDataLake()
+    protected HiveMinioDataLake createHiveMinioDataLake()
     {
-        dockerizedMinioDataLake = new DockerizedMinioDataLake(
-                bucketName,
-                getHadoopBaseImage(),
-                ImmutableMap.of("io/trino/plugin/deltalake/core-site.xml", "/etc/hadoop/conf/core-site.xml"),
-                ImmutableMap.of());
-        return dockerizedMinioDataLake;
+        hiveMinioDataLake = new HiveMinioDataLake(bucketName);
+        hiveMinioDataLake.start();
+        return hiveMinioDataLake;
     }
 
     @Override
-    void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
+    protected void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
-        dockerizedMinioDataLake.copyResources(resourcePath, table);
+        hiveMinioDataLake.copyResources(resourcePath, table);
         queryRunner.execute(format("CREATE TABLE %s (dummy int) WITH (location = '%s')",
                 table,
                 getLocationForTable(bucketName, table)));
     }
 
     @Override
-    String getLocationForTable(String bucketName, String tableName)
+    protected String getLocationForTable(String bucketName, String tableName)
     {
         return format("s3://%s/%s", bucketName, tableName);
     }
 
     @Override
-    List<String> getTableFiles(String tableName)
+    protected List<String> getTableFiles(String tableName)
     {
-        return dockerizedMinioDataLake.listFiles(tableName).stream()
+        return hiveMinioDataLake.listFiles(tableName).stream()
                 .map(path -> format("s3://%s/%s", bucketName, path))
                 .collect(toImmutableList());
     }
@@ -65,10 +58,16 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     @Override
     protected List<String> listCheckpointFiles(String transactionLogDirectory)
     {
-        return dockerizedMinioDataLake.listFiles(transactionLogDirectory)
+        return hiveMinioDataLake.listFiles(transactionLogDirectory)
                 .stream()
                 .filter(path -> path.contains("checkpoint.parquet"))
                 .map(path -> format("s3://%s/%s", bucketName, path))
                 .collect(toImmutableList());
+    }
+
+    @Override
+    protected String bucketUrl()
+    {
+        return format("s3://%s/", bucketName);
     }
 }

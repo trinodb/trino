@@ -114,6 +114,7 @@ public class IcebergOrcFileWriter
 
         ImmutableMap.Builder<Integer, Long> valueCountsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, Long> nullCountsBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<Integer, Long> nanCountsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, ByteBuffer> lowerBoundsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, ByteBuffer> upperBoundsBuilder = ImmutableMap.builder();
 
@@ -136,6 +137,9 @@ public class IcebergOrcFileWriter
             if (orcColumnStats.hasNumberOfValues()) {
                 nullCountsBuilder.put(icebergId, fileRowCount - orcColumnStats.getNumberOfValues());
             }
+            if (orcColumnStats.getNumberOfNanValues() > 0) {
+                nanCountsBuilder.put(icebergId, orcColumnStats.getNumberOfNanValues());
+            }
 
             if (!metricsMode.equals(MetricsModes.Counts.get())) {
                 toIcebergMinMax(orcColumnStats, icebergField.type(), metricsMode).ifPresent(minMax -> {
@@ -146,6 +150,7 @@ public class IcebergOrcFileWriter
         }
         Map<Integer, Long> valueCounts = valueCountsBuilder.buildOrThrow();
         Map<Integer, Long> nullCounts = nullCountsBuilder.buildOrThrow();
+        Map<Integer, Long> nanCounts = nanCountsBuilder.buildOrThrow();
         Map<Integer, ByteBuffer> lowerBounds = lowerBoundsBuilder.buildOrThrow();
         Map<Integer, ByteBuffer> upperBounds = upperBoundsBuilder.buildOrThrow();
         return new Metrics(
@@ -153,7 +158,7 @@ public class IcebergOrcFileWriter
                 null, // TODO: Add column size accounting to ORC column writers
                 valueCounts.isEmpty() ? null : valueCounts,
                 nullCounts.isEmpty() ? null : nullCounts,
-                null, // TODO: Add nanValueCounts to ORC writer
+                nanCounts.isEmpty() ? null : nanCounts,
                 lowerBounds.isEmpty() ? null : lowerBounds,
                 upperBounds.isEmpty() ? null : upperBounds);
     }

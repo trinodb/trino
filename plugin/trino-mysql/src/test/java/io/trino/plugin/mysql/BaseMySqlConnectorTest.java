@@ -24,6 +24,7 @@ import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -35,6 +36,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -63,6 +65,8 @@ public abstract class BaseMySqlConnectorTest
                 return false;
 
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_ARRAY:
@@ -132,7 +136,8 @@ public abstract class BaseMySqlConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("timestamp(3) with time zone")) {
+        if (typeName.equals("timestamp(3) with time zone") ||
+                typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
@@ -142,7 +147,7 @@ public abstract class BaseMySqlConnectorTest
         }
 
         if (typeName.equals("boolean")) {
-            // MySql does not have built-in support for boolean type. MySQL provides BOOLEAN as the synonym of TINYINT(1)
+            // MySQL does not have built-in support for boolean type. MySQL provides BOOLEAN as the synonym of TINYINT(1)
             // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
             return Optional.empty();
         }
@@ -186,14 +191,11 @@ public abstract class BaseMySqlConnectorTest
                         ")");
     }
 
-    @Test
-    public void testDropTable()
+    @Override
+    public void testDeleteWithLike()
     {
-        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
-
-        assertUpdate("DROP TABLE test_drop");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Test
@@ -244,21 +246,6 @@ public abstract class BaseMySqlConnectorTest
         assertEquals(row.getField(0), (byte) 127);
 
         assertUpdate("DROP TABLE mysql_test_tinyint1");
-    }
-
-    @Test
-    public void testCharTrailingSpace()
-    {
-        onRemoteDatabase().execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
-        assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
-
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test  '", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test        '", "VALUES 'test'");
-
-        assertEquals(getQueryRunner().execute("SELECT * FROM char_trailing_space WHERE x = char ' test'").getRowCount(), 0);
-
-        assertUpdate("DROP TABLE char_trailing_space");
     }
 
     @Override
@@ -371,6 +358,23 @@ public abstract class BaseMySqlConnectorTest
         onRemoteDatabase().execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
     }
 
+    @Override
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        // override because MySQL succeeds in preparing query, and then fails because of no metadata available
+        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
+    }
+
+    @Override
+    public void testNativeQueryIncorrectSyntax()
+    {
+        // override because MySQL succeeds in preparing query, and then fails because of no metadata available
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
+    }
+
     private String getLongInClause(int start, int length)
     {
         String longValues = range(start, start + length)
@@ -380,8 +384,29 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(64);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("Identifier name .* is too long");
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return mySqlServer::execute;
+    }
+
+    @Override
+    protected Session joinPushdownEnabled(Session session)
+    {
+        return Session.builder(super.joinPushdownEnabled(session))
+                // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
+                .build();
     }
 }

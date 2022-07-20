@@ -22,6 +22,7 @@ public class TestInjectedConnectorAccessControl
 {
     @Test
     public void testEverythingImplemented()
+            throws NoSuchMethodException
     {
         assertAllMethodsOverridden(ConnectorAccessControl.class, InjectedConnectorAccessControl.class);
     }

@@ -49,7 +49,7 @@ public class DeltaLakePageSinkProvider
             HdfsEnvironment hdfsEnvironment,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             DeltaLakeWriterStats stats,
-            DeltaLakeConfig deltalakeConfig,
+            DeltaLakeConfig deltaLakeConfig,
             TypeManager typeManager,
             NodeVersion nodeVersion)
     {
@@ -57,7 +57,7 @@ public class DeltaLakePageSinkProvider
         this.hdfsEnvironment = hdfsEnvironment;
         this.dataFileInfoCodec = dataFileInfoCodec;
         this.stats = stats;
-        this.maxPartitionsPerWriter = deltalakeConfig.getMaxPartitionsPerWriter();
+        this.maxPartitionsPerWriter = deltaLakeConfig.getMaxPartitionsPerWriter();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
     }

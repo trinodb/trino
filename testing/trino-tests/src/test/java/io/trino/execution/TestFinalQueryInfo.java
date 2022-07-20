@@ -65,7 +65,7 @@ public class TestFinalQueryInfo
         try {
             ClientSession clientSession = new ClientSession(
                     queryRunner.getCoordinator().getBaseUrl(),
-                    "user",
+                    Optional.of("user"),
                     Optional.empty(),
                     "source",
                     Optional.empty(),

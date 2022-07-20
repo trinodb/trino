@@ -50,7 +50,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
-import static io.trino.plugin.hive.HiveSessionProperties.isLegacyHiveViewTranslation;
+import static io.trino.plugin.hive.HiveSessionProperties.isHiveViewsLegacyTranslation;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -78,18 +78,20 @@ public final class ViewReaderUtil
             Table table,
             TypeManager typeManager,
             BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> tableRedirectionResolver,
-            MetadataProvider metadataProvider)
+            MetadataProvider metadataProvider,
+            boolean runHiveViewRunAsInvoker)
     {
         if (isPrestoView(table)) {
             return new PrestoViewReader();
         }
-        if (isLegacyHiveViewTranslation(session)) {
-            return new LegacyHiveViewReader();
+        if (isHiveViewsLegacyTranslation(session)) {
+            return new LegacyHiveViewReader(runHiveViewRunAsInvoker);
         }
 
         return new HiveViewReader(
                 new CoralSemiTransactionalHiveMSCAdapter(metastore, coralTableRedirectionResolver(session, tableRedirectionResolver, metadataProvider)),
-                typeManager);
+                typeManager,
+                runHiveViewRunAsInvoker);
     }
 
     private static CoralTableRedirectionResolver coralTableRedirectionResolver(
@@ -119,6 +121,7 @@ public final class ViewReaderUtil
         });
     }
 
+    public static final String ICEBERG_MATERIALIZED_VIEW_COMMENT = "Presto Materialized View";
     public static final String PRESTO_VIEW_FLAG = "presto_view";
     static final String VIEW_PREFIX = "/* Presto View: ";
     static final String VIEW_SUFFIX = " */";
@@ -145,6 +148,11 @@ public final class ViewReaderUtil
         return tableType.equals(TableType.VIRTUAL_VIEW.name());
     }
 
+    public static boolean isTrinoMaterializedView(String tableType, Map<String, String> tableParameters)
+    {
+        return isHiveOrPrestoView(tableType) && isPrestoView(tableParameters) && tableParameters.get(TABLE_COMMENT).equalsIgnoreCase(ICEBERG_MATERIALIZED_VIEW_COMMENT);
+    }
+
     public static boolean canDecodeView(Table table)
     {
         // we can decode Hive or Presto view
@@ -167,6 +175,11 @@ public final class ViewReaderUtil
         @Override
         public ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName)
         {
+            return decodeViewData(viewData);
+        }
+
+        public static ConnectorViewDefinition decodeViewData(String viewData)
+        {
             checkCondition(viewData.startsWith(VIEW_PREFIX), HIVE_INVALID_VIEW_DATA, "View data missing prefix: %s", viewData);
             checkCondition(viewData.endsWith(VIEW_SUFFIX), HIVE_INVALID_VIEW_DATA, "View data missing suffix: %s", viewData);
             viewData = viewData.substring(VIEW_PREFIX.length());
@@ -184,11 +197,13 @@ public final class ViewReaderUtil
     {
         private final HiveMetastoreClient metastoreClient;
         private final TypeManager typeManager;
+        private final boolean hiveViewsRunAsInvoker;
 
-        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typeManager)
+        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typeManager, boolean hiveViewsRunAsInvoker)
         {
             this.metastoreClient = requireNonNull(hiveMetastoreClient, "hiveMetastoreClient is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
+            this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
         }
 
         @Override
@@ -212,7 +227,7 @@ public final class ViewReaderUtil
                         columns,
                         Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
                         Optional.empty(),
-                        false);
+                        hiveViewsRunAsInvoker);
             }
             catch (RuntimeException e) {
                 throw new TrinoException(HIVE_VIEW_TRANSLATION_ERROR,

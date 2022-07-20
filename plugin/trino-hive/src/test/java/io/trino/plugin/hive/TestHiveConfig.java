@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.plugin.hive.HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
 import static io.trino.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
@@ -59,7 +60,7 @@ public class TestHiveConfig
                 .setRecursiveDirWalkerEnabled(false)
                 .setIgnoreAbsentPartitions(false)
                 .setHiveStorageFormat(HiveStorageFormat.ORC)
-                .setHiveCompressionCodec(HiveCompressionCodec.GZIP)
+                .setHiveCompressionCodec(HiveCompressionOption.GZIP)
                 .setRespectTableFormat(true)
                 .setImmutablePartitions(false)
                 .setInsertExistingPartitionsBehavior(APPEND)
@@ -96,7 +97,10 @@ public class TestHiveConfig
                 .setFileStatusCacheExpireAfterWrite(new Duration(1, TimeUnit.MINUTES))
                 .setFileStatusCacheMaxSize(1000 * 1000)
                 .setFileStatusCacheTables("")
+                .setPerTransactionFileStatusCacheMaximumSize(1000 * 1000)
                 .setTranslateHiveViews(false)
+                .setLegacyHiveViewTranslation(false)
+                .setHiveViewsRunAsInvoker(false)
                 .setHiveTransactionHeartbeatInterval(null)
                 .setHiveTransactionHeartbeatThreads(5)
                 .setAllowRegisterPartition(false)
@@ -106,10 +110,12 @@ public class TestHiveConfig
                 .setDynamicFilteringWaitTimeout(new Duration(0, TimeUnit.MINUTES))
                 .setTimestampPrecision(HiveTimestampPrecision.DEFAULT_PRECISION)
                 .setOptimizeSymlinkListing(true)
-                .setLegacyHiveViewTranslation(false)
                 .setIcebergCatalogName(null)
                 .setSizeBasedSplitWeightsEnabled(true)
-                .setMinimumAssignedSplitWeight(0.05));
+                .setMinimumAssignedSplitWeight(0.05)
+                .setDeltaLakeCatalogName(null)
+                .setAutoPurge(false)
+                .setPartitionProjectionEnabled(false));
     }
 
     @Test
@@ -176,7 +182,10 @@ public class TestHiveConfig
                 .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
                 .put("hive.file-status-cache-size", "1000")
                 .put("hive.file-status-cache-expire-time", "30m")
-                .put("hive.translate-hive-views", "true")
+                .put("hive.per-transaction-file-status-cache-maximum-size", "42")
+                .put("hive.hive-views.enabled", "true")
+                .put("hive.hive-views.legacy-translation", "true")
+                .put("hive.hive-views.run-as-invoker", "true")
                 .put("hive.transaction-heartbeat-interval", "10s")
                 .put("hive.transaction-heartbeat-threads", "10")
                 .put("hive.allow-register-partition-procedure", "true")
@@ -186,10 +195,12 @@ public class TestHiveConfig
                 .put("hive.dynamic-filtering.wait-timeout", "10s")
                 .put("hive.timestamp-precision", "NANOSECONDS")
                 .put("hive.optimize-symlink-listing", "false")
-                .put("hive.legacy-hive-view-translation", "true")
                 .put("hive.iceberg-catalog-name", "iceberg")
                 .put("hive.size-based-split-weights-enabled", "false")
                 .put("hive.minimum-assigned-split-weight", "1.0")
+                .put("hive.delta-lake-catalog-name", "delta")
+                .put("hive.auto-purge", "true")
+                .put(CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true")
                 .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
@@ -216,7 +227,7 @@ public class TestHiveConfig
                 .setRecursiveDirWalkerEnabled(true)
                 .setIgnoreAbsentPartitions(true)
                 .setHiveStorageFormat(HiveStorageFormat.SEQUENCEFILE)
-                .setHiveCompressionCodec(HiveCompressionCodec.NONE)
+                .setHiveCompressionCodec(HiveCompressionOption.NONE)
                 .setRespectTableFormat(false)
                 .setImmutablePartitions(true)
                 .setInsertExistingPartitionsBehavior(OVERWRITE)
@@ -253,7 +264,10 @@ public class TestHiveConfig
                 .setFileStatusCacheTables("foo.bar1,foo.bar2")
                 .setFileStatusCacheMaxSize(1000)
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
+                .setPerTransactionFileStatusCacheMaximumSize(42)
                 .setTranslateHiveViews(true)
+                .setLegacyHiveViewTranslation(true)
+                .setHiveViewsRunAsInvoker(true)
                 .setHiveTransactionHeartbeatInterval(new Duration(10, TimeUnit.SECONDS))
                 .setHiveTransactionHeartbeatThreads(10)
                 .setAllowRegisterPartition(true)
@@ -263,10 +277,12 @@ public class TestHiveConfig
                 .setDynamicFilteringWaitTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setTimestampPrecision(HiveTimestampPrecision.NANOSECONDS)
                 .setOptimizeSymlinkListing(false)
-                .setLegacyHiveViewTranslation(true)
                 .setIcebergCatalogName("iceberg")
                 .setSizeBasedSplitWeightsEnabled(false)
-                .setMinimumAssignedSplitWeight(1.0);
+                .setMinimumAssignedSplitWeight(1.0)
+                .setDeltaLakeCatalogName("delta")
+                .setAutoPurge(true)
+                .setPartitionProjectionEnabled(true);
 
         assertFullMapping(properties, expected);
     }

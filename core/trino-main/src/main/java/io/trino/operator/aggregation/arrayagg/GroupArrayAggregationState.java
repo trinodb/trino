@@ -32,14 +32,14 @@ public final class GroupArrayAggregationState
     }
 
     @Override
-    public final void add(Block block, int position)
+    public void add(Block block, int position)
     {
         prepareAdd();
         appendAtChannel(VALUE_CHANNEL, block, position);
     }
 
     @Override
-    protected final boolean accept(ArrayAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
+    protected boolean accept(ArrayAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
     {
         consumer.accept(pageBuilder.getBlockBuilder(VALUE_CHANNEL), currentPosition);
         return true;

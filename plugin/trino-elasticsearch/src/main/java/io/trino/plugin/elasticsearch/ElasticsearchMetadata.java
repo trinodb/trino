@@ -42,25 +42,30 @@ import io.trino.plugin.elasticsearch.decoders.TimestampDecoder;
 import io.trino.plugin.elasticsearch.decoders.TinyintDecoder;
 import io.trino.plugin.elasticsearch.decoders.VarbinaryDecoder;
 import io.trino.plugin.elasticsearch.decoders.VarcharDecoder;
+import io.trino.plugin.elasticsearch.ptf.RawQuery.RawQueryFunctionHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
@@ -164,6 +169,8 @@ public class ElasticsearchMetadata
             Optional<String> query = Optional.empty();
             ElasticsearchTableHandle.Type type = SCAN;
             if (parts.length == 2) {
+                // TODO this query pass-through mechanism is deprecated in favor of the `raw_query` table function.
+                //  it should be eventually removed: https://github.com/trinodb/trino/issues/13050
                 if (table.endsWith(PASSTHROUGH_QUERY_SUFFIX)) {
                     table = table.substring(0, table.length() - PASSTHROUGH_QUERY_SUFFIX.length());
                     byte[] decoded;
@@ -364,7 +371,7 @@ public class ElasticsearchMetadata
             ImmutableList.Builder<RowDecoder.NameAndDescriptor> decoderFields = ImmutableList.builder();
             for (IndexMetadata.Field rowField : objectType.getFields()) {
                 String name = rowField.getName();
-                TypeAndDecoder child = toTrino(appendPath(path, name), rowField);
+                TypeAndDecoder child = toTrino(path, rowField);
 
                 if (child != null) {
                     decoderFields.add(new RowDecoder.NameAndDescriptor(name, child.getDecoderDescriptor()));
@@ -525,16 +532,15 @@ public class ElasticsearchMetadata
 
         Map<ColumnHandle, Domain> supported = new HashMap<>();
         Map<ColumnHandle, Domain> unsupported = new HashMap<>();
-        if (constraint.getSummary().getDomains().isPresent()) {
-            for (Map.Entry<ColumnHandle, Domain> entry : constraint.getSummary().getDomains().get().entrySet()) {
-                ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) entry.getKey();
+        Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
+        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) entry.getKey();
 
-                if (column.isSupportsPredicates()) {
-                    supported.put(column, entry.getValue());
-                }
-                else {
-                    unsupported.put(column, entry.getValue());
-                }
+            if (column.isSupportsPredicates()) {
+                supported.put(column, entry.getValue());
+            }
+            else {
+                unsupported.put(column, entry.getValue());
             }
         }
 
@@ -674,6 +680,24 @@ public class ElasticsearchMetadata
     private static boolean isPassthroughQuery(ElasticsearchTableHandle table)
     {
         return table.getType().equals(QUERY);
+    }
+
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (!(handle instanceof RawQueryFunctionHandle)) {
+            return Optional.empty();
+        }
+
+        ConnectorTableHandle tableHandle = ((RawQueryFunctionHandle) handle).getTableHandle();
+        ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
+        Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
+        List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
+                .map(ColumnSchema::getName)
+                .map(columnHandlesByName::get)
+                .collect(toImmutableList());
+
+        return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 
     private static class InternalTableMetadata

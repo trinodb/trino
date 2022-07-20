@@ -54,6 +54,7 @@ import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 //
 // NOTE:  As a general strategy the methods should "stage" a change and only
@@ -65,6 +66,8 @@ public class Driver
         implements Closeable
 {
     private static final Logger log = Logger.get(Driver.class);
+
+    private static final Duration UNLIMITED_DURATION = new Duration(Long.MAX_VALUE, NANOSECONDS);
 
     private final DriverContext driverContext;
     private final List<Operator> activeOperators;
@@ -268,11 +271,28 @@ public class Driver
         currentSplitAssignment = newAssignment;
     }
 
-    public ListenableFuture<Void> processFor(Duration duration)
+    public ListenableFuture<Void> processForDuration(Duration duration)
+    {
+        return process(duration, Integer.MAX_VALUE);
+    }
+
+    public ListenableFuture<Void> processForNumberOfIterations(int maxIterations)
+    {
+        return process(UNLIMITED_DURATION, maxIterations);
+    }
+
+    public ListenableFuture<Void> processUntilBlocked()
+    {
+        return process(UNLIMITED_DURATION, Integer.MAX_VALUE);
+    }
+
+    @VisibleForTesting
+    public ListenableFuture<Void> process(Duration maxRuntime, int maxIterations)
     {
         checkLockNotHeld("Cannot process for a duration while holding the driver lock");
 
-        requireNonNull(duration, "duration is null");
+        requireNonNull(maxRuntime, "maxRuntime is null");
+        checkArgument(maxIterations > 0, "maxIterations must be greater than zero");
 
         // if the driver is blocked we don't need to continue
         SettableFuture<Void> blockedFuture = driverBlockedFuture.get();
@@ -280,44 +300,47 @@ public class Driver
             return blockedFuture;
         }
 
-        long maxRuntime = duration.roundTo(TimeUnit.NANOSECONDS);
+        long maxRuntimeInNanos = maxRuntime.roundTo(TimeUnit.NANOSECONDS);
 
         Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, true, () -> {
             OperationTimer operationTimer = createTimer();
             driverContext.startProcessTimer();
-            driverContext.getYieldSignal().setWithDelay(maxRuntime, driverContext.getYieldExecutor());
+            driverContext.getYieldSignal().setWithDelay(maxRuntimeInNanos, driverContext.getYieldExecutor());
             try {
                 long start = System.nanoTime();
-                do {
+                int iterations = 0;
+                while (!isFinishedInternal()) {
                     ListenableFuture<Void> future = processInternal(operationTimer);
+                    iterations++;
                     if (!future.isDone()) {
                         return updateDriverBlockedFuture(future);
                     }
+                    if (System.nanoTime() - start >= maxRuntimeInNanos || iterations >= maxIterations) {
+                        break;
+                    }
                 }
-                while (System.nanoTime() - start < maxRuntime && !isFinishedInternal());
+            }
+            catch (Throwable t) {
+                List<StackTraceElement> interrupterStack = exclusiveLock.getInterrupterStack();
+                if (interrupterStack == null) {
+                    driverContext.failed(t);
+                    throw t;
+                }
+
+                // Driver thread was interrupted which should only happen if the task is already finished.
+                // If this becomes the actual cause of a failed query there is a bug in the task state machine.
+                Exception exception = new Exception("Interrupted By");
+                exception.setStackTrace(interrupterStack.stream().toArray(StackTraceElement[]::new));
+                TrinoException newException = new TrinoException(GENERIC_INTERNAL_ERROR, "Driver was interrupted", exception);
+                newException.addSuppressed(t);
+                driverContext.failed(newException);
+                throw newException;
             }
             finally {
                 driverContext.getYieldSignal().reset();
                 driverContext.recordProcessed(operationTimer);
             }
             return NOT_BLOCKED;
-        });
-        return result.orElse(NOT_BLOCKED);
-    }
-
-    public ListenableFuture<Void> process()
-    {
-        checkLockNotHeld("Cannot process while holding the driver lock");
-
-        // if the driver is blocked we don't need to continue
-        SettableFuture<Void> blockedFuture = driverBlockedFuture.get();
-        if (!blockedFuture.isDone()) {
-            return blockedFuture;
-        }
-
-        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, true, () -> {
-            ListenableFuture<Void> future = processInternal(createTimer());
-            return updateDriverBlockedFuture(future);
         });
         return result.orElse(NOT_BLOCKED);
     }
@@ -359,119 +382,101 @@ public class Driver
 
         handleMemoryRevoke();
 
-        try {
-            processNewSources();
+        processNewSources();
 
-            // If there is only one operator, finish it
-            // Some operators (LookupJoinOperator and HashBuildOperator) are broken and requires finish to be called continuously
-            // TODO remove the second part of the if statement, when these operators are fixed
-            // Note: finish should not be called on the natural source of the pipeline as this could cause the task to finish early
-            if (!activeOperators.isEmpty() && activeOperators.size() != allOperators.size()) {
-                Operator rootOperator = activeOperators.get(0);
-                rootOperator.finish();
-                rootOperator.getOperatorContext().recordFinish(operationTimer);
-            }
-
-            boolean movedPage = false;
-            for (int i = 0; i < activeOperators.size() - 1 && !driverContext.isDone(); i++) {
-                Operator current = activeOperators.get(i);
-                Operator next = activeOperators.get(i + 1);
-
-                // skip blocked operator
-                if (getBlockedFuture(current).isPresent()) {
-                    continue;
-                }
-
-                // if the current operator is not finished and next operator isn't blocked and needs input...
-                if (!current.isFinished() && getBlockedFuture(next).isEmpty() && next.needsInput()) {
-                    // get an output page from current operator
-                    Page page = current.getOutput();
-                    current.getOperatorContext().recordGetOutput(operationTimer, page);
-
-                    // if we got an output page, add it to the next operator
-                    if (page != null && page.getPositionCount() != 0) {
-                        next.addInput(page);
-                        next.getOperatorContext().recordAddInput(operationTimer, page);
-                        movedPage = true;
-                    }
-
-                    if (current instanceof SourceOperator) {
-                        movedPage = true;
-                    }
-                }
-
-                // if current operator is finished...
-                if (current.isFinished()) {
-                    // let next operator know there will be no more data
-                    next.finish();
-                    next.getOperatorContext().recordFinish(operationTimer);
-                }
-            }
-
-            for (int index = activeOperators.size() - 1; index >= 0; index--) {
-                if (activeOperators.get(index).isFinished()) {
-                    // close and remove this operator and all source operators
-                    List<Operator> finishedOperators = this.activeOperators.subList(0, index + 1);
-                    Throwable throwable = closeAndDestroyOperators(finishedOperators);
-                    finishedOperators.clear();
-                    if (throwable != null) {
-                        throwIfUnchecked(throwable);
-                        throw new RuntimeException(throwable);
-                    }
-                    // Finish the next operator, which is now the first operator.
-                    if (!activeOperators.isEmpty()) {
-                        Operator newRootOperator = activeOperators.get(0);
-                        newRootOperator.finish();
-                        newRootOperator.getOperatorContext().recordFinish(operationTimer);
-                    }
-                    break;
-                }
-            }
-
-            // if we did not move any pages, check if we are blocked
-            if (!movedPage) {
-                List<Operator> blockedOperators = new ArrayList<>();
-                List<ListenableFuture<Void>> blockedFutures = new ArrayList<>();
-                for (Operator operator : activeOperators) {
-                    Optional<ListenableFuture<Void>> blocked = getBlockedFuture(operator);
-                    if (blocked.isPresent()) {
-                        blockedOperators.add(operator);
-                        blockedFutures.add(blocked.get());
-                    }
-                }
-
-                if (!blockedFutures.isEmpty()) {
-                    // unblock when the first future is complete
-                    ListenableFuture<Void> blocked = firstFinishedFuture(blockedFutures);
-                    // driver records serial blocked time
-                    driverContext.recordBlocked(blocked);
-                    // each blocked operator is responsible for blocking the execution
-                    // until one of the operators can continue
-                    for (Operator operator : blockedOperators) {
-                        operator.getOperatorContext().recordBlocked(blocked);
-                    }
-                    return blocked;
-                }
-            }
-
-            return NOT_BLOCKED;
+        // If there is only one operator, finish it
+        // Some operators (LookupJoinOperator and HashBuildOperator) are broken and requires finish to be called continuously
+        // TODO remove the second part of the if statement, when these operators are fixed
+        // Note: finish should not be called on the natural source of the pipeline as this could cause the task to finish early
+        if (!activeOperators.isEmpty() && activeOperators.size() != allOperators.size()) {
+            Operator rootOperator = activeOperators.get(0);
+            rootOperator.finish();
+            rootOperator.getOperatorContext().recordFinish(operationTimer);
         }
-        catch (Throwable t) {
-            List<StackTraceElement> interrupterStack = exclusiveLock.getInterrupterStack();
-            if (interrupterStack == null) {
-                driverContext.failed(t);
-                throw t;
+
+        boolean movedPage = false;
+        for (int i = 0; i < activeOperators.size() - 1 && !driverContext.isDone(); i++) {
+            Operator current = activeOperators.get(i);
+            Operator next = activeOperators.get(i + 1);
+
+            // skip blocked operator
+            if (getBlockedFuture(current).isPresent()) {
+                continue;
             }
 
-            // Driver thread was interrupted which should only happen if the task is already finished.
-            // If this becomes the actual cause of a failed query there is a bug in the task state machine.
-            Exception exception = new Exception("Interrupted By");
-            exception.setStackTrace(interrupterStack.stream().toArray(StackTraceElement[]::new));
-            TrinoException newException = new TrinoException(GENERIC_INTERNAL_ERROR, "Driver was interrupted", exception);
-            newException.addSuppressed(t);
-            driverContext.failed(newException);
-            throw newException;
+            // if the current operator is not finished and next operator isn't blocked and needs input...
+            if (!current.isFinished() && getBlockedFuture(next).isEmpty() && next.needsInput()) {
+                // get an output page from current operator
+                Page page = current.getOutput();
+                current.getOperatorContext().recordGetOutput(operationTimer, page);
+
+                // if we got an output page, add it to the next operator
+                if (page != null && page.getPositionCount() != 0) {
+                    next.addInput(page);
+                    next.getOperatorContext().recordAddInput(operationTimer, page);
+                    movedPage = true;
+                }
+
+                if (current instanceof SourceOperator) {
+                    movedPage = true;
+                }
+            }
+
+            // if current operator is finished...
+            if (current.isFinished()) {
+                // let next operator know there will be no more data
+                next.finish();
+                next.getOperatorContext().recordFinish(operationTimer);
+            }
         }
+
+        for (int index = activeOperators.size() - 1; index >= 0; index--) {
+            if (activeOperators.get(index).isFinished()) {
+                // close and remove this operator and all source operators
+                List<Operator> finishedOperators = this.activeOperators.subList(0, index + 1);
+                Throwable throwable = closeAndDestroyOperators(finishedOperators);
+                finishedOperators.clear();
+                if (throwable != null) {
+                    throwIfUnchecked(throwable);
+                    throw new RuntimeException(throwable);
+                }
+                // Finish the next operator, which is now the first operator.
+                if (!activeOperators.isEmpty()) {
+                    Operator newRootOperator = activeOperators.get(0);
+                    newRootOperator.finish();
+                    newRootOperator.getOperatorContext().recordFinish(operationTimer);
+                }
+                break;
+            }
+        }
+
+        // if we did not move any pages, check if we are blocked
+        if (!movedPage) {
+            List<Operator> blockedOperators = new ArrayList<>();
+            List<ListenableFuture<Void>> blockedFutures = new ArrayList<>();
+            for (Operator operator : activeOperators) {
+                Optional<ListenableFuture<Void>> blocked = getBlockedFuture(operator);
+                if (blocked.isPresent()) {
+                    blockedOperators.add(operator);
+                    blockedFutures.add(blocked.get());
+                }
+            }
+
+            if (!blockedFutures.isEmpty()) {
+                // unblock when the first future is complete
+                ListenableFuture<Void> blocked = firstFinishedFuture(blockedFutures);
+                // driver records serial blocked time
+                driverContext.recordBlocked(blocked);
+                // each blocked operator is responsible for blocking the execution
+                // until one of the operators can continue
+                for (Operator operator : blockedOperators) {
+                    operator.getOperatorContext().recordBlocked(blocked);
+                }
+                return blocked;
+            }
+        }
+
+        return NOT_BLOCKED;
     }
 
     @GuardedBy("exclusiveLock")

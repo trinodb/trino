@@ -14,6 +14,7 @@
 package io.trino.plugin.raptor.legacy.util;
 
 import com.google.common.base.Throwables;
+import com.mysql.cj.jdbc.JdbcStatement;
 import io.trino.spi.TrinoException;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.HandleCallback;
@@ -33,7 +34,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.reflect.Reflection.newProxy;
-import static com.mysql.jdbc.MysqlErrorNumbers.ER_TRANS_CACHE_FULL;
+import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_TRANS_CACHE_FULL;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_METADATA_ERROR;
 import static java.sql.Types.INTEGER;
 import static java.util.Objects.requireNonNull;
@@ -109,8 +110,8 @@ public final class DatabaseUtil
     public static void enableStreamingResults(Statement statement)
             throws SQLException
     {
-        if (statement.isWrapperFor(com.mysql.jdbc.Statement.class)) {
-            statement.unwrap(com.mysql.jdbc.Statement.class).enableStreamingResults();
+        if (statement.isWrapperFor(JdbcStatement.class)) {
+            statement.unwrap(JdbcStatement.class).enableStreamingResults();
         }
     }
 

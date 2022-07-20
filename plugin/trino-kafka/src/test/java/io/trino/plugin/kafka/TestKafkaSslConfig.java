@@ -33,6 +33,7 @@ import static io.trino.plugin.kafka.security.KafkaEndpointIdentificationAlgorith
 import static io.trino.plugin.kafka.security.KafkaKeystoreTruststoreType.JKS;
 import static io.trino.plugin.kafka.security.KafkaKeystoreTruststoreType.PKCS12;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.kafka.clients.CommonClientConfigs.SECURITY_PROTOCOL_CONFIG;
 import static org.apache.kafka.common.config.SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG;
 import static org.apache.kafka.common.config.SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG;
 import static org.apache.kafka.common.config.SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG;
@@ -41,6 +42,7 @@ import static org.apache.kafka.common.config.SslConfigs.SSL_KEY_PASSWORD_CONFIG;
 import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG;
 import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG;
 import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG;
+import static org.apache.kafka.common.security.auth.SecurityProtocol.SSL;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -119,6 +121,7 @@ public class TestKafkaSslConfig
                         SSL_TRUSTSTORE_PASSWORD_CONFIG, "superSavePasswordForTruststore",
                         SSL_TRUSTSTORE_TYPE_CONFIG, JKS.name(),
                         SSL_KEY_PASSWORD_CONFIG, "aSslKeyPassword",
+                        SECURITY_PROTOCOL_CONFIG, SSL.name(),
                         SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, HTTPS.getValue())));
     }
 

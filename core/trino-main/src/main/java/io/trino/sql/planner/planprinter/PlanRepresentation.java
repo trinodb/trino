@@ -27,18 +27,20 @@ import static java.util.Objects.requireNonNull;
 class PlanRepresentation
 {
     private final PlanNode root;
+    private final TypeProvider types;
     private final Optional<Duration> totalCpuTime;
     private final Optional<Duration> totalScheduledTime;
-    private final TypeProvider types;
+    private final Optional<Duration> totalBlockedTime;
 
     private final Map<PlanNodeId, NodeRepresentation> nodeInfo = new HashMap<>();
 
-    public PlanRepresentation(PlanNode root, TypeProvider types, Optional<Duration> totalCpuTime, Optional<Duration> totalScheduledTime)
+    public PlanRepresentation(PlanNode root, TypeProvider types, Optional<Duration> totalCpuTime, Optional<Duration> totalScheduledTime, Optional<Duration> totalBlockedTime)
     {
         this.root = requireNonNull(root, "root is null");
-        this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
         this.types = requireNonNull(types, "types is null");
+        this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
+        this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
     }
 
     public NodeRepresentation getRoot()
@@ -59,6 +61,11 @@ class PlanRepresentation
     public Optional<Duration> getTotalScheduledTime()
     {
         return totalScheduledTime;
+    }
+
+    public Optional<Duration> getTotalBlockedTime()
+    {
+        return totalBlockedTime;
     }
 
     public Optional<NodeRepresentation> getNode(PlanNodeId id)

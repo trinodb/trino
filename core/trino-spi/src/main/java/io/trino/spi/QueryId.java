@@ -74,7 +74,7 @@ public final class QueryId
     //
 
     // Check if the string matches [_a-z0-9]+ , but without the overhead of regex
-    private static final boolean isValidId(String id)
+    private static boolean isValidId(String id)
     {
         if (id.length() == 0) {
             return false;

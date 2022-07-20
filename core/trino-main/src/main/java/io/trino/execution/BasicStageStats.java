@@ -33,6 +33,8 @@ public class BasicStageStats
             false,
 
             0,
+
+            0,
             0,
             0,
             0,
@@ -63,6 +65,7 @@ public class BasicStageStats
             OptionalDouble.empty());
 
     private final boolean isScheduled;
+    private final int failedTasks;
     private final int totalDrivers;
     private final int queuedDrivers;
     private final int runningDrivers;
@@ -88,6 +91,8 @@ public class BasicStageStats
 
     public BasicStageStats(
             boolean isScheduled,
+
+            int failedTasks,
 
             int totalDrivers,
             int queuedDrivers,
@@ -120,6 +125,7 @@ public class BasicStageStats
             OptionalDouble progressPercentage)
     {
         this.isScheduled = isScheduled;
+        this.failedTasks = failedTasks;
         this.totalDrivers = totalDrivers;
         this.queuedDrivers = queuedDrivers;
         this.runningDrivers = runningDrivers;
@@ -147,6 +153,11 @@ public class BasicStageStats
     public boolean isScheduled()
     {
         return isScheduled;
+    }
+
+    public int getFailedTasks()
+    {
+        return failedTasks;
     }
 
     public int getTotalDrivers()
@@ -261,6 +272,8 @@ public class BasicStageStats
 
     public static BasicStageStats aggregateBasicStageStats(Iterable<BasicStageStats> stages)
     {
+        int failedTasks = 0;
+
         int totalDrivers = 0;
         int queuedDrivers = 0;
         int runningDrivers = 0;
@@ -292,6 +305,8 @@ public class BasicStageStats
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
         for (BasicStageStats stageStats : stages) {
+            failedTasks += stageStats.getFailedTasks();
+
             totalDrivers += stageStats.getTotalDrivers();
             queuedDrivers += stageStats.getQueuedDrivers();
             runningDrivers += stageStats.getRunningDrivers();
@@ -330,6 +345,8 @@ public class BasicStageStats
 
         return new BasicStageStats(
                 isScheduled,
+
+                failedTasks,
 
                 totalDrivers,
                 queuedDrivers,

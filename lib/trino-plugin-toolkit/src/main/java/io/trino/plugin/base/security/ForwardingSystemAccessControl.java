@@ -18,6 +18,7 @@ import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
@@ -28,6 +29,7 @@ import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -213,6 +215,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanSetTableComment(context, table);
+    }
+
+    @Override
+    public void checkCanSetViewComment(SystemSecurityContext context, CatalogSchemaTableName view)
+    {
+        delegate().checkCanSetViewComment(context, view);
     }
 
     @Override
@@ -468,6 +476,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    {
+        delegate().checkCanExecuteFunction(systemSecurityContext, functionKind, functionName);
+    }
+
+    @Override
     public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
     {
         delegate().checkCanExecuteTableProcedure(systemSecurityContext, table, procedure);
@@ -480,14 +494,14 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getRowFilter(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
-        return delegate().getRowFilter(context, tableName);
+        return delegate().getRowFilters(context, tableName);
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
-        return delegate().getColumnMask(context, tableName, columnName, type);
+        return delegate().getColumnMasks(context, tableName, columnName, type);
     }
 }

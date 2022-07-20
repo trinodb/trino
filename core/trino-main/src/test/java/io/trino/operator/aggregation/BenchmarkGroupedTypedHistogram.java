@@ -16,7 +16,6 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.GroupByIdBlock;
-import io.trino.operator.aggregation.histogram.Histogram;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.sql.tree.QualifiedName;
@@ -134,7 +133,7 @@ public class BenchmarkGroupedTypedHistogram
     private static TestingAggregationFunction getInternalAggregationFunctionVarChar()
     {
         TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-        return functionResolution.getAggregateFunction(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR));
+        return functionResolution.getAggregateFunction(QualifiedName.of("histogram"), fromTypes(VARCHAR));
     }
 
     public static void main(String[] args)

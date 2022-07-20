@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import io.trino.operator.join.JoinBridgeManager;
-import io.trino.operator.join.LookupSourceFactory;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -29,10 +28,11 @@ public interface OperatorFactories
     OperatorFactory innerJoin(
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            JoinBridgeManager<?> lookupSourceFactory,
             boolean outputSingleMatch,
             boolean waitForBuild,
             boolean hasFilter,
+            boolean spillingEnabled,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
@@ -44,9 +44,10 @@ public interface OperatorFactories
     OperatorFactory probeOuterJoin(
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            JoinBridgeManager<?> lookupSourceFactory,
             boolean outputSingleMatch,
             boolean hasFilter,
+            boolean spillingEnabled,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
@@ -58,9 +59,10 @@ public interface OperatorFactories
     OperatorFactory lookupOuterJoin(
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            JoinBridgeManager<?> lookupSourceFactory,
             boolean waitForBuild,
             boolean hasFilter,
+            boolean spillingEnabled,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
@@ -72,8 +74,9 @@ public interface OperatorFactories
     OperatorFactory fullOuterJoin(
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            JoinBridgeManager<?> lookupSourceFactory,
             boolean hasFilter,
+            boolean spillingEnabled,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,

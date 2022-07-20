@@ -38,6 +38,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
 
 public abstract class BaseDruidConnectorTest
         extends BaseJdbcConnectorTest
@@ -61,6 +63,7 @@ public abstract class BaseDruidConnectorTest
             case SUPPORTS_CREATE_SCHEMA:
             case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_CREATE_TABLE_WITH_DATA:
+            case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -289,5 +292,35 @@ public abstract class BaseDruidConnectorTest
     public void testDateYearOfEraPredicate()
     {
         throw new SkipException("Druid connector does not map 'orderdate' column to date type");
+    }
+
+    @Override
+    public void testCharTrailingSpace()
+    {
+        assertThatThrownBy(super::testCharTrailingSpace)
+                .hasMessageContaining("Error while executing SQL \"CREATE TABLE druid.char_trailing_space");
+        throw new SkipException("Implement test for Druid");
+    }
+
+    @Override
+    public void testNativeQuerySelectFromTestTable()
+    {
+        throw new SkipException("cannot create test table for Druid");
+    }
+
+    @Override
+    public void testNativeQueryCreateStatement()
+    {
+        // override because Druid fails to prepare statement, while other connectors succeed in preparing statement and then fail because of no metadata available
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .hasMessageContaining("Failed to get table handle for prepared query");
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        throw new SkipException("cannot create test table for Druid");
     }
 }

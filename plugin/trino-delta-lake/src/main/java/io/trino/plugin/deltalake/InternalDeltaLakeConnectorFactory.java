@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
@@ -27,11 +24,13 @@ import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.CatalogNameModule;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeEventListener;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
@@ -39,11 +38,13 @@ import io.trino.plugin.hive.HiveHdfsModule;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
+import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.s3.HiveS3Module;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -70,28 +71,20 @@ public final class InternalDeltaLakeConnectorFactory
             String catalogName,
             Map<String, String> config,
             ConnectorContext context,
-            Optional<Module> extensions)
-    {
-        return createConnector(catalogName, config, context, extensions.orElse(binder -> {}));
-    }
-
-    @VisibleForTesting
-    public static Connector createConnector(
-            String catalogName,
-            Map<String, String> config,
-            ConnectorContext context,
-            Module extraModule)
+            Module module)
     {
         ClassLoader classLoader = InternalDeltaLakeConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new EventModule(),
                     new MBeanModule(),
+                    new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.deltalake", "trino.plugin.deltalake"),
                     new JsonModule(),
                     new MBeanServerModule(),
                     new HiveHdfsModule(),
                     new HiveS3Module(),
                     new HiveAzureModule(),
+                    new HiveGcsModule(),
                     new HdfsAuthenticationModule(),
                     new CatalogNameModule(catalogName),
                     new DeltaLakeMetastoreModule(),
@@ -104,8 +97,7 @@ public final class InternalDeltaLakeConnectorFactory
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                         newSetBinder(binder, EventListener.class);
                     },
-                    binder -> bindSessionPropertiesProvider(binder, DeltaLakeSessionProperties.class),
-                    extraModule);
+                    module);
 
             Injector injector = app
                     .doNotInitializeLogging()
@@ -121,6 +113,11 @@ public final class InternalDeltaLakeConnectorFactory
             DeltaLakeTableProperties deltaLakeTableProperties = injector.getInstance(DeltaLakeTableProperties.class);
             DeltaLakeAnalyzeProperties deltaLakeAnalyzeProperties = injector.getInstance(DeltaLakeAnalyzeProperties.class);
             DeltaLakeTransactionManager transactionManager = injector.getInstance(DeltaLakeTransactionManager.class);
+
+            Optional<ConnectorAccessControl> deltaAccessControl = injector.getInstance(Key.get(new TypeLiteral<Optional<ConnectorAccessControl>>() {}))
+                    // TODO: add the following when adding support for system tables
+                    //   .map(accessControl -> new SystemTableAwareAccessControl(accessControl, systemTableProviders))
+                    .map(accessControl -> new ClassLoaderSafeConnectorAccessControl(accessControl, classLoader));
 
             Set<EventListener> eventListeners = injector.getInstance(Key.get(new TypeLiteral<Set<EventListener>>() {}))
                     .stream()
@@ -143,16 +140,9 @@ public final class InternalDeltaLakeConnectorFactory
                     DeltaLakeSchemaProperties.SCHEMA_PROPERTIES,
                     deltaLakeTableProperties.getTableProperties(),
                     deltaLakeAnalyzeProperties.getAnalyzeProperties(),
+                    deltaAccessControl,
                     eventListeners,
                     transactionManager);
         }
-    }
-
-    public static void bindSessionPropertiesProvider(Binder binder, Class<? extends SessionPropertiesProvider> type)
-    {
-        newSetBinder(binder, SessionPropertiesProvider.class)
-                .addBinding()
-                .to(type)
-                .in(Scopes.SINGLETON);
     }
 }

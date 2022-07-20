@@ -19,7 +19,8 @@ import io.airlift.slice.Slice;
 import io.airlift.stats.Distribution;
 import io.airlift.units.DataSize;
 import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
+import io.trino.hive.orc.NullMemoryManager;
+import io.trino.hive.orc.impl.WriterImpl;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Split;
 import io.trino.operator.DriverContext;
@@ -70,8 +71,6 @@ import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.orc.NullMemoryManager;
-import org.apache.orc.impl.WriterImpl;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -97,6 +96,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -135,7 +135,7 @@ public class TestOrcPageSourceMemoryTracking
 {
     private static final String ORC_RECORD_WRITER = OrcOutputFormat.class.getName() + "$OrcRecordWriter";
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
-    private static final Configuration CONFIGURATION = new Configuration(false);
+    private static final Configuration CONFIGURATION = newEmptyConfiguration();
     private static final int NUM_ROWS = 50000;
     private static final int STRIPE_ROWS = 20000;
     private static final FunctionManager functionManager = createTestingFunctionManager();
@@ -567,7 +567,7 @@ public class TestOrcPageSourceMemoryTracking
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(orcPageSourceFactory),
                     ImmutableSet.of(),
-                    new Configuration(false),
+                    newEmptyConfiguration(),
                     session,
                     fileSplit.getPath(),
                     OptionalInt.empty(),
@@ -598,7 +598,7 @@ public class TestOrcPageSourceMemoryTracking
                     columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
                     DynamicFilter.EMPTY);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
+            operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit()));
             return operator;
         }
 
@@ -625,7 +625,7 @@ public class TestOrcPageSourceMemoryTracking
                     DataSize.ofBytes(0),
                     0);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
+            operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit()));
             operator.noMoreSplits();
             return operator;
         }
@@ -667,7 +667,7 @@ public class TestOrcPageSourceMemoryTracking
 
         serializer.initialize(CONFIGURATION, tableProperties);
 
-        JobConf jobConf = new JobConf();
+        JobConf jobConf = new JobConf(newEmptyConfiguration());
         if (compressionCodec != null) {
             CompressionCodec codec = new CompressionCodecFactory(CONFIGURATION).getCodecByName(compressionCodec);
             jobConf.set(COMPRESS_CODEC, codec.getClass().getName());

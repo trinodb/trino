@@ -42,6 +42,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -73,6 +74,7 @@ public class TestingRemoteTaskFactory
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             Set<DynamicFilterId> outboundDynamicFilterIds,
+            Optional<DataSize> estimatedMemory,
             boolean summarizeTaskInfo)
     {
         TestingRemoteTask task = new TestingRemoteTask(taskId, node.getNodeIdentifier(), fragment);
@@ -147,6 +149,7 @@ public class TestingRemoteTaskFactory
                             ImmutableList.of()),
                     ImmutableSet.copyOf(noMoreSplits),
                     new TaskStats(DateTime.now(), null),
+                    Optional.empty(),
                     false);
         }
 
@@ -165,11 +168,11 @@ public class TestingRemoteTaskFactory
                     state,
                     location,
                     nodeId,
-                    ImmutableSet.of(),
                     failures,
                     0,
                     0,
                     false,
+                    DataSize.of(0, BYTE),
                     DataSize.of(0, BYTE),
                     DataSize.of(0, BYTE),
                     DataSize.of(0, BYTE),
@@ -211,11 +214,6 @@ public class TestingRemoteTaskFactory
         public Set<PlanNodeId> getNoMoreSplits()
         {
             return ImmutableSet.copyOf(noMoreSplits);
-        }
-
-        @Override
-        public void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan)
-        {
         }
 
         @Override

@@ -37,7 +37,6 @@ public class TestKuduClientConfig
                 .setDisableStatistics(false)
                 .setSchemaEmulationEnabled(false)
                 .setSchemaEmulationPrefix("presto::")
-                .setGroupedExecutionEnabled(false)
                 .setDynamicFilteringWaitTimeout(new Duration(0, MINUTES)));
     }
 
@@ -51,7 +50,6 @@ public class TestKuduClientConfig
                 .put("kudu.client.disable-statistics", "true")
                 .put("kudu.schema-emulation.enabled", "true")
                 .put("kudu.schema-emulation.prefix", "trino::")
-                .put("kudu.grouped-execution.enabled", "true")
                 .put("kudu.dynamic-filtering.wait-timeout", "30m")
                 .buildOrThrow();
 
@@ -62,7 +60,6 @@ public class TestKuduClientConfig
                 .setDisableStatistics(true)
                 .setSchemaEmulationEnabled(true)
                 .setSchemaEmulationPrefix("trino::")
-                .setGroupedExecutionEnabled(true)
                 .setDynamicFilteringWaitTimeout(new Duration(30, MINUTES));
 
         assertFullMapping(properties, expected);

@@ -25,7 +25,6 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
@@ -57,6 +56,7 @@ import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -140,7 +140,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
 
             List<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
 
-            subqueryPlan = new AggregationNode(
+            subqueryPlan = singleAggregation(
                     idAllocator.getNextId(),
                     subqueryPlan,
                     ImmutableMap.of(
@@ -172,11 +172,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty())),
-                    globalAggregation(),
-                    ImmutableList.of(),
-                    AggregationNode.Step.SINGLE,
-                    Optional.empty(),
-                    Optional.empty());
+                    globalAggregation());
 
             PlanNode join = new CorrelatedJoinNode(
                     node.getId(),

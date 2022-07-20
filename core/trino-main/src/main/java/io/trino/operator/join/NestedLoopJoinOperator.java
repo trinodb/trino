@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.execution.Lifespan;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
@@ -66,7 +65,7 @@ public class NestedLoopJoinOperator
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.joinBridgeManager = nestedLoopJoinBridgeManager;
-            this.joinBridgeManager.incrementProbeFactoryCount();
+            joinBridgeManager.incrementProbeFactoryCount();
             this.probeChannels = ImmutableList.copyOf(requireNonNull(probeChannels, "probeChannels is null"));
             this.buildChannels = ImmutableList.copyOf(requireNonNull(buildChannels, "buildChannels is null"));
         }
@@ -84,7 +83,6 @@ public class NestedLoopJoinOperator
 
             // closed is intentionally not copied
             closed = false;
-
             joinBridgeManager.incrementProbeFactoryCount();
         }
 
@@ -92,33 +90,27 @@ public class NestedLoopJoinOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            NestedLoopJoinBridge nestedLoopJoinBridge = joinBridgeManager.getJoinBridge(driverContext.getLifespan());
+            NestedLoopJoinBridge nestedLoopJoinBridge = joinBridgeManager.getJoinBridge();
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopJoinOperator.class.getSimpleName());
 
-            joinBridgeManager.probeOperatorCreated(driverContext.getLifespan());
+            joinBridgeManager.probeOperatorCreated();
             return new NestedLoopJoinOperator(
                     operatorContext,
                     nestedLoopJoinBridge,
                     probeChannels,
                     buildChannels,
-                    () -> joinBridgeManager.probeOperatorClosed(driverContext.getLifespan()));
+                    () -> joinBridgeManager.probeOperatorClosed());
         }
 
         @Override
         public void noMoreOperators()
         {
+            joinBridgeManager.probeOperatorFactoryClosed();
             if (closed) {
                 return;
             }
             closed = true;
-            joinBridgeManager.probeOperatorFactoryClosedForAllLifespans();
-        }
-
-        @Override
-        public void noMoreOperators(Lifespan lifespan)
-        {
-            joinBridgeManager.probeOperatorFactoryClosed(lifespan);
         }
 
         @Override

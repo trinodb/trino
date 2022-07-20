@@ -2,6 +2,10 @@
 Redshift connector
 ==================
 
+.. raw:: html
+
+  <img src="../_static/img/redshift.png" class="connector-logo">
+
 The Redshift connector allows querying and creating tables in an
 external `Amazon Redshift <https://aws.amazon.com/redshift/>`_ cluster. This can be used to join data between
 different systems like Redshift and Hive, or between two different
@@ -127,3 +131,37 @@ statements, the connector supports the following features:
 .. include:: alter-table-limitation.fragment
 
 .. include:: alter-schema-limitation.fragment
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access Redshift.
+
+.. _redshift-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to Redshift, because the full query is pushed down and
+processed in Redshift. This can be useful for accessing native features which
+are not implemented in Trino or for improving query performance in situations
+where running a query natively may be faster.
+
+For example, select the top 10 nations by population::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        redshift.system.query(
+          query => 'SELECT
+            TOP 10 *
+          FROM
+            tpch.nation
+          ORDER BY
+            population DESC'
+        )
+      );
+
