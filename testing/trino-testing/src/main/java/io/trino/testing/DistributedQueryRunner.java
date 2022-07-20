@@ -536,11 +536,12 @@ public class DistributedQueryRunner
         }
     }
 
-    public ResultWithQueryId<MaterializedResult> executeWithQueryId(Session session, @Language("SQL") String sql)
+    public MaterializedResultWithQueryId executeWithQueryId(Session session, @Language("SQL") String sql)
     {
         lock.readLock().lock();
         try {
-            return trinoClient.execute(session, sql);
+            ResultWithQueryId<MaterializedResult> result = trinoClient.execute(session, sql);
+            return new MaterializedResultWithQueryId(result.getQueryId(), result.getResult());
         }
         finally {
             lock.readLock().unlock();
@@ -550,7 +551,7 @@ public class DistributedQueryRunner
     @Override
     public MaterializedResultWithPlan executeWithPlan(Session session, String sql, WarningCollector warningCollector)
     {
-        ResultWithQueryId<MaterializedResult> resultWithQueryId = executeWithQueryId(session, sql);
+        MaterializedResultWithQueryId resultWithQueryId = executeWithQueryId(session, sql);
         return new MaterializedResultWithPlan(resultWithQueryId.getResult().toTestTypes(), getQueryPlan(resultWithQueryId.getQueryId()));
     }
 

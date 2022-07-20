@@ -30,9 +30,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.split.SplitSource;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.tpch.TpchTable;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
@@ -180,7 +179,7 @@ public class TestKuduIntegrationDynamicFilter
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
     {
         DistributedQueryRunner runner = getDistributedQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(session, selectQuery);
+        MaterializedResultWithQueryId result = runner.executeWithQueryId(session, selectQuery);
 
         assertEquals(result.getResult().getRowCount(), expectedRowCount);
         assertEquals(getOperatorRowsRead(runner, result.getQueryId()), Ints.asList(expectedOperatorRowsRead));

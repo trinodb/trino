@@ -3408,7 +3408,7 @@ public abstract class BaseConnectorTest
         String tableName = "test_written_stats_" + randomTableSuffix();
         try {
             String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation";
-            ResultWithQueryId<MaterializedResult> resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+            MaterializedResultWithQueryId resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
             QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
 
             assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);

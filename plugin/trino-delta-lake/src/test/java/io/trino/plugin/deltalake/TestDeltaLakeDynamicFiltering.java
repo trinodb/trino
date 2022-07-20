@@ -32,9 +32,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.DataProvider;
@@ -107,8 +106,8 @@ public class TestDeltaLakeDynamicFiltering
     public void testDynamicFiltering(JoinDistributionType joinDistributionType)
     {
         String query = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice > 59995 AND orders.totalprice < 60000";
-        ResultWithQueryId<MaterializedResult> filteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(true, joinDistributionType), query);
-        ResultWithQueryId<MaterializedResult> unfilteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(false, joinDistributionType), query);
+        MaterializedResultWithQueryId filteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(true, joinDistributionType), query);
+        MaterializedResultWithQueryId unfilteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(false, joinDistributionType), query);
         assertEqualsIgnoreOrder(filteredResult.getResult().getMaterializedRows(), unfilteredResult.getResult().getMaterializedRows());
 
         QueryInputStats filteredStats = getQueryInputStats(filteredResult.getQueryId());

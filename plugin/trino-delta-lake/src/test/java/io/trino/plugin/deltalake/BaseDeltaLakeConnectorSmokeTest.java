@@ -30,8 +30,8 @@ import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
@@ -327,9 +327,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         hiveTableName,
                         getLocationForTable(bucketName, "foo")));
 
-        ResultWithQueryId<MaterializedResult> deltaResult = queryRunner.executeWithQueryId(broadcastJoinDistribution(true), "SELECT * FROM foo");
+        MaterializedResultWithQueryId deltaResult = queryRunner.executeWithQueryId(broadcastJoinDistribution(true), "SELECT * FROM foo");
         assertEquals(deltaResult.getResult().getRowCount(), 2);
-        ResultWithQueryId<MaterializedResult> hiveResult = queryRunner.executeWithQueryId(broadcastJoinDistribution(true), format("SELECT * FROM %s.%s.%s", "hive", SCHEMA, hiveTableName));
+        MaterializedResultWithQueryId hiveResult = queryRunner.executeWithQueryId(broadcastJoinDistribution(true), format("SELECT * FROM %s.%s.%s", "hive", SCHEMA, hiveTableName));
         assertEquals(hiveResult.getResult().getRowCount(), 2);
 
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
@@ -1544,7 +1544,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
     private void testCountQuery(@Language("SQL") String sql, long expectedRowCount, long expectedSplitCount)
     {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
         assertEquals(result.getResult().getOnlyColumnAsSet(), ImmutableSet.of(expectedRowCount));
         verifySplitCount(result.getQueryId(), expectedSplitCount);
     }
