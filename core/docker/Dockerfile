@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-ARG AZUL_DOCKER_TAG=17.0.3
+ARG AZUL_DOCKER_TAG=17.0.4
 FROM azul/zulu-openjdk:$AZUL_DOCKER_TAG
 
 ENV JAVA_HOME /usr/lib/jvm/zulu17

@@ -16,7 +16,7 @@ EOF
 
 ARCHITECTURES=(amd64 arm64)
 TRINO_VERSION=
-AZUL_DOCKER_TAG="17.0.3"
+AZUL_DOCKER_TAG="17.0.4"
 
 while getopts ":a:h:r:j:" o; do
     case "${o}" in
