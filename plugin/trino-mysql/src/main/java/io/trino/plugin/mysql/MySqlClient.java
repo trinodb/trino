@@ -372,6 +372,8 @@ public class MySqlClient
                 return Optional.of(decimalColumnMapping(createDecimalType(20)));
             case "json":
                 return Optional.of(jsonColumnMapping());
+            case "enum":
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
         }
 
         switch (typeHandle.getJdbcType()) {
