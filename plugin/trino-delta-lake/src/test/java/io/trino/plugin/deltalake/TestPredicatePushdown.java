@@ -19,9 +19,9 @@ import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import org.testng.annotations.Test;
 import org.testng.asserts.SoftAssert;
 
@@ -143,7 +143,7 @@ public class TestPredicatePushdown
      */
     private void assertPushdown(String actual, String expected, long countProcessed)
     {
-        ResultWithQueryId<MaterializedResult> result = executeWithQueryId(actual);
+        MaterializedResultWithQueryId result = executeWithQueryId(actual);
         Set<MaterializedRow> actualRows = Set.copyOf(result.getResult().getMaterializedRows());
         Set<MaterializedRow> expectedRows = Set.copyOf(
                 computeExpected(expected, result.getResult().getTypes()).getMaterializedRows());
@@ -176,7 +176,7 @@ public class TestPredicatePushdown
      */
     private void assertPushdownUpdate(String sql, long count, long countProcessed)
     {
-        ResultWithQueryId<MaterializedResult> result = executeWithQueryId(sql);
+        MaterializedResultWithQueryId result = executeWithQueryId(sql);
         OptionalLong actualCount = result.getResult().getUpdateCount();
 
         SoftAssert softly = new SoftAssert();
@@ -189,7 +189,7 @@ public class TestPredicatePushdown
         softly.assertAll();
     }
 
-    private ResultWithQueryId<MaterializedResult> executeWithQueryId(String sql)
+    private MaterializedResultWithQueryId executeWithQueryId(String sql)
     {
         return getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
     }
