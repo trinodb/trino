@@ -43,7 +43,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.trino.spi.block.MethodHandleUtil.compose;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -52,6 +51,8 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.util.Failures.internalError;
 import static io.trino.util.Reflection.methodHandle;
+import static java.lang.invoke.MethodHandles.dropArguments;
+import static java.lang.invoke.MethodHandles.foldArguments;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
@@ -140,14 +141,15 @@ public final class MapToMapCast
         MethodHandle cast = functionDependencies.getCastInvoker(fromType, toType, invocationConvention).getMethodHandle();
         // Normalize cast to have connector session as first argument
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
-            cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);
+            cast = dropArguments(cast, 0, ConnectorSession.class);
         }
         // Change cast signature to (Block.class, int.class, ConnectorSession.class):T
         cast = permuteArguments(cast, methodType(cast.type().returnType(), Block.class, int.class, ConnectorSession.class), 2, 0, 1);
 
         // If the key cast function is nullable, check the result is not null
         if (isKey && functionNullability.isReturnNullable()) {
-            cast = compose(nullChecker(cast.type().returnType()), cast);
+            MethodHandle target = nullChecker(cast.type().returnType());
+            cast = foldArguments(dropArguments(target, 1, cast.type().parameterList()), cast);
         }
 
         // get write method with signature: (T, BlockBuilder.class):void
@@ -157,7 +159,7 @@ public final class MapToMapCast
         // ensure cast returns type expected by the writer
         cast = cast.asType(methodType(writer.type().parameterType(0), cast.type().parameterArray()));
 
-        return compose(writer, cast);
+        return foldArguments(dropArguments(writer, 1, cast.type().parameterList()), cast);
     }
 
     /**
