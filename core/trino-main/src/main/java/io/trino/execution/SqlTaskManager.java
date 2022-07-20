@@ -735,7 +735,14 @@ public class SqlTaskManager
                             log.warn("%s is long running with stackTrace:\n%s", splitInfo.getSplitInfo(), stackTraceElements.stream().map(Object::toString).collect(joining(lineSeparator())));
                         }
 
-                        return stuckSplitStackTracePredicate.test(stackTraceElements);
+                        boolean isThreadStack = stuckSplitStackTracePredicate.test(stackTraceElements);
+
+                        // We check if thread's name matches threadId stored in RunningSplitInfo to be sure that stacktrace we obtained belongs to the execution of split
+                        // described by RunningSplitInfo.
+                        // There is still a chance that we may observe the stacktrace from execution of new split before thread name is set in io.trino.execution.executor.TaskExecutor.TaskRunner.run()
+                        // Yet, we assume that such stacktrace would not be classified as "stack" by stuckSplitStackTracePredicate.
+                        boolean splitAssignmentDidNotChange = splitInfo.getThread().getName().startsWith(splitInfo.getThreadId());
+                        return isThreadStack && splitAssignmentDidNotChange;
                     });
 
             for (TaskId stuckSplitTaskId : stuckSplitTaskIds) {
