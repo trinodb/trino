@@ -55,6 +55,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.plugin.jdbc.TestCachingJdbcClient.CachingJdbcCache.STATISTICS_CACHE;
+import static io.trino.plugin.jdbc.TestCachingJdbcClient.CachingJdbcCache.TABLE_HANDLES_BY_QUERY_CACHE;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -176,23 +177,51 @@ public class TestCachingJdbcClient
 
     @Test
     public void testTableHandleOfQueryCached()
+            throws Exception
     {
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
         createTable(phantomTable);
         PreparedQuery query = new PreparedQuery(format("SELECT * FROM %s.phantom_table", schema), ImmutableList.of());
-        JdbcTableHandle cachedTable = cachingJdbcClient.getTableHandle(SESSION, query);
+        JdbcTableHandle cachedTable = assertCacheStats(cachingJdbcClient, TABLE_HANDLES_BY_QUERY_CACHE)
+                .misses(1)
+                .loads(1)
+                .calling(() -> cachingJdbcClient.getTableHandle(SESSION, query));
         assertCacheStats(cachingJdbcClient)
                 // cache is not used, as the table handle has the columns list embedded
                 .afterRunning(() -> {
                     cachingJdbcClient.getColumns(SESSION, cachedTable);
                 });
-        dropTable(phantomTable);
+        assertStatisticsCacheStats(cachingJdbcClient)
+                .misses(1)
+                .loads(1)
+                .afterRunning(() -> {
+                    cachingJdbcClient.getTableStatistics(SESSION, cachedTable);
+                });
+        dropTable(phantomTable); // not via CachingJdbcClient
 
         assertThatThrownBy(() -> jdbcClient.getTableHandle(SESSION, query))
                 .hasMessageContaining("Failed to get table handle for prepared query");
-        assertThat(cachingJdbcClient.getTableHandle(SESSION, query))
-                .isEqualTo(cachedTable);
+
+        assertCacheStats(cachingJdbcClient, TABLE_HANDLES_BY_QUERY_CACHE)
+                .hits(1)
+                .afterRunning(() -> {
+                    assertThat(cachingJdbcClient.getTableHandle(SESSION, query))
+                            .isEqualTo(cachedTable);
+                    assertThat(cachingJdbcClient.getColumns(SESSION, cachedTable))
+                            .hasSize(0); // phantom_table has no columns
+                });
+        assertCacheStats(cachingJdbcClient)
+                // cache is not used, as the table handle has the columns list embedded
+                .afterRunning(() -> {
+                    assertThat(cachingJdbcClient.getColumns(SESSION, cachedTable))
+                            .hasSize(0); // phantom_table has no columns
+                });
+        assertStatisticsCacheStats(cachingJdbcClient)
+                .hits(1)
+                .afterRunning(() -> {
+                    cachingJdbcClient.getTableStatistics(SESSION, cachedTable);
+                });
     }
 
     @Test
@@ -916,6 +945,7 @@ public class TestCachingJdbcClient
     enum CachingJdbcCache
     {
         TABLE_NAMES_CACHE(CachingJdbcClient::getTableNamesCacheStats),
+        TABLE_HANDLES_BY_QUERY_CACHE(CachingJdbcClient::getTableHandlesByQueryCacheStats),
         COLUMNS_CACHE(CachingJdbcClient::getColumnsCacheStats),
         STATISTICS_CACHE(CachingJdbcClient::getStatisticsCacheStats),
         /**/;
