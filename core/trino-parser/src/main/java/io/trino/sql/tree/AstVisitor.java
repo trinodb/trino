@@ -1146,4 +1146,9 @@ public abstract class AstVisitor<R, C>
     {
         return visitExpression(node, context);
     }
+
+    protected R visitEmptyTableTreatment(EmptyTableTreatment node, C context)
+    {
+        return visitNode(node, context);
+    }
 }

@@ -72,6 +72,8 @@ import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.EmptyPattern;
+import io.trino.sql.tree.EmptyTableTreatment;
+import io.trino.sql.tree.EmptyTableTreatment.Treatment;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.ExcludedPattern;
 import io.trino.sql.tree.Execute;
@@ -1879,9 +1881,15 @@ class AstBuilder
             orderBy = Optional.of(new OrderBy(visit(context.sortItem(), SortItem.class)));
         }
 
-        boolean pruneWhenEmpty = context.PRUNE() != null;
+        Optional<EmptyTableTreatment> emptyTableTreatment = Optional.empty();
+        if (context.PRUNE() != null) {
+            emptyTableTreatment = Optional.of(new EmptyTableTreatment(getLocation(context.PRUNE()), Treatment.PRUNE));
+        }
+        else if (context.KEEP() != null) {
+            emptyTableTreatment = Optional.of(new EmptyTableTreatment(getLocation(context.KEEP()), Treatment.KEEP));
+        }
 
-        return new TableFunctionTableArgument(getLocation(context), table, partitionBy, orderBy, pruneWhenEmpty);
+        return new TableFunctionTableArgument(getLocation(context), table, partitionBy, orderBy, emptyTableTreatment);
     }
 
     @Override
