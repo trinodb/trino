@@ -23,6 +23,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
@@ -1115,7 +1116,8 @@ public class TestPostgreSqlTypeMapping
     public void testEnum()
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
-        jdbcSqlExecutor.execute("CREATE TYPE enum_t AS ENUM ('a','b','c')");
+        // Define enum values in a order different from lexicographical
+        jdbcSqlExecutor.execute("CREATE TYPE enum_t AS ENUM ('b', 'a', 'C')");
         jdbcSqlExecutor.execute("CREATE TABLE test_enum(id int, enum_column enum_t)");
         jdbcSqlExecutor.execute("INSERT INTO test_enum(id,enum_column) values (1,'a'::enum_t),(2,'b'::enum_t)");
         try {
@@ -1123,7 +1125,27 @@ public class TestPostgreSqlTypeMapping
                     "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_enum'",
                     "VALUES ('id','integer'),('enum_column','varchar')");
             assertQuery("SELECT * FROM test_enum", "VALUES (1,'a'),(2,'b')");
-            assertQuery("SELECT * FROM test_enum WHERE enum_column='a'", "VALUES (1,'a')");
+            assertThat(query("SELECT * FROM test_enum WHERE enum_column = 'a'"))
+                    .matches("VALUES (1, VARCHAR 'a')")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM test_enum WHERE enum_column != 'a'"))
+                    .matches("VALUES (2, VARCHAR 'b')")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM test_enum WHERE enum_column <= 'a'"))
+                    .matches("VALUES (1, VARCHAR 'a')")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM test_enum WHERE enum_column <= 'b'"))
+                    .matches("VALUES (1, VARCHAR 'a'), (2, VARCHAR 'b')")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM test_enum WHERE enum_column <= 'c'"))
+                    .matches("VALUES (1, VARCHAR 'a'), (2, VARCHAR 'b')")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM test_enum WHERE enum_column <= 'C'"))
+                    .returnsEmptyResult()
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT id FROM test_enum ORDER BY enum_column LIMIT 1"))
+                    .matches("VALUES 1")
+                    .isNotFullyPushedDown(TopNNode.class);
         }
         finally {
             jdbcSqlExecutor.execute("DROP TABLE test_enum");
