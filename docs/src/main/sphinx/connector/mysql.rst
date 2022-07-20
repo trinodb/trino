@@ -167,6 +167,9 @@ table.
   * - ``LONGTEXT``
     - ``VARCHAR``
     -
+  * - ``ENUM(n)``
+    - ``VARCHAR(n)``
+    -
   * - ``BINARY``, ``VARBINARY``, ``TINYBLOB``, ``BLOB``, ``MEDIUMBLOB``, ``LONGBLOB``
     - ``VARBINARY``
     -
