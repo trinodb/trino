@@ -465,7 +465,7 @@ public abstract class AbstractTestQueryFramework
             Consumer<MaterializedResult> resultAssertion)
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        ResultWithQueryId<MaterializedResult> resultWithQueryId = queryRunner.executeWithQueryId(session, query);
+        MaterializedResultWithQueryId resultWithQueryId = queryRunner.executeWithQueryId(session, query);
         QueryStats queryStats = queryRunner.getCoordinator()
                 .getQueryManager()
                 .getFullQueryInfo(resultWithQueryId.getQueryId())
