@@ -21,7 +21,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BigintType;
@@ -30,7 +29,6 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -553,7 +551,7 @@ public class BigintGroupByHash
             checkState(lastPosition == block.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(block.getPositionCount(), Optional.empty(), groupIds));
+            return GroupByIdBlock.ofArray(nextGroupId, groupIds);
         }
     }
 
@@ -607,7 +605,7 @@ public class BigintGroupByHash
             checkState(lastPosition == block.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(block.getPositionCount(), Optional.empty(), groupIds));
+            return GroupByIdBlock.ofArray(nextGroupId, groupIds);
         }
     }
 
@@ -653,12 +651,7 @@ public class BigintGroupByHash
             checkState(processFinished);
             checkState(!resultProduced);
             resultProduced = true;
-
-            return new GroupByIdBlock(
-                    nextGroupId,
-                    new RunLengthEncodedBlock(
-                            BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
-                            block.getPositionCount()));
+            return GroupByIdBlock.rle(nextGroupId, groupId, block.getPositionCount());
         }
     }
 

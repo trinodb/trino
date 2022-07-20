@@ -21,7 +21,6 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
@@ -806,7 +805,7 @@ public class MultiChannelGroupByHash
             checkState(lastPosition == page.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(groupIds.length, Optional.empty(), groupIds));
+            return GroupByIdBlock.ofArray(nextGroupId, groupIds);
         }
     }
 
@@ -868,7 +867,7 @@ public class MultiChannelGroupByHash
         {
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(groupIds.length, Optional.empty(), groupIds));
+            return GroupByIdBlock.ofArray(nextGroupId, groupIds);
         }
     }
 
@@ -924,7 +923,7 @@ public class MultiChannelGroupByHash
             checkState(lastPosition == page.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(groupIds.length, Optional.empty(), groupIds));
+            return GroupByIdBlock.ofArray(nextGroupId, groupIds);
         }
     }
 
@@ -970,12 +969,7 @@ public class MultiChannelGroupByHash
             checkState(processFinished);
             checkState(!resultProduced);
             resultProduced = true;
-
-            return new GroupByIdBlock(
-                    nextGroupId,
-                    new RunLengthEncodedBlock(
-                            BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
-                            page.getPositionCount()));
+            return GroupByIdBlock.rle(nextGroupId, groupId, page.getPositionCount());
         }
     }
 

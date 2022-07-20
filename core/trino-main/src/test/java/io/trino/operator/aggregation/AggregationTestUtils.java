@@ -35,7 +35,6 @@ import java.util.OptionalInt;
 import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -358,11 +357,7 @@ public final class AggregationTestUtils
 
     public static GroupByIdBlock createGroupByIdBlock(int groupId, int positions)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, positions);
-        for (int i = 0; i < positions; i++) {
-            BIGINT.writeLong(blockBuilder, groupId);
-        }
-        return new GroupByIdBlock(groupId, blockBuilder.build());
+        return GroupByIdBlock.rle(groupId, groupId, positions);
     }
 
     static int[] createArgs(int parameterCount)

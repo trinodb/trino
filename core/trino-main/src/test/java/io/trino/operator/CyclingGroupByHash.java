@@ -16,13 +16,10 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
-
-import static io.trino.spi.type.BigintType.BIGINT;
 
 /**
  * GroupByHash that provides a round robin group ID assignment.
@@ -86,13 +83,13 @@ public class CyclingGroupByHash
     @Override
     public Work<GroupByIdBlock> getGroupIds(Page page)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, page.getChannelCount());
+        long[] ids = new long[page.getPositionCount()];
         for (int i = 0; i < page.getPositionCount(); i++) {
-            BIGINT.writeLong(blockBuilder, currentGroupId);
+            ids[i] = currentGroupId;
             maxGroupId = Math.max(currentGroupId, maxGroupId);
             currentGroupId = (currentGroupId + 1) % totalGroupCount;
         }
-        return new CompletedWork<>(new GroupByIdBlock(getGroupCount(), blockBuilder.build()));
+        return new CompletedWork<>(GroupByIdBlock.ofArray(getGroupCount(), ids));
     }
 
     @Override

@@ -161,10 +161,6 @@ public class TestGroupByHash
         assertEquals(groupIds.getPositionCount(), 2);
         assertEquals(groupIds.getGroupId(0), 0);
         assertEquals(groupIds.getGroupId(1), 0);
-
-        List<Block> children = groupIds.getChildren();
-        assertEquals(children.size(), 1);
-        assertTrue(children.get(0) instanceof RunLengthEncodedBlock);
     }
 
     @Test(dataProvider = "groupByHashType")

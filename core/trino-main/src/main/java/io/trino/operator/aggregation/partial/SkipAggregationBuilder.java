@@ -26,7 +26,6 @@ import io.trino.operator.aggregation.builder.HashAggregationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.LongArrayBlock;
 
 import javax.annotation.Nullable;
 
@@ -145,9 +144,7 @@ public class SkipAggregationBuilder
 
     private GroupByIdBlock getGroupByIdBlock(int positionCount)
     {
-        return new GroupByIdBlock(
-                positionCount,
-                new LongArrayBlock(positionCount, Optional.empty(), consecutive(positionCount)));
+        return GroupByIdBlock.ofArray(positionCount, consecutive(positionCount));
     }
 
     private BlockBuilder[] serializeAccumulatorState(int positionCount)

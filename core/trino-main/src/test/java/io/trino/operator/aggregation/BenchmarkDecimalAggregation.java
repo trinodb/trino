@@ -42,7 +42,6 @@ import java.util.OptionalInt;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
@@ -132,11 +131,11 @@ public class BenchmarkDecimalAggregation
                 }
             }
 
-            BlockBuilder ids = BIGINT.createBlockBuilder(null, ELEMENT_COUNT);
+            long[] ids = new long[ELEMENT_COUNT];
             for (int i = 0; i < ELEMENT_COUNT; i++) {
-                BIGINT.writeLong(ids, ThreadLocalRandom.current().nextLong(groupCount));
+                ids[i] = ThreadLocalRandom.current().nextLong(groupCount);
             }
-            groupIds = new GroupByIdBlock(groupCount, ids.build());
+            groupIds = GroupByIdBlock.ofArray(groupCount, ids);
             intermediateValues = new Page(createIntermediateValues(partialAggregatorFactory.createGroupedAggregator(), groupIds, values));
         }
 

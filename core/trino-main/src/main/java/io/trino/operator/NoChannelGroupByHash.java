@@ -16,13 +16,10 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
-
-import static io.trino.spi.type.BigintType.BIGINT;
 
 public class NoChannelGroupByHash
         implements GroupByHash
@@ -79,7 +76,7 @@ public class NoChannelGroupByHash
     public Work<GroupByIdBlock> getGroupIds(Page page)
     {
         updateGroupCount(page);
-        return new CompletedWork<>(new GroupByIdBlock(page.getPositionCount() > 0 ? 1 : 0, RunLengthEncodedBlock.create(BIGINT, 0L, page.getPositionCount())));
+        return new CompletedWork<>(GroupByIdBlock.rle(page.getPositionCount() > 0 ? 1 : 0, 0, page.getPositionCount()));
     }
 
     @Override

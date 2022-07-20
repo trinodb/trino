@@ -225,7 +225,7 @@ public class DistinctAccumulatorFactory
             Block distinctMask = work.getResult();
 
             // 3. feed a Page with a new mask to the underlying aggregation
-            GroupByIdBlock groupIds = new GroupByIdBlock(groupIdsBlock.getGroupCount(), filteredWithGroup.getBlock(0));
+            GroupByIdBlock groupIds = (GroupByIdBlock) filteredWithGroup.getBlock(0);
 
             // drop the group id column and prepend the distinct mask column
             int[] columnIndexes = new int[filteredWithGroup.getChannelCount() - 1];

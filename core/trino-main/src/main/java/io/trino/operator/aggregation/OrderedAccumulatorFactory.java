@@ -237,10 +237,11 @@ public class OrderedAccumulatorFactory
         {
             pagesIndex.sort(orderByChannels, orderings);
             Iterator<Page> pagesIterator = pagesIndex.getSortedPages();
-            pagesIterator.forEachRemaining(page -> accumulator.addInput(
-                    new GroupByIdBlock(groupCount, page.getBlock(page.getChannelCount() - 1)),
-                    page.getColumns(argumentChannels),
-                    Optional.empty()));
+            pagesIterator.forEachRemaining(page ->
+                    accumulator.addInput(
+                            GroupByIdBlock.ofBlock(groupCount, page.getBlock(page.getChannelCount() - 1)),
+                            page.getColumns(argumentChannels),
+                            Optional.empty()));
         }
     }
 
