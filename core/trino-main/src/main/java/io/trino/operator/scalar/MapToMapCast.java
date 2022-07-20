@@ -44,7 +44,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.block.MethodHandleUtil.compose;
-import static io.trino.spi.block.MethodHandleUtil.nativeValueWriter;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -76,6 +75,11 @@ public final class MapToMapCast
     private static final MethodHandle CHECK_BOOLEAN_IS_NOT_NULL = methodHandle(MapToMapCast.class, "checkBooleanIsNotNull", Boolean.class);
     private static final MethodHandle CHECK_SLICE_IS_NOT_NULL = methodHandle(MapToMapCast.class, "checkSliceIsNotNull", Slice.class);
     private static final MethodHandle CHECK_BLOCK_IS_NOT_NULL = methodHandle(MapToMapCast.class, "checkBlockIsNotNull", Block.class);
+
+    private static final MethodHandle WRITE_LONG = methodHandle(Type.class, "writeLong", BlockBuilder.class, long.class);
+    private static final MethodHandle WRITE_DOUBLE = methodHandle(Type.class, "writeDouble", BlockBuilder.class, double.class);
+    private static final MethodHandle WRITE_BOOLEAN = methodHandle(Type.class, "writeBoolean", BlockBuilder.class, boolean.class);
+    private static final MethodHandle WRITE_OBJECT = methodHandle(Type.class, "writeObject", BlockBuilder.class, Object.class);
 
     private final BlockTypeOperators blockTypeOperators;
 
@@ -286,5 +290,29 @@ public final class MapToMapCast
 
         mapBlockBuilder.closeEntry();
         return (Block) targetType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
+    }
+
+    public static MethodHandle nativeValueWriter(Type type)
+    {
+        Class<?> javaType = type.getJavaType();
+
+        MethodHandle methodHandle;
+        if (javaType == long.class) {
+            methodHandle = WRITE_LONG;
+        }
+        else if (javaType == double.class) {
+            methodHandle = WRITE_DOUBLE;
+        }
+        else if (javaType == boolean.class) {
+            methodHandle = WRITE_BOOLEAN;
+        }
+        else if (!javaType.isPrimitive()) {
+            methodHandle = WRITE_OBJECT;
+        }
+        else {
+            throw new IllegalArgumentException("Unknown java type " + javaType + " from type " + type);
+        }
+
+        return methodHandle.bindTo(type);
     }
 }
