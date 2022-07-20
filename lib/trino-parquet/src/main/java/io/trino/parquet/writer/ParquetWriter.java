@@ -184,7 +184,6 @@ public class ParquetWriter
         try (outputStream) {
             columnWriters.forEach(ColumnWriter::close);
             flush();
-            columnWriters = ImmutableList.of();
             writeFooter();
         }
         bufferedBytes = 0;
