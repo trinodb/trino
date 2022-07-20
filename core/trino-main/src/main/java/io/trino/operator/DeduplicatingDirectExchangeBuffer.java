@@ -537,12 +537,12 @@ public class DeduplicatingDirectExchangeBuffer
                 verify(writeBuffer == null, "writeBuffer is not expected to be initialized");
 
                 exchangeManager = exchangeManagerRegistry.getExchangeManager();
-                exchange = exchangeManager.createExchange(new ExchangeContext(queryId, exchangeId), 1);
+                exchange = exchangeManager.createExchange(new ExchangeContext(queryId, exchangeId), 1, true);
 
                 ExchangeSinkHandle sinkHandle = exchange.addSink(0);
                 sinkInstanceHandle = exchange.instantiateSink(sinkHandle, 0);
                 exchange.noMoreSinks();
-                exchangeSink = exchangeManager.createSink(sinkInstanceHandle, true);
+                exchangeSink = exchangeManager.createSink(sinkInstanceHandle);
 
                 writeBuffer = new DynamicSliceOutput(DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
             }

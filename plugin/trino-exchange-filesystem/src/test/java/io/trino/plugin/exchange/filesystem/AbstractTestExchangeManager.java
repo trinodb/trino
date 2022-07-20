@@ -73,7 +73,7 @@ public abstract class AbstractTestExchangeManager
     public void testHappyPath()
             throws Exception
     {
-        Exchange exchange = exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 2);
+        Exchange exchange = exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 2, false);
         ExchangeSinkHandle sinkHandle0 = exchange.addSink(0);
         ExchangeSinkHandle sinkHandle1 = exchange.addSink(1);
         ExchangeSinkHandle sinkHandle2 = exchange.addSink(2);
@@ -170,7 +170,7 @@ public abstract class AbstractTestExchangeManager
         String largePage = "c".repeat(toIntExact(DataSize.of(5, MEGABYTE).toBytes()) - Integer.BYTES);
         String maxPage = "d".repeat(toIntExact(DataSize.of(16, MEGABYTE).toBytes()) - Integer.BYTES);
 
-        Exchange exchange = exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
+        Exchange exchange = exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3, false);
         ExchangeSinkHandle sinkHandle0 = exchange.addSink(0);
         ExchangeSinkHandle sinkHandle1 = exchange.addSink(1);
         ExchangeSinkHandle sinkHandle2 = exchange.addSink(2);
@@ -230,14 +230,14 @@ public abstract class AbstractTestExchangeManager
     @Test
     public void testMaxOutputPartitionCountCheck()
     {
-        assertThatThrownBy(() -> exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 51))
+        assertThatThrownBy(() -> exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 51, false))
                 .hasMessageContaining("Max number of output partitions exceeded for exchange")
                 .hasFieldOrPropertyWithValue("errorCode", MAX_OUTPUT_PARTITION_COUNT_EXCEEDED.toErrorCode());
     }
 
     private void writeData(ExchangeSinkInstanceHandle handle, Multimap<Integer, String> data, boolean finish)
     {
-        ExchangeSink sink = exchangeManager.createSink(handle, false);
+        ExchangeSink sink = exchangeManager.createSink(handle);
         data.forEach((key, value) -> {
             sink.add(key, Slices.utf8Slice(value));
         });

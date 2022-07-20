@@ -87,7 +87,7 @@ public class FileSystemExchangeManager
     }
 
     @Override
-    public Exchange createExchange(ExchangeContext context, int outputPartitionCount)
+    public Exchange createExchange(ExchangeContext context, int outputPartitionCount, boolean preserveOrderWithinPartition)
     {
         if (outputPartitionCount > maxOutputPartitionCount) {
             throw new TrinoException(
@@ -112,13 +112,14 @@ public class FileSystemExchangeManager
                 stats,
                 context,
                 outputPartitionCount,
+                preserveOrderWithinPartition,
                 exchangeFileListingParallelism,
                 secretKey,
                 executor);
     }
 
     @Override
-    public ExchangeSink createSink(ExchangeSinkInstanceHandle handle, boolean preserveRecordsOrder)
+    public ExchangeSink createSink(ExchangeSinkInstanceHandle handle)
     {
         FileSystemExchangeSinkInstanceHandle instanceHandle = (FileSystemExchangeSinkInstanceHandle) handle;
         return new FileSystemExchangeSink(
@@ -127,7 +128,7 @@ public class FileSystemExchangeManager
                 instanceHandle.getOutputDirectory(),
                 instanceHandle.getOutputPartitionCount(),
                 instanceHandle.getSinkHandle().getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES")),
-                preserveRecordsOrder,
+                instanceHandle.isPreserveOrderWithinPartition(),
                 maxPageStorageSizeInBytes,
                 exchangeSinkBufferPoolMinSize,
                 exchangeSinkBuffersPerPartition,

@@ -74,7 +74,7 @@ public class FileSystemExchangeSink
     private final URI outputDirectory;
     private final int outputPartitionCount;
     private final Optional<SecretKey> secretKey;
-    private final boolean preserveRecordsOrder;
+    private final boolean preserveOrderWithinPartition;
     private final int maxPageStorageSizeInBytes;
     private final long maxFileSizeInBytes;
     private final BufferPool bufferPool;
@@ -89,7 +89,7 @@ public class FileSystemExchangeSink
             URI outputDirectory,
             int outputPartitionCount,
             Optional<SecretKey> secretKey,
-            boolean preserveRecordsOrder,
+            boolean preserveOrderWithinPartition,
             int maxPageStorageSizeInBytes,
             int exchangeSinkBufferPoolMinSize,
             int exchangeSinkBuffersPerPartition,
@@ -103,7 +103,7 @@ public class FileSystemExchangeSink
         this.outputDirectory = requireNonNull(outputDirectory, "outputDirectory is null");
         this.outputPartitionCount = outputPartitionCount;
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
-        this.preserveRecordsOrder = preserveRecordsOrder;
+        this.preserveOrderWithinPartition = preserveOrderWithinPartition;
         this.maxPageStorageSizeInBytes = maxPageStorageSizeInBytes;
         this.maxFileSizeInBytes = maxFileSizeInBytes;
         // buffer pooling to overlap computation and I/O
@@ -142,7 +142,7 @@ public class FileSystemExchangeSink
                 stats,
                 outputDirectory,
                 secretKey,
-                preserveRecordsOrder,
+                preserveOrderWithinPartition,
                 partitionId,
                 bufferPool,
                 failure,
@@ -232,7 +232,7 @@ public class FileSystemExchangeSink
         private final FileSystemExchangeStats stats;
         private final URI outputDirectory;
         private final Optional<SecretKey> secretKey;
-        private final boolean preserveRecordsOrder;
+        private final boolean preserveOrderWithinPartition;
         private final int partitionId;
         private final BufferPool bufferPool;
         private final AtomicReference<Throwable> failure;
@@ -255,7 +255,7 @@ public class FileSystemExchangeSink
                 FileSystemExchangeStats stats,
                 URI outputDirectory,
                 Optional<SecretKey> secretKey,
-                boolean preserveRecordsOrder,
+                boolean preserveOrderWithinPartition,
                 int partitionId,
                 BufferPool bufferPool,
                 AtomicReference<Throwable> failure,
@@ -266,7 +266,7 @@ public class FileSystemExchangeSink
             this.stats = requireNonNull(stats, "stats is null");
             this.outputDirectory = requireNonNull(outputDirectory, "outputDirectory is null");
             this.secretKey = requireNonNull(secretKey, "secretKey is null");
-            this.preserveRecordsOrder = preserveRecordsOrder;
+            this.preserveOrderWithinPartition = preserveOrderWithinPartition;
             this.partitionId = partitionId;
             this.bufferPool = requireNonNull(bufferPool, "bufferPool is null");
             this.failure = requireNonNull(failure, "failure is null");
@@ -287,7 +287,7 @@ public class FileSystemExchangeSink
                 throw new TrinoException(NOT_SUPPORTED, format("Max row size of %s exceeded: %s", succinctBytes(maxPageStorageSizeInBytes), succinctBytes(requiredPageStorageSize)));
             }
 
-            if (currentFileSize + requiredPageStorageSize > maxFileSizeInBytes && !preserveRecordsOrder) {
+            if (currentFileSize + requiredPageStorageSize > maxFileSizeInBytes && !preserveOrderWithinPartition) {
                 stats.getFileSizeInBytes().add(currentFileSize);
                 flushIfNeeded(true);
                 setupWriterForNextPart();
