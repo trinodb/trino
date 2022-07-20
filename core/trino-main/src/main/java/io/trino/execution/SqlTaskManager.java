@@ -727,7 +727,7 @@ public class SqlTaskManager
 
         private void failStuckSplitTasks()
         {
-            Set<TaskId> stuckSplitTaskIds = taskExecutor.getStuckSplitTaskIds(interruptStuckSplitTasksTimeout,
+            taskExecutor.interruptStuckSplitTasks(interruptStuckSplitTasksTimeout,
                     (RunningSplitInfo splitInfo) -> {
                         List<StackTraceElement> stackTraceElements = asList(splitInfo.getThread().getStackTrace());
                         if (!splitInfo.isPrinted()) {
@@ -736,11 +736,9 @@ public class SqlTaskManager
                         }
 
                         return stuckSplitStackTracePredicate.test(stackTraceElements);
+                    }, (TaskId taskId) -> {
+                        failTask(taskId, new TrinoException(GENERIC_USER_ERROR, format("Task %s is failed, due to containing long running stuck splits.", taskId)));
                     });
-
-            for (TaskId stuckSplitTaskId : stuckSplitTaskIds) {
-                failTask(stuckSplitTaskId, new TrinoException(GENERIC_USER_ERROR, format("Task %s is failed, due to containing long running stuck splits.", stuckSplitTaskId)));
-            }
         }
     }
 }

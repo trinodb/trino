@@ -57,13 +57,13 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
+import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
 import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -459,10 +459,25 @@ public class TaskExecutor
         return null;
     }
 
+    /**
+     * A class acting as a worker as part of threadpool that keep pulling pending splits,
+     * and processing the assigned split.
+     */
     private class TaskRunner
             implements Runnable
     {
         private final long runnerId = NEXT_RUNNER_ID.getAndIncrement();
+
+        // internal object representing the split that is currently processing.
+        // when the task runner doesn't have split, it is null.
+        @GuardedBy("this")
+        private RunningSplitInfo currentRunningSplitInfo;
+
+        @VisibleForTesting
+        private synchronized RunningSplitInfo getCurrentRunningSplitInfo()
+        {
+            return currentRunningSplitInfo;
+        }
 
         @Override
         public void run()
@@ -481,7 +496,10 @@ public class TaskExecutor
 
                     String threadId = split.getTaskHandle().getTaskId() + "-" + split.getSplitId();
                     try (SetThreadName splitName = new SetThreadName(threadId)) {
-                        RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread(), split);
+                        RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread(), split, this);
+                        synchronized (this) {
+                            currentRunningSplitInfo = splitInfo;
+                        }
                         runningSplitInfos.add(splitInfo);
                         runningSplits.add(split);
 
@@ -526,6 +544,11 @@ public class TaskExecutor
                         }
                         splitFinished(split);
                     }
+                    finally {
+                        synchronized (this) {
+                            currentRunningSplitInfo = null;
+                        }
+                    }
                 }
             }
             finally {
@@ -533,6 +556,22 @@ public class TaskExecutor
                 if (!closed) {
                     addRunnerThread();
                 }
+            }
+        }
+
+        /**
+         * A threadsafe method applies the callback function. Only after validating
+         * the caller holds the correct reference of the split that is being
+         * run by the task runner. If a dated runningSplitInfo were passed,
+         * it won't do anything.
+         *
+         * @param stuckSplitInfo expected split that is running on the task runner
+         * @param interruptStuckSplitTasksCallbackFunction callback function that need to be executed
+         */
+        private synchronized void interruptStuckSplitTasksIfMatch(RunningSplitInfo stuckSplitInfo, Consumer<TaskId> interruptStuckSplitTasksCallbackFunction)
+        {
+            if (stuckSplitInfo != null && currentRunningSplitInfo == stuckSplitInfo) {
+                interruptStuckSplitTasksCallbackFunction.accept(stuckSplitInfo.getTaskId());
             }
         }
     }
@@ -836,31 +875,52 @@ public class TaskExecutor
         return count;
     }
 
-    public Set<TaskId> getStuckSplitTaskIds(Duration processingDurationThreshold, Predicate<RunningSplitInfo> filter)
+    /**
+     * Interrupt runaway splits. After the splits had run more than processingDurationThreshold.
+     * And the splits match patterns as the filter specified.
+     * It is interrupted via calling the interruptStuckSplitTasksCallbackFunction.
+     *
+     * @param processingDurationThreshold timeout value for identifying the stuck split
+     * @param filter predicate for filtering the stuck split
+     * @param interruptStuckSplitTasksCallbackFunction callback function for interrupting the split
+     */
+    public void interruptStuckSplitTasks(Duration processingDurationThreshold, Predicate<RunningSplitInfo> filter, Consumer<TaskId> interruptStuckSplitTasksCallbackFunction)
     {
-        return runningSplitInfos.stream()
+        runningSplitInfos.stream()
                 .filter((RunningSplitInfo splitInfo) -> {
                     Duration splitProcessingDuration = Duration.succinctNanos(ticker.read() - splitInfo.getStartTime());
                     return splitProcessingDuration.compareTo(processingDurationThreshold) > 0;
                 })
-                .filter(filter).map(RunningSplitInfo::getTaskId).collect(toImmutableSet());
+                .filter(filter)
+                .forEach((RunningSplitInfo identifiedStuckSplitInfo) -> {
+                    identifiedStuckSplitInfo.interruptStuckSplitTasksIfRunning(interruptStuckSplitTasksCallbackFunction);
+                });
     }
 
+    /**
+     * A class representing a split that is running on the taskRunner.
+     * It has thread, taskRunner objects that get assigned while assigning the split
+     * to the taskRunner. However, since taskRunners are part of a thread pool that
+     * get shared among all splits. It is only at the time of creating the object,
+     * the thread and task runner is processing the assigned split.
+     */
     public static class RunningSplitInfo
             implements Comparable<RunningSplitInfo>
     {
         private final long startTime;
         private final String threadId;
-        private final Thread thread;
         private boolean printed;
         private final PrioritizedSplitRunner split;
+        private final Thread thread;
+        private final TaskRunner taskRunner;
 
-        public RunningSplitInfo(long startTime, String threadId, Thread thread, PrioritizedSplitRunner split)
+        public RunningSplitInfo(long startTime, String threadId, Thread thread, PrioritizedSplitRunner split, TaskRunner taskRunner)
         {
             this.startTime = startTime;
             this.threadId = requireNonNull(threadId, "threadId is null");
             this.thread = requireNonNull(thread, "thread is null");
             this.split = requireNonNull(split, "split is null");
+            this.taskRunner = requireNonNull(taskRunner, "taskRunner is null");
             this.printed = false;
         }
 
@@ -882,6 +942,12 @@ public class TaskExecutor
         public TaskId getTaskId()
         {
             return split.getTaskHandle().getTaskId();
+        }
+
+        @VisibleForTesting
+        public RunningSplitInfo getTaskRunnerProcessingSplit()
+        {
+            return taskRunner.getCurrentRunningSplitInfo();
         }
 
         /**
@@ -912,6 +978,16 @@ public class TaskExecutor
                     .compare(startTime, o.getStartTime())
                     .compare(threadId, o.getThreadId())
                     .result();
+        }
+
+        /**
+         * Apply the callback function only if this RunningSplitInfo still executing on the assigned task runner.
+         *
+         * @param interruptStuckSplitTasksCallbackFunction callback function that need to be executed
+         */
+        private void interruptStuckSplitTasksIfRunning(Consumer<TaskId> interruptStuckSplitTasksCallbackFunction)
+        {
+            taskRunner.interruptStuckSplitTasksIfMatch(this, interruptStuckSplitTasksCallbackFunction);
         }
     }
 
