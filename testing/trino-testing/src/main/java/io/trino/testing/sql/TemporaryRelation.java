@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.testing.datatype;
+package io.trino.testing.sql;
 
-import io.trino.testing.sql.TemporaryRelation;
-
-import java.util.List;
-
-public interface DataSetup
+public interface TemporaryRelation
+        extends AutoCloseable
 {
-    TemporaryRelation setupTemporaryRelation(List<ColumnSetup> inputs);
+    String getName();
+
+    @Override
+    void close();
 }
