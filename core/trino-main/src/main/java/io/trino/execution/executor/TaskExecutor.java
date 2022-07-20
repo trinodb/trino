@@ -479,7 +479,7 @@ public class TaskExecutor
                         return;
                     }
 
-                    String threadId = split.getTaskHandle().getTaskId() + "-" + split.getSplitId();
+                    String threadId = split.getTaskHandle().getTaskId() + "-" + split.getSplitId() + "-" + System.nanoTime();
                     try (SetThreadName splitName = new SetThreadName(threadId)) {
                         RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread(), split);
                         runningSplitInfos.add(splitInfo);
