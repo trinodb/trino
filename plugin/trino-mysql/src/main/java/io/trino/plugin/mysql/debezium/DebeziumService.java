@@ -85,7 +85,6 @@ public class DebeziumService
     @Override
     public Iterable<? extends List<?>> getRecords(JdbcTableHandle handle, List<Type> types, List<String> columnNames)
     {
-        checkArgument(handle.isVersioned());
         checkArgument(types.size() == columnNames.size());
         KafkaConsumer<String, String> consumer = getConsumer(handle);
         TopicPartition topic = getTopic(handle);

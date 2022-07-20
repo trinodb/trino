@@ -55,7 +55,7 @@ public class MySqlRecordSetProvider
             List<? extends ColumnHandle> columns)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
-        if (handle.isVersioned()) {
+        if (handle.isStrictVersioning()) {
             List<String> columnNames = columns.stream()
                     .map(JdbcColumnHandle.class::cast)
                     .map(JdbcColumnHandle::getColumnName)

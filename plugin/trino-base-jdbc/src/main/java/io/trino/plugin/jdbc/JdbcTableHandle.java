@@ -63,6 +63,7 @@ public final class JdbcTableHandle
     private final Optional<Long> startVersion;
     private final Optional<Long> endVersion;
     private final boolean deletedRows;
+    private final boolean strictVersioning;
 
     @Deprecated
     public JdbcTableHandle(SchemaTableName schemaTableName, @Nullable String catalogName, @Nullable String schemaName, String tableName)
@@ -83,6 +84,7 @@ public final class JdbcTableHandle
                 0,
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 false);
     }
 
@@ -107,6 +109,7 @@ public final class JdbcTableHandle
                 nextSyntheticColumnId,
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 false);
     }
 
@@ -122,7 +125,8 @@ public final class JdbcTableHandle
             @JsonProperty("nextSyntheticColumnId") int nextSyntheticColumnId,
             @JsonProperty("startVersion") Optional<Long> startVersion,
             @JsonProperty("endVersion") Optional<Long> endVersion,
-            @JsonProperty("deletedRows") boolean deletedRows)
+            @JsonProperty("deletedRows") boolean deletedRows,
+            @JsonProperty("strictVersioning") boolean strictVersioning)
     {
         this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
@@ -138,6 +142,7 @@ public final class JdbcTableHandle
         this.startVersion = requireNonNull(startVersion, "startVersion is null");
         this.endVersion = requireNonNull(endVersion, "endVersion is null");
         this.deletedRows = deletedRows;
+        this.strictVersioning = strictVersioning;
     }
 
     /**
@@ -308,9 +313,10 @@ public final class JdbcTableHandle
         return deletedRows;
     }
 
-    public boolean isVersioned()
+    @JsonProperty
+    public boolean isStrictVersioning()
     {
-        return endVersion.isPresent();
+        return strictVersioning;
     }
 
     public JdbcTableHandle withVersion(Optional<Long> startVersion, Optional<Long> endVersion)
@@ -326,7 +332,8 @@ public final class JdbcTableHandle
                 nextSyntheticColumnId,
                 startVersion,
                 endVersion,
-                deletedRows);
+                deletedRows,
+                strictVersioning);
     }
 
     public JdbcTableHandle withDeletedRows(boolean deletedRows)
@@ -342,7 +349,25 @@ public final class JdbcTableHandle
                 nextSyntheticColumnId,
                 startVersion,
                 endVersion,
-                deletedRows);
+                deletedRows,
+                strictVersioning);
+    }
+
+    public JdbcTableHandle withStrictVersioning(boolean strictVersioning)
+    {
+        return new JdbcTableHandle(
+                relationHandle,
+                constraint,
+                constraintExpressions,
+                sortOrder,
+                limit,
+                columns,
+                otherReferencedTables,
+                nextSyntheticColumnId,
+                startVersion,
+                endVersion,
+                deletedRows,
+                strictVersioning);
     }
 
     @Override
@@ -364,13 +389,14 @@ public final class JdbcTableHandle
                 Objects.equals(this.startVersion, o.startVersion) &&
                 Objects.equals(this.endVersion, o.endVersion) &&
                 Objects.equals(this.deletedRows, o.deletedRows) &&
+                Objects.equals(this.strictVersioning, o.strictVersioning) &&
                 this.nextSyntheticColumnId == o.nextSyntheticColumnId;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(relationHandle, constraint, constraintExpressions, sortOrder, limit, columns, nextSyntheticColumnId, startVersion, endVersion, deletedRows);
+        return Objects.hash(relationHandle, constraint, constraintExpressions, sortOrder, limit, columns, nextSyntheticColumnId, startVersion, endVersion, deletedRows, strictVersioning);
     }
 
     @Override
@@ -397,6 +423,7 @@ public final class JdbcTableHandle
         startVersion.ifPresent(value -> builder.append(" startVersion=").append(startVersion));
         endVersion.ifPresent(value -> builder.append(" endVersion=").append(endVersion));
         builder.append(" deletedRows=").append(deletedRows);
+        builder.append(" strictVersioning=").append(strictVersioning);
         return builder.toString();
     }
 }

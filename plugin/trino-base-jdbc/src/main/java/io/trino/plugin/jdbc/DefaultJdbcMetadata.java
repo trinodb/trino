@@ -145,7 +145,7 @@ public class DefaultJdbcMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
-        if (handle.isVersioned()) {
+        if (handle.isStrictVersioning()) {
             return Optional.empty();
         }
 
@@ -257,7 +257,7 @@ public class DefaultJdbcMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
-        if (handle.isVersioned()) {
+        if (handle.isStrictVersioning()) {
             return Optional.empty();
         }
 
@@ -309,7 +309,7 @@ public class DefaultJdbcMetadata
 
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
-        if (handle.isVersioned()) {
+        if (handle.isStrictVersioning()) {
             return Optional.empty();
         }
 
@@ -416,7 +416,7 @@ public class DefaultJdbcMetadata
         JdbcTableHandle leftHandle = (JdbcTableHandle) left;
         JdbcTableHandle rightHandle = (JdbcTableHandle) right;
 
-        if (leftHandle.isVersioned() || rightHandle.isVersioned()) {
+        if (leftHandle.isStrictVersioning() || rightHandle.isStrictVersioning()) {
             return Optional.empty();
         }
 
@@ -521,7 +521,7 @@ public class DefaultJdbcMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
-        if (handle.isVersioned()) {
+        if (handle.isStrictVersioning()) {
             return Optional.empty();
         }
 
@@ -566,7 +566,7 @@ public class DefaultJdbcMetadata
         verify(!sortItems.isEmpty(), "sortItems are empty");
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
-        if (handle.isVersioned()) {
+        if (handle.isStrictVersioning()) {
             return Optional.empty();
         }
 

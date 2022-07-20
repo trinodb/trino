@@ -69,14 +69,15 @@ public class MySqlMetadata
                         endVersion
                                 .map(this::getVersion)
                                 .or(() -> versioningService.getCurrentTableVersion(handle)))
-                .withDeletedRows(deletedRows);
+                .withDeletedRows(deletedRows)
+                .withStrictVersioning(endVersion.isPresent() || deletedRows);
     }
 
     @Override
     public Optional<ConnectorTableVersioningLayout> getTableVersioningLayout(ConnectorSession session, ConnectorTableHandle table)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
-        if (!handle.isVersioned()) {
+        if (handle.getEndVersion().isEmpty()) {
             return Optional.empty();
         }
         // find "id" column
@@ -85,7 +86,7 @@ public class MySqlMetadata
                 .filter(entry -> entry.getKey().equals("id"))
                 .map(Map.Entry::getValue)
                 .findAny();
-        return idColumn.map(id -> new ConnectorTableVersioningLayout(handle, ImmutableSet.of(id), true));
+        return idColumn.map(id -> new ConnectorTableVersioningLayout(handle.withStrictVersioning(true), ImmutableSet.of(id), true));
     }
 
     @Override
@@ -99,24 +100,27 @@ public class MySqlMetadata
     public Optional<ConnectorTableHandle> getInsertedOrUpdatedRows(ConnectorSession session, ConnectorTableHandle table, ConnectorTableVersion fromVersionExclusive)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
-        if (!handle.isVersioned()) {
+        if (handle.getEndVersion().isEmpty()) {
             return Optional.empty();
         }
         checkArgument(fromVersionExclusive.getPointerType().equals(TARGET_ID));
         checkArgument(fromVersionExclusive.getVersionType().equals(BIGINT));
-        return Optional.of(handle.withVersion(Optional.of(getVersion(fromVersionExclusive)), handle.getEndVersion()));
+        return Optional.of(handle
+                .withVersion(Optional.of(getVersion(fromVersionExclusive)), handle.getEndVersion())
+                .withStrictVersioning(true));
     }
 
     @Override
     public Optional<ConnectorTableHandle> getDeletedRows(ConnectorSession session, ConnectorTableHandle table, ConnectorTableVersion fromVersionExclusive)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
-        if (!handle.isVersioned()) {
+        if (handle.getEndVersion().isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(handle
                 .withVersion(Optional.of(getVersion(fromVersionExclusive)), handle.getEndVersion())
-                .withDeletedRows(true));
+                .withDeletedRows(true)
+                .withStrictVersioning(true));
     }
 
     private long getVersion(ConnectorTableVersion version)
