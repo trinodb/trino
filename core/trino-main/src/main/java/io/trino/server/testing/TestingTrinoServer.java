@@ -36,7 +36,6 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
-import io.airlift.log.Logger;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.connector.CatalogHandle;
@@ -101,8 +100,6 @@ import io.trino.testing.TestingGroupProvider;
 import io.trino.testing.TestingWarningCollectorModule;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerModule;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -127,7 +124,6 @@ import java.util.concurrent.TimeoutException;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
@@ -141,8 +137,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class TestingTrinoServer
         implements Closeable
 {
-    private static final Logger log = Logger.get(TestingTrinoServer.class);
-
     public static TestingTrinoServer create()
     {
         return builder().build();
@@ -297,17 +291,17 @@ public class TestingTrinoServer
 
         modules.add(additionalModule);
 
+        Bootstrap app = new Bootstrap(modules.build());
+
         Map<String, String> optionalProperties = new HashMap<>();
         environment.ifPresent(env -> optionalProperties.put("node.environment", env));
 
-        injector = Failsafe.with(new RetryPolicy<>()
-                        .withMaxRetries(5)
-                        .handleIf(throwable -> getStackTraceAsString(throwable).contains("BindException: Address already in use"))
-                .onRetry(event -> log.debug(
-                        "Initialization failed on attempt %s, will retry. Exception: %s",
-                        event.getAttemptCount(),
-                        event.getLastFailure().getMessage())))
-                .get(() -> initialize(serverProperties.buildOrThrow(), modules.build(), optionalProperties));
+        injector = app
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(serverProperties.buildOrThrow())
+                .setOptionalConfigurationProperties(optionalProperties)
+                .quiet()
+                .initialize();
 
         injector.getInstance(Announcer.class).start();
 
@@ -372,16 +366,6 @@ public class TestingTrinoServer
         announcer.forceAnnounce();
 
         refreshNodes();
-    }
-
-    private static Injector initialize(Map<String, String> serverProperties, List<Module> modules, Map<String, String> optionalProperties)
-    {
-        return new Bootstrap(modules)
-                .doNotInitializeLogging()
-                .setRequiredConfigurationProperties(serverProperties)
-                .setOptionalConfigurationProperties(optionalProperties)
-                .quiet()
-                .initialize();
     }
 
     @Override
