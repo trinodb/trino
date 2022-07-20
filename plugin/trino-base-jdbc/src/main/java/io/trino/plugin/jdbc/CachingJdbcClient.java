@@ -580,6 +580,12 @@ public class CachingJdbcClient
     }
 
     @VisibleForTesting
+    CacheStats getTableHandlesByQueryCacheStats()
+    {
+        return tableHandlesByQueryCache.stats();
+    }
+
+    @VisibleForTesting
     CacheStats getColumnsCacheStats()
     {
         return columnsCache.stats();
