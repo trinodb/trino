@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration xmlns:xi="http://www.w3.org/2001/XInclude">
+    <!--  The following properties are used for 2-way SSL client server validation -->
+    <property>
+        <name>xasecure.policymgr.clientssl.keystore</name>
+        <value>trinoservice-clientcert.jks</value>
+        <description>
+            Java Keystore files
+        </description>
+    </property>
+    <property>
+        <name>xasecure.policymgr.clientssl.truststore</name>
+        <value>cacerts-xasecure.jks</value>
+        <description>
+            java truststore file
+        </description>
+    </property>
+    <property>
+        <name>xasecure.policymgr.clientssl.keystore.credential.file</name>
+        <value>jceks://file/tmp/keystore-trinoservice-ssl.jceks</value>
+        <description>
+            java  keystore credential file
+        </description>
+    </property>
+    <property>
+        <name>xasecure.policymgr.clientssl.truststore.credential.file</name>
+        <value>jceks://file/tmp/truststore-trinoservice-ssl.jceks</value>
+        <description>
+            java  truststore credential file
+        </description>
+    </property>
+</configuration>

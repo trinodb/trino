@@ -1,0 +1,289 @@
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
+        <version>391-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>trino-ranger</artifactId>
+    <description>Trino - Apache Ranger plugin</description>
+    <packaging>trino-plugin</packaging>
+    <url>https://ranger.apache.org</url>
+
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <dep.ranger.version>2.1.0</dep.ranger.version>
+        <dep.apache-bval-jsr.version>2.0.5</dep.apache-bval-jsr.version>
+        <dep.hbase.jetty.version>9.4.44.v20210927</dep.hbase.jetty.version>
+        <dep.log4j.core.version>2.15.0</dep.log4j.core.version>
+        <dep.slf4j-api.version>1.7.30</dep.slf4j-api.version>
+        <dep.airlift.units.version>1.6</dep.airlift.units.version>
+        <dep.hadoop.version>3.3.0</dep.hadoop.version>
+        <dep.hbase.jetty.version>9.4.44.v20210927</dep.hbase.jetty.version>
+        <dep.commons.cli.version>1.4</dep.commons.cli.version>
+        <dep.apache-httpclient.version>4.5.10</dep.apache-httpclient.version>
+        <dep.jersey.version>1.19.3</dep.jersey.version>
+        <dep.codehaus.jackson.version>1.9.13</dep.codehaus.jackson.version>
+        <dep.javax.servlet.version>2.5</dep.javax.servlet.version>
+        <dep.kafka.version>2.5.0</dep.kafka.version>
+        <dep.carrotsearch-hppc.version>0.8.1</dep.carrotsearch-hppc.version>
+        <dep.apache-httpasyncclient.version>4.1.4</dep.apache-httpasyncclient.version>
+        <dep.apache-httpcore.version>4.4.12</dep.apache-httpcore.version>
+        <deps.junit.version>4.13.2</deps.junit.version>
+        <deps.commons-lang.version>2.6</deps.commons-lang.version>
+        <deps.google-code-gson.version>2.2.4</deps.google-code-gson.version>
+        <deps.jna.version>5.8.0</deps.jna.version>
+    </properties>
+
+    <dependencies>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hadoop-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
+            <version>${dep.airlift.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>configuration</artifactId>
+            <version>${dep.airlift.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log</artifactId>
+            <version>${dep.airlift.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-lang</groupId>
+            <artifactId>commons-lang</artifactId>
+            <version>${deps.commons-lang.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-common</artifactId>
+            <version>${dep.hadoop.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-servlet</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-json</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-server</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.osgi</groupId>
+                    <artifactId>org.osgi.core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>javax.ws.rs</groupId>
+                    <artifactId>jsr311-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ranger</groupId>
+            <artifactId>ranger-plugin-classloader</artifactId>
+            <version>${dep.ranger.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ranger</groupId>
+            <artifactId>ranger-plugins-common</artifactId>
+            <version>${dep.ranger.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-api</artifactId>
+    		    </exclusion>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.elasticsearch</groupId>
+                    <artifactId>jna</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>javax.ws.rs</groupId>
+                    <artifactId>jsr311-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.codehaus.woodstox</groupId>
+                    <artifactId>woodstox-core-asl</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.persistence</groupId>
+                    <artifactId>eclipselink</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.persistence</groupId>
+                    <artifactId>javax.persistence</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${deps.google-code-gson.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${deps.junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+                <dependency>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-api</artifactId>
+                    <version>${dep.log4j.core.version}</version>
+                </dependency>
+        -->
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <configuration>
+                    <rules>
+                        <requireUpperBoundDeps>
+                            <excludes combine.children="append">
+                                <exclude>org.apache.httpcomponents:httpclient</exclude>
+                                <exclude>com.sun.jersey:jersey-json</exclude>
+                                <exclude>com.sun.jersey:jersey-server</exclude>
+                                <exclude>javax.servlet:servlet-api</exclude>
+                                <exclude>org.slf4j:slf4j-api</exclude>
+                                <exclude>com.carrotsearch:hppc</exclude>
+                                <exclude>org.apache.httpcomponents:httpasyncclient</exclude>
+                                <exclude>commons-cli:commons-cli</exclude>
+                                <exclude>org.apache.httpcomponents:httpcore</exclude>
+                                <exclude>org.codehaus.jackson:jackson-core-asl</exclude>
+                                <exclude>org.codehaus.jackson:jackson-mapper-asl</exclude>
+                                <exclude>org.apache.httpcomponents:httpcore-nio</exclude>
+                                <exclude>net.java.dev.jna:jna-platform</exclude>
+                            </excludes>
+                        </requireUpperBoundDeps>
+                    </rules>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <ignoredResourcePattern>.*build.properties</ignoredResourcePattern>
+                        <ignoredResourcePattern>com.sun.jersey.*</ignoredResourcePattern>
+                        <ignoredResourcePattern>readme.html</ignoredResourcePattern>
+                        <ignoredResourcePattern>license.html</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
+            </plugin>
+
+        </plugins>
+    </build>
+</project>

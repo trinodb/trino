@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration xmlns:xi="http://www.w3.org/2001/XInclude">
+    <property>
+        <name>hadoop.security.group.mapping</name>
+        <value>org.apache.hadoop.security.LdapGroupsMapping</value>
+    </property>
+
+    <property>
+        <name>hadoop.security.group.mapping.ldap.bind.user</name>
+        <value>cn=Manager,dc=hadoop,dc=apache,dc=org</value>
+    </property>
+
+    <property>
+        <name>hadoop.security.group.mapping.ldap.bind.password</name>
+        <value>insert super secret password here</value>
+    </property>
+
+    <property>
+        <name>hadoop.security.group.mapping.ldap.url</name>
+        <value>ldap://localhost:389/</value>
+    </property>
+
+    <property>
+        <name>hadoop.security.group.mapping.ldap.base</name>
+        <value>DC=whoknows,DC=company,DC=com</value>
+    </property>
+
+    <property>
+        <name>hadoop.security.group.mapping.ldap.search.filter.user</name>
+        <value>(&amp;(|(objectclass=person)(objectclass=applicationProcess))(cn={0}))</value>
+    </property>
+
+    <property>
+        <name>hadoop.security.group.mapping.ldap.search.filter.group</name>
+        <value>(cn=your_group_name_pattern*)</value>
+    </property>
+
+    <property>
+        <name>hadoop.security.group.mapping.ldap.search.attr.member</name>
+        <value>member</value>
+    </property>
+
+    <property>
+        <name>hadoop.security.group.mapping.ldap.search.attr.group.name</name>
+        <value>cn</value>
+    </property>
+</configuration>
