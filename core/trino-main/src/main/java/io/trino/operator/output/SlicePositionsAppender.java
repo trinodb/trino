@@ -24,7 +24,6 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -74,13 +73,12 @@ public class SlicePositionsAppender
     }
 
     @Override
+    // TODO: Make PositionsAppender work performant with different block types (https://github.com/trinodb/trino/issues/13267)
     public void append(IntArrayList positions, Block block)
     {
         if (positions.isEmpty()) {
             return;
         }
-        // performance of this method depends on block being always the same, flat type
-        checkArgument(block instanceof VariableWidthBlock);
         ensurePositionCapacity(positionCount + positions.size());
         int[] positionArray = positions.elements();
         int newByteCount = 0;
