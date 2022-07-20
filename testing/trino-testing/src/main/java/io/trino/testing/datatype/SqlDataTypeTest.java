@@ -19,7 +19,7 @@ import io.trino.sql.query.QueryAssertions;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TemporaryRelation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -75,19 +75,19 @@ public final class SqlDataTypeTest
     public SqlDataTypeTest execute(QueryRunner queryRunner, Session session, DataSetup dataSetup)
     {
         checkState(!testCases.isEmpty(), "No test cases");
-        try (TestTable testTable = dataSetup.setupTestTable(unmodifiableList(testCases))) {
-            verifySelect(queryRunner, session, testTable);
-            verifyPredicate(queryRunner, session, testTable);
+        try (TemporaryRelation temporaryRelation = dataSetup.setupTemporaryRelation(unmodifiableList(testCases))) {
+            verifySelect(queryRunner, session, temporaryRelation);
+            verifyPredicate(queryRunner, session, temporaryRelation);
         }
         return this;
     }
 
-    private void verifySelect(QueryRunner queryRunner, Session session, TestTable testTable)
+    private void verifySelect(QueryRunner queryRunner, Session session, TemporaryRelation temporaryRelation)
     {
         @SuppressWarnings("resource") // Closing QueryAssertions would close the QueryRunner
         QueryAssertions queryAssertions = new QueryAssertions(queryRunner);
 
-        QueryAssert assertion = assertThat(queryAssertions.query(session, "SELECT * FROM " + testTable.getName()));
+        QueryAssert assertion = assertThat(queryAssertions.query(session, "SELECT * FROM " + temporaryRelation.getName()));
         MaterializedResult expected = queryRunner.execute(session, testCases.stream()
                 .map(TestCase::getExpectedLiteral)
                 .collect(joining(",", "VALUES ROW(", ")")));
@@ -107,9 +107,9 @@ public final class SqlDataTypeTest
         assertion.matches(expected);
     }
 
-    private void verifyPredicate(QueryRunner queryRunner, Session session, TestTable testTable)
+    private void verifyPredicate(QueryRunner queryRunner, Session session, TemporaryRelation temporaryRelation)
     {
-        String queryWithAll = "SELECT 'all found' FROM " + testTable.getName() + " WHERE " +
+        String queryWithAll = "SELECT 'all found' FROM " + temporaryRelation.getName() + " WHERE " +
                 IntStream.range(0, testCases.size())
                         .mapToObj(this::getPredicate)
                         .collect(joining(" AND "));
@@ -123,7 +123,7 @@ public final class SqlDataTypeTest
         QueryAssertions queryAssertions = new QueryAssertions(queryRunner);
 
         for (int column = 0; column < testCases.size(); column++) {
-            assertThat(queryAssertions.query(session, "SELECT 'found' FROM " + testTable.getName() + " WHERE " + getPredicate(column)))
+            assertThat(queryAssertions.query(session, "SELECT 'found' FROM " + temporaryRelation.getName() + " WHERE " + getPredicate(column)))
                     .matches("VALUES 'found'");
         }
     }
