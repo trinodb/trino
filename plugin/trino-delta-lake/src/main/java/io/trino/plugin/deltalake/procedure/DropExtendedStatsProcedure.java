@@ -31,22 +31,24 @@ import java.util.List;
 
 import static io.trino.plugin.deltalake.procedure.Procedures.checkProcedureArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class DropExtendedStatsProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle PROCEDURE_METHOD = methodHandle(
-            DropExtendedStatsProcedure.class,
-            "dropStats",
-            ConnectorSession.class,
-            ConnectorAccessControl.class,
-            // Schema name and table name
-            String.class,
-            String.class);
+    private static final MethodHandle PROCEDURE_METHOD;
+
+    static {
+        try {
+            PROCEDURE_METHOD = lookup().unreflect(DropExtendedStatsProcedure.class.getMethod("dropStats", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final DeltaLakeMetadataFactory metadataFactory;
     private final ExtendedStatisticsAccess statsAccess;

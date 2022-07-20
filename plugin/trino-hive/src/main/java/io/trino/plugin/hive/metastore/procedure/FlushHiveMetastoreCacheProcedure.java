@@ -29,9 +29,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -56,14 +56,17 @@ public class FlushHiveMetastoreCacheProcedure
             PARAM_PARTITION_COLUMN.toLowerCase(ENGLISH),
             PARAM_PARTITION_VALUE.toLowerCase(ENGLISH));
 
-    private static final MethodHandle FLUSH_HIVE_METASTORE_CACHE = methodHandle(
-            FlushHiveMetastoreCacheProcedure.class,
-            "flushMetadataCache",
-            String.class,
-            String.class,
-            String.class,
-            List.class,
-            List.class);
+    private static final MethodHandle FLUSH_HIVE_METASTORE_CACHE;
+
+    static {
+        try {
+            FLUSH_HIVE_METASTORE_CACHE = lookup().unreflect(FlushHiveMetastoreCacheProcedure.class.getMethod("flushMetadataCache", String.class, String.class, String.class, List.class, List.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
     private static final String FAKE_PARAM_DEFAULT_VALUE = "procedure should only be invoked with named parameters";
 
     private final Optional<CachingHiveMetastore> cachingHiveMetastore;

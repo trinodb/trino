@@ -59,9 +59,9 @@ import static io.trino.plugin.deltalake.procedure.Procedures.checkProcedureArgum
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Objects.requireNonNull;
 
@@ -70,14 +70,16 @@ public class VacuumProcedure
 {
     private static final Logger log = Logger.get(VacuumProcedure.class);
 
-    private static final MethodHandle VACUUM = methodHandle(
-            VacuumProcedure.class,
-            "vacuum",
-            ConnectorSession.class,
-            ConnectorAccessControl.class,
-            String.class,
-            String.class,
-            String.class);
+    private static final MethodHandle VACUUM;
+
+    static {
+        try {
+            VACUUM = lookup().unreflect(VacuumProcedure.class.getMethod("vacuum", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, String.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final CatalogName catalogName;
     private final HdfsEnvironment hdfsEnvironment;
