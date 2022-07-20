@@ -26,6 +26,7 @@ import io.trino.spi.QueryId;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.Future;
@@ -39,6 +40,7 @@ import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.execution.executor.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
 import static io.trino.execution.executor.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -81,11 +83,18 @@ public class TestTaskExecutor
             assertEquals(driver1.getCompletedPhases(), 0);
             assertEquals(driver2.getCompletedPhases(), 0);
             ticker.increment(60, SECONDS);
-            assertTrue(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true).isEmpty());
+
+            HashSet<TaskId> identifiedTaskIds = new HashSet<>();
+            taskExecutor.interruptStuckSplitTasks(splitProcessingDurationThreshold, runningSplitInfo -> true, identifiedTaskIds::add);
+
+            assertEquals(identifiedTaskIds, emptySet());
             assertEquals(taskExecutor.getRunAwaySplitCount(), 0);
             ticker.increment(600, SECONDS);
             assertEquals(taskExecutor.getRunAwaySplitCount(), 2);
-            assertEquals(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true), ImmutableSet.of(taskId));
+
+            identifiedTaskIds.clear();
+            taskExecutor.interruptStuckSplitTasks(splitProcessingDurationThreshold, runningSplitInfo -> true, identifiedTaskIds::add);
+            assertEquals(identifiedTaskIds, ImmutableSet.of(taskId));
 
             verificationComplete.arriveAndAwaitAdvance();
 
@@ -141,7 +150,11 @@ public class TestTaskExecutor
 
             // no splits remaining
             ticker.increment(610, SECONDS);
-            assertTrue(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true).isEmpty());
+
+            identifiedTaskIds.clear();
+            taskExecutor.interruptStuckSplitTasks(splitProcessingDurationThreshold, runningSplitInfo -> true, identifiedTaskIds::add);
+            assertEquals(identifiedTaskIds, emptySet());
+
             assertEquals(taskExecutor.getRunAwaySplitCount(), 0);
         }
         finally {
