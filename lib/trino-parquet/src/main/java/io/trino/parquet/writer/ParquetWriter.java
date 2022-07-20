@@ -43,6 +43,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -212,6 +213,14 @@ public class ParquetWriter
         }
         List<BufferData> bufferDataList = builder.build();
 
+        if (rows == 0) {
+            // Avoid writing empty row groups as these are ignored by the reader
+            verify(
+                    bufferDataList.stream().allMatch(buffer -> buffer.getData().size() == 0),
+                    "Buffer should be empty when there are no rows");
+            return;
+        }
+
         // update stats
         long stripeStartOffset = outputStream.longSize();
         List<ColumnMetaData> metadatas = bufferDataList.stream()
@@ -261,7 +270,6 @@ public class ParquetWriter
 
     private void updateRowGroups(List<ColumnMetaData> columnMetaData)
     {
-        // TODO Avoid writing empty row group
         long totalBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_compressed_size).sum();
         ImmutableList<org.apache.parquet.format.ColumnChunk> columnChunks = columnMetaData.stream().map(ParquetWriter::toColumnChunk).collect(toImmutableList());
         rowGroupBuilder.add(new RowGroup(columnChunks, totalBytes, rows));
