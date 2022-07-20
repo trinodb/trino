@@ -13,8 +13,8 @@
  */
 package io.trino.operator.output;
 
+import io.trino.spi.block.AbstractRowBlock;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.RowType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -66,13 +66,14 @@ public class RowPositionsAppender
     }
 
     @Override
+    // TODO: Make PositionsAppender work performant with different block types (https://github.com/trinodb/trino/issues/13267)
     public void append(IntArrayList positions, Block block)
     {
         if (positions.isEmpty()) {
             return;
         }
         ensureCapacity(positions.size());
-        RowBlock sourceRowBlock = (RowBlock) block;
+        AbstractRowBlock sourceRowBlock = (AbstractRowBlock) block;
         IntArrayList nonNullPositions;
         if (sourceRowBlock.mayHaveNull()) {
             nonNullPositions = processNullablePositions(positions, sourceRowBlock);
@@ -99,7 +100,7 @@ public class RowPositionsAppender
     {
         int rlePositionCount = rleBlock.getPositionCount();
         ensureCapacity(rlePositionCount);
-        RowBlock sourceRowBlock = (RowBlock) rleBlock.getValue();
+        AbstractRowBlock sourceRowBlock = (AbstractRowBlock) rleBlock.getValue();
         if (sourceRowBlock.isNull(0)) {
             // append rlePositionCount nulls
             Arrays.fill(rowIsNull, positionCount, positionCount + rlePositionCount, true);
@@ -166,7 +167,7 @@ public class RowPositionsAppender
         updateRetainedSize();
     }
 
-    private IntArrayList processNullablePositions(IntArrayList positions, RowBlock sourceRowBlock)
+    private IntArrayList processNullablePositions(IntArrayList positions, AbstractRowBlock sourceRowBlock)
     {
         int[] nonNullPositions = new int[positions.size()];
         int nonNullPositionsCount = 0;
@@ -182,7 +183,7 @@ public class RowPositionsAppender
         return IntArrayList.wrap(nonNullPositions, nonNullPositionsCount);
     }
 
-    private IntArrayList processNonNullablePositions(IntArrayList positions, RowBlock sourceRowBlock)
+    private IntArrayList processNonNullablePositions(IntArrayList positions, AbstractRowBlock sourceRowBlock)
     {
         int[] nonNullPositions = new int[positions.size()];
         for (int i = 0; i < positions.size(); i++) {
