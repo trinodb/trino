@@ -1791,12 +1791,19 @@ public class SqlQueryScheduler
                 for (SqlStage stage : distributedStagesInReverseTopologicalOrder) {
                     PlanFragment fragment = stage.getFragment();
 
+                    Optional<SqlStage> parentStage = stageManager.getParent(stage.getStageId());
+                    boolean coordinatorConsumedStage = parentStage.isEmpty() || parentStage.get().getFragment().getPartitioning().isCoordinatorOnly();
+
                     ExchangeContext exchangeContext = new ExchangeContext(session.getQueryId(), new ExchangeId("external-exchange-" + stage.getStageId().getId()));
-                    Exchange exchange = exchangeManager.createExchange(exchangeContext, partitionCount);
+                    Exchange exchange = exchangeManager.createExchange(
+                            exchangeContext,
+                            partitionCount,
+                            // order of output records for coordinator consumed stages must be preserved as the stage
+                            // may produce sorted dataset (for example an output of a global OrderByOperator)
+                            coordinatorConsumedStage);
                     exchanges.put(fragment.getId(), exchange);
 
-                    Optional<SqlStage> parentStage = stageManager.getParent(stage.getStageId());
-                    if (parentStage.isEmpty() || parentStage.get().getFragment().getPartitioning().isCoordinatorOnly()) {
+                    if (coordinatorConsumedStage) {
                         // output will be consumed by coordinator
                         coordinatorConsumedExchanges.add(exchange);
                     }
