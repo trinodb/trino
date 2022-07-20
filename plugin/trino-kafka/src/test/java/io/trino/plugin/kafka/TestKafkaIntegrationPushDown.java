@@ -19,9 +19,8 @@ import io.trino.execution.QueryInfo;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -93,7 +92,7 @@ public class TestKafkaIntegrationPushDown
         String sql = format("SELECT count(*) FROM default.%s WHERE _partition_id=1", topicNamePartition);
 
         assertEventually(() -> {
-            ResultWithQueryId<MaterializedResult> queryResult = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+            MaterializedResultWithQueryId queryResult = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
             assertEquals(getQueryInfo(getDistributedQueryRunner(), queryResult).getQueryStats().getProcessedInputPositions(), MESSAGE_NUM / 2);
         });
     }
@@ -111,7 +110,7 @@ public class TestKafkaIntegrationPushDown
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         assertEventually(() -> {
-            ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
+            MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(getSession(), sql);
             assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), expectedProcessedInputPositions);
         });
     }
@@ -131,7 +130,7 @@ public class TestKafkaIntegrationPushDown
 
         // timestamp_upper_bound_force_push_down_enabled default as false.
         assertEventually(() -> {
-            ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
+            MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(getSession(), sql);
             assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions())
                     .isEqualTo(998);
         });
@@ -143,7 +142,7 @@ public class TestKafkaIntegrationPushDown
                     .setSystemProperty("kafka.timestamp_upper_bound_force_push_down_enabled", "true")
                     .build();
 
-            ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(sessionWithUpperBoundPushDownEnabled, sql);
+            MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(sessionWithUpperBoundPushDownEnabled, sql);
             assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions())
                     .isEqualTo(2);
         });
@@ -163,13 +162,13 @@ public class TestKafkaIntegrationPushDown
                 recordMessage.getEndTime());
 
         assertEventually(() -> {
-            ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
+            MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(getSession(), sql);
             assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions())
                     .isEqualTo(2);
         });
     }
 
-    private static QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
+    private static QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, MaterializedResultWithQueryId queryResult)
     {
         return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
     }

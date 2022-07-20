@@ -19,9 +19,8 @@ import io.trino.operator.OperatorStats;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
@@ -498,7 +497,7 @@ public class TestDeltaLakeAnalyze
 
     private void runAnalyzeVerifySplitCount(String tableName, long expectedSplitCount)
     {
-        ResultWithQueryId<MaterializedResult> analyzeResult = getDistributedQueryRunner().executeWithQueryId(getSession(), "ANALYZE " + tableName);
+        MaterializedResultWithQueryId analyzeResult = getDistributedQueryRunner().executeWithQueryId(getSession(), "ANALYZE " + tableName);
         verifySplitCount(analyzeResult.getQueryId(), expectedSplitCount);
     }
 
