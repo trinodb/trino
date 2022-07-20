@@ -573,11 +573,14 @@ public class DeltaLakeMetadata
             return locationUri;
         });
 
+        String queryId = session.getQueryId();
+
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setLocation(location)
                 .setOwnerType(Optional.of(owner.getType()))
                 .setOwnerName(Optional.of(owner.getName()))
+                .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, queryId))
                 .build();
 
         metastore.createDatabase(database);
@@ -2458,6 +2461,11 @@ public class DeltaLakeMetadata
                 physicalName,
                 physicalType,
                 isPartitionKey ? PARTITION_KEY : REGULAR);
+    }
+
+    private static Optional<String> getQueryId(Database database)
+    {
+        return Optional.ofNullable(database.getParameters().get(PRESTO_QUERY_ID_NAME));
     }
 
     private static Optional<String> getQueryId(Table table)
