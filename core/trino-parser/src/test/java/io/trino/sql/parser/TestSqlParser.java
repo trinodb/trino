@@ -63,6 +63,7 @@ import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.EmptyPattern;
+import io.trino.sql.tree.EmptyTableTreatment;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Explain;
@@ -256,6 +257,7 @@ import static io.trino.sql.tree.ArithmeticUnaryExpression.negative;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.positive;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP;
+import static io.trino.sql.tree.EmptyTableTreatment.Treatment.PRUNE;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.trino.sql.tree.JsonPathParameter.JsonFormat.JSON;
@@ -3943,7 +3945,7 @@ public class TestSqlParser
                                                                 new Identifier(location(1, 112), "c", false))),
                                                 Optional.of(ImmutableList.of(new Identifier(location(1, 196), "a", false))),
                                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(location(1, 360), new Identifier(location(1, 360), "b", false), ASCENDING, LAST)))),
-                                                true)),
+                                                Optional.of(new EmptyTableTreatment(location(1, 266), PRUNE)))),
                                 new TableFunctionArgument(
                                         location(1, 425),
                                         Optional.of(new Identifier(location(1, 425), "arg2", false)),
@@ -3991,7 +3993,7 @@ public class TestSqlParser
                                         new Table(location(1, 39), qualifiedName(location(1, 45), "orders")),
                                         Optional.empty(),
                                         Optional.empty(),
-                                        false))),
+                                        Optional.empty()))),
                         ImmutableList.of())));
 
         // table alias; no column aliases
@@ -4011,7 +4013,7 @@ public class TestSqlParser
                                                 null),
                                         Optional.empty(),
                                         Optional.empty(),
-                                        false))),
+                                        Optional.empty()))),
                         ImmutableList.of())));
 
         // table alias and column aliases
@@ -4034,7 +4036,7 @@ public class TestSqlParser
                                                         new Identifier(location(1, 66), "c", false))),
                                         Optional.empty(),
                                         Optional.empty(),
-                                        false))),
+                                        Optional.empty()))),
                         ImmutableList.of())));
     }
 
