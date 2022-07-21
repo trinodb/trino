@@ -128,6 +128,31 @@ public class TestAggregations
                         "GROUP BY key",
                 "VALUES ('a', 1, 2, 1, 100), ('b', 21, 13, 11, 100)",
                 plan -> assertAggregationNodeCount(plan, 2));
+
+        // no rows matching sequence number
+        assertQuery(
+                memorySession,
+                "SELECT " +
+                        "key, " +
+                        "sum(CASE WHEN sequence = 42 THEN value ELSE 0 END), " +
+                        "sum(CASE WHEN sequence = 42 THEN value END), " +
+                        "sum(CASE WHEN sequence = 24 THEN cast(value * 2 as real) ELSE cast(0 as real) END), " +
+                        "sum(CASE WHEN sequence = 24 THEN cast(value * 2 as real) END) " +
+                        "FROM test_table " +
+                        "GROUP BY key",
+                "VALUES ('a', 0, null, 0, null), ('b', 0, null, 0, null)",
+                plan -> assertAggregationNodeCount(plan, 4));
+
+        assertQuery(
+                memorySession,
+                "SELECT " +
+                        "sum(CASE WHEN sequence = 42 THEN value ELSE 0 END), " +
+                        "sum(CASE WHEN sequence = 42 THEN value END), " +
+                        "sum(CASE WHEN sequence = 24 THEN cast(value * 2 as real) ELSE cast(0 as real) END), " +
+                        "sum(CASE WHEN sequence = 24 THEN cast(value * 2 as real) END) " +
+                        "FROM test_table",
+                "VALUES (0, null, 0, null)",
+                plan -> assertAggregationNodeCount(plan, 4));
     }
 
     private void assertAggregationNodeCount(Plan plan, int count)

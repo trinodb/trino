@@ -124,8 +124,8 @@ public class TestPreAggregateCaseAggregations
                                         Optional.empty(),
                                         SINGLE,
                                         project(ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("SUM_1_INPUT", expression("CASE WHEN COL_BIGINT = BIGINT '1' THEN SUM_BIGINT END"))
-                                                        .put("SUM_2_INPUT", expression("CASE WHEN COL_BIGINT = BIGINT '1' THEN SUM_INT_CAST END"))
+                                                        .put("SUM_1_INPUT", expression("CASE WHEN COL_BIGINT = BIGINT '1' THEN SUM_BIGINT ELSE BIGINT '0' END"))
+                                                        .put("SUM_2_INPUT", expression("CASE WHEN COL_BIGINT = BIGINT '1' THEN SUM_INT_CAST ELSE BIGINT '0' END"))
                                                         .put("SUM_3_INPUT", expression("CASE WHEN COL_BIGINT = BIGINT '2' THEN SUM_BIGINT END"))
                                                         .put("MIN_1_INPUT", expression("CASE WHEN COL_BIGINT % BIGINT '2' > BIGINT '1' THEN MIN_BIGINT END"))
                                                         .put("SUM_4_INPUT", expression("CASE WHEN COL_BIGINT = BIGINT '3' THEN SUM_DECIMAL END"))
@@ -183,8 +183,8 @@ public class TestPreAggregateCaseAggregations
                                         Optional.empty(),
                                         SINGLE,
                                         project(ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("SUM_1_INPUT", expression("CASE WHEN COL_BIGINT = BIGINT '1' THEN SUM_BIGINT END"))
-                                                        .put("SUM_2_INPUT", expression("CASE WHEN COL_BIGINT = BIGINT '1' THEN SUM_INT_CAST END"))
+                                                        .put("SUM_1_INPUT", expression("CASE WHEN COL_BIGINT = BIGINT '1' THEN SUM_BIGINT ELSE BIGINT '0' END"))
+                                                        .put("SUM_2_INPUT", expression("CASE WHEN COL_BIGINT = BIGINT '1' THEN SUM_INT_CAST ELSE BIGINT '0' END"))
                                                         .put("SUM_3_INPUT", expression("CASE WHEN COL_BIGINT = BIGINT '2' THEN SUM_BIGINT END"))
                                                         .put("MIN_1_INPUT", expression("CASE WHEN COL_BIGINT % BIGINT '2' > BIGINT '1' THEN MIN_BIGINT END"))
                                                         .put("SUM_4_INPUT", expression("CASE WHEN COL_BIGINT = BIGINT '3' THEN SUM_DECIMAL END"))
@@ -210,6 +210,82 @@ public class TestPreAggregateCaseAggregations
                                                                                 ImmutableMap.of(
                                                                                         "COL_BIGINT", "col_bigint",
                                                                                         "COL_DECIMAL", "col_decimal"))))))))));
+    }
+
+    @Test
+    public void testPreAggregatesWithDefaultValues()
+    {
+        assertPlan(
+                "SELECT " +
+                        "sum(CASE WHEN col_bigint = 1 THEN col_bigint ELSE BIGINT '0' END), " +
+                        "sum(CASE WHEN col_bigint = 1 THEN col_bigint END), " +
+                        "sum(CASE WHEN col_bigint = 2 THEN CAST(col_bigint AS INTEGER) ELSE CAST(0 AS INTEGER) END), " +
+                        "sum(CASE WHEN col_bigint = 2 THEN CAST(col_bigint AS INTEGER) END), " +
+                        "sum(CASE WHEN col_bigint = 3 THEN col_tinyint ELSE TINYINT '0' END), " +
+                        "sum(CASE WHEN col_bigint = 3 THEN col_tinyint END), " +
+                        "sum(CASE WHEN col_bigint = 4 THEN col_decimal ELSE CAST(0 AS DECIMAL(2, 1)) END), " +
+                        "sum(CASE WHEN col_bigint = 4 THEN col_decimal END), " +
+                        "sum(CASE WHEN col_bigint = 5 THEN col_long_decimal ELSE CAST(0 AS DECIMAL(19, 18)) END), " +
+                        "sum(CASE WHEN col_bigint = 5 THEN col_long_decimal END), " +
+                        "sum(CASE WHEN col_bigint = 6 THEN col_double ELSE DOUBLE '0' END), " +
+                        "sum(CASE WHEN col_bigint = 6 THEN col_double END) " +
+                        "FROM t",
+                anyTree(
+                        aggregation(
+                                globalAggregation(),
+                                ImmutableMap.<Optional<String>, ExpectedValueProvider<FunctionCall>>builder()
+                                        .put(Optional.of("SUM_1"), functionCall("sum", ImmutableList.of("SUM_BIGINT_FINAL")))
+                                        .put(Optional.of("SUM_1_DEFAULT"), functionCall("sum", ImmutableList.of("SUM_BIGINT_FINAL_DEFAULT")))
+                                        .put(Optional.of("SUM_2"), functionCall("sum", ImmutableList.of("SUM_INT_CAST_FINAL")))
+                                        .put(Optional.of("SUM_2_DEFAULT"), functionCall("sum", ImmutableList.of("SUM_INT_CAST_FINAL_DEFAULT")))
+                                        .put(Optional.of("SUM_3"), functionCall("sum", ImmutableList.of("SUM_TINYINT_FINAL")))
+                                        .put(Optional.of("SUM_3_DEFAULT"), functionCall("sum", ImmutableList.of("SUM_TINYINT_FINAL_DEFAULT")))
+                                        .put(Optional.of("SUM_4"), functionCall("sum", ImmutableList.of("SUM_DECIMAL_FINAL")))
+                                        .put(Optional.of("SUM_4_DEFAULT"), functionCall("sum", ImmutableList.of("SUM_DECIMAL_FINAL_DEFAULT")))
+                                        .put(Optional.of("SUM_5"), functionCall("sum", ImmutableList.of("SUM_LONG_DECIMAL_FINAL")))
+                                        .put(Optional.of("SUM_5_DEFAULT"), functionCall("sum", ImmutableList.of("SUM_LONG_DECIMAL_FINAL_DEFAULT")))
+                                        .put(Optional.of("SUM_6"), functionCall("sum", ImmutableList.of("SUM_DOUBLE_FINAL")))
+                                        .put(Optional.of("SUM_6_DEFAULT"), functionCall("sum", ImmutableList.of("SUM_DOUBLE_FINAL_DEFAULT")))
+                                        .buildOrThrow(),
+                                Optional.empty(),
+                                SINGLE,
+                                project(ImmutableMap.<String, ExpressionMatcher>builder()
+                                                .put("SUM_BIGINT_FINAL", expression("CASE WHEN COL_BIGINT = BIGINT '1' THEN SUM_BIGINT END"))
+                                                .put("SUM_BIGINT_FINAL_DEFAULT", expression("CASE WHEN COL_BIGINT = BIGINT '1' THEN SUM_BIGINT ELSE BIGINT '0' END"))
+                                                .put("SUM_INT_CAST_FINAL", expression("CASE WHEN COL_BIGINT = BIGINT '2' THEN SUM_INT_CAST END"))
+                                                .put("SUM_INT_CAST_FINAL_DEFAULT", expression("CASE WHEN COL_BIGINT = BIGINT '2' THEN SUM_INT_CAST ELSE BIGINT '0' END"))
+                                                .put("SUM_TINYINT_FINAL", expression("CASE WHEN COL_BIGINT = BIGINT '3' THEN SUM_TINYINT END"))
+                                                .put("SUM_TINYINT_FINAL_DEFAULT", expression("CASE WHEN COL_BIGINT = BIGINT '3' THEN SUM_TINYINT ELSE BIGINT '0' END"))
+                                                .put("SUM_DECIMAL_FINAL", expression("CASE WHEN COL_BIGINT = BIGINT '4' THEN SUM_DECIMAL END"))
+                                                .put("SUM_DECIMAL_FINAL_DEFAULT", expression("CASE WHEN COL_BIGINT = BIGINT '4' THEN SUM_DECIMAL ELSE CAST(DECIMAL '0.0' AS decimal(38, 1)) END"))
+                                                .put("SUM_LONG_DECIMAL_FINAL", expression("CASE WHEN COL_BIGINT = BIGINT '5' THEN SUM_LONG_DECIMAL END"))
+                                                .put("SUM_LONG_DECIMAL_FINAL_DEFAULT", expression("CASE WHEN COL_BIGINT = BIGINT '5' THEN SUM_LONG_DECIMAL ELSE CAST(DECIMAL '0.000000000000000000' AS decimal(38, 18)) END"))
+                                                .put("SUM_DOUBLE_FINAL", expression("CASE WHEN COL_BIGINT = BIGINT '6' THEN SUM_DOUBLE END"))
+                                                .put("SUM_DOUBLE_FINAL_DEFAULT", expression("CASE WHEN COL_BIGINT = BIGINT '6' THEN SUM_DOUBLE ELSE 0E0 END"))
+                                                .buildOrThrow(),
+                                        aggregation(
+                                                singleGroupingSet("COL_BIGINT"),
+                                                ImmutableMap.of(
+                                                        Optional.of("SUM_BIGINT"), functionCall("sum", ImmutableList.of("COL_BIGINT")),
+                                                        Optional.of("SUM_INT_CAST"), functionCall("sum", ImmutableList.of("VALUE_INT_CAST")),
+                                                        Optional.of("SUM_TINYINT"), functionCall("sum", ImmutableList.of("VALUE_TINYINT_CAST")),
+                                                        Optional.of("SUM_DECIMAL"), functionCall("sum", ImmutableList.of("COL_DECIMAL")),
+                                                        Optional.of("SUM_LONG_DECIMAL"), functionCall("sum", ImmutableList.of("COL_LONG_DECIMAL")),
+                                                        Optional.of("SUM_DOUBLE"), functionCall("sum", ImmutableList.of("COL_DOUBLE"))),
+                                                Optional.empty(),
+                                                SINGLE,
+                                                exchange(
+                                                        project(ImmutableMap.of(
+                                                                        "VALUE_INT_CAST", expression("CAST(CAST(COL_BIGINT AS INTEGER) AS BIGINT)"),
+                                                                        "VALUE_TINYINT_CAST", expression("CAST(COL_TINYINT AS BIGINT)")),
+                                                                tableScan(
+                                                                        "t",
+                                                                        ImmutableMap.of(
+                                                                                "COL_BIGINT", "col_bigint",
+                                                                                "COL_TINYINT", "col_tinyint",
+                                                                                "COL_DECIMAL", "col_decimal",
+                                                                                "COL_LONG_DECIMAL", "col_long_decimal",
+                                                                                "COL_DOUBLE", "col_double")))))))));
     }
 
     @Test
