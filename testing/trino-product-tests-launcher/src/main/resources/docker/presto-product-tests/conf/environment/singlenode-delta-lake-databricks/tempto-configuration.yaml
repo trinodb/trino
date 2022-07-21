@@ -7,7 +7,7 @@ databases:
     prepare_statement:
       - USE ${databases.delta.schema}
     table_manager_type: jdbc
-    jdbc_url: ${DATABRICKS_JDBC_URL};EnableArrow=0
+    jdbc_url: jdbc:databricks://${DATABRICKS_SERVER_HOSTNAME}:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/${DATABRICKS_ORGANISATION_ID}/${DATABRICKS_CLUSTER_ID};AuthMech=3;EnableArrow=0
     jdbc_user: ${DATABRICKS_LOGIN}
     jdbc_password: ${DATABRICKS_TOKEN}
 
