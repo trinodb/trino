@@ -2005,7 +2005,6 @@
                             <disableSelectedProjectsHandling>true</disableSelectedProjectsHandling>
                             <failOnMissingGitDir>true</failOnMissingGitDir>
                             <failOnError>true</failOnError>
-                            <logImpactedTo>gib-impacted.log</logImpactedTo>
                         </configuration>
                     </plugin>
                 </plugins>
