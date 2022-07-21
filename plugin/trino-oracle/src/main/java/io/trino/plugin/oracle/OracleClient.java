@@ -280,18 +280,17 @@ public class OracleClient
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        String newTableName = newTable.getTableName().toUpperCase(ENGLISH);
-        String sql = format(
-                "ALTER TABLE %s RENAME TO %s",
-                quoted(catalogName, schemaName, tableName),
-                quoted(newTableName));
+        super.renameTable(session, catalogName, schemaName, tableName, newTable);
+    }
 
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
+    @Override
+    protected String renameTableSql(String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+    {
+        String newTableName = newRemoteTableName.toUpperCase(ENGLISH);
+        return format(
+                "ALTER TABLE %s RENAME TO %s",
+                quoted(catalogName, remoteSchemaName, remoteTableName),
+                quoted(newTableName));
     }
 
     @Override

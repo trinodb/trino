@@ -109,11 +109,16 @@ public class RedshiftClient
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        String sql = format(
+        super.renameTable(session, catalogName, schemaName, tableName, newTable);
+    }
+
+    @Override
+    protected String renameTableSql(String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+    {
+        return format(
                 "ALTER TABLE %s RENAME TO %s",
-                quoted(catalogName, schemaName, tableName),
-                quoted(newTable.getTableName()));
-        execute(session, sql);
+                quoted(catalogName, remoteSchemaName, remoteTableName),
+                quoted(newRemoteTableName));
     }
 
     @Override
