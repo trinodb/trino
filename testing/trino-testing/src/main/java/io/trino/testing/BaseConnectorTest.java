@@ -2058,7 +2058,6 @@ public abstract class BaseConnectorTest
         throw new AssertionError("Unexpected schema name length failure", e);
     }
 
-    // TODO https://github.com/trinodb/trino/issues/13073 Add RENAME TABLE test with long table name
     @Test
     public void testCreateTableWithLongTableName()
     {
@@ -2083,6 +2082,37 @@ public abstract class BaseConnectorTest
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + invalidTableName + " (a bigint)"))
                 .satisfies(this::verifyTableNameLengthFailurePermissible);
         assertFalse(getQueryRunner().tableExists(getSession(), validTableName));
+    }
+
+    @Test
+    public void testRenameTableToLongTableName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_RENAME_TABLE));
+
+        String sourceTableName = "test_rename_source_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+
+        String baseTableName = "test_rename_target_" + randomTableSuffix();
+
+        int maxLength = maxTableNameLength()
+                // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
+                .orElse(65536 + 5);
+
+        String validTargetTableName = baseTableName + "z".repeat(maxLength - baseTableName.length());
+        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
+        assertTrue(getQueryRunner().tableExists(getSession(), validTargetTableName));
+        assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
+        assertUpdate("DROP TABLE " + validTargetTableName);
+
+        if (maxTableNameLength().isEmpty()) {
+            return;
+        }
+
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+        String invalidTargetTableName = validTargetTableName + "z";
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
+                .satisfies(this::verifyTableNameLengthFailurePermissible);
+        assertFalse(getQueryRunner().tableExists(getSession(), invalidTargetTableName));
     }
 
     protected OptionalInt maxTableNameLength()

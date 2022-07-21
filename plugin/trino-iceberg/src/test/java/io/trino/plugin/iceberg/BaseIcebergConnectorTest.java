@@ -129,6 +129,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 public abstract class BaseIcebergConnectorTest
         extends BaseConnectorTest
@@ -5528,6 +5529,30 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Override
+    public void testRenameTableToLongTableName()
+    {
+        // Override because the max name length is different from CREATE TABLE case
+        String sourceTableName = "test_rename_source_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+
+        String baseTableName = "test_rename_target_" + randomTableSuffix();
+
+        int maxLength = 255;
+
+        String validTargetTableName = baseTableName + "z".repeat(maxLength - baseTableName.length());
+        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
+        assertTrue(getQueryRunner().tableExists(getSession(), validTargetTableName));
+        assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
+        assertUpdate("DROP TABLE " + validTargetTableName);
+
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+        String invalidTargetTableName = validTargetTableName + "z";
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
+                .satisfies(this::verifyTableNameLengthFailurePermissible);
+        assertFalse(getQueryRunner().tableExists(getSession(), invalidTargetTableName));
+    }
+
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         // This value depends on metastore type
@@ -5539,7 +5564,7 @@ public abstract class BaseIcebergConnectorTest
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Failed to create file");
+        assertThat(e).hasMessageMatching("Failed to create file.*|Could not create new table directory");
     }
 
     private Session prepareCleanUpSession()

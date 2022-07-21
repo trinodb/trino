@@ -8366,7 +8366,7 @@ public abstract class BaseHiveConnectorTest
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Failed to create directory");
+        assertThat(e).hasMessageMatching("Failed to create directory.*|Could not rename table directory");
     }
 
     private Session withTimestampPrecision(Session session, HiveTimestampPrecision precision)

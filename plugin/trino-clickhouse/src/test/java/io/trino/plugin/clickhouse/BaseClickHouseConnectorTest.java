@@ -732,6 +732,30 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
+    public void testRenameTableToLongTableName()
+    {
+        // Override because ClickHouse connector can rename to a table which can't be dropped
+        String sourceTableName = "test_source_long_table_name_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+
+        String baseTableName = "test_target_long_table_name_" + randomTableSuffix();
+        // The max length is different from CREATE TABLE case
+        String validTargetTableName = baseTableName + "z".repeat(255 - ".sql".length() - baseTableName.length());
+
+        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
+        assertTrue(getQueryRunner().tableExists(getSession(), validTargetTableName));
+        assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
+        assertThatThrownBy(() -> assertUpdate("DROP TABLE " + validTargetTableName))
+                .hasMessageMatching("(?s).*(Bad path syntax|File name too long).*");
+
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+        String invalidTargetTableName = validTargetTableName + "z";
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
+                .hasMessageMatching("(?s).*(Cannot rename|File name too long).*");
+        assertFalse(getQueryRunner().tableExists(getSession(), invalidTargetTableName));
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return clickhouseServer::execute;
