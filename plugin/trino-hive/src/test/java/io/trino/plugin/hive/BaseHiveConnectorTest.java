@@ -20,7 +20,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryInfo;
@@ -98,6 +97,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.intersection;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
@@ -1835,7 +1835,7 @@ public abstract class BaseHiveConnectorTest
 
         // Write table with small limit and verify we get multiple files per node near the expected size
         // Writer writes chunks of rows that are about 1MB
-        DataSize maxSize = DataSize.of(1, Unit.MEGABYTE);
+        DataSize maxSize = DataSize.of(1, MEGABYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
@@ -1878,7 +1878,7 @@ public abstract class BaseHiveConnectorTest
 
         // Write table with small limit and verify we get multiple files per node near the expected size
         // Writer writes chunks of rows that are about 1MB
-        DataSize maxSize = DataSize.of(1, Unit.MEGABYTE);
+        DataSize maxSize = DataSize.of(1, MEGABYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
