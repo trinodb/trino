@@ -2080,12 +2080,8 @@ public abstract class BaseConnectorTest
         }
 
         String invalidTableName = validTableName + "z";
-        try {
-            assertUpdate("CREATE TABLE " + invalidTableName + " (a bigint)");
-        }
-        catch (Throwable e) {
-            verifyTableNameLengthFailurePermissible(e);
-        }
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + invalidTableName + " (a bigint)"))
+                .satisfies(this::verifyTableNameLengthFailurePermissible);
         assertFalse(getQueryRunner().tableExists(getSession(), validTableName));
     }
 

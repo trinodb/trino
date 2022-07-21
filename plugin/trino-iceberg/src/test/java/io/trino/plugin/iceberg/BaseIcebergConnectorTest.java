@@ -70,7 +70,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -5485,7 +5484,8 @@ public abstract class BaseIcebergConnectorTest
     {
         // This value depends on metastore type
         // The connector appends uuids to the end of all table names
-        return OptionalInt.of(255 - UUID.randomUUID().toString().length());
+        // 33 is the length of random suffix. e.g. {table name}-142763c594d54e4b9329a98f90528caf
+        return OptionalInt.of(255 - 33);
     }
 
     @Override
