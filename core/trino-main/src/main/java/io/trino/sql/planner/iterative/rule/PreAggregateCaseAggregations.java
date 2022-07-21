@@ -355,6 +355,21 @@ public class PreAggregateCaseAggregations
             return Optional.empty();
         }
 
+        Type aggregationType = aggregation.getResolvedFunction().getSignature().getReturnType();
+        ResolvedFunction cumulativeFunction;
+        try {
+            cumulativeFunction = plannerContext.getMetadata().resolveFunction(context.getSession(), QualifiedName.of(name), fromTypes(aggregationType));
+        }
+        catch (TrinoException e) {
+            // there is no cumulative aggregation
+            return Optional.empty();
+        }
+
+        if (!cumulativeFunction.getSignature().getReturnType().equals(aggregationType)) {
+            // aggregation type after rewrite must not change
+            return Optional.empty();
+        }
+
         if (caseExpression.getDefaultValue().isPresent()) {
             Type defaultType = getType(context, caseExpression.getDefaultValue().get());
             Object defaultValue = optimizeExpression(caseExpression.getDefaultValue().get(), context);
@@ -379,21 +394,6 @@ public class PreAggregateCaseAggregations
                     return Optional.empty();
                 }
             }
-        }
-
-        Type aggregationType = aggregation.getResolvedFunction().getSignature().getReturnType();
-        ResolvedFunction cumulativeFunction;
-        try {
-            cumulativeFunction = plannerContext.getMetadata().resolveFunction(context.getSession(), QualifiedName.of(name), fromTypes(aggregationType));
-        }
-        catch (TrinoException e) {
-            // there is no cumulative aggregation
-            return Optional.empty();
-        }
-
-        if (!cumulativeFunction.getSignature().getReturnType().equals(aggregationType)) {
-            // aggregation type after rewrite must not change
-            return Optional.empty();
         }
 
         return Optional.of(new CaseAggregation(
