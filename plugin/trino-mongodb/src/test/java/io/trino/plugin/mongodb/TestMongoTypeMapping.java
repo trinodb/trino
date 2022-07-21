@@ -287,6 +287,58 @@ public class TestMongoTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
     }
 
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestamp(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp '-290307-12-31 23:59:59.999'", "timestamp '-290307-12-31 23:59:59.999'") // min value
+                .addRoundTrip("timestamp '1582-10-04 23:59:59.999'", "timestamp '1582-10-04 23:59:59.999'") // before julian->gregorian switch
+                .addRoundTrip("timestamp '1582-10-05 00:00:00.000'", "timestamp '1582-10-05 00:00:00.000'") // begin julian->gregorian switch
+                .addRoundTrip("timestamp '1582-10-14 23:59:59.999'", "timestamp '1582-10-14 23:59:59.999'") // end julian->gregorian switch
+                .addRoundTrip("timestamp '1970-01-01 00:00:00.000'", "timestamp '1970-01-01 00:00:00.000'") // epoch
+                .addRoundTrip("timestamp '1986-01-01 00:13:07.123'", "timestamp '1986-01-01 00:13:07.123'") // time gap in Kathmandu
+                .addRoundTrip("timestamp '2018-03-25 03:17:17.123'", "timestamp '2018-03-25 03:17:17.123'") // time gap in Vilnius
+                .addRoundTrip("timestamp '2018-10-28 01:33:17.456'", "timestamp '2018-10-28 01:33:17.456'") // time doubled in JVM zone
+                .addRoundTrip("timestamp '2018-10-28 03:33:33.333'", "timestamp '2018-10-28 03:33:33.333'") // time double in Vilnius
+                .addRoundTrip("timestamp '294247-01-10 04:00:54.775'", "timestamp '294247-01-10 04:00:54.775'") // max value
+
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
+    }
+
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestampWithTimeZoneMapping(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp '-69387-04-22 03:45:14.752 UTC'", "timestamp '-69387-04-22 03:45:14.752 UTC'") // min value
+                .addRoundTrip("timestamp '1582-10-04 23:59:59.999 UTC'", "timestamp '1582-10-04 23:59:59.999 UTC'") // before julian->gregorian switch
+                .addRoundTrip("timestamp '1582-10-05 00:00:00.000 UTC'", "timestamp '1582-10-05 00:00:00.000 UTC'") // begin julian->gregorian switch
+                .addRoundTrip("timestamp '1582-10-14 23:59:59.999 UTC'", "timestamp '1582-10-14 23:59:59.999 UTC'") // end julian->gregorian switch
+                .addRoundTrip("timestamp '1970-01-01 00:00:00.000 UTC'", "timestamp '1970-01-01 00:00:00.000 UTC'") // epoch
+                .addRoundTrip("timestamp '1986-01-01 00:13:07.123 UTC'", "timestamp '1986-01-01 00:13:07.123 UTC'") // time gap in Kathmandu
+                .addRoundTrip("timestamp '2018-03-25 03:17:17.123 UTC'", "timestamp '2018-03-25 03:17:17.123 UTC'") // time gap in Vilnius
+                .addRoundTrip("timestamp '2018-10-28 01:33:17.456 UTC'", "timestamp '2018-10-28 01:33:17.456 UTC'") // time doubled in JVM zone
+                .addRoundTrip("timestamp '2018-10-28 03:33:33.333 UTC'", "timestamp '2018-10-28 03:33:33.333 UTC'") // time double in Vilnius
+                .addRoundTrip("timestamp '2022-10-01 22:30:00.000 -01:30'", "timestamp '2022-10-02 00:00:00.000 UTC'") // not UTC (-01:30)
+                .addRoundTrip("timestamp '2022-10-02 01:30:00.000 +01:30'", "timestamp '2022-10-02 00:00:00.000 UTC'") // not UTC (+01:30)
+                .addRoundTrip("timestamp '73326-09-11 20:14:45.247 UTC'", "timestamp '73326-09-11 20:14:45.247 UTC'") // max value
+
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp_with_time_zone"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp_with_time_zone"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp_with_time_zone"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp_with_time_zone"));
+    }
+
     @Test
     public void testArray()
     {
