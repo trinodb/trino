@@ -66,6 +66,14 @@ exec_in_hadoop_master_container /usr/bin/hive -e "
     STORED AS TEXTFILE
     LOCATION '${table_path}'"
 
+table_path="s3a://${S3_BUCKET}/${test_directory}/trino_s3select_test_external_fs_json/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /docker/files/test_table.json{,.gz,.bz2} "${table_path}"
+exec_in_hadoop_master_container /usr/bin/hive -e "
+    CREATE EXTERNAL TABLE trino_s3select_test_external_fs_json(col_1 bigint, col_2 bigint)
+    ROW FORMAT SERDE 'org.apache.hive.hcatalog.data.JsonSerDe'
+    LOCATION '${table_path}'"
+
 stop_unnecessary_hadoop_services
 
 # restart hive-metastore to apply S3 changes in core-site.xml

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.s3select;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveRecordCursorProvider;
@@ -25,15 +24,12 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 
 import javax.inject.Inject;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.Set;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
@@ -44,15 +40,23 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 public class S3SelectRecordCursorProvider
         implements HiveRecordCursorProvider
 {
-    private static final Set<String> CSV_SERDES = ImmutableSet.of(LazySimpleSerDe.class.getName());
     private final HdfsEnvironment hdfsEnvironment;
     private final TrinoS3ClientFactory s3ClientFactory;
+    private final S3SelectLineRecordReaderProvider lineRecordReaderProvider;
+    private final S3SelectSerDeDataTypeMapper serDeDataTypeMapper;
+    private final IonSqlQueryBuilderProvider ionSqlQueryBuilderProvider;
 
     @Inject
-    public S3SelectRecordCursorProvider(HdfsEnvironment hdfsEnvironment, TrinoS3ClientFactory s3ClientFactory)
+    public S3SelectRecordCursorProvider(HdfsEnvironment hdfsEnvironment, TrinoS3ClientFactory s3ClientFactory,
+                                        S3SelectLineRecordReaderProvider lineRecordReaderProvider,
+                                        S3SelectSerDeDataTypeMapper serDeDataTypeMapper,
+                                        IonSqlQueryBuilderProvider ionSqlQueryBuilderProvider)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.s3ClientFactory = requireNonNull(s3ClientFactory, "s3ClientFactory is null");
+        this.lineRecordReaderProvider = requireNonNull(lineRecordReaderProvider, "s3SelectLineRecordReaderProvider is null");
+        this.serDeDataTypeMapper = requireNonNull(serDeDataTypeMapper, "s3SelectSerDeDataTypeMapper is null");
+        this.ionSqlQueryBuilderProvider = requireNonNull(ionSqlQueryBuilderProvider, "ionSqlQueryBuilderProvider is null");
     }
 
     @Override
@@ -85,21 +89,38 @@ public class S3SelectRecordCursorProvider
         effectivePredicate = effectivePredicate.filter((column, domain) -> column.isBaseColumn());
 
         String serdeName = getDeserializerClassName(schema);
-        if (CSV_SERDES.contains(serdeName)) {
+        Optional<S3SelectDataType> s3SelectDataTypeOpt = serDeDataTypeMapper.getDataType(serdeName);
+
+        if (s3SelectDataTypeOpt.isPresent()) {
+            S3SelectDataType s3SelectDataType = s3SelectDataTypeOpt.get();
+
             List<HiveColumnHandle> readerColumns = projectedReaderColumns
                     .map(ReaderColumns::get)
                     .map(readColumns -> readColumns.stream().map(HiveColumnHandle.class::cast).collect(toUnmodifiableList()))
                     .orElse(columns);
 
-            IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
-            String ionSqlQuery = queryBuilder.buildSql(readerColumns, effectivePredicate);
-            S3SelectLineRecordReader recordReader = new S3SelectCsvRecordReader(configuration, path, start, length, schema, ionSqlQuery, s3ClientFactory);
+            Optional<IonSqlQueryBuilder> queryBuilderOpt = ionSqlQueryBuilderProvider.get(typeManager, s3SelectDataType);
+            if (queryBuilderOpt.isEmpty()) {
+                // S3 Select data type is not mapped to an IonSqlQueryBuilder
+                return Optional.empty();
+            }
 
-            RecordCursor cursor = new S3SelectRecordCursor<>(configuration, path, recordReader, length, schema, readerColumns);
+            IonSqlQueryBuilder queryBuilder = queryBuilderOpt.get();
+            String ionSqlQuery = queryBuilder.buildSql(readerColumns, effectivePredicate);
+            Optional<S3SelectLineRecordReader> recordReader = lineRecordReaderProvider.get(configuration, path, start, length, schema,
+                    ionSqlQuery, s3ClientFactory, s3SelectDataType);
+
+            if (recordReader.isEmpty()) {
+                // S3 Select data type is not mapped to an S3SelectLineRecordReader
+                return Optional.empty();
+            }
+
+            RecordCursor cursor = new S3SelectRecordCursor<>(configuration, path, recordReader.get(), length, schema, readerColumns);
             return Optional.of(new ReaderRecordCursorWithProjections(cursor, projectedReaderColumns));
         }
-
-        // unsupported serdes
-        return Optional.empty();
+        else {
+            // unsupported serdes
+            return Optional.empty();
+        }
     }
 }

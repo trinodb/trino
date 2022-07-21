@@ -76,7 +76,7 @@ public abstract class S3SelectLineRecordReader
     protected final CompressionCodecFactory compressionCodecFactory;
     protected final String lineDelimiter;
 
-    S3SelectLineRecordReader(
+    public S3SelectLineRecordReader(
             Configuration configuration,
             Path path,
             long start,

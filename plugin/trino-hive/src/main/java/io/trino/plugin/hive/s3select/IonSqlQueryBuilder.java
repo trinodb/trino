@@ -54,7 +54,7 @@ import static org.joda.time.format.ISODateTimeFormat.date;
  * S3 Select uses Ion SQL++ query language. This class is used to construct a valid Ion SQL++ query
  * to be evaluated with S3 Select on an S3 object.
  */
-public class IonSqlQueryBuilder
+public abstract class IonSqlQueryBuilder
 {
     private static final DateTimeFormatter FORMATTER = date().withChronology(getInstanceUTC());
     private static final String DATA_SOURCE = "S3Object s";
@@ -72,6 +72,7 @@ public class IonSqlQueryBuilder
             domains.keySet().forEach(column -> checkArgument(column.isBaseColumn(), "%s is not a base column", column));
         });
 
+        // SELECT clause
         StringBuilder sql = new StringBuilder("SELECT ");
 
         if (columns.isEmpty()) {
@@ -79,14 +80,16 @@ public class IonSqlQueryBuilder
         }
         else {
             String columnNames = columns.stream()
-                    .map(column -> format("s._%d", column.getBaseHiveColumnIndex() + 1))
+                    .map(this::getFullyQualifiedColumnName)
                     .collect(joining(", "));
             sql.append(columnNames);
         }
 
+        // FROM clause
         sql.append(" FROM ");
         sql.append(DATA_SOURCE);
 
+        // WHERE clause
         List<String> clauses = toConjuncts(columns, tupleDomain);
         if (!clauses.isEmpty()) {
             sql.append(" WHERE ")
@@ -96,6 +99,8 @@ public class IonSqlQueryBuilder
         return sql.toString();
     }
 
+    protected abstract String getFullyQualifiedColumnName(HiveColumnHandle columnHandle);
+
     private List<String> toConjuncts(List<HiveColumnHandle> columns, TupleDomain<HiveColumnHandle> tupleDomain)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
@@ -104,7 +109,7 @@ public class IonSqlQueryBuilder
             if (tupleDomain.getDomains().isPresent() && isSupported(type)) {
                 Domain domain = tupleDomain.getDomains().get().get(column);
                 if (domain != null) {
-                    builder.add(toPredicate(domain, type, column.getBaseHiveColumnIndex()));
+                    builder.add(toPredicate(domain, type, column));
                 }
             }
         }
@@ -124,13 +129,13 @@ public class IonSqlQueryBuilder
                 validType instanceof VarcharType;
     }
 
-    private String toPredicate(Domain domain, Type type, int position)
+    private String toPredicate(Domain domain, Type type, HiveColumnHandle column)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
 
         if (domain.getValues().isNone()) {
             if (domain.isNullAllowed()) {
-                return format("s._%d", position + 1) + " = '' ";
+                return getFullyQualifiedColumnName(column) + " = '' ";
             }
             return "FALSE";
         }
@@ -139,7 +144,7 @@ public class IonSqlQueryBuilder
             if (domain.isNullAllowed()) {
                 return "TRUE";
             }
-            return format("s._%d", position + 1) + " <> '' ";
+            return getFullyQualifiedColumnName(column) + " <> '' ";
         }
 
         List<String> disjuncts = new ArrayList<>();
@@ -152,10 +157,10 @@ public class IonSqlQueryBuilder
             }
             List<String> rangeConjuncts = new ArrayList<>();
             if (!range.isLowUnbounded()) {
-                rangeConjuncts.add(toPredicate(range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), type, position));
+                rangeConjuncts.add(toPredicate(range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), type, column));
             }
             if (!range.isHighUnbounded()) {
-                rangeConjuncts.add(toPredicate(range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), type, position));
+                rangeConjuncts.add(toPredicate(range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), type, column));
             }
             // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
             checkState(!rangeConjuncts.isEmpty());
@@ -164,7 +169,7 @@ public class IonSqlQueryBuilder
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate("=", getOnlyElement(singleValues), type, position));
+            disjuncts.add(toPredicate("=", getOnlyElement(singleValues), type, column));
         }
         else if (singleValues.size() > 1) {
             List<String> values = new ArrayList<>();
@@ -172,23 +177,23 @@ public class IonSqlQueryBuilder
                 checkType(type);
                 values.add(valueToQuery(type, value));
             }
-            disjuncts.add(createColumn(type, position) + " IN (" + Joiner.on(",").join(values) + ")");
+            disjuncts.add(createColumn(type, column) + " IN (" + Joiner.on(",").join(values) + ")");
         }
 
         // Add nullability disjuncts
         checkState(!disjuncts.isEmpty());
         if (domain.isNullAllowed()) {
-            disjuncts.add(format("s._%d", position + 1) + " = '' ");
+            disjuncts.add(getFullyQualifiedColumnName(column) + " = '' ");
         }
 
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(String operator, Object value, Type type, int position)
+    private String toPredicate(String operator, Object value, Type type, HiveColumnHandle column)
     {
         checkType(type);
 
-        return format("%s %s %s", createColumn(type, position), operator, valueToQuery(type, value));
+        return format("%s %s %s", createColumn(type, column), operator, valueToQuery(type, value));
     }
 
     private static void checkType(Type type)
@@ -228,9 +233,9 @@ public class IonSqlQueryBuilder
         return "'" + ((Slice) value).toStringUtf8() + "'";
     }
 
-    private String createColumn(Type type, int position)
+    private String createColumn(Type type, HiveColumnHandle columnHandle)
     {
-        String column = format("s._%d", position + 1);
+        String column = getFullyQualifiedColumnName(columnHandle);
 
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
             return formatPredicate(column, "INT");

@@ -11,16 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests.product.launcher.env;
+package io.trino.plugin.hive.s3select.json;
 
-import io.trino.testing.TestingProperties;
+import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.s3select.IonSqlQueryBuilder;
+import io.trino.spi.type.TypeManager;
 
-public final class EnvironmentDefaults
+import static java.lang.String.format;
+
+public class JsonIonSqlQueryBuilder
+        extends IonSqlQueryBuilder
 {
-    public static final String DOCKER_IMAGES_VERSION = TestingProperties.getDockerImagesVersion();
-    public static final String HADOOP_BASE_IMAGE = "ghcr.io/trinodb/testing/hdp3.1-hive";
-    public static final String HADOOP_IMAGES_VERSION = DOCKER_IMAGES_VERSION;
-    public static final String TEMPTO_ENVIRONMENT_CONFIG = "/dev/null";
+    public JsonIonSqlQueryBuilder(TypeManager typeManager)
+    {
+        super(typeManager);
+    }
 
-    private EnvironmentDefaults() {}
+    @Override
+    protected String getFullyQualifiedColumnName(HiveColumnHandle column)
+    {
+        return format("s.%s", column.getBaseColumnName());
+    }
 }
