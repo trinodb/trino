@@ -34,7 +34,7 @@ public class JoinHashSupplier
         implements LookupSourceSupplier
 {
     private final Session session;
-    private final PagesHash pagesHash;
+    private final DefaultPagesHash pagesHash;
     private final LongArrayList addresses;
     private final List<Page> pages;
     private final Optional<PositionLinks.Factory> positionLinks;
@@ -71,7 +71,7 @@ public class JoinHashSupplier
         }
 
         this.pages = channelsToPages(channels);
-        this.pagesHash = new PagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier);
+        this.pagesHash = new DefaultPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier);
         this.positionLinks = positionLinksFactoryBuilder.isEmpty() ? Optional.empty() : Optional.of(positionLinksFactoryBuilder.build());
     }
 

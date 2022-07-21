@@ -36,10 +36,10 @@ import io.trino.Session;
 import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.PagesHashStrategy;
+import io.trino.operator.join.DefaultPagesHash;
 import io.trino.operator.join.JoinHash;
 import io.trino.operator.join.JoinHashSupplier;
 import io.trino.operator.join.LookupSourceSupplier;
-import io.trino.operator.join.PagesHash;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -173,7 +173,7 @@ public class JoinCompiler
                 LookupSourceSupplier.class,
                 JoinHashSupplier.class,
                 JoinHash.class,
-                PagesHash.class);
+                DefaultPagesHash.class);
 
         return new LookupSourceSupplierFactory(joinHashSupplierClass, new PagesHashStrategyFactory(pagesHashStrategyClass));
     }

@@ -32,9 +32,9 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
-public final class PagesHash
+public final class DefaultPagesHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesHash.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DefaultPagesHash.class).instanceSize();
     private static final DataSize CACHE_SIZE = DataSize.of(128, KILOBYTE);
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;
@@ -50,7 +50,7 @@ public final class PagesHash
     private final long hashCollisions;
     private final double expectedHashCollisions;
 
-    public PagesHash(
+    public DefaultPagesHash(
             LongArrayList addresses,
             PagesHashStrategy pagesHashStrategy,
             PositionLinks.FactoryBuilder positionLinks,
