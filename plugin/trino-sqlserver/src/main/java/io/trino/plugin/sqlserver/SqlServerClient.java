@@ -284,11 +284,16 @@ public class SqlServerClient
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        String sql = format(
+        super.renameTable(session, catalogName, schemaName, tableName, newTable);
+    }
+
+    @Override
+    protected String renameTableSql(String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+    {
+        return format(
                 "sp_rename %s, %s",
-                singleQuote(catalogName, schemaName, tableName),
-                singleQuote(newTable.getTableName()));
-        execute(session, sql);
+                singleQuote(catalogName, remoteSchemaName, remoteTableName),
+                singleQuote(newRemoteTableName));
     }
 
     @Override
