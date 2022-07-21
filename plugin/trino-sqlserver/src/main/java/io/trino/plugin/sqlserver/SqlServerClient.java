@@ -84,6 +84,7 @@ import javax.inject.Inject;
 
 import java.sql.CallableStatement;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -275,6 +276,16 @@ public class SqlServerClient
     protected boolean isTableLockNeeded(ConnectorSession session)
     {
         return isBulkCopyForWrite(session) && isBulkCopyForWriteLockDestinationTable(session);
+    }
+
+    @Override
+    protected void verifyTableName(DatabaseMetaData databaseMetadata, String tableName)
+            throws SQLException
+    {
+        // SQL Server truncates table name to the max length silently when renaming a table
+        if (tableName.length() > databaseMetadata.getMaxTableNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", databaseMetadata.getMaxTableNameLength(), tableName.length()));
+        }
     }
 
     @Override
