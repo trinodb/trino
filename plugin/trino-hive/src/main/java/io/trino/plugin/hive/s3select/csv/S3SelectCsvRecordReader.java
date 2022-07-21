@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.s3select;
+package io.trino.plugin.hive.s3select.csv;
 
 import com.amazonaws.services.s3.model.CSVInput;
 import com.amazonaws.services.s3.model.CSVOutput;
@@ -20,6 +20,8 @@ import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import io.trino.plugin.hive.s3.TrinoS3FileSystem;
+import io.trino.plugin.hive.s3select.S3SelectLineRecordReader;
+import io.trino.plugin.hive.s3select.TrinoS3ClientFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
@@ -30,7 +32,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.ESCAPE_CHAR;
 import static org.apache.hadoop.hive.serde.serdeConstants.FIELD_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.QUOTE_CHAR;
 
-class S3SelectCsvRecordReader
+public class S3SelectCsvRecordReader
         extends S3SelectLineRecordReader
 {
     /*
