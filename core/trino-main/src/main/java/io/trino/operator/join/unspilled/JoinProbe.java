@@ -20,6 +20,7 @@ import io.trino.spi.block.Block;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalInt;
 
@@ -55,8 +56,8 @@ public class JoinProbe
     private final Page probePage;
     @Nullable
     private final Block probeHashBlock;
-    private final boolean probeMayHaveNull;
     private final LookupSource lookupSource;
+    private final long[] joinPositionCache;
     private int position = -1;
 
     private JoinProbe(int[] probeOutputChannels, Page page, Page probePage, LookupSource lookupSource, @Nullable Block probeHashBlock)
@@ -67,7 +68,8 @@ public class JoinProbe
         this.probePage = requireNonNull(probePage, "probePage is null");
         this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
         this.probeHashBlock = probeHashBlock;
-        this.probeMayHaveNull = probeMayHaveNull(probePage);
+
+        joinPositionCache = fillCache();
     }
 
     public int[] getOutputChannels()
@@ -88,14 +90,7 @@ public class JoinProbe
 
     public long getCurrentJoinPosition()
     {
-        if (probeMayHaveNull && currentRowContainsNull()) {
-            return -1;
-        }
-        if (probeHashBlock != null) {
-            long rawHash = BIGINT.getLong(probeHashBlock, position);
-            return lookupSource.getJoinPosition(position, probePage, page, rawHash);
-        }
-        return lookupSource.getJoinPosition(position, probePage, page);
+        return joinPositionCache[position];
     }
 
     public int getPosition()
@@ -108,7 +103,64 @@ public class JoinProbe
         return page;
     }
 
-    private boolean currentRowContainsNull()
+    private long[] fillCache()
+    {
+        long[] joinPositionCache = new long[positionCount];
+        Arrays.fill(joinPositionCache, -1);
+        if (probeMayHaveNull(probePage)) {
+            int nonNullCount = 0;
+            boolean[] isNull = new boolean[positionCount];
+            for (int i = 0; i < positionCount; i++) {
+                isNull[i] = rowContainsNull(i);
+                nonNullCount += isNull[i] ? 0 : 1;
+            }
+            if (nonNullCount < positionCount) {
+                // We only store positions that are not null
+                int[] positions = new int[nonNullCount];
+                nonNullCount = 0;
+                for (int i = 0; i < positionCount; i++) {
+                    if (!isNull[i]) {
+                        positions[nonNullCount++] = i;
+                    }
+                }
+                long[] packedPositionCache;
+                if (probeHashBlock != null) {
+                    long[] hashes = new long[nonNullCount];
+                    for (int i = 0; i < nonNullCount; i++) {
+                        hashes[i] = BIGINT.getLong(probeHashBlock, positions[i]);
+                    }
+                    packedPositionCache = lookupSource.getJoinPosition(positions, probePage, page, hashes);
+                }
+                else {
+                    packedPositionCache = lookupSource.getJoinPosition(positions, probePage, page);
+                }
+                // Unpack
+                nonNullCount = 0;
+                for (int i = 0; i < positionCount; i++) {
+                    if (!isNull[i]) {
+                        joinPositionCache[i] = packedPositionCache[nonNullCount++];
+                    }
+                }
+                return joinPositionCache;
+            } // else fall back to non-null path
+        }
+        int[] positions = new int[positionCount];
+        for (int i = 0; i < positionCount; i++) {
+            positions[i] = i;
+        }
+        if (probeHashBlock != null) {
+            long[] hashes = new long[positionCount];
+            for (int i = 0; i < positionCount; i++) {
+                hashes[i] = BIGINT.getLong(probeHashBlock, i);
+            }
+            return lookupSource.getJoinPosition(positions, probePage, page, hashes);
+        }
+        else {
+            return lookupSource.getJoinPosition(positions, probePage, page);
+        }
+    }
+
+    private boolean rowContainsNull(int position)
     {
         for (int i = 0; i < probePage.getChannelCount(); i++) {
             if (probePage.getBlock(i).isNull(position)) {
