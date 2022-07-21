@@ -44,7 +44,7 @@ public final class GlueExpressionUtil
     static final String NULL_STRING = "__HIVE_DEFAULT_PARTITION__";
     static final int GLUE_EXPRESSION_CHAR_LIMIT = 2048;
 
-    private static final Set<String> QUOTED_TYPES = ImmutableSet.of("string", "char", "varchar", "date", "timestamp", "binary", "varbinary");
+    private static final Set<String> QUOTED_TYPES = ImmutableSet.of("string", "char", "varchar", "date", "timestamp", "binary", "varbinary", "test");
     private static final String CONJUNCT_SEPARATOR = " AND ";
     private static final Joiner CONJUNCT_JOINER = Joiner.on(CONJUNCT_SEPARATOR);
     private static final String DISJUNCT_SEPARATOR = " OR ";
