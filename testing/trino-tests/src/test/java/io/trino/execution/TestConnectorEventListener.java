@@ -16,30 +16,21 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import io.trino.connector.MockConnectorFactory;
-import io.trino.execution.EventsCollector.EventFilters;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.eventlistener.QueryCompletedEvent;
-import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestConnectorEventListener
 {
-    private final EventsCollector generatedEvents = new EventsCollector(EventFilters.builder()
-            .setSplitCompletedFilter(event -> false)
-            .build());
+    private final EventsCollector generatedEvents = new EventsCollector();
 
     private Closer closer;
     private EventsAwaitingQueries queries;
@@ -62,7 +53,7 @@ public class TestConnectorEventListener
         });
         closer.register(queryRunner);
         queryRunner.createCatalog("mock-catalog", "mock");
-        queries = new EventsAwaitingQueries(generatedEvents, queryRunner, Duration.ofSeconds(1));
+        queries = new EventsAwaitingQueries(generatedEvents, queryRunner);
     }
 
     @AfterClass(alwaysRun = true)
@@ -79,20 +70,6 @@ public class TestConnectorEventListener
     public void testConnectorEventHandlerReceivingEvents()
             throws Exception
     {
-        queries.runQueryAndWaitForEvents("SELECT 1", 2, TEST_SESSION);
-
-        List<QueryCreatedEvent> queryCreatedEvents = generatedEvents.getQueryCreatedEvents();
-        List<QueryCompletedEvent> queryCompletedEvents = generatedEvents.getQueryCompletedEvents();
-        List<Object> allEvents = ImmutableList.builder()
-                .addAll(queryCreatedEvents)
-                .addAll(queryCompletedEvents)
-                .build();
-        List<String> eventTypes = allEvents.stream().map(event -> event.getClass().getSimpleName()).sorted().collect(toImmutableList());
-        assertThat(allEvents)
-                .size().withFailMessage(() -> "got events: " + eventTypes).isEqualTo(2);
-        assertThat(queryCreatedEvents)
-                .size().withFailMessage(() -> "got events: " + eventTypes).isEqualTo(1);
-        assertThat(queryCompletedEvents)
-                .size().withFailMessage(() -> "got events: " + eventTypes).isEqualTo(1);
+        queries.runQueryAndWaitForEvents("SELECT 1", TEST_SESSION).getQueryEvents();
     }
 }
