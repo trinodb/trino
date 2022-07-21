@@ -6,6 +6,10 @@ on:
     types:
       - completed
 
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
 jobs:
   annotate:
     if: github.repository_owner == 'trinodb'
@@ -35,7 +39,7 @@ jobs:
               fs.writeFileSync('${{github.workspace}}/' + artifact.name + '.zip', Buffer.from(download.data));
             }
       - run: |
-          set -xeuo pipefail
+          set -x
           pwd
           ls
           for archive in *.zip; do
