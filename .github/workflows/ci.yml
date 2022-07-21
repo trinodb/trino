@@ -91,6 +91,10 @@ jobs:
           $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Error Prone Checks
         run: |
+          set -x
+          true
+          true
+          true
           false
           false
           false
