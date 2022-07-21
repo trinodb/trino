@@ -46,6 +46,11 @@ import static java.lang.Math.toIntExact;
 public class PartitionedLookupSource
         implements LookupSource
 {
+    // If the estimated size of positions per partition is smaller than that number,
+    // the batched version will fall back to the sequential one.
+    // This number has been determined by TPC benchmark results.
+    private static final int MIN_PARTITION_SIZE_FOR_BATCHING = 8;
+
     public static TrackingLookupSourceSupplier createPartitionedLookupSourceSupplier(List<Supplier<LookupSource>> partitions, List<Type> hashChannelTypes, boolean outer, BlockTypeOperators blockTypeOperators)
     {
         if (outer) {
@@ -142,6 +147,76 @@ public class PartitionedLookupSource
             return joinPosition;
         }
         return encodePartitionedJoinPosition(partition, toIntExact(joinPosition));
+    }
+
+    @Override
+    public long[] getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes)
+    {
+        int positionCount = positions.length;
+        int partitionCount = partitionGenerator.getPartitionCount();
+
+        if (positionCount / partitionCount < MIN_PARTITION_SIZE_FOR_BATCHING) {
+            return LookupSource.super.getJoinPosition(positions, hashChannelsPage, allChannelsPage, rawHashes);
+        }
+
+        int[] partitions = new int[positionCount];
+        int[] partitionPositionsCount = new int[partitionCount];
+
+        // Get the partitions for every position and calculate the size of every partition
+        for (int i = 0; i < positionCount; i++) {
+            int partition = partitionGenerator.getPartition(rawHashes[i]);
+            partitions[i] = partition;
+            partitionPositionsCount[partition]++;
+        }
+
+        int[][] positionsPerPartition = new int[partitionCount][];
+        long[][] hashesPerPartition = new long[partitionCount][];
+        for (int partition = 0; partition < partitionCount; partition++) {
+            positionsPerPartition[partition] = new int[partitionPositionsCount[partition]];
+            hashesPerPartition[partition] = new long[partitionPositionsCount[partition]];
+        }
+
+        // Split input positions into partitions
+        int[] positionPerPartitionCount = new int[partitionCount];
+        for (int i = 0; i < positionCount; i++) {
+            int partition = partitions[i];
+            positionsPerPartition[partition][positionPerPartitionCount[partition]] = positions[i];
+            hashesPerPartition[partition][positionPerPartitionCount[partition]] = rawHashes[i];
+            positionPerPartitionCount[partition]++;
+        }
+
+        // Delegate partitioned positions to designated lookup sources
+        long[][] resultPerPartition = new long[partitionCount][];
+        for (int partition = 0; partition < partitionCount; partition++) {
+            resultPerPartition[partition] = lookupSources[partition].getJoinPosition(positionsPerPartition[partition], hashChannelsPage, allChannelsPage, hashesPerPartition[partition]);
+        }
+
+        // Merge results into a single array
+        long[] result = new long[positionCount];
+        for (int partition = 0; partition < partitionCount; partition++) {
+            positionPerPartitionCount[partition] = 0;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            int partition = partitions[i];
+            result[i] = toIntExact(resultPerPartition[partition][positionPerPartitionCount[partition]++]);
+            if (result[i] != -1) {
+                result[i] = encodePartitionedJoinPosition(partition, (int) result[i]);
+            }
+        }
+
+        return result;
+    }
+
+    @Override
+    public long[] getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage)
+    {
+        int positionCount = positions.length;
+        long[] rawHashes = new long[positionCount];
+        for (int i = 0; i < positionCount; i++) {
+            rawHashes[i] = partitionGenerator.getRawHash(hashChannelsPage, positions[i]);
+        }
+
+        return getJoinPosition(positions, hashChannelsPage, allChannelsPage, rawHashes);
     }
 
     @Override
