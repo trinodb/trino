@@ -31,8 +31,8 @@ public class EnvSinglenodeDeltaLakeDatabricks104
     }
 
     @Override
-    String databricksTestJdbcUrl()
+    String databricksClusterId()
     {
-        return requireNonNull(System.getenv("DATABRICKS_104_JDBC_URL"), "Environment DATABRICKS_104_JDBC_URL was not set");
+        return requireNonNull(System.getenv("DATABRICKS_104_CLUSTER_ID"), "Environment DATABRICKS_104_CLUSTER_ID was not set");
     }
 }

@@ -35,7 +35,7 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
 {
     private final DockerFiles dockerFiles;
 
-    abstract String databricksTestJdbcUrl();
+    abstract String databricksClusterId();
 
     public AbstractSinglenodeDeltaLakeDatabricks(Standard standard, DockerFiles dockerFiles)
     {
@@ -46,7 +46,9 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        String databricksTestJdbcUrl = databricksTestJdbcUrl();
+        String databricksClusterId = databricksClusterId();
+        String databricksServerHostname = requireNonNull(System.getenv("DATABRICKS_SERVER_HOSTNAME"), "Environment DATABRICKS_LOGIN was not set");
+        String databricksOrganisationId = requireNonNull(System.getenv("DATABRICKS_ORGANISATION_ID"), "Environment DATABRICKS_LOGIN was not set");
         String databricksTestLogin = requireNonNull(System.getenv("DATABRICKS_LOGIN"), "Environment DATABRICKS_LOGIN was not set");
         String databricksTestToken = requireNonNull(System.getenv("DATABRICKS_TOKEN"), "Environment DATABRICKS_TOKEN was not set");
         String awsRegion = requireNonNull(System.getenv("AWS_REGION"), "Environment AWS_REGION was not set");
@@ -64,7 +66,9 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
         builder.configureContainer(TESTS, container -> exportAWSCredentials(container)
                 .withEnv("S3_BUCKET", s3Bucket)
                 .withEnv("AWS_REGION", awsRegion)
-                .withEnv("DATABRICKS_JDBC_URL", databricksTestJdbcUrl)
+                .withEnv("DATABRICKS_SERVER_HOSTNAME", databricksServerHostname)
+                .withEnv("DATABRICKS_ORGANISATION_ID", databricksOrganisationId)
+                .withEnv("DATABRICKS_CLUSTER_ID", databricksClusterId)
                 .withEnv("DATABRICKS_LOGIN", databricksTestLogin)
                 .withEnv("DATABRICKS_TOKEN", databricksTestToken));
 
