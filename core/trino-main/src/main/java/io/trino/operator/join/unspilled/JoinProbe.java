@@ -25,6 +25,7 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.util.Objects.requireNonNull;
 
 public class JoinProbe
 {
@@ -34,36 +35,36 @@ public class JoinProbe
         private final int[] probeJoinChannels;
         private final int probeHashChannel; // only valid when >= 0
 
-        public JoinProbeFactory(int[] probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
+        public JoinProbeFactory(List<Integer> probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
         {
-            this.probeOutputChannels = probeOutputChannels;
-            this.probeJoinChannels = Ints.toArray(probeJoinChannels);
-            this.probeHashChannel = probeHashChannel.orElse(-1);
+            this.probeOutputChannels = Ints.toArray(requireNonNull(probeOutputChannels, "probeOutputChannels is null"));
+            this.probeJoinChannels = Ints.toArray(requireNonNull(probeJoinChannels, "probeJoinChannels is null"));
+            this.probeHashChannel = requireNonNull(probeHashChannel, "probeHashChannel is null").orElse(-1);
         }
 
-        public JoinProbe createJoinProbe(Page page)
+        public JoinProbe createJoinProbe(Page page, LookupSource lookupSource)
         {
             Page probePage = page.getLoadedPage(probeJoinChannels);
-            return new JoinProbe(probeOutputChannels, page, probePage, probeHashChannel >= 0 ? page.getBlock(probeHashChannel).getLoadedBlock() : null);
+            return new JoinProbe(probeOutputChannels, page, probePage, lookupSource, probeHashChannel >= 0 ? page.getBlock(probeHashChannel).getLoadedBlock() : null);
         }
     }
 
     private final int[] probeOutputChannels;
-    private final int positionCount;
     private final Page page;
     private final Page probePage;
     @Nullable
     private final Block probeHashBlock;
     private final boolean probeMayHaveNull;
+    private final LookupSource lookupSource;
     private int position = -1;
 
-    private JoinProbe(int[] probeOutputChannels, Page page, Page probePage, @Nullable Block probeHashBlock)
+    private JoinProbe(int[] probeOutputChannels, Page page, Page probePage, LookupSource lookupSource, @Nullable Block probeHashBlock)
     {
-        this.probeOutputChannels = probeOutputChannels;
-        this.positionCount = page.getPositionCount();
-        this.page = page;
-        this.probePage = probePage;
-        this.probeHashBlock = probeHashBlock;
+        this.probeOutputChannels = requireNonNull(probeOutputChannels, "probeOutputChannels is null");
+        this.page = requireNonNull(page, "page is null");
+        this.probePage = requireNonNull(probePage, "probePage is null");
+        this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
+        this.probeHashBlock = requireNonNull(probeHashBlock, "probeHashBlock is null");
         this.probeMayHaveNull = probeMayHaveNull(probePage);
     }
 
@@ -74,16 +75,16 @@ public class JoinProbe
 
     public boolean advanceNextPosition()
     {
-        verify(++position <= positionCount, "already finished");
+        verify(++position <= page.getPositionCount(), "already finished");
         return !isFinished();
     }
 
     public boolean isFinished()
     {
-        return position == positionCount;
+        return position == page.getPositionCount();
     }
 
-    public long getCurrentJoinPosition(LookupSource lookupSource)
+    public long getCurrentJoinPosition()
     {
         if (probeMayHaveNull && currentRowContainsNull()) {
             return -1;
