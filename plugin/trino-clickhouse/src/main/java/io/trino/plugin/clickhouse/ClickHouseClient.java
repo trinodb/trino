@@ -53,7 +53,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -476,14 +475,13 @@ public class ClickHouseClient
     }
 
     @Override
-    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    protected String renameTableSql(String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
     {
-        String sql = format("RENAME TABLE %s.%s TO %s.%s",
-                quoted(schemaName),
-                quoted(tableName),
-                quoted(newTable.getSchemaName()),
-                quoted(newTable.getTableName()));
-        execute(session, sql);
+        return format("RENAME TABLE %s.%s TO %s.%s",
+                quoted(remoteSchemaName),
+                quoted(remoteTableName),
+                quoted(newRemoteSchemaName),
+                quoted(newRemoteTableName));
     }
 
     @Override
