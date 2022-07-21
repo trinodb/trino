@@ -15,7 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
-import io.trino.execution.EventsCollector.EventFilters;
+import io.trino.execution.EventsCollector.QueryEvents;
 import io.trino.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import io.trino.execution.warnings.WarningCollectorConfig;
 import io.trino.spi.TrinoWarning;
@@ -29,13 +29,11 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static org.testng.Assert.fail;
 
@@ -44,10 +42,7 @@ public class TestCompletedEventWarnings
 {
     private static final int TEST_WARNINGS = 5;
 
-    private final EventsCollector generatedEvents = new EventsCollector(EventFilters.builder()
-            .setQueryCreatedFilter(event -> false)
-            .setSplitCompletedFilter(event -> false)
-            .build());
+    private final EventsCollector generatedEvents = new EventsCollector();
 
     private Closer closer;
     private EventsAwaitingQueries queries;
@@ -63,7 +58,7 @@ public class TestCompletedEventWarnings
                 .build();
         closer.register(queryRunner);
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
-        queries = new EventsAwaitingQueries(generatedEvents, queryRunner, Duration.ofSeconds(1));
+        queries = new EventsAwaitingQueries(generatedEvents, queryRunner);
     }
 
     @AfterClass(alwaysRun = true)
@@ -92,9 +87,9 @@ public class TestCompletedEventWarnings
     private void assertWarnings(@Language("SQL") String sql, List<WarningCode> expectedWarnings)
             throws Exception
     {
-        queries.runQueryAndWaitForEvents(sql, 1, TEST_SESSION);
+        QueryEvents queryEvents = queries.runQueryAndWaitForEvents(sql, TEST_SESSION).getQueryEvents();
 
-        Set<WarningCode> warnings = getOnlyElement(generatedEvents.getQueryCompletedEvents())
+        Set<WarningCode> warnings = queryEvents.getQueryCompletedEvent()
                 .getWarnings()
                 .stream()
                 .map(TrinoWarning::getWarningCode)
