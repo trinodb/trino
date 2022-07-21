@@ -60,7 +60,7 @@ public class TrinoOperatorFactories
                 probeOutputChannelTypes,
                 lookupSourceFactory.getBuildOutputTypes(),
                 joinType,
-                new JoinProbe.JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
+                new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, probeHashChannel),
                 blockTypeOperators,
                 probeJoinChannel,
                 probeHashChannel);
