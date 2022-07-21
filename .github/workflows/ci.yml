@@ -95,6 +95,7 @@ jobs:
           true
           true
           true
+          printf %s\\n "$-"
           false
           false
           false
