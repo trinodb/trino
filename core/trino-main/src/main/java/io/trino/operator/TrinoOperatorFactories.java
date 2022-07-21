@@ -214,21 +214,20 @@ public class TrinoOperatorFactories
                     probeHashChannel,
                     partitioningSpillerFactory);
         }
-        else {
-            return new io.trino.operator.join.unspilled.LookupJoinOperatorFactory(
-                    operatorId,
-                    planNodeId,
-                    (JoinBridgeManager<? extends io.trino.operator.join.unspilled.PartitionedLookupSourceFactory>) lookupSourceFactoryManager,
-                    probeTypes,
-                    probeOutputChannelTypes,
-                    lookupSourceFactoryManager.getBuildOutputTypes(),
-                    joinType,
-                    outputSingleMatch,
-                    waitForBuild,
-                    new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
-                    blockTypeOperators,
-                    probeJoinChannel,
-                    probeHashChannel);
-        }
+
+        return new io.trino.operator.join.unspilled.LookupJoinOperatorFactory(
+                operatorId,
+                planNodeId,
+                (JoinBridgeManager<? extends io.trino.operator.join.unspilled.PartitionedLookupSourceFactory>) lookupSourceFactoryManager,
+                probeTypes,
+                probeOutputChannelTypes,
+                lookupSourceFactoryManager.getBuildOutputTypes(),
+                joinType,
+                outputSingleMatch,
+                waitForBuild,
+                new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
+                blockTypeOperators,
+                probeJoinChannel,
+                probeHashChannel);
     }
 }
