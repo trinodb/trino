@@ -54,10 +54,7 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
         DockerFiles.ResourceProvider configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-delta-lake-databricks");
 
         builder.configureContainer(COORDINATOR, dockerContainer -> exportAWSCredentials(dockerContainer)
-                .withEnv("AWS_REGION", awsRegion)
-                .withEnv("DATABRICKS_JDBC_URL", databricksTestJdbcUrl)
-                .withEnv("DATABRICKS_LOGIN", databricksTestLogin)
-                .withEnv("DATABRICKS_TOKEN", databricksTestToken));
+                .withEnv("AWS_REGION", awsRegion));
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector(
                 "delta-lake",
