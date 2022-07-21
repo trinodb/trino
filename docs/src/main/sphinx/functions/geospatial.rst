@@ -92,7 +92,8 @@ Constructors
 
 .. function:: ST_Point(double, double) -> Point
 
-    Returns a geometry type point object with the given coordinate values.
+    Returns a geometry type point object with the given coordinate values in the
+    form (longitude, latitude).
 
 .. function:: ST_Polygon(varchar) -> Polygon
 
