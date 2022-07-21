@@ -19,7 +19,6 @@ import io.trino.Session;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
 import io.trino.client.Column;
-import io.trino.client.QueryError;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
 import io.trino.metadata.MetadataUtil;
@@ -82,11 +81,13 @@ public abstract class AbstractTestingTrinoClient<T>
     protected abstract ResultsSession<T> getResultSession(Session session);
 
     public ResultWithQueryId<T> execute(@Language("SQL") String sql)
+            throws QueryFailedException
     {
         return execute(defaultSession, sql);
     }
 
     public ResultWithQueryId<T> execute(Session session, @Language("SQL") String sql)
+            throws QueryFailedException
     {
         ResultsSession<T> resultsSession = getResultSession(session);
 
@@ -99,10 +100,10 @@ public abstract class AbstractTestingTrinoClient<T>
             }
 
             checkState(client.isFinished());
-            QueryError error = client.finalStatusInfo().getError();
+            QueryStatusInfo results = client.finalStatusInfo();
+            QueryId queryId = new QueryId(results.getId());
 
-            if (error == null) {
-                QueryStatusInfo results = client.finalStatusInfo();
+            if (results.getError() == null) {
                 if (results.getUpdateType() != null) {
                     resultsSession.setUpdateType(results.getUpdateType());
                 }
@@ -114,14 +115,14 @@ public abstract class AbstractTestingTrinoClient<T>
                 resultsSession.setStatementStats(results.getStats());
 
                 T result = resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
-                return new ResultWithQueryId<>(new QueryId(results.getId()), result);
+                return new ResultWithQueryId<>(queryId, result);
             }
 
-            if (error.getFailureInfo() != null) {
-                RuntimeException remoteException = error.getFailureInfo().toException();
-                throw new RuntimeException(Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString), remoteException);
+            if (results.getError().getFailureInfo() != null) {
+                RuntimeException remoteException = results.getError().getFailureInfo().toException();
+                throw new QueryFailedException(queryId, Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString), remoteException);
             }
-            throw new RuntimeException("Query failed: " + error.getMessage());
+            throw new QueryFailedException(queryId, "Query failed: " + results.getError().getMessage());
 
             // dump query info to console for debugging (NOTE: not pretty printed)
             // JsonCodec<QueryInfo> queryInfoJsonCodec = createCodecFactory().prettyPrint().jsonCodec(QueryInfo.class);
