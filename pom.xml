@@ -70,6 +70,7 @@
         <dep.casandra.version>4.14.0</dep.casandra.version>
         <dep.minio.version>7.1.4</dep.minio.version>
         <dep.iceberg.version>0.14.0</dep.iceberg.version>
+        <dep.spotbugs-annotations.version>4.7.2</dep.spotbugs-annotations.version>
 
         <dep.docker.images.version>65</dep.docker.images.version>
 
@@ -1690,7 +1691,7 @@
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
                 <type>pom</type>
-                <version>3.23.0</version>
+                <version>3.32.0</version>
                 <scope>import</scope>
             </dependency>
 
