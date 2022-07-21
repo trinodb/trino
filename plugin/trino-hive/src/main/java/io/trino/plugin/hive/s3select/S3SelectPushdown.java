@@ -19,7 +19,6 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.io.compress.BZip2Codec;
 import org.apache.hadoop.io.compress.GzipCodec;
@@ -56,7 +55,6 @@ import static org.apache.hadoop.hive.serde.serdeConstants.TINYINT_TYPE_NAME;
 public final class S3SelectPushdown
 {
     private static final Set<String> SUPPORTED_S3_PREFIXES = ImmutableSet.of("s3://", "s3a://", "s3n://");
-    private static final Set<String> SUPPORTED_SERDES = ImmutableSet.of(LazySimpleSerDe.class.getName());
 
     /*
      * Double and Real Types lose precision. Thus, they are not pushed down to S3. Please use Decimal Type if push down is desired.
@@ -77,10 +75,10 @@ public final class S3SelectPushdown
 
     private S3SelectPushdown() {}
 
-    private static boolean isSerdeSupported(Properties schema)
+    private static boolean isSerDeSupported(Properties schema)
     {
         String serdeName = getDeserializerClassName(schema);
-        return SUPPORTED_SERDES.contains(serdeName);
+        return S3SelectSerDeDataTypeMapper.doesSerDeExist(serdeName);
     }
 
     private static boolean isInputFormatSupported(Properties schema)
@@ -163,7 +161,7 @@ public final class S3SelectPushdown
     private static boolean shouldEnablePushdownForTable(Table table, String path, Properties schema)
     {
         return isS3Storage(path) &&
-                isSerdeSupported(schema) &&
+                isSerDeSupported(schema) &&
                 isInputFormatSupported(schema) &&
                 areColumnTypesSupported(table.getDataColumns());
     }
