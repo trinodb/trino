@@ -620,7 +620,7 @@ public abstract class BaseMongoConnectorTest
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching(".*fully qualified namespace .* is too long.*");
+        assertThat(e).hasMessageMatching(".*fully qualified namespace .* is too long.*|Qualified identifier name must be shorter than or equal to '120'.*");
     }
 
     private void assertOneNotNullResult(String query)

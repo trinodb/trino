@@ -336,6 +336,14 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Override
+    public void testRenameTableToLongTableName()
+    {
+        assertThatThrownBy(super::testRenameTableToLongTableName)
+                .hasMessage("Renaming managed tables is not supported")
+                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+    }
+
+    @Override
     public void testDropNonEmptySchemaWithTable()
     {
         String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();
