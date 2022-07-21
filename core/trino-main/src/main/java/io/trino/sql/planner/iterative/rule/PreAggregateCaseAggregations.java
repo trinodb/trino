@@ -221,7 +221,7 @@ public class PreAggregateCaseAggregations
                         new WhenClause(
                                 aggregation.getOperand(),
                                 preAggregations.get(new PreAggregationKey(aggregation)).getAggregationSymbol().toSymbolReference())),
-                        Optional.empty())));
+                        aggregation.getCumulativeAggregationDefaultValue())));
         return new ProjectNode(projectNode.getId(), source, assignments.build());
     }
 
@@ -370,6 +370,7 @@ public class PreAggregateCaseAggregations
             return Optional.empty();
         }
 
+        Optional<Expression> cumulativeAggregationDefaultValue = Optional.empty();
         if (caseExpression.getDefaultValue().isPresent()) {
             Type defaultType = getType(context, caseExpression.getDefaultValue().get());
             Object defaultValue = optimizeExpression(caseExpression.getDefaultValue().get(), context);
@@ -394,6 +395,11 @@ public class PreAggregateCaseAggregations
                     return Optional.empty();
                 }
             }
+
+            // cumulative aggregation default value need to be CAST to cumulative aggregation input type
+            cumulativeAggregationDefaultValue = Optional.of(new Cast(
+                    caseExpression.getDefaultValue().get(),
+                    toSqlType(aggregationType)));
         }
 
         return Optional.of(new CaseAggregation(
@@ -403,7 +409,8 @@ public class PreAggregateCaseAggregations
                 name,
                 projectionSymbol,
                 caseExpression.getWhenClauses().get(0).getOperand(),
-                caseExpression.getWhenClauses().get(0).getResult()));
+                caseExpression.getWhenClauses().get(0).getResult(),
+                cumulativeAggregationDefaultValue));
     }
 
     private Type getType(Context context, Expression expression)
@@ -434,6 +441,8 @@ public class PreAggregateCaseAggregations
         private final Expression operand;
         // CASE expression only result expression
         private final Expression result;
+        // default value of cumulative aggregation
+        private final Optional<Expression> cumulativeAggregationDefaultValue;
 
         public CaseAggregation(
                 Symbol aggregationSymbol,
@@ -442,7 +451,8 @@ public class PreAggregateCaseAggregations
                 String name,
                 Symbol projectionSymbol,
                 Expression operand,
-                Expression result)
+                Expression result,
+                Optional<Expression> cumulativeAggregationDefaultValue)
         {
             this.aggregationSymbol = requireNonNull(aggregationSymbol, "aggregationSymbol is null");
             this.function = requireNonNull(function, "function is null");
@@ -451,6 +461,7 @@ public class PreAggregateCaseAggregations
             this.projectionSymbol = requireNonNull(projectionSymbol, "projectionSymbol is null");
             this.operand = requireNonNull(operand, "operand is null");
             this.result = requireNonNull(result, "result is null");
+            this.cumulativeAggregationDefaultValue = requireNonNull(cumulativeAggregationDefaultValue, "cumulativeAggregationDefaultValue is null");
         }
 
         public Symbol getAggregationSymbol()
@@ -487,6 +498,11 @@ public class PreAggregateCaseAggregations
         {
             return result;
         }
+
+        public Optional<Expression> getCumulativeAggregationDefaultValue()
+        {
+            return cumulativeAggregationDefaultValue;
+        }
     }
 
     private static class PreAggregationKey
@@ -505,11 +521,6 @@ public class PreAggregateCaseAggregations
         public ResolvedFunction getFunction()
         {
             return function;
-        }
-
-        public Expression getProjection()
-        {
-            return projection;
         }
 
         @Override
