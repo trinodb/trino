@@ -49,7 +49,7 @@ public class TestLookupJoinPageBuilder
         JoinProbeFactory joinProbeFactory = new JoinProbeFactory(new int[] {0, 1}, ImmutableList.of(0, 1), OptionalInt.empty());
         JoinProbe probe = joinProbeFactory.createJoinProbe(page);
         LookupSource lookupSource = new TestLookupSource(ImmutableList.of(BIGINT, BIGINT), page);
-        io.trino.operator.join.LookupJoinPageBuilder lookupJoinPageBuilder = new io.trino.operator.join.LookupJoinPageBuilder(ImmutableList.of(BIGINT, BIGINT));
+        LookupJoinPageBuilder lookupJoinPageBuilder = new LookupJoinPageBuilder(ImmutableList.of(BIGINT, BIGINT));
 
         int joinPosition = 0;
         while (!lookupJoinPageBuilder.isFull() && probe.advanceNextPosition()) {
@@ -96,7 +96,7 @@ public class TestLookupJoinPageBuilder
         Page page = new Page(block);
         JoinProbeFactory joinProbeFactory = new JoinProbeFactory(new int[] {0}, ImmutableList.of(0), OptionalInt.empty());
         LookupSource lookupSource = new TestLookupSource(ImmutableList.of(BIGINT), page);
-        io.trino.operator.join.LookupJoinPageBuilder lookupJoinPageBuilder = new io.trino.operator.join.LookupJoinPageBuilder(ImmutableList.of(BIGINT));
+        LookupJoinPageBuilder lookupJoinPageBuilder = new LookupJoinPageBuilder(ImmutableList.of(BIGINT));
 
         // empty
         JoinProbe probe = joinProbeFactory.createJoinProbe(page);
