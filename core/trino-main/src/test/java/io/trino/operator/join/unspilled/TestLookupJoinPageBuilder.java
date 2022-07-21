@@ -46,8 +46,8 @@ public class TestLookupJoinPageBuilder
         Page page = new Page(block, block);
 
         JoinProbeFactory joinProbeFactory = new JoinProbeFactory(new int[] {0, 1}, ImmutableList.of(0, 1), OptionalInt.empty());
-        JoinProbe probe = joinProbeFactory.createJoinProbe(page);
         LookupSource lookupSource = new TestLookupSource(ImmutableList.of(BIGINT, BIGINT), page);
+        JoinProbe probe = joinProbeFactory.createJoinProbe(page, lookupSource);
         LookupJoinPageBuilder lookupJoinPageBuilder = new LookupJoinPageBuilder(ImmutableList.of(BIGINT, BIGINT));
 
         int joinPosition = 0;
@@ -98,7 +98,7 @@ public class TestLookupJoinPageBuilder
         LookupJoinPageBuilder lookupJoinPageBuilder = new LookupJoinPageBuilder(ImmutableList.of(BIGINT));
 
         // empty
-        JoinProbe probe = joinProbeFactory.createJoinProbe(page);
+        JoinProbe probe = joinProbeFactory.createJoinProbe(page, lookupSource);
         Page output = lookupJoinPageBuilder.build(probe);
         assertEquals(output.getChannelCount(), 2);
         assertTrue(output.getBlock(0) instanceof DictionaryBlock);
@@ -106,7 +106,7 @@ public class TestLookupJoinPageBuilder
         lookupJoinPageBuilder.reset();
 
         // the probe covers non-sequential positions
-        probe = joinProbeFactory.createJoinProbe(page);
+        probe = joinProbeFactory.createJoinProbe(page, lookupSource);
         for (int joinPosition = 0; probe.advanceNextPosition(); joinPosition++) {
             if (joinPosition % 2 == 1) {
                 continue;
@@ -124,7 +124,7 @@ public class TestLookupJoinPageBuilder
         lookupJoinPageBuilder.reset();
 
         // the probe covers everything
-        probe = joinProbeFactory.createJoinProbe(page);
+        probe = joinProbeFactory.createJoinProbe(page, lookupSource);
         for (int joinPosition = 0; probe.advanceNextPosition(); joinPosition++) {
             lookupJoinPageBuilder.appendRow(probe, lookupSource, joinPosition);
         }
@@ -139,7 +139,7 @@ public class TestLookupJoinPageBuilder
         lookupJoinPageBuilder.reset();
 
         // the probe covers some sequential positions
-        probe = joinProbeFactory.createJoinProbe(page);
+        probe = joinProbeFactory.createJoinProbe(page, lookupSource);
         for (int joinPosition = 0; probe.advanceNextPosition(); joinPosition++) {
             if (joinPosition < 10 || joinPosition >= 50) {
                 continue;
@@ -165,7 +165,7 @@ public class TestLookupJoinPageBuilder
 
         // nothing on the build side so we don't append anything
         LookupSource lookupSource = new TestLookupSource(ImmutableList.of(), page);
-        JoinProbe probe = (new JoinProbeFactory(new int[] {0}, ImmutableList.of(0), OptionalInt.empty())).createJoinProbe(page);
+        JoinProbe probe = (new JoinProbeFactory(new int[] {0}, ImmutableList.of(0), OptionalInt.empty())).createJoinProbe(page, lookupSource);
         LookupJoinPageBuilder lookupJoinPageBuilder = new LookupJoinPageBuilder(ImmutableList.of(BIGINT));
 
         // append the same row many times should also flush in the end

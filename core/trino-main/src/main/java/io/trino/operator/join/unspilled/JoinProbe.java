@@ -42,10 +42,10 @@ public class JoinProbe
             this.probeHashChannel = probeHashChannel.orElse(-1);
         }
 
-        public JoinProbe createJoinProbe(Page page)
+        public JoinProbe createJoinProbe(Page page, LookupSource lookupSource)
         {
             Page probePage = page.getLoadedPage(probeJoinChannels);
-            return new JoinProbe(probeOutputChannels, page, probePage, probeHashChannel >= 0 ? page.getBlock(probeHashChannel).getLoadedBlock() : null);
+            return new JoinProbe(probeOutputChannels, page, probePage, lookupSource, probeHashChannel >= 0 ? page.getBlock(probeHashChannel).getLoadedBlock() : null);
         }
     }
 
@@ -56,14 +56,16 @@ public class JoinProbe
     @Nullable
     private final Block probeHashBlock;
     private final boolean probeMayHaveNull;
+    private final LookupSource lookupSource;
     private int position = -1;
 
-    private JoinProbe(int[] probeOutputChannels, Page page, Page probePage, @Nullable Block probeHashBlock)
+    private JoinProbe(int[] probeOutputChannels, Page page, Page probePage, LookupSource lookupSource, @Nullable Block probeHashBlock)
     {
         this.probeOutputChannels = requireNonNull(probeOutputChannels, "probeOutputChannels is null");
         this.page = requireNonNull(page, "page is null");
         this.positionCount = page.getPositionCount();
         this.probePage = requireNonNull(probePage, "probePage is null");
+        this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
         this.probeHashBlock = probeHashBlock;
         this.probeMayHaveNull = probeMayHaveNull(probePage);
     }
@@ -84,7 +86,7 @@ public class JoinProbe
         return position == positionCount;
     }
 
-    public long getCurrentJoinPosition(LookupSource lookupSource)
+    public long getCurrentJoinPosition()
     {
         if (probeMayHaveNull && currentRowContainsNull()) {
             return -1;
