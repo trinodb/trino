@@ -18,6 +18,7 @@ import io.trino.operator.join.JoinProbe.JoinProbeFactory;
 import io.trino.operator.join.LookupJoinOperatorFactory;
 import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 import io.trino.operator.join.LookupSourceFactory;
+import io.trino.operator.join.unspilled.JoinProbe;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -225,7 +226,7 @@ public class TrinoOperatorFactories
                 joinType,
                 outputSingleMatch,
                 waitForBuild,
-                new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
+                new JoinProbe.JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
                 blockTypeOperators,
                 probeJoinChannel,
                 probeHashChannel);
