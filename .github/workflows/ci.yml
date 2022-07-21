@@ -8,6 +8,10 @@ on:
     paths-ignore:
       - 'docs/**'
 
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
 env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
@@ -747,7 +751,7 @@ jobs:
           testing/bin/ptl suite run \
             --suite ${{ matrix.suite }} \
             --config config-${{ matrix.config }} \
-            $PTL_OPTS \
+            ${PTL_OPTS:-} \
             --bind=off --logs-dir logs/ --timeout 2h
       - name: Upload test logs and results
         uses: actions/upload-artifact@v2
