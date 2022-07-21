@@ -24,6 +24,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -676,6 +677,18 @@ public class TestKuduConnectorTest
                 " partition_by_hash_columns = ARRAY['foo_1'], " +
                 " partition_by_hash_buckets = 2 " +
                 ")";
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(256);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("invalid table name: identifier");
     }
 
     private void assertTableProperty(String tableProperties, String key, String regexValue)
