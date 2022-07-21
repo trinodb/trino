@@ -25,6 +25,7 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.util.Objects.requireNonNull;
 
 public class JoinProbe
 {
@@ -59,10 +60,10 @@ public class JoinProbe
 
     private JoinProbe(int[] probeOutputChannels, Page page, Page probePage, @Nullable Block probeHashBlock)
     {
-        this.probeOutputChannels = probeOutputChannels;
+        this.probeOutputChannels = requireNonNull(probeOutputChannels, "probeOutputChannels is null");
+        this.page = requireNonNull(page, "page is null");
         this.positionCount = page.getPositionCount();
-        this.page = page;
-        this.probePage = probePage;
+        this.probePage = requireNonNull(probePage, "probePage is null");
         this.probeHashBlock = probeHashBlock;
         this.probeMayHaveNull = probeMayHaveNull(probePage);
     }
