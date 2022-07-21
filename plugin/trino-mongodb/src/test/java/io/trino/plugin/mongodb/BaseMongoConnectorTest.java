@@ -39,6 +39,7 @@ import java.util.Date;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -575,6 +576,27 @@ public abstract class BaseMongoConnectorTest
     {
         // TODO: Enable after supporting multi-document transaction https://www.mongodb.com/docs/manual/core/transactions/
         throw new SkipException("TODO");
+    }
+
+    @Test
+    public void testRenameTableTo120bytesTableName()
+    {
+        String sourceTableName = "test_rename_source_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+
+        // The new table has 120 bytes as fully qualified identifier (あ is 3 bytes char)
+        String targetTableName = "a".repeat(120 - "tpch.".length() - 3) + "あ";
+        assertThat(targetTableName.length()).isLessThan(120);
+        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO \"" + targetTableName + "\"");
+        assertQuery("SELECT x FROM \"" + targetTableName + "\"", "VALUES 123");
+        assertUpdate("DROP TABLE \"" + targetTableName + "\"");
+
+        targetTableName = targetTableName + "z";
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+        assertQueryFails(
+                "ALTER TABLE " + sourceTableName + " RENAME TO \"" + targetTableName + "\"",
+                "Qualified identifier name must be shorter than or equal to '120' bytes: .*");
+        assertUpdate("DROP TABLE \"" + sourceTableName + "\"");
     }
 
     @Override
