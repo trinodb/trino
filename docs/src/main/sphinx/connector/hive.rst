@@ -248,7 +248,7 @@ The properties that apply to Hive connector security are listed in the
 :doc:`/connector/hive-security` section for a more detailed discussion of the
 security options in the Hive connector.
 
-.. _hive_configuration_properties:
+.. _partition_projection:
 
 Accessing tables with Athena partition projection metadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -269,6 +269,8 @@ any errors.
 
 Refer to :ref:`hive_table_properties` and :ref:`hive_column_properties` for
 configuration of partition projection.
+
+.. _hive_configuration_properties:
 
 Hive configuration properties
 -----------------------------
