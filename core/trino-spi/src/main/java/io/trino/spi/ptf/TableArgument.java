@@ -15,6 +15,7 @@ package io.trino.spi.ptf;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Experimental;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.type.RowType;
 
@@ -30,6 +31,7 @@ import static java.util.Objects.requireNonNull;
  * This representation should be considered experimental. Eventually, {@link ConnectorExpression}
  * should be extended to include this kind of argument.
  */
+@Experimental(eta = "2022-10-31")
 public class TableArgument
         extends Argument
 {

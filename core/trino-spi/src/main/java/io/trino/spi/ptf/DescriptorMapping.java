@@ -13,6 +13,8 @@
  */
 package io.trino.spi.ptf;
 
+import io.trino.spi.Experimental;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -23,6 +25,7 @@ import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@Experimental(eta = "2022-10-31")
 public class DescriptorMapping
 {
     public static final DescriptorMapping EMPTY_MAPPING = new DescriptorMappingBuilder().build();
