@@ -275,9 +275,12 @@ public class DriverContext
 
     public long getPhysicalWrittenDataSize()
     {
-        return operatorContexts.stream()
-                .mapToLong(OperatorContext::getPhysicalWrittenDataSize)
-                .sum();
+        // Avoid using stream api due to performance reasons
+        long physicalWrittenBytes = 0;
+        for (OperatorContext context : operatorContexts) {
+            physicalWrittenBytes += context.getPhysicalWrittenDataSize();
+        }
+        return physicalWrittenBytes;
     }
 
     public boolean isExecutionStarted()
