@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-hive-hadoop2</artifactId>
-    <description>Trino - Hive Connector - Apache Hadoop 2.x</description>
+    <description>Trino - Hive Connector - Apache Hadoop 2.x Test</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
