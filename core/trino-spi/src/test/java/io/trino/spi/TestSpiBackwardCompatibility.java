@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorContext;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -30,6 +31,8 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -37,6 +40,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static java.lang.ClassLoader.getPlatformClassLoader;
 import static java.lang.ClassLoader.getSystemClassLoader;
+import static java.lang.String.format;
 import static java.lang.reflect.Modifier.isPublic;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -141,6 +145,10 @@ public class TestSpiBackwardCompatibility
 
     private static void addClassEntities(ImmutableSet.Builder<String> entities, Class<?> clazz, boolean includeDeprecated)
     {
+        if (isExperimental(clazz, "class " + clazz.getName())) {
+            return;
+        }
+
         if (!isPublic(clazz.getModifiers())) {
             return;
         }
@@ -152,12 +160,18 @@ public class TestSpiBackwardCompatibility
         }
         entities.add("Class: " + clazz.toGenericString());
         for (Constructor<?> constructor : clazz.getConstructors()) {
+            if (isExperimental(constructor, "constructor " + constructor)) {
+                continue;
+            }
             if (!includeDeprecated && constructor.isAnnotationPresent(Deprecated.class)) {
                 continue;
             }
             entities.add("Constructor: " + constructor.toGenericString());
         }
         for (Method method : clazz.getDeclaredMethods()) {
+            if (isExperimental(method, "method " + method)) {
+                continue;
+            }
             if (!isPublic(method.getModifiers())) {
                 continue;
             }
@@ -167,6 +181,9 @@ public class TestSpiBackwardCompatibility
             entities.add("Method: " + method.toGenericString());
         }
         for (Field field : clazz.getDeclaredFields()) {
+            if (isExperimental(field, "field " + field)) {
+                continue;
+            }
             if (!isPublic(field.getModifiers())) {
                 continue;
             }
@@ -175,5 +192,22 @@ public class TestSpiBackwardCompatibility
             }
             entities.add("Field: " + field.toGenericString());
         }
+    }
+
+    private static boolean isExperimental(AnnotatedElement element, String description)
+    {
+        if (!element.isAnnotationPresent(Experimental.class)) {
+            return false;
+        }
+
+        // validate the annotation while we have access to the annotation
+        String date = element.getAnnotation(Experimental.class).eta();
+        try {
+            LocalDate.parse(date);
+        }
+        catch (DateTimeParseException e) {
+            throw new AssertionError(format("Invalid date '%s' in Experimental annotation on %s", date, description));
+        }
+        return true;
     }
 }
