@@ -13,6 +13,9 @@
  */
 package io.trino.spi.ptf;
 
+import io.trino.spi.Experimental;
+
+@Experimental(eta = "2022-10-31")
 public class DescriptorArgumentSpecification
         extends ArgumentSpecification
 {

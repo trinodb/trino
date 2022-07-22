@@ -59,22 +59,12 @@ public class TestSpiBackwardCompatibility
             // example
             .put("123", "Field: public java.util.List<io.trino.spi.predicate.Range> io.trino.spi.predicate.BenchmarkSortedRangeSet$Data.ranges")
             .put("377", "Constructor: public io.trino.spi.memory.MemoryPoolInfo(long,long,long,java.util.Map<io.trino.spi.QueryId, java.lang.Long>,java.util.Map<io.trino.spi.QueryId, java.util.List<io.trino.spi.memory.MemoryAllocation>>,java.util.Map<io.trino.spi.QueryId, java.lang.Long>)")
-            .put("382", "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.rowSemantics(boolean)")
-            .put("382", "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.pruneWhenEmpty(boolean)")
-            .put("382", "Method: public io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification$Builder.passThroughColumns(boolean)")
-            .put("382", "Class: public abstract class io.trino.spi.ptf.ConnectorTableFunction")
-            .put("382", "Constructor: public io.trino.spi.ptf.ConnectorTableFunction(java.lang.String,java.lang.String,java.util.List<io.trino.spi.ptf.ArgumentSpecification>,io.trino.spi.ptf.ReturnTypeSpecification)")
-            .put("382", "Method: public java.util.List<io.trino.spi.ptf.ArgumentSpecification> io.trino.spi.ptf.ConnectorTableFunction.getArguments()")
-            .put("382", "Method: public io.trino.spi.ptf.ReturnTypeSpecification io.trino.spi.ptf.ConnectorTableFunction.getReturnTypeSpecification()")
-            .put("382", "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getName()")
-            .put("382", "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getSchema()")
             .put("383", "Method: public abstract java.lang.String io.trino.spi.function.AggregationState.value()")
             .put("383", "Method: public default void io.trino.spi.security.SystemAccessControl.checkCanExecuteFunction(io.trino.spi.security.SystemSecurityContext,io.trino.spi.connector.CatalogSchemaRoutineName)")
             .put("383", "Method: public default void io.trino.spi.connector.ConnectorAccessControl.checkCanExecuteFunction(io.trino.spi.connector.ConnectorSecurityContext,io.trino.spi.connector.SchemaRoutineName)")
             .put("384", "Constructor: public io.trino.spi.eventlistener.QueryInputMetadata(java.lang.String,java.lang.String,java.lang.String,java.util.List<java.lang.String>,java.util.Optional<java.lang.Object>,java.util.OptionalLong,java.util.OptionalLong)")
             .put("386", "Method: public default java.util.stream.Stream<io.trino.spi.connector.TableColumnsMetadata> io.trino.spi.connector.ConnectorMetadata.streamTableColumns(io.trino.spi.connector.ConnectorSession,io.trino.spi.connector.SchemaTablePrefix)")
             .put("386", "Method: public default boolean io.trino.spi.connector.ConnectorMetadata.isSupportedVersionType(io.trino.spi.connector.ConnectorSession,io.trino.spi.connector.SchemaTableName,io.trino.spi.connector.PointerType,io.trino.spi.type.Type)")
-            .put("386", "Method: public static io.trino.spi.ptf.TableArgumentSpecification$Builder io.trino.spi.ptf.TableArgumentSpecification.builder(java.lang.String)")
             .put("387", "Constructor: public io.trino.spi.eventlistener.QueryContext(java.lang.String,java.util.Optional<java.lang.String>,java.util.Set<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Set<java.lang.String>,java.util.Set<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<java.lang.String>,java.util.Optional<io.trino.spi.resourcegroups.ResourceGroupId>,java.util.Map<java.lang.String, java.lang.String>,io.trino.spi.session.ResourceEstimates,java.lang.String,java.lang.String,java.lang.String,java.util.Optional<io.trino.spi.resourcegroups.QueryType>)")
             .put("388", "Method: public abstract java.util.concurrent.CompletableFuture<io.trino.spi.connector.ConnectorSplitSource$ConnectorSplitBatch> io.trino.spi.connector.ConnectorSplitSource.getNextBatch(io.trino.spi.connector.ConnectorPartitionHandle,int)")
             .put("388", "Method: public java.util.concurrent.CompletableFuture<io.trino.spi.connector.ConnectorSplitSource$ConnectorSplitBatch> io.trino.spi.connector.FixedSplitSource.getNextBatch(io.trino.spi.connector.ConnectorPartitionHandle,int)")
@@ -152,6 +142,12 @@ public class TestSpiBackwardCompatibility
         if (!isPublic(clazz.getModifiers())) {
             return;
         }
+
+        // TODO remove this after Experimental is released
+        if (isOriginalPtfClass(clazz, includeDeprecated)) {
+            return;
+        }
+
         for (Class<?> nestedClass : clazz.getDeclaredClasses()) {
             addClassEntities(entities, nestedClass, includeDeprecated);
         }
@@ -209,5 +205,11 @@ public class TestSpiBackwardCompatibility
             throw new AssertionError(format("Invalid date '%s' in Experimental annotation on %s", date, description));
         }
         return true;
+    }
+
+    // TODO remove this after Experimental is released
+    private static boolean isOriginalPtfClass(Class<?> clazz, boolean includeDeprecated)
+    {
+        return !includeDeprecated && clazz.getName().startsWith("io.trino.spi.ptf.");
     }
 }

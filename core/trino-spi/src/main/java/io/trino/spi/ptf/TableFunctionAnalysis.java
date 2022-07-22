@@ -13,6 +13,8 @@
  */
 package io.trino.spi.ptf;
 
+import io.trino.spi.Experimental;
+
 import java.util.Optional;
 
 import static io.trino.spi.ptf.DescriptorMapping.EMPTY_MAPPING;
@@ -37,6 +39,7 @@ import static java.util.Objects.requireNonNull;
  * gathered at analysis time. Typically, these are the values of the constant arguments, and results
  * of pre-processing arguments.
  */
+@Experimental(eta = "2022-10-31")
 public final class TableFunctionAnalysis
 {
     private final Optional<Descriptor> returnedType;

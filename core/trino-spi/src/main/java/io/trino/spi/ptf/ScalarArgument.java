@@ -15,6 +15,7 @@ package io.trino.spi.ptf;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Experimental;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.type.Type;
 
@@ -29,6 +30,7 @@ import static java.util.Objects.requireNonNull;
  * Additionally, only constant values are currently supported. In the future,
  * we will add support for different kinds of expressions.
  */
+@Experimental(eta = "2022-10-31")
 public class ScalarArgument
         extends Argument
 {
