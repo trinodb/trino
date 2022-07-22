@@ -33,6 +33,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROPERTY;
@@ -691,6 +692,43 @@ public abstract class BaseClickHouseConnectorTest
                 .hasMessageMatching("(?s).*(Cannot open file|File name too long).*");
         // ClickHouse lefts a table even if the above statement failed
         assertTrue(getQueryRunner().tableExists(getSession(), validTableName));
+    }
+
+    @Override
+    public void testRenameSchemaToLongName()
+    {
+        // Override because the max length is different from CREATE SCHEMA case
+        String sourceTableName = "test_rename_source_" + randomTableSuffix();
+        assertUpdate("CREATE SCHEMA " + sourceTableName);
+
+        String baseSchemaName = "test_rename_target_" + randomTableSuffix();
+
+        // The numeric value depends on file system
+        int maxLength = 255 - ".sql".length();
+
+        String validTargetSchemaName = baseSchemaName + "z".repeat(maxLength - baseSchemaName.length());
+        assertUpdate("ALTER SCHEMA " + sourceTableName + " RENAME TO " + validTargetSchemaName);
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(validTargetSchemaName);
+        assertUpdate("DROP SCHEMA " + validTargetSchemaName);
+
+        assertUpdate("CREATE SCHEMA " + sourceTableName);
+        String invalidTargetSchemaName = validTargetSchemaName + "z";
+        assertThatThrownBy(() -> assertUpdate("ALTER SCHEMA " + sourceTableName + " RENAME TO " + invalidTargetSchemaName))
+                .satisfies(this::verifySchemaNameLengthFailurePermissible);
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(invalidTargetSchemaName);
+    }
+
+    @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        // The numeric value depends on file system
+        return OptionalInt.of(255 - ".sql.tmp".length());
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("File name too long");
     }
 
     @Override

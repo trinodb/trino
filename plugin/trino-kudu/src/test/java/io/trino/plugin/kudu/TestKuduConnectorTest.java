@@ -93,6 +93,14 @@ public class TestKuduConnectorTest
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
+    @Override
+    public void testCreateSchemaWithLongName()
+    {
+        // TODO: Add a test to BaseKuduConnectorSmokeTest
+        assertThatThrownBy(super::testCreateSchemaWithLongName)
+                .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
+    }
+
     @Test
     @Override
     public void testDropNonEmptySchemaWithTable()
