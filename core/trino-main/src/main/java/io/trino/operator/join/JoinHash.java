@@ -21,6 +21,7 @@ import javax.annotation.Nullable;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -86,6 +87,20 @@ public final class JoinHash
         return startJoinPosition(addressIndex, position, allChannelsPage);
     }
 
+    @Override
+    public long[] getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes)
+    {
+        int[] addressIndexex = pagesHash.getAddressIndex(positions, hashChannelsPage, rawHashes);
+        return startJoinPosition(addressIndexex, positions, allChannelsPage);
+    }
+
+    @Override
+    public long[] getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage)
+    {
+        int[] addressIndexex = pagesHash.getAddressIndex(positions, hashChannelsPage);
+        return startJoinPosition(addressIndexex, positions, allChannelsPage);
+    }
+
     private long startJoinPosition(int currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
         if (currentJoinPosition == -1) {
@@ -95,6 +110,31 @@ public final class JoinHash
             return currentJoinPosition;
         }
         return positionLinks.start(currentJoinPosition, probePosition, allProbeChannelsPage);
+    }
+
+    private long[] startJoinPosition(int[] currentJoinPosition, int[] probePosition, Page allProbeChannelsPage)
+    {
+        checkArgument(currentJoinPosition.length == probePosition.length);
+        int positionCount = currentJoinPosition.length;
+        long[] result = new long[positionCount];
+
+        if (positionLinks == null) {
+            for (int i = 0; i < positionCount; i++) {
+                result[i] = currentJoinPosition[i];
+            }
+            return result;
+        }
+
+        for (int i = 0; i < positionCount; i++) {
+            if (currentJoinPosition[i] == -1) {
+                result[i] = -1;
+            }
+            else {
+                result[i] = positionLinks.start(currentJoinPosition[i], probePosition[i], allProbeChannelsPage);
+            }
+        }
+
+        return result;
     }
 
     @Override
