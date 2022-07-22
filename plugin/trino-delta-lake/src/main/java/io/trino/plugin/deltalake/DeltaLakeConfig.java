@@ -47,6 +47,7 @@ public class DeltaLakeConfig
 
     private Duration metadataCacheTtl = new Duration(5, TimeUnit.MINUTES);
     private DataSize dataFileCacheSize = DEFAULT_DATA_FILE_CACHE_SIZE;
+    private Duration dataFileCacheTtl = new Duration(30, TimeUnit.MINUTES);
     private int domainCompactionThreshold = 100;
     private int maxOutstandingSplits = 1_000;
     private int maxSplitsPerSecond = Integer.MAX_VALUE;
@@ -94,6 +95,20 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setDataFileCacheSize(DataSize dataFileCacheSize)
     {
         this.dataFileCacheSize = dataFileCacheSize;
+        return this;
+    }
+
+    @NotNull
+    public Duration getDataFileCacheTtl()
+    {
+        return dataFileCacheTtl;
+    }
+
+    @Config("delta.metadata.live-files.cache-ttl")
+    @ConfigDescription("Caching duration for Delta data file metadata (e.g. table schema, partition info)")
+    public DeltaLakeConfig setDataFileCacheTtl(Duration dataFileCacheTtl)
+    {
+        this.dataFileCacheTtl = dataFileCacheTtl;
         return this;
     }
 
