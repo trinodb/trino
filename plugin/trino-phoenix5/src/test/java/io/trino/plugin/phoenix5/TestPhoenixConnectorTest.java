@@ -665,6 +665,13 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
+    public void testCreateSchemaWithLongName()
+    {
+        // TODO: Find the maximum table schema length in Phoenix and enable this test.
+        throw new SkipException("TODO");
+    }
+
+    @Override
     public void testCreateTableWithLongTableName()
     {
         // TODO: Find the maximum table name length in Phoenix and enable this test.

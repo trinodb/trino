@@ -519,6 +519,18 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.of(128);
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("(?s)(.*Read timed out)|(.*\"`NAME`\" that has maximum length of 128.*)");
+    }
+
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.of(128);
