@@ -205,6 +205,7 @@ public final class KafkaQueryRunner
         Logging.initialize();
         DistributedQueryRunner queryRunner = builder(TestingKafka.create())
                 .setTables(TpchTable.getTables())
+                .setCoordinatorProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .build();
         Logger log = Logger.get(KafkaQueryRunner.class);
         log.info("======== SERVER STARTED ========");
