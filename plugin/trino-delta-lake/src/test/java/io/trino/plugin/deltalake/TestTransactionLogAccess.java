@@ -30,7 +30,6 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -104,6 +103,8 @@ public class TestTransactionLogAccess
     private TrackingTransactionLogAccess transactionLogAccess;
     private TableSnapshot tableSnapshot;
 
+    private AccessTrackingHdfsEnvironment hdfsEnvironment;
+
     private void setupTransactionLogAccess(String tableName)
             throws Exception
     {
@@ -124,7 +125,7 @@ public class TestTransactionLogAccess
 
         HdfsConfig hdfsConfig = new HdfsConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        hdfsEnvironment = new AccessTrackingHdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
 
         transactionLogAccess = new TrackingTransactionLogAccess(
@@ -734,6 +735,63 @@ public class TestTransactionLogAccess
                         "00000000000000000012.json", 2,
                         "00000000000000000013.json", 2,
                         "00000000000000000014.json", 2));
+    }
+
+    @Test
+    public void testTableSnapshotsActiveDataFilesCache()
+            throws Exception
+    {
+        String tableName = "person";
+        Path tableDir = new Path(getClass().getClassLoader().getResource("databricks/" + tableName).toURI());
+        DeltaLakeConfig shortLivedActiveDataFilesCacheConfig = new DeltaLakeConfig();
+        shortLivedActiveDataFilesCacheConfig.setDataFileCacheTtl(new Duration(10, TimeUnit.MINUTES));
+        setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig);
+
+        List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+        assertEquals(addFileEntries.size(), 12);
+        assertEquals(
+                hdfsEnvironment.getAccessedPathNames(),
+                ImmutableMap.of(
+                        "person", 1,
+                        "00000000000000000010.checkpoint.parquet", 2));
+
+        addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+        assertEquals(addFileEntries.size(), 12);
+        // The internal data cache should still contain the data files for the table
+        assertEquals(
+                hdfsEnvironment.getAccessedPathNames(),
+                ImmutableMap.of(
+                        "person", 1,
+                        "00000000000000000010.checkpoint.parquet", 2));
+    }
+
+    @Test
+    public void testTableSnapshotsActiveDataFilesCacheDisabled()
+            throws Exception
+    {
+        String tableName = "person";
+        Path tableDir = new Path(getClass().getClassLoader().getResource("databricks/" + tableName).toURI());
+        DeltaLakeConfig shortLivedActiveDataFilesCacheConfig = new DeltaLakeConfig();
+        shortLivedActiveDataFilesCacheConfig.setDataFileCacheTtl(new Duration(0, TimeUnit.SECONDS));
+        setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig);
+
+        List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+        assertEquals(addFileEntries.size(), 12);
+        assertEquals(
+                hdfsEnvironment.getAccessedPathNames(),
+                ImmutableMap.of(
+                        "person", 1,
+                        "00000000000000000010.checkpoint.parquet", 2));
+
+        // With no caching for the transaction log entries, when loading the snapshot again,
+        // the checkpoint file will be read again
+        addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+        assertEquals(addFileEntries.size(), 12);
+        assertEquals(
+                hdfsEnvironment.getAccessedPathNames(),
+                ImmutableMap.of(
+                        "person", 1,
+                        "00000000000000000010.checkpoint.parquet", 4));
     }
 
     private void copyTransactionLogEntry(int startVersion, int endVersion, File sourceDir, File targetDir)
