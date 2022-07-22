@@ -1990,6 +1990,72 @@ public abstract class BaseConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableNameLike));
     }
 
+    @Test
+    public void testCreateSchemaWithLongName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA));
+
+        String baseSchemaName = "test_create_" + randomTableSuffix();
+
+        int maxLength = maxSchemaNameLength()
+                // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
+                .orElse(65536 + 5);
+
+        String validSchemaName = baseSchemaName + "z".repeat(maxLength - baseSchemaName.length());
+        assertUpdate("CREATE SCHEMA " + validSchemaName);
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(validSchemaName);
+        assertUpdate("DROP SCHEMA " + validSchemaName);
+
+        if (maxSchemaNameLength().isEmpty()) {
+            return;
+        }
+
+        String invalidSchemaName = validSchemaName + "z";
+        assertThatThrownBy(() -> assertUpdate("CREATE SCHEMA " + invalidSchemaName))
+                .satisfies(this::verifySchemaNameLengthFailurePermissible);
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(invalidSchemaName);
+    }
+
+    @Test
+    public void testRenameSchemaToLongName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_RENAME_SCHEMA));
+
+        String sourceTableName = "test_rename_source_" + randomTableSuffix();
+        assertUpdate("CREATE SCHEMA " + sourceTableName);
+
+        String baseSchemaName = "test_rename_target_" + randomTableSuffix();
+
+        int maxLength = maxSchemaNameLength()
+                // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
+                .orElse(65536 + 5);
+
+        String validTargetSchemaName = baseSchemaName + "z".repeat(maxLength - baseSchemaName.length());
+        assertUpdate("ALTER SCHEMA " + sourceTableName + " RENAME TO " + validTargetSchemaName);
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(validTargetSchemaName);
+        assertUpdate("DROP SCHEMA " + validTargetSchemaName);
+
+        if (maxSchemaNameLength().isEmpty()) {
+            return;
+        }
+
+        assertUpdate("CREATE SCHEMA " + sourceTableName);
+        String invalidTargetSchemaName = validTargetSchemaName + "z";
+        assertThatThrownBy(() -> assertUpdate("ALTER SCHEMA " + sourceTableName + " RENAME TO " + invalidTargetSchemaName))
+                .satisfies(this::verifySchemaNameLengthFailurePermissible);
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(invalidTargetSchemaName);
+    }
+
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.empty();
+    }
+
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        throw new AssertionError("Unexpected schema name length failure", e);
+    }
+
     // TODO https://github.com/trinodb/trino/issues/13073 Add RENAME TABLE test with long table name
     @Test
     public void testCreateTableWithLongTableName()

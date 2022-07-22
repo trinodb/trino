@@ -1006,6 +1006,16 @@ public class PostgreSqlClient
     }
 
     @Override
+    protected void verifySchemaName(DatabaseMetaData databaseMetadata, String schemaName)
+            throws SQLException
+    {
+        // PostgreSQL truncates schema name to 63 chars silently
+        if (schemaName.length() > databaseMetadata.getMaxSchemaNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", databaseMetadata.getMaxSchemaNameLength(), schemaName.length()));
+        }
+    }
+
+    @Override
     protected void verifyTableName(DatabaseMetaData databaseMetadata, String tableName)
             throws SQLException
     {

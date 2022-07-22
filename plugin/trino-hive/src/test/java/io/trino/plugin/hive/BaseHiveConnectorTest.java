@@ -8334,6 +8334,19 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        // This value depends on metastore type
+        return OptionalInt.of(255 - "..".length() - ".trinoSchema.crc".length());
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("Could not (write|rename) database schema");
+    }
+
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         // This value depends on metastore type
