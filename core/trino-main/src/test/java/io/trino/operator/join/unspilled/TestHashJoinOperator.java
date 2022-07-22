@@ -49,6 +49,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.DataProviders;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
 import io.trino.type.BlockTypeOperators;
@@ -1293,25 +1294,18 @@ public class TestHashJoinOperator
     @DataProvider(name = "hashJoinTestValues")
     public static Object[][] hashJoinTestValuesProvider()
     {
-        return new Object[][] {
-                {true, true, true},
-                {true, true, false},
-                {true, false, true},
-                {true, false, false},
-                {false, true, true},
-                {false, true, false},
-                {false, false, true},
-                {false, false, false}};
+        return DataProviders.cartesianProduct(
+                new Object[][] {{true}, {false}},
+                new Object[][] {{true}, {false}},
+                new Object[][] {{true}, {false}});
     }
 
     @DataProvider
     public static Object[][] testMemoryLimitProvider()
     {
-        return new Object[][] {
-                {true, true},
-                {true, false},
-                {false, true},
-                {false, false}};
+        return DataProviders.cartesianProduct(
+                new Object[][] {{true}, {false}},
+                new Object[][] {{true}, {false}});
     }
 
     private TaskContext createTaskContext()
