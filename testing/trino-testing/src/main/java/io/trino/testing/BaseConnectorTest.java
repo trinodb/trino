@@ -1792,6 +1792,7 @@ public abstract class BaseConnectorTest
         try {
             assertUpdate("CREATE SCHEMA " + schemaName);
             assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
+            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName + "_renamed");
         }
         finally {
             assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
