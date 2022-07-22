@@ -117,4 +117,16 @@ public class TestDeltaLakePlugin
                         "delta.metadata.cache-ttl", "0s"),
                 new TestingConnectorContext());
     }
+
+    @Test
+    public void testNoActiveDataFilesCaching()
+    {
+        Plugin plugin = new DeltaLakePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        factory.create("test",
+                ImmutableMap.of(
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "delta.metadata.live-files.cache-ttl", "0s"),
+                new TestingConnectorContext());
+    }
 }

@@ -95,6 +95,10 @@ values. Typical usage does not require you to configure them.
         to be specified in :ref:`prop-type-data-size` values such as ``64MB``.
         Default is calculated to 10% of the maximum memory allocated to the JVM.
       -
+    * - ``delta.metadata.live-files.cache-ttl``
+      - Caching duration for active files which correspond to the Delta Lake
+        tables.
+      - ``30m``
     * - ``delta.compression-codec``
       - The compression codec to be used when writing new data files.
         Possible values are

@@ -40,6 +40,7 @@ public class TestDeltaLakeConfig
     {
         assertRecordedDefaults(recordDefaults(DeltaLakeConfig.class)
                 .setDataFileCacheSize(DeltaLakeConfig.DEFAULT_DATA_FILE_CACHE_SIZE)
+                .setDataFileCacheTtl(new Duration(30, MINUTES))
                 .setMetadataCacheTtl(new Duration(5, TimeUnit.MINUTES))
                 .setDomainCompactionThreshold(100)
                 .setMaxSplitsPerSecond(Integer.MAX_VALUE)
@@ -72,6 +73,7 @@ public class TestDeltaLakeConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("delta.metadata.cache-ttl", "10m")
                 .put("delta.metadata.live-files.cache-size", "0 MB")
+                .put("delta.metadata.live-files.cache-ttl", "60m")
                 .put("delta.domain-compaction-threshold", "500")
                 .put("delta.max-outstanding-splits", "200")
                 .put("delta.max-splits-per-second", "10")
@@ -99,6 +101,7 @@ public class TestDeltaLakeConfig
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
                 .setDataFileCacheSize(DataSize.succinctBytes(0))
+                .setDataFileCacheTtl(new Duration(60, MINUTES))
                 .setMetadataCacheTtl(new Duration(10, TimeUnit.MINUTES))
                 .setDomainCompactionThreshold(500)
                 .setMaxOutstandingSplits(200)

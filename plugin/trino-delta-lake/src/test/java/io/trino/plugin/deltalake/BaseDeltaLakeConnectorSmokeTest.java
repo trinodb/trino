@@ -127,6 +127,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         QueryRunner queryRunner = createDeltaLakeQueryRunner(
                 ImmutableMap.<String, String>builder()
                         .put("delta.metadata.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
+                        .put("delta.metadata.live-files.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .buildOrThrow());
 
