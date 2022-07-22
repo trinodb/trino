@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
@@ -125,7 +126,21 @@ public class HiveNodePartitioningProvider
             ConnectorSession session,
             ConnectorPartitioningHandle partitioningHandle)
     {
-        return value -> ((HiveSplit) value).getReadBucketNumber()
-                .orElseThrow(() -> new IllegalArgumentException("Bucket number not set in split"));
+        final HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
+        if (handle.getPartitions().isEmpty()) {
+            return value -> ((HiveSplit) value).getReadBucketNumber()
+                    .orElseThrow(() -> new IllegalArgumentException("Bucket number not set in split"));
+        }
+        List<String> partitions = handle.getPartitions();
+        ImmutableMap.Builder<String, Integer> partitionToIndexBuilder = ImmutableMap.builder();
+        for (int i = 0; i < handle.getPartitions().size(); i++) {
+            partitionToIndexBuilder.put(partitions.get(i), i);
+        }
+        final ImmutableMap<String, Integer> partitionToIndex = partitionToIndexBuilder.buildOrThrow();
+        return value -> {
+            HiveSplit split = (HiveSplit) value;
+            int partitionIndex = partitionToIndex.getOrDefault(split.getPartitionName(), 0);
+            return split.getReadBucketNumber().orElse(0) + (handle.getBucketCount() * partitionIndex);
+        };
     }
 }

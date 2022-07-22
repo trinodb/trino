@@ -19,7 +19,6 @@ import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
-import io.trino.spi.predicate.NullableValue;
 
 import java.util.List;
 import java.util.Objects;
@@ -33,7 +32,7 @@ public class HivePartitioningHandle
 {
     private final BucketingVersion bucketingVersion;
     private final int bucketCount;
-    private final List<List<NullableValue>> partitions;
+    private final List<String> partitions;
     private final List<HiveType> hiveTypes;
     private final OptionalInt maxCompatibleBucketCount;
     private final boolean usePartitionedBucketingForWrites;
@@ -45,7 +44,7 @@ public class HivePartitioningHandle
             @JsonProperty("hiveBucketTypes") List<HiveType> hiveTypes,
             @JsonProperty("maxCompatibleBucketCount") OptionalInt maxCompatibleBucketCount,
             @JsonProperty("usePartitionedBucketingForWrites") boolean usePartitionedBucketingForWrites,
-            @JsonProperty("partitions") List<List<NullableValue>> partitions)
+            @JsonProperty("partitions") List<String> partitions)
     {
         this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
         this.bucketCount = bucketCount;
@@ -55,7 +54,7 @@ public class HivePartitioningHandle
         this.usePartitionedBucketingForWrites = usePartitionedBucketingForWrites;
     }
 
-    public static HivePartitioningHandle partitionsOnly(List<List<NullableValue>> partitions)
+    public static HivePartitioningHandle partitionsOnly(List<String> partitions)
     {
         return new HivePartitioningHandle(
                 BucketingVersion.BUCKETING_V2,
@@ -97,7 +96,7 @@ public class HivePartitioningHandle
     }
 
     @JsonProperty
-    public List<List<NullableValue>> getPartitions()
+    public List<String> getPartitions()
     {
         return this.partitions;
     }

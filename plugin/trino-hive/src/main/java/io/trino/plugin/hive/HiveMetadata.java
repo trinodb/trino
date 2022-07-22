@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -2620,18 +2619,9 @@ public class HiveMetadata
         return OptionalLong.empty();
     }
 
-    private static List<List<NullableValue>> getPartitionValues(final List<ColumnHandle> columns, final List<HivePartition> partitions)
+    private static List<String> getSortedPartitionIds(final List<HivePartition> partitions)
     {
-        return Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions)
-                .stream()
-                .map((HivePartition partition) ->
-                {
-                    Map<ColumnHandle, NullableValue> keys = partition.getKeys();
-                    return columns.stream().map((ColumnHandle column) ->
-                    {
-                        return requireNonNull(keys.get(column), "Could not find value for partition column in partition");
-                    }).collect(toImmutableList());
-                }).collect(toImmutableList());
+        return partitions.stream().map(partition -> partition.getPartitionId()).sorted().collect(toImmutableList());
     }
 
     @Override
@@ -2643,10 +2633,11 @@ public class HiveMetadata
         TupleDomain<ColumnHandle> predicate = TupleDomain.all();
         Optional<DiscretePredicates> discretePredicates = Optional.empty();
         Optional<List<HivePartition>> partitions = Optional.empty();
+        final int partitionExecutionMinPartitions = HiveSessionProperties.getPartitionExecutionMinPartitions(session);
 
         // If only partition names are loaded, then the predicates are partially enforced.
         // So computation of  predicate and discretePredicates are not valid.
-        if (hiveTable.getPartitionNames().isEmpty()) {
+        if (hiveTable.getPartitionNames().isEmpty() || partitionExecutionMinPartitions > 0) {
             partitions = hiveTable.getPartitions()
                     // If the partitions are not loaded, try out if they can be loaded.
                     .or(() -> {
@@ -2679,7 +2670,6 @@ public class HiveMetadata
 
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
         List<LocalProperty<ColumnHandle>> sortingProperties = ImmutableList.of();
-        int partitionExecutionMinPartitions = HiveSessionProperties.getPartitionExecutionMinPartitions(session);
         boolean isPartitionExecution = partitionExecutionMinPartitions > 0 && partitions.isPresent() && partitions.orElseThrow().size() > partitionExecutionMinPartitions;
         if (hiveTable.getBucketHandle().isPresent()) {
             if (isPropagateTableScanSortingProperties(session) && !hiveTable.getBucketHandle().get().getSortedBy().isEmpty()) {
@@ -2696,16 +2686,21 @@ public class HiveMetadata
             }
         }
         if (isBucketExecutionEnabled(session) || isPartitionExecution) {
-            List<List<NullableValue>> partitionsToUse = ImmutableList.of();
+            List<String> partitionsToUse = ImmutableList.of();
             Stream<ColumnHandle> columnsToUseStream = Stream.empty();
             if (isBucketExecutionEnabled(session)) {
                 columnsToUseStream = hiveTable.getBucketHandle().map(bucketing -> bucketing.getColumns().stream().map(ColumnHandle.class::cast)).orElse(Stream.empty());
             }
             if (isPartitionExecution) {
+                System.out.println("Partition execution!");
                 columnsToUseStream = Stream.concat(columnsToUseStream, partitionColumns.stream().map(ColumnHandle.class::cast));
+                partitionsToUse = getSortedPartitionIds(partitions.orElseThrow());
             }
             List<ColumnHandle> columnsToUse = columnsToUseStream.collect(toImmutableList());
             if (!columnsToUse.isEmpty()) {
+                System.out.println("Using columns: " + columnsToUse.toString());
+                System.out.println("Using partitions: " + partitionsToUse.toString());
+                List<String> partitionValues = partitionsToUse;
                 tablePartitioning = Optional.of(
                         hiveTable.getBucketHandle().map(bucketing -> new ConnectorTablePartitioning(
                                 new HivePartitioningHandle(
@@ -2716,7 +2711,7 @@ public class HiveMetadata
                                                 .collect(toImmutableList()),
                                         OptionalInt.empty(),
                                         false,
-                                        partitionsToUse),
+                                        partitionValues),
                                 columnsToUse))
                                 .orElse(
                                         new ConnectorTablePartitioning(
@@ -2726,7 +2721,7 @@ public class HiveMetadata
                                                         ImmutableList.of(),
                                                         OptionalInt.empty(),
                                                         false,
-                                                        partitionsToUse),
+                                                        partitionValues),
                                                 columnsToUse)));
             }
         }
@@ -2977,7 +2972,7 @@ public class HiveMetadata
             }
         }
         else {
-            List<List<NullableValue>> partitions = canUsePartitions ? leftHandle.getPartitions() : ImmutableList.of();
+            List<String> partitions = canUsePartitions ? leftHandle.getPartitions() : ImmutableList.of();
             return Optional.of(new HivePartitioningHandle(
                     leftHandle.getBucketingVersion(), // same as rightHandle.getBucketingVersion()
                     smallerBucketCount,

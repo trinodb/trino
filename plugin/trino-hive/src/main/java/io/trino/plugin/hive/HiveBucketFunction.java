@@ -17,6 +17,7 @@ import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.BucketFunction;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class HiveBucketFunction
@@ -39,7 +41,20 @@ public class HiveBucketFunction
     private final List<Type> partitionColumnTypes;
     private final List<List<NullableValue>> partitions;
 
-    public HiveBucketFunction(BucketingVersion bucketingVersion, int bucketCount, List<HiveType> hiveTypes, List<Type> partitionColumnTypes, List<List<NullableValue>> partitions)
+    private static List<List<NullableValue>> getPartitionValues(List<String> partitions, List<Type> partitionColumnTypes)
+    {
+        return partitions.stream().map(partitionName -> {
+            List<String> values = HivePartitionManager.extractPartitionValues(partitionName);
+            ImmutableList.Builder<NullableValue> builder = ImmutableList.builder();
+            for (int i = 0; i < values.size(); i++) {
+                NullableValue parsedValue = HiveUtil.parsePartitionValue(partitionName, values.get(i), partitionColumnTypes.get(i));
+                builder.add(parsedValue);
+            }
+            return builder.build();
+        }).collect(toImmutableList());
+    }
+
+    public HiveBucketFunction(BucketingVersion bucketingVersion, int bucketCount, List<HiveType> hiveTypes, List<Type> partitionColumnTypes, List<String> partitions)
     {
         this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
         this.bucketCount = bucketCount;
@@ -47,7 +62,7 @@ public class HiveBucketFunction
                 .map(HiveType::getTypeInfo)
                 .collect(Collectors.toList());
         this.partitionColumnTypes = requireNonNull(partitionColumnTypes, "partitionColumnTypes is null");
-        this.partitions = requireNonNull(partitions, "partitions is null");
+        this.partitions = getPartitionValues(requireNonNull(partitions, "partitions is null"), partitionColumnTypes);
     }
 
     @Override
