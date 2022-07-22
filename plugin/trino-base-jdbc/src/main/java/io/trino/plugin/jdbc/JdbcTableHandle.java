@@ -104,6 +104,19 @@ public final class JdbcTableHandle
         this.nextSyntheticColumnId = nextSyntheticColumnId;
     }
 
+    public JdbcTableHandle intersectedWithConstraint(TupleDomain<ColumnHandle> newConstraint)
+    {
+        return new JdbcTableHandle(
+                relationHandle,
+                constraint.intersect(newConstraint),
+                constraintExpressions,
+                sortOrder,
+                limit,
+                columns,
+                otherReferencedTables,
+                nextSyntheticColumnId);
+    }
+
     /**
      * @deprecated Use {@code asPlainTable().getSchemaTableName()} instead, but see those methods for more information, as this is not a drop-in replacement.
      */

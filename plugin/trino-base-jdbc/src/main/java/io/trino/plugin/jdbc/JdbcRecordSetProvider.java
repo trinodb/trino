@@ -62,6 +62,12 @@ public class JdbcRecordSetProvider
             handles.add((JdbcColumnHandle) handle);
         }
 
-        return new JdbcRecordSet(jdbcClient, executor, session, jdbcSplit, jdbcTable, handles.build());
+        return new JdbcRecordSet(
+                jdbcClient,
+                executor,
+                session,
+                jdbcSplit,
+                jdbcTable.intersectedWithConstraint(jdbcSplit.getDynamicFilter().transformKeys(ColumnHandle.class::cast)),
+                handles.build());
     }
 }

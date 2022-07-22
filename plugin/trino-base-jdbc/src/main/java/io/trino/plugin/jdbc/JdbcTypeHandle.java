@@ -16,15 +16,21 @@ package io.trino.plugin.jdbc;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.SizeOf;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcTypeHandle
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(JdbcTypeHandle.class).instanceSize();
+
     private final int jdbcType;
     private final Optional<String> jdbcTypeName;
     private final Optional<Integer> columnSize;
@@ -149,5 +155,16 @@ public final class JdbcTypeHandle
                 .add("decimalDigits", decimalDigits)
                 .add("arrayDimensions", arrayDimensions.orElse(null))
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + sizeOf(jdbcType)
+                + sizeOf(jdbcTypeName, SizeOf::estimatedSizeOf)
+                + sizeOf(columnSize, SizeOf::sizeOf)
+                + sizeOf(decimalDigits, SizeOf::sizeOf)
+                + sizeOf(arrayDimensions, SizeOf::sizeOf)
+                + sizeOf(caseSensitivity, ignored -> SIZE_OF_INT);
     }
 }

@@ -89,6 +89,7 @@ public class TestPhoenixConnectorTest
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
             case SUPPORTS_AGGREGATION_PUSHDOWN:
+            case SUPPORTS_DYNAMIC_FILTER_PUSHDOWN:
                 return false;
 
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
