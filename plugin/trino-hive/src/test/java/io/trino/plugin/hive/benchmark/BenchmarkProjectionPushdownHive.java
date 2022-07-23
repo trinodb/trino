@@ -335,7 +335,7 @@ public class BenchmarkProjectionPushdownHive
             throws Exception
     {
         benchmark(BenchmarkProjectionPushdownHive.class)
-                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g", "-XX:+UseG1GC"))
+                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g"))
                 .run();
     }
 

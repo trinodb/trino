@@ -439,7 +439,7 @@ public class BenchmarkHiveFileFormat
             throws Exception
     {
         Collection<RunResult> results = benchmark(BenchmarkHiveFileFormat.class)
-                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g", "-XX:+UseG1GC"))
+                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g"))
                 .run();
 
         printResults(results);
