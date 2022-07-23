@@ -78,7 +78,7 @@ class EventsAwaitingQueries
         }
 
         QueryEvents queryEvents = eventsCollector.getQueryEvents(queryId);
-        queryEvents.waitForQueryCompletion(new Duration(3, SECONDS));
+        queryEvents.waitForQueryCompletion(new Duration(30, SECONDS));
 
         // Sleep some more so extraneous, unexpected events can be recorded too.
         // This is not rock solid but improves effectiveness on detecting duplicate events.
