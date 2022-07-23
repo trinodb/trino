@@ -111,6 +111,16 @@ resource utilization, but uses additional memory.
 The minimum number of drivers guaranteed to run concurrently for a single task given
 the task has remaining splits to process.
 
+``task.scale-writers.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Description:** :ref:`prop-task-scale-writers`
+
+``task.scale-writers.max-writer-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Description:** :ref:`prop-task-scale-writers-max-writer-count`
+
 ``task.writer-count``
 ^^^^^^^^^^^^^^^^^^^^^
 
