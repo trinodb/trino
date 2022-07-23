@@ -83,6 +83,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLSyntaxErrorException;
 import java.sql.Types;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
@@ -96,11 +97,11 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_UNKNOWN_TABLE;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_ER_TABLE_EXISTS_ERROR;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_SYNTAX_ERROR;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -921,7 +922,7 @@ public class MySqlClient
                 handle.execute("SELECT 1 FROM INFORMATION_SCHEMA.COLUMN_STATISTICS WHERE 0=1");
             }
             catch (UnableToExecuteStatementException e) {
-                if (nullToEmpty(e.getMessage()).contains("Unknown table 'COLUMN_STATISTICS'")) {
+                if (e.getCause() instanceof SQLSyntaxErrorException && ((SQLSyntaxErrorException) e.getCause()).getErrorCode() == ER_UNKNOWN_TABLE) {
                     // The table is available since MySQL 8
                     log.debug("INFORMATION_SCHEMA.COLUMN_STATISTICS table is not available: %s", e);
                     return ImmutableMap.of();
