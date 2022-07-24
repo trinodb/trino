@@ -114,7 +114,7 @@ public class DruidJdbcClient
     // to druid will always have the TABLE_CATALOG set to DRUID_CATALOG
     private static final String DRUID_CATALOG = "druid";
     // All the datasources in Druid are created under schema "druid"
-    public static final String DRUID_SCHEMA = "druid";
+    private static final String DRUID_SCHEMA = "druid";
 
     @Inject
     public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
