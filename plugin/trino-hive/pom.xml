@@ -15,6 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.test.jvmsize>4g</air.test.jvmsize>
     </properties>
 
     <dependencies>
