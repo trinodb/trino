@@ -52,7 +52,7 @@ public final class SqlDataTypeTest
 
     public SqlDataTypeTest addRoundTrip(String inputLiteral, String expectedLiteral)
     {
-        testCases.add(new TestCase(Optional.empty(), inputLiteral, Optional.empty(), expectedLiteral));
+        testCases.add(new TestCase(Optional.empty(), Optional.empty(), inputLiteral, Optional.empty(), expectedLiteral));
         return this;
     }
 
@@ -63,7 +63,19 @@ public final class SqlDataTypeTest
 
     public SqlDataTypeTest addRoundTrip(String inputType, String inputLiteral, Type expectedType, String expectedLiteral)
     {
-        testCases.add(new TestCase(Optional.of(inputType), inputLiteral, Optional.of(expectedType), expectedLiteral));
+        addRoundTrip(Optional.empty(), inputType, inputLiteral, expectedType, expectedLiteral);
+        return this;
+    }
+
+    public SqlDataTypeTest addRoundTrip(String columnName, String inputType, String inputLiteral, Type expectedType, String expectedLiteral)
+    {
+        addRoundTrip(Optional.of(columnName), inputType, inputLiteral, expectedType, expectedLiteral);
+        return this;
+    }
+
+    public SqlDataTypeTest addRoundTrip(Optional<String> columnName, String inputType, String inputLiteral, Type expectedType, String expectedLiteral)
+    {
+        testCases.add(new TestCase(columnName, Optional.of(inputType), inputLiteral, Optional.of(expectedType), expectedLiteral));
         return this;
     }
 
@@ -130,19 +142,22 @@ public final class SqlDataTypeTest
 
     private String getPredicate(int column)
     {
-        return format("col_%s IS NOT DISTINCT FROM %s", column, testCases.get(column).getExpectedLiteral());
+        String columnName = testCases.get(column).getColumnName().orElseGet(() -> "col_" + column);
+        return format("%s IS NOT DISTINCT FROM %s", columnName, testCases.get(column).getExpectedLiteral());
     }
 
     private static class TestCase
             implements ColumnSetup
     {
+        private final Optional<String> columnName;
         private final Optional<String> declaredType;
         private final String inputLiteral;
         private final Optional<Type> expectedType;
         private final String expectedLiteral;
 
-        public TestCase(Optional<String> declaredType, String inputLiteral, Optional<Type> expectedType, String expectedLiteral)
+        public TestCase(Optional<String> columnName, Optional<String> declaredType, String inputLiteral, Optional<Type> expectedType, String expectedLiteral)
         {
+            this.columnName = requireNonNull(columnName, "columnName is null");
             this.declaredType = requireNonNull(declaredType, "declaredType is null");
             this.expectedType = requireNonNull(expectedType, "expectedType is null");
             this.inputLiteral = requireNonNull(inputLiteral, "inputLiteral is null");
@@ -169,6 +184,11 @@ public final class SqlDataTypeTest
         public String getExpectedLiteral()
         {
             return expectedLiteral;
+        }
+
+        public Optional<String> getColumnName()
+        {
+            return columnName;
         }
     }
 }
