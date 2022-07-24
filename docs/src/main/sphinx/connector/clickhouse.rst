@@ -7,7 +7,7 @@ ClickHouse connector
   <img src="../_static/img/clickhouse.png" class="connector-logo">
 
 The ClickHouse connector allows querying tables in an external
-`Yandex ClickHouse <https://clickhouse.tech/>`_ server. This can be used to
+`ClickHouse <https://clickhouse.com/>`_ server. This can be used to
 query data in the databases on that server, or combine it with other data
 from different catalogs accessing ClickHouse or any other supported data source.
 
@@ -63,7 +63,7 @@ property:
 
 .. code-block:: properties
 
-  connection-url=jdbc:clickhouse://host1:8123/?ssl=true
+  connection-url=jdbc:clickhouse://host1:8443/?ssl=true
 
 For more information on TLS configuration options, see the `Clickhouse JDBC
 driver documentation <https://clickhouse.com/docs/en/interfaces/jdbc/>`_
