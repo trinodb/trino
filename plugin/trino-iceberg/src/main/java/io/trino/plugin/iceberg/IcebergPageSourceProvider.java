@@ -81,7 +81,6 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
@@ -138,7 +137,6 @@ import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcLazyReadSmallRanges;
@@ -282,13 +280,19 @@ public class IcebergPageSourceProvider
             return new EmptyPageSource();
         }
 
+        long fileSize = split.getFileSize();
+        if (!isUseFileSizeFromMetadata(session)) {
+            fileSize = fileIoProvider.createFileIo(hdfsContext, session.getQueryId())
+                    .newInputFile(split.getPath()).getLength();
+        }
+
         ReaderPageSource dataPageSource = createDataPageSource(
                 session,
                 hdfsContext,
                 new Path(split.getPath()),
                 split.getStart(),
                 split.getLength(),
-                split.getFileSize(),
+                fileSize,
                 split.getFileFormat(),
                 split.getSchemaAsJson().map(SchemaParser::fromJson),
                 requiredColumns,
@@ -374,17 +378,6 @@ public class IcebergPageSourceProvider
             Optional<NameMapping> nameMapping,
             Map<Integer, Optional<String>> partitionKeys)
     {
-        if (!isUseFileSizeFromMetadata(session)) {
-            try {
-                FileStatus fileStatus = hdfsEnvironment.doAs(session.getIdentity(),
-                        () -> hdfsEnvironment.getFileSystem(hdfsContext, path).getFileStatus(path));
-                fileSize = fileStatus.getLen();
-            }
-            catch (IOException e) {
-                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, e);
-            }
-        }
-
         switch (fileFormat) {
             case ORC:
                 return createOrcPageSource(
