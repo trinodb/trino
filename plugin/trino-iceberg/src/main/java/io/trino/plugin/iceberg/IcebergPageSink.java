@@ -94,6 +94,7 @@ public class IcebergPageSink
     private final IcebergFileWriterFactory fileWriterFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
+    private final FileIoProvider fileIoProvider;
     private final JobConf jobConf;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final ConnectorSession session;
@@ -119,6 +120,7 @@ public class IcebergPageSink
             PageIndexerFactory pageIndexerFactory,
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
+            FileIoProvider fileIoProvider,
             List<IcebergColumnHandle> inputColumns,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
@@ -133,6 +135,7 @@ public class IcebergPageSink
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
+        this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
         this.jobConf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, new Path(locationProvider.newDataLocation("data-file"))));
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
@@ -345,6 +348,7 @@ public class IcebergPageSink
                 jobConf,
                 session,
                 hdfsContext,
+                fileIoProvider,
                 fileFormat,
                 metricsConfig,
                 storageProperties);

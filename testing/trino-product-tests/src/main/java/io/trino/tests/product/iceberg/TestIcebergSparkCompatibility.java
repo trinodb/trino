@@ -24,6 +24,7 @@ import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
 import io.trino.tests.product.hive.Engine;
 import org.assertj.core.api.Assertions;
+import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -60,6 +61,7 @@ import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuf
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_AND_INSERT;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_AS_SELECT;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_WITH_NO_DATA_AND_INSERT;
+import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.StorageFormat.AVRO;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -83,24 +85,6 @@ public class TestIcebergSparkCompatibility
     private static final String SPARK_CATALOG = "iceberg_test";
     private static final String TRINO_CATALOG = "iceberg";
     private static final String TEST_SCHEMA_NAME = "default";
-
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "unsupportedStorageFormats")
-    public void testTrinoWithUnsupportedFileFormat(StorageFormat storageFormat)
-    {
-        String tableName = "test_trino_unsupported_file_format_" + storageFormat;
-        String trinoTableName = trinoTableName(tableName);
-        String sparkTableName = sparkTableName(tableName);
-
-        onSpark().executeQuery(format("CREATE TABLE %s (x bigint) USING ICEBERG TBLPROPERTIES ('write.format.default'='%s')", sparkTableName, storageFormat));
-        onSpark().executeQuery(format("INSERT INTO %s VALUES (42)", sparkTableName));
-
-        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM " + trinoTableName))
-                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q File format not supported for Iceberg: " + storageFormat);
-        assertQueryFailure(() -> onTrino().executeQuery(format("INSERT INTO %s VALUES (42)", trinoTableName)))
-                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q File format not supported for Iceberg: " + storageFormat);
-
-        onSpark().executeQuery("DROP TABLE " + sparkTableName);
-    }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
     public void testTrinoReadingSparkData(StorageFormat storageFormat, int specVersion)
@@ -1194,6 +1178,23 @@ public class TestIcebergSparkCompatibility
                 }
                 break;
 
+            case AVRO:
+                if ("NONE".equals(compressionCodec)) {
+                    onSpark().executeQuery("SET spark.sql.avro.compression.codec = uncompressed");
+                }
+                else if ("SNAPPY".equals(compressionCodec)) {
+                    onSpark().executeQuery("SET spark.sql.avro.compression.codec = snappy");
+                }
+                else if ("ZSTD".equals(compressionCodec)) {
+                    onSpark().executeQuery("SET spark.sql.avro.compression.codec = zstandard");
+                }
+                else {
+                    assertQueryFailure(() -> onSpark().executeQuery("SET spark.sql.avro.compression.codec = " + compressionCodec))
+                            .hasMessageContaining("The value of spark.sql.avro.compression.codec should be one of bzip2, deflate, uncompressed, xz, snappy, zstandard");
+                    throw new SkipException("Unsupported compression codec");
+                }
+                break;
+
             default:
                 throw new UnsupportedOperationException("Unsupported storage format: " + storageFormat);
         }
@@ -1233,6 +1234,11 @@ public class TestIcebergSparkCompatibility
                     .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Unsupported codec: LZ4");
             return;
         }
+        if (storageFormat == AVRO && (compressionCodec.equals("LZ4"))) {
+            assertQueryFailure(() -> onTrino().executeQuery(createTable))
+                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Unsupported compression codec: " + compressionCodec);
+            return;
+        }
         onTrino().executeQuery(createTable);
 
         List<Row> expected = onTrino().executeQuery("TABLE tpch.tiny.nation").rows().stream()
@@ -1252,8 +1258,8 @@ public class TestIcebergSparkCompatibility
         assertThat(onTrino().executeQuery("SHOW SESSION LIKE 'iceberg.compression_codec'"))
                 .containsOnly(row(
                         "iceberg.compression_codec",
-                        "ZSTD",
-                        "ZSTD",
+                        "SNAPPY",
+                        "SNAPPY",
                         "varchar",
                         "Compression codec to use when writing files. Possible values: " + compressionCodecs()));
     }
@@ -1263,7 +1269,6 @@ public class TestIcebergSparkCompatibility
     {
         List<String> compressionCodecs = compressionCodecs();
         return Stream.of(StorageFormat.values())
-                .filter(StorageFormat::isSupportedInTrino)
                 .flatMap(storageFormat -> compressionCodecs.stream()
                         .map(compressionCodec -> new Object[] {storageFormat, compressionCodec}))
                 .toArray(Object[][]::new);
@@ -1291,7 +1296,8 @@ public class TestIcebergSparkCompatibility
                 ", nested_map MAP<STRING, ARRAY<STRUCT<sName: STRING, sNumber: INT>>>\n" +
                 ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mName: STRING, mNumber: INT>>>>\n" +
                 ", nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<street_number:INT, street_name:STRING>>)\n" +
-                " USING %s";
+                " USING %s\n" +
+                " OPTIONS ('compression'='snappy')";
         onSpark().executeQuery(format(sparkTableDefinition, defaultCatalogTableName, storageFormat.name()));
 
         String insert = "" +
@@ -1354,7 +1360,8 @@ public class TestIcebergSparkCompatibility
                 "CREATE TABLE %s (\n" +
                 "  doc_id STRING\n" +
                 ", nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<a:INT, b:STRING>>)\n" +
-                " USING %s";
+                " USING %s\n" +
+                " OPTIONS ('compression'='snappy')";
         onSpark().executeQuery(format(sparkTableDefinition, defaultCatalogTableName, storageFormat.name()));
 
         String insert = "" +
@@ -1391,7 +1398,7 @@ public class TestIcebergSparkCompatibility
         String baseTableName = "test_migrated_data_with_partial_name_mapping_" + randomTableSuffix();
         String defaultCatalogTableName = sparkDefaultCatalogTableName(baseTableName);
 
-        String sparkTableDefinition = "CREATE TABLE %s (a INT, b INT) USING " + storageFormat.name();
+        String sparkTableDefinition = "CREATE TABLE %s (a INT, b INT) USING " + storageFormat.name() + " OPTIONS ('compression'='snappy')";
         onSpark().executeQuery(format(sparkTableDefinition, defaultCatalogTableName));
 
         String insert = "INSERT INTO TABLE %s SELECT 1, 2";
@@ -1681,7 +1688,6 @@ public class TestIcebergSparkCompatibility
     public static Object[][] storageFormats()
     {
         return Stream.of(StorageFormat.values())
-                .filter(StorageFormat::isSupportedInTrino)
                 .map(storageFormat -> new Object[] {storageFormat})
                 .toArray(Object[][]::new);
     }
@@ -1691,7 +1697,6 @@ public class TestIcebergSparkCompatibility
     public static Object[][] tableFormatWithDeleteFormat()
     {
         return Stream.of(StorageFormat.values())
-                .filter(StorageFormat::isSupportedInTrino)
                 .flatMap(tableStorageFormat -> Arrays.stream(StorageFormat.values())
                         .map(deleteFileStorageFormat -> new Object[] {tableStorageFormat, deleteFileStorageFormat}))
                 .toArray(Object[][]::new);
@@ -1701,21 +1706,11 @@ public class TestIcebergSparkCompatibility
     public static Object[][] storageFormatsWithSpecVersion()
     {
         List<StorageFormat> storageFormats = Stream.of(StorageFormat.values())
-                .filter(StorageFormat::isSupportedInTrino)
                 .collect(toImmutableList());
         List<Integer> specVersions = ImmutableList.of(1, 2);
 
         return storageFormats.stream()
                 .flatMap(storageFormat -> specVersions.stream().map(specVersion -> new Object[] {storageFormat, specVersion}))
-                .toArray(Object[][]::new);
-    }
-
-    @DataProvider
-    public static Object[][] unsupportedStorageFormats()
-    {
-        return Stream.of(StorageFormat.values())
-                .filter(storageFormat -> !storageFormat.isSupportedInTrino())
-                .map(storageFormat -> new Object[] {storageFormat})
                 .toArray(Object[][]::new);
     }
 
@@ -1725,13 +1720,6 @@ public class TestIcebergSparkCompatibility
         ORC,
         AVRO,
         /**/;
-
-        public boolean isSupportedInTrino()
-        {
-            // TODO (https://github.com/trinodb/trino/issues/1324) not supported in Trino yet
-            //  - remove testTrinoWithUnsupportedFileFormat once all formats are supported
-            return this != AVRO;
-        }
     }
 
     public enum CreateMode
