@@ -224,6 +224,32 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testSelectivelyOptimizingLeavesEqualityDeletes()
+            throws Exception
+    {
+        String tableName = "test_selectively_optimizing_leaves_eq_deletes_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = loadTable(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE nationkey < 5");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
+        Assertions.assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("1");
+    }
+
+    @Test
+    public void testOptimizingWholeTableRemovesEqualityDeletes()
+            throws Exception
+    {
+        String tableName = "test_optimizing_whole_table_removes_eq_deletes_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = loadTable(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
+        Assertions.assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+    }
+
+    @Test
     public void testOptimizingV2TableWithEmptyPartitionSpec()
             throws Exception
     {
