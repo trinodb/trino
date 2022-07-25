@@ -899,8 +899,7 @@ public class IcebergMetadata
                         getFileFormat(icebergTable),
                         icebergTable.properties(),
                         maxScannedFileSize,
-                        retryMode != NO_RETRIES,
-                        tableHandle.getEnforcedPredicate().isAll()),
+                        retryMode != NO_RETRIES),
                 icebergTable.location()));
     }
 
@@ -1020,7 +1019,7 @@ public class IcebergMetadata
         ImmutableSet.Builder<DeleteFile> scannedDeleteFilesBuilder = ImmutableSet.builder();
         splitSourceInfo.stream().map(DataFileWithDeleteFiles.class::cast).forEach(dataFileWithDeleteFiles -> {
             scannedDataFilesBuilder.add(dataFileWithDeleteFiles.getDataFile());
-            scannedDeleteFilesBuilder.addAll(filterDeleteFilesThatWereNotScannedDuringOptimize(dataFileWithDeleteFiles.getDeleteFiles(), optimizeHandle.isWholeTableScan()));
+            scannedDeleteFilesBuilder.addAll(dataFileWithDeleteFiles.getDeleteFiles());
         });
 
         Set<DataFile> scannedDataFiles = scannedDataFilesBuilder.build();
@@ -1075,20 +1074,6 @@ public class IcebergMetadata
         rewriteFiles.commit();
         transaction.commitTransaction();
         transaction = null;
-    }
-
-    private static Set<DeleteFile> filterDeleteFilesThatWereNotScannedDuringOptimize(List<DeleteFile> deleteFiles, boolean isWholeTableScan)
-    {
-        // if whole table was scanned all delete files were read and applied
-        // so it is safe to remove them
-        if (isWholeTableScan) {
-            return ImmutableSet.copyOf(deleteFiles);
-        }
-        return deleteFiles.stream()
-                // equality delete files can be global so we can't clean them up unless we optimize whole table
-                // position delete files cannot be global so it is safe to clean them if they were scanned
-                .filter(deleteFile -> (deleteFile.content() == POSITION_DELETES) || deleteFile.partition() != null)
-                .collect(toImmutableSet());
     }
 
     @Override
