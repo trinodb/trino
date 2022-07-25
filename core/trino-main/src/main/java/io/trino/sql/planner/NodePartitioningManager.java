@@ -152,18 +152,19 @@ public class NodePartitioningManager
     {
         ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
 
+        ToIntFunction<Split> splitToBucket = getSplitToBucket(session, partitioningHandle);
         if (connectorBucketNodeMap.hasFixedMapping()) {
-            return new FixedBucketNodeMap(getSplitToBucket(session, partitioningHandle), getFixedMapping(connectorBucketNodeMap));
+            return new FixedBucketNodeMap(splitToBucket, getFixedMapping(connectorBucketNodeMap));
         }
 
         if (preferDynamic) {
-            return new DynamicBucketNodeMap(getSplitToBucket(session, partitioningHandle), connectorBucketNodeMap.getBucketCount());
+            return new DynamicBucketNodeMap(splitToBucket, connectorBucketNodeMap.getBucketCount());
         }
 
         Optional<CatalogHandle> catalogName = partitioningHandle.getCatalogHandle();
         checkArgument(catalogName.isPresent(), "No catalog handle for partitioning handle: %s", partitioningHandle);
         return new FixedBucketNodeMap(
-                getSplitToBucket(session, partitioningHandle),
+                splitToBucket,
                 createArbitraryBucketToNode(
                         new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogName).allNodes()),
                         connectorBucketNodeMap.getBucketCount()));
