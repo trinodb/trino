@@ -264,7 +264,7 @@ public class OracleAuthenticationModule
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, OracleConfig oracleConfig, StarburstOracleConfig starburstOracleConfig, KerberosManager kerberosManager)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, OracleConfig oracleConfig, KerberosManager kerberosManager)
         {
             if (oracleConfig.isConnectionPoolEnabled()) {
                 throw new TrinoException(CONFIGURATION_INVALID, "Connection pooling cannot be used with Kerberos pass-through authentication");
