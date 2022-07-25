@@ -96,6 +96,7 @@ public class PartitionedLookupSource
     @Nullable
     private final OuterPositionTracker outerPositionTracker;
     private final boolean uniqueMapping;
+    private final boolean joinPositionsAlwaysEligible;
 
     private boolean closed;
 
@@ -113,6 +114,8 @@ public class PartitionedLookupSource
 
         uniqueMapping = lookupSources.stream()
                 .allMatch(lookupSource -> lookupSource.isMappingUnique());
+        joinPositionsAlwaysEligible = lookupSources.stream()
+                .allMatch(lookupSource -> lookupSource.isJoinPositionAlwaysEligible());
     }
 
     @Override
@@ -423,5 +426,11 @@ public class PartitionedLookupSource
     public boolean isMappingUnique()
     {
         return uniqueMapping;
+    }
+
+    @Override
+    public boolean isJoinPositionAlwaysEligible()
+    {
+        return joinPositionsAlwaysEligible;
     }
 }

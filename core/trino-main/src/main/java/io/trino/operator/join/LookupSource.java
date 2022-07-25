@@ -74,4 +74,12 @@ public interface LookupSource
     {
         return false;
     }
+
+    /**
+     * @return true if `isJoinPositionEligible` always returns true, regardless of the input arguments
+     */
+    default boolean isJoinPositionAlwaysEligible()
+    {
+        return false;
+    }
 }

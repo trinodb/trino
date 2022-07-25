@@ -157,19 +157,36 @@ public class PageJoiner
         int matches = 0;
         int mismatches = 0;
 
-        do {
-            joinPosition = probe.getCurrentJoinPosition();
-            boolean match = joinPosition >= 0 && lookupSource.isJoinPositionEligible(joinPosition, probe.getPosition(), probe.getPage());
-            matches += match ? 1 : 0;
-            mismatches += match ? 0 : 1;
-            if (match) {
-                pageBuilder.appendRow(probe, lookupSource, joinPosition);
+        if (lookupSource.isJoinPositionAlwaysEligible()) {
+            do {
+                joinPosition = probe.getCurrentJoinPosition();
+                boolean match = joinPosition >= 0;
+                matches += match ? 1 : 0;
+                mismatches += match ? 0 : 1;
+                if (match) {
+                    pageBuilder.appendRow(probe, lookupSource, joinPosition);
+                }
+                else if (probeOnOuterSide) {
+                    pageBuilder.appendNullForBuild(probe);
+                }
             }
-            else if (probeOnOuterSide) {
-                pageBuilder.appendNullForBuild(probe);
-            }
+            while (probe.advanceNextPosition() && !pageBuilder.isFull() && !yieldSignal.isSet());
         }
-        while (probe.advanceNextPosition() && !pageBuilder.isFull() && !yieldSignal.isSet());
+        else {
+            do {
+                joinPosition = probe.getCurrentJoinPosition();
+                boolean match = joinPosition >= 0 && lookupSource.isJoinPositionEligible(joinPosition, probe.getPosition(), probe.getPage());
+                matches += match ? 1 : 0;
+                mismatches += match ? 0 : 1;
+                if (match) {
+                    pageBuilder.appendRow(probe, lookupSource, joinPosition);
+                }
+                else if (probeOnOuterSide) {
+                    pageBuilder.appendNullForBuild(probe);
+                }
+            }
+            while (probe.advanceNextPosition() && !pageBuilder.isFull() && !yieldSignal.isSet());
+        }
         statisticsCounter.recordProbe(0, mismatches);
         statisticsCounter.recordProbe(1, matches);
     }

@@ -165,6 +165,12 @@ public final class JoinHash
     }
 
     @Override
+    public boolean isJoinPositionAlwaysEligible()
+    {
+        return filterFunction == null;
+    }
+
+    @Override
     public void close()
     {
     }
