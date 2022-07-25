@@ -337,9 +337,9 @@ public class JoinCompiler
     private static void generateGetChannelCountMethod(ClassDefinition classDefinition, int outputChannelCount)
     {
         classDefinition.declareMethod(
-                a(PUBLIC),
-                "getChannelCount",
-                type(int.class))
+                        a(PUBLIC),
+                        "getChannelCount",
+                        type(int.class))
                 .getBody()
                 .push(outputChannelCount)
                 .retInt();
