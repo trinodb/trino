@@ -265,6 +265,12 @@ public final class BigintPagesHash
         return uniqueMapping;
     }
 
+    @Override
+    public boolean usesHash()
+    {
+        return false;
+    }
+
     private boolean isPositionNull(int position)
     {
         long pageAddress = addresses.getLong(position);

@@ -97,6 +97,7 @@ public class PartitionedLookupSource
     private final OuterPositionTracker outerPositionTracker;
     private final boolean uniqueMapping;
     private final boolean joinPositionsAlwaysEligible;
+    private final boolean usesHash;
 
     private boolean closed;
 
@@ -116,6 +117,8 @@ public class PartitionedLookupSource
                 .allMatch(lookupSource -> lookupSource.isMappingUnique());
         joinPositionsAlwaysEligible = lookupSources.stream()
                 .allMatch(lookupSource -> lookupSource.isJoinPositionAlwaysEligible());
+        usesHash = lookupSources.stream()
+                .anyMatch(lookupSource -> lookupSource.usesHash());
     }
 
     @Override
@@ -177,25 +180,47 @@ public class PartitionedLookupSource
         }
 
         int[][] positionsPerPartition = new int[partitionCount][];
-        long[][] hashesPerPartition = new long[partitionCount][];
-        for (int partition = 0; partition < partitionCount; partition++) {
-            positionsPerPartition[partition] = new int[partitionPositionsCount[partition]];
-            hashesPerPartition[partition] = new long[partitionPositionsCount[partition]];
-        }
-
-        // Split input positions into partitions
         int[] positionPerPartitionCount = new int[partitionCount];
-        for (int i = 0; i < positionCount; i++) {
-            int partition = partitions[i];
-            positionsPerPartition[partition][positionPerPartitionCount[partition]] = positions[i];
-            hashesPerPartition[partition][positionPerPartitionCount[partition]] = rawHashes[i];
-            positionPerPartitionCount[partition]++;
-        }
-
-        // Delegate partitioned positions to designated lookup sources
         long[][] resultPerPartition = new long[partitionCount][];
-        for (int partition = 0; partition < partitionCount; partition++) {
-            resultPerPartition[partition] = lookupSources[partition].getJoinPosition(positionsPerPartition[partition], hashChannelsPage, allChannelsPage, hashesPerPartition[partition]);
+        @Nullable
+        long[][] hashesPerPartition;
+        if (usesHash) {
+            hashesPerPartition = new long[partitionCount][];
+            for (int partition = 0; partition < partitionCount; partition++) {
+                positionsPerPartition[partition] = new int[partitionPositionsCount[partition]];
+                hashesPerPartition[partition] = new long[partitionPositionsCount[partition]];
+            }
+
+            // Split input positions into partitions
+            for (int i = 0; i < positionCount; i++) {
+                int partition = partitions[i];
+                positionsPerPartition[partition][positionPerPartitionCount[partition]] = positions[i];
+                hashesPerPartition[partition][positionPerPartitionCount[partition]] = rawHashes[i];
+                positionPerPartitionCount[partition]++;
+            }
+
+            // Delegate partitioned positions to designated lookup sources
+            for (int partition = 0; partition < partitionCount; partition++) {
+                resultPerPartition[partition] = lookupSources[partition].getJoinPosition(positionsPerPartition[partition], hashChannelsPage, allChannelsPage, hashesPerPartition[partition]);
+            }
+        }
+        else {
+            hashesPerPartition = null;
+            for (int partition = 0; partition < partitionCount; partition++) {
+                positionsPerPartition[partition] = new int[partitionPositionsCount[partition]];
+            }
+
+            // Split input positions into partitions
+            for (int i = 0; i < positionCount; i++) {
+                int partition = partitions[i];
+                positionsPerPartition[partition][positionPerPartitionCount[partition]] = positions[i];
+                positionPerPartitionCount[partition]++;
+            }
+
+            // Delegate partitioned positions to designated lookup sources
+            for (int partition = 0; partition < partitionCount; partition++) {
+                resultPerPartition[partition] = lookupSources[partition].getJoinPosition(positionsPerPartition[partition], hashChannelsPage, allChannelsPage);
+            }
         }
 
         // Merge results into a single array

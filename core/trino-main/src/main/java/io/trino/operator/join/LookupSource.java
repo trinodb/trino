@@ -82,4 +82,12 @@ public interface LookupSource
     {
         return false;
     }
+
+    /**
+     * @return false if the hash argument is ignored by the lookup source in `getJoinPosition` methods
+     */
+    default boolean usesHash()
+    {
+        return true;
+    }
 }

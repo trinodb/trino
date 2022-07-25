@@ -171,6 +171,12 @@ public final class JoinHash
     }
 
     @Override
+    public boolean usesHash()
+    {
+        return pagesHash.usesHash();
+    }
+
+    @Override
     public void close()
     {
     }

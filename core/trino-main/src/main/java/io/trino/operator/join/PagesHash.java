@@ -57,4 +57,12 @@ public interface PagesHash
     {
         return false;
     }
+
+    /**
+     * {@link LookupSource#usesHash()}
+     */
+    default boolean usesHash()
+    {
+        return true;
+    }
 }
