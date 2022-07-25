@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.FileIoProvider;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergFileWriter;
 import io.trino.plugin.iceberg.IcebergFileWriterFactory;
@@ -75,6 +76,7 @@ public class IcebergPositionDeletePageSink
             IcebergFileWriterFactory fileWriterFactory,
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
+            FileIoProvider fileIoProvider,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
             IcebergFileFormat fileFormat,
@@ -94,7 +96,7 @@ public class IcebergPositionDeletePageSink
                 .map(partitionData -> locationProvider.newDataLocation(partitionSpec, partitionData, fileName))
                 .orElseGet(() -> locationProvider.newDataLocation(fileName));
         JobConf jobConf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, new Path(outputPath)));
-        this.writer = fileWriterFactory.createPositionDeleteWriter(new Path(outputPath), jobConf, session, hdfsContext, fileFormat, storageProperties);
+        this.writer = fileWriterFactory.createPositionDeleteWriter(new Path(outputPath), jobConf, session, hdfsContext, fileIoProvider, fileFormat, storageProperties);
     }
 
     @Override

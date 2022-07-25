@@ -17,7 +17,7 @@ create a new metadata file and replace the old metadata with an atomic swap.
 The table metadata file tracks the table schema, partitioning config,
 custom properties, and snapshots of the table contents.
 
-Iceberg data files can be stored in either Parquet or ORC format, as
+Iceberg data files can be stored in either Parquet, ORC or Avro format, as
 determined by the ``format`` property in the table definition.  The
 table ``format`` defaults to ``ORC``.
 
@@ -96,6 +96,7 @@ is used.
 
       * ``PARQUET``
       * ``ORC``
+      * ``AVRO``
     - ``ORC``
   * - ``iceberg.compression-codec``
     - The compression codec to be used when writing files.
@@ -549,7 +550,7 @@ Iceberg table properties
 Property name                                      Description
 ================================================== ================================================================
 ``format``                                         Optionally specifies the format of table data files;
-                                                   either ``PARQUET`` or ``ORC``.  Defaults to ``ORC``.
+                                                   either ``PARQUET``, ``ORC`` or ``AVRO```.  Defaults to ``ORC``.
 
 ``partitioning``                                   Optionally specifies table partitioning.
                                                    If a table is partitioned by columns ``c1`` and ``c2``, the
