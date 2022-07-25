@@ -682,12 +682,6 @@ jobs:
           # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
           - config: apache-hive3
             suite: suite-hms-only
-          # suite-1 does not contain Kerberos/encrypted Hive environments
-          - config: hdp3
-            suite: suite-1
-          # suite-2 contains Kerberos/encrypted Hive environments
-          - config: hdp3
-            suite: suite-2
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-all
