@@ -394,4 +394,94 @@ public abstract class BaseDruidConnectorTest
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
                 .isNotFullyPushedDown(AggregationNode.class);
     }
+
+    @Test
+    public void testPredicatePushdownForTimestamp()
+    {
+        // timestamp equality
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time = TIMESTAMP '1992-01-04 00:00:00'"))
+                .matches("VALUES (BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time = TIMESTAMP '1992-01-04 00:00:00.001'"))
+                .returnsEmptyResult()
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // timestamp comparison
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time < TIMESTAMP '1992-01-05'"))
+                .matches("VALUES (BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time < TIMESTAMP '1992-01-05 00:00:00.001'"))
+                .matches("VALUES (BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time <= TIMESTAMP '1992-01-04'"))
+                .matches("VALUES (BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time <= TIMESTAMP '1992-01-04 00:00:00.001'"))
+                .matches("VALUES (BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time > TIMESTAMP '1998-11-28'"))
+                .matches("VALUES " +
+                        "(BIGINT '2', BIGINT '370', CAST('RAIL' AS varchar)), " +
+                        "(BIGINT '2', BIGINT '468', CAST('AIR' AS varchar))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time > TIMESTAMP '1998-11-28 00:00:00.001'"))
+                .matches("VALUES " +
+                        "(BIGINT '2', BIGINT '370', CAST('RAIL' AS varchar)), " +
+                        "(BIGINT '2', BIGINT '468', CAST('AIR' AS varchar))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time >= TIMESTAMP '1998-11-29 00:00:00'"))
+                .matches("VALUES " +
+                        "(BIGINT '2', BIGINT '370', CAST('RAIL' AS varchar)), " +
+                        "(BIGINT '2', BIGINT '468', CAST('AIR' AS varchar))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time >= TIMESTAMP '1998-11-29 00:00:00.001'"))
+                .returnsEmptyResult()
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // timestamp range
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time BETWEEN TIMESTAMP '1992-01-01' AND TIMESTAMP '1992-01-05'"))
+                .matches("VALUES (BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time BETWEEN TIMESTAMP '1992-01-01 00:00:00.001' AND TIMESTAMP '1992-01-05'"))
+                .matches("VALUES (BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time BETWEEN TIMESTAMP '1992-01-01' AND TIMESTAMP '1992-01-05 00:00:00.001'"))
+                .matches("VALUES (BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // varchar IN without domain compaction
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time IN (TIMESTAMP '1992-01-04', TIMESTAMP '1998-11-27 00:00:00.000', TIMESTAMP '1998-11-28')"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar)), " +
+                        "(BIGINT '1', BIGINT '574', CAST('AIR' AS varchar))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time IN (TIMESTAMP '1992-01-04', TIMESTAMP '1998-11-27', TIMESTAMP '1998-11-28 00:00:00.001')"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar)), " +
+                        "(BIGINT '1', BIGINT '574', CAST('AIR' AS varchar))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // varchar IN with small compaction threshold
+        assertThat(query(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("druid", "domain_compaction_threshold", "1")
+                        .build(),
+                "SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time IN (TIMESTAMP '1992-01-04', TIMESTAMP '1998-11-27 00:00:00.000', TIMESTAMP '1998-11-28')"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar)), " +
+                        "(BIGINT '1', BIGINT '574', CAST('AIR' AS varchar))")
+                // Filter node is retained as no constraint is pushed into connector.
+                .isNotFullyPushedDown(FilterNode.class);
+    }
 }

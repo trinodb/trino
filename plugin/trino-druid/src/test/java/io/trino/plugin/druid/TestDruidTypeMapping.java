@@ -19,6 +19,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -161,6 +162,52 @@ public class TestDruidTypeMapping
                 .addRoundTrip("col_2", "string", "text_a", createUnboundedVarcharType(), "CAST('text_a' AS varchar)")
                 .addRoundTrip("col_3", "string", "text_b", createUnboundedVarcharType(), "CAST('text_b' AS varchar)")
                 .execute(getQueryRunner(), druidCreateAndInsert("test_unbounded_varchar"));
+    }
+
+    @Test(dataProvider = "timestampValuesProvider")
+    public void testTimestamp(String inputLiteral, String expectedLiteral)
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("__time", "timestamp", inputLiteral, TIMESTAMP_MILLIS, expectedLiteral)
+                .addRoundTrip("col_0", "long", "0", BIGINT, "BIGINT '0'")
+                .execute(getQueryRunner(), druidCreateAndInsert("test_timestamp"));
+    }
+
+    @DataProvider
+    public Object[][] timestampValuesProvider()
+    {
+        return new Object[][] {
+                //before epoch
+                {"1958-01-01 13:18:03.123", "TIMESTAMP '1958-01-01 13:18:03.123'"},
+                // after epoch
+                {"2019-03-18 10:01:17.987", "TIMESTAMP '2019-03-18 10:01:17.987'"},
+                // time doubled in JVM zone
+                {"2018-10-28 01:33:17.456", "TIMESTAMP '2018-10-28 01:33:17.456'"},
+                // time doubled in JVM zone
+                {"2018-10-28 03:33:33.333", "TIMESTAMP '2018-10-28 03:33:33.333'"},
+                // epoch
+                {"1970-01-01 00:00:00.000", "TIMESTAMP '1970-01-01 00:00:00.000'"},
+                // time gap in JVM zone
+                {"1970-01-01 00:13:42.000", "TIMESTAMP '1970-01-01 00:13:42.000'"},
+                {"2018-04-01 02:13:55.123", "TIMESTAMP '2018-04-01 02:13:55.123'"},
+                // time gap in Vilnius
+                {"2018-03-25 03:17:17.000", "TIMESTAMP '2018-03-25 03:17:17.000'"},
+                // time gap in Kathmandu
+                {"1986-01-01 00:13:07.000", "TIMESTAMP '1986-01-01 00:13:07.000'"},
+                // test arbitrary time for all supported precisions
+                {"1970-01-01 00:00:00", "TIMESTAMP '1970-01-01 00:00:00.000'"},
+                {"1970-01-01 00:00:00.1", "TIMESTAMP '1970-01-01 00:00:00.100'"},
+                {"1970-01-01 00:00:00.12", "TIMESTAMP '1970-01-01 00:00:00.120'"},
+                {"1970-01-01 00:00:00.123", "TIMESTAMP '1970-01-01 00:00:00.123'"},
+                {"1970-01-01 00:00:00.1239", "TIMESTAMP '1970-01-01 00:00:00.123'"},
+                {"1970-01-01 00:00:00.12399", "TIMESTAMP '1970-01-01 00:00:00.123'"},
+                {"1970-01-01 00:00:00.123999", "TIMESTAMP '1970-01-01 00:00:00.123'"},
+                {"1970-01-01 00:00:00.1239999", "TIMESTAMP '1970-01-01 00:00:00.123'"},
+                {"1970-01-01 00:00:00.12399999", "TIMESTAMP '1970-01-01 00:00:00.123'"},
+                {"1970-01-01 00:00:00.123999999", "TIMESTAMP '1970-01-01 00:00:00.123'"},
+                // before epoch with second fraction
+                {"1969-12-31 23:59:59.1230000", "TIMESTAMP '1969-12-31 23:59:59.123'"}
+        };
     }
 
     private DataSetup druidCreateAndInsert(String dataSourceName)
